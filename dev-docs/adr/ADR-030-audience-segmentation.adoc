@@ -1,0 +1,559 @@
+= ADR-030: Audience Segmentation Library
+:revdate: 2026-05-29
+:revremark: boundary-audience — declarative audience engine with hybrid evaluation, composable segments, and visual builder UI
+:toc:
+:toclevels: 3
+
+== Status
+
+**PROPOSED** - Design approved, pending implementation
+
+== Context
+
+The Boundary Framework Roadmap (Phase 3 — Ecosystem Expansion) identified audience
+segmentation as a cross-cutting concern needed by multiple consumer libraries
+(`boundary-push`, `boundary-email`, `boundary-forms`).
+
+Targeted communication is 2–5× more effective than broadcast. Without a shared
+audience engine, each consumer library re-implements its own filter logic, leading
+to duplicated code, inconsistent segment definitions, and no admin visibility.
+
+=== Requirements
+
+1. **Declarative segment definitions** via `defaudience` macro (code-defined)
+   and dynamic definitions via admin builder UI (runtime, persisted to DB).
+
+2. **Hybrid evaluation**: SQL-evaluable filters narrow candidates at the database
+   layer; Clojure predicate filters refine in-memory. This enables both performance
+   at scale and expressiveness for complex behavioral logic.
+
+3. **Open filter type system**: library ships built-in filter types (demographics,
+   location, tenure, behavior, role, feature-usage). Applications extend via
+   multimethods without forking.
+
+4. **Composable segments**: combine segments with AND / OR / NOT logic. Segments
+   can reference other segments by `:id`.
+
+5. **Two-layer caching**: precomputed membership table in DB (survives restarts) +
+   in-memory/Redis hot cache via `boundary-cache`. Scheduled refresh via
+   `boundary-jobs`.
+
+6. **Consumer integration**: `IAudienceResolver` protocol injected via Integrant.
+   Consumer libraries never depend on implementation details.
+
+7. **Builder UI**: dedicated standalone page with drag-and-drop filter composition,
+   live preview (segment size + sample users), and Venn diagram for composed segments.
+   Built with ClojureScript + Replicant for interactive widgets, Hiccup + HTMX for
+   page chrome and server actions.
+
+8. **Admin integration**: segment entity config for admin's existing list view.
+   Edit/create redirect to dedicated builder.
+
+9. **FC/IS compliance**: all segment logic, filter compilation, and composition
+   resolution in `core/` namespaces (pure). All I/O (persistence, caching, HTTP)
+   in `shell/` namespaces.
+
+=== Alternatives Considered
+
+==== Alternative A: Per-Consumer Filtering
+
+Each consumer library (push, email, forms) implements its own audience filtering
+against user data.
+
+Rejected. Leads to duplicated filter logic, inconsistent segment definitions across
+libraries, and no central management. A "premium active user" defined in email
+campaigns would drift from the same concept in push notifications.
+
+==== Alternative B: Query-Only Evaluation (Pure SQL)
+
+Segment filters compile entirely to HoneySQL predicates, evaluated as database
+queries. No in-memory predicate phase.
+
+Rejected. SQL cannot express all useful segment criteria. Behavioral patterns
+(e.g. "used feature X at least 3 times in last 14 days"), complex business rules,
+and application-level state require Clojure predicate evaluation. Pure SQL would
+force either awkward SQL workarounds or artificially limited segment expressiveness.
+
+==== Alternative C: Predicate-Only Evaluation (Pure In-Memory)
+
+All candidate users loaded into memory, all filters applied as Clojure predicates.
+
+Rejected. Does not scale beyond ~100k users. Loading all user records into memory
+for every segment evaluation is prohibitively expensive for production workloads.
+
+==== Alternative D: Persistence-Agnostic (Like boundary-calendar)
+
+Library provides pure segment logic only. Application responsible for querying users,
+managing cache, and persisting segment definitions.
+
+Rejected. Unlike calendar events (which are domain-owned data that the library
+computes on), audience segments are infrastructure — they need persistence, caching,
+and scheduled refresh to function. Pushing this onto every application would negate
+the library's value proposition.
+
+==== Alternative E: Event-Driven Consumer Integration
+
+Segments publish membership changes to event bus. Consumer libraries subscribe.
+
+Deferred for v2. Port-based integration (`IAudienceResolver`) is simpler, testable
+(easy to mock), and fits the existing Integrant injection pattern. Event-driven
+membership notifications can be added later for real-time use cases (e.g. "user
+entered segment → trigger push") without breaking the port-based API.
+
+== Decision
+
+We implement **`boundary-audience`** as a single library with layered namespaces
+following the FC/IS pattern.
+
+=== Decision 1: Hybrid Evaluation via Two-Phase Pipeline
+
+**Rationale**: SQL handles the bulk of candidate narrowing (demographics, location,
+tenure, role) efficiently at the database layer. Clojure predicates handle
+behavioral and feature-usage filters that require application-level logic. The
+compiler partitions filters into SQL-evaluable and predicate-evaluable phases
+automatically.
+
+**Pipeline**:
+
+[source]
+----
+resolve-audience(id)
+  ├─ check cache → hit? return cached result
+  ├─ load definition (registry or DB)
+  ├─ compiler/compile → {:sql-clauses [...] :predicates [...]}
+  ├─ resolve composition refs (AND/OR/NOT → recursive resolve)
+  ├─ Phase 1: IUserDataSource/query-users-sql → candidate IDs
+  ├─ Phase 2: IUserDataSource/load-users(candidates) → user maps
+  │            apply predicates → final IDs
+  ├─ store in cache (if TTL configured)
+  └─ return {:user-ids #{...} :count n :cached? false :evaluated-at (now)}
+----
+
+=== Decision 2: `defaudience` Macro Follows `defreport`/`defevent` Pattern
+
+**Rationale**: consistent with existing framework macros. Atom-backed in-process
+registry with `register-audience!`, `get-audience`, `list-audiences`,
+`clear-registry!`.
+
+[source,clojure]
+----
+;; Registry API (atom-backed, mirrors defreport/defevent):
+(defonce ^:private registry (atom {}))
+(defn register-audience! [definition] (swap! registry assoc (:id definition) definition))
+(defn get-audience [id] (get @registry id))
+(defn list-audiences [] (keys @registry))
+(defn clear-registry! [] (reset! registry {}))
+
+;; Macro:
+(defmacro defaudience [sym definition-map]
+  `(do
+     (def ~sym ~definition-map)
+     (register-audience! ~sym)
+     ~sym))
+----
+
+WARNING: Every test namespace using `defaudience` must call `(clear-registry!)` in
+an `:each` fixture to prevent inter-test pollution. Same pattern as `boundary-calendar`
+and `boundary-reports`.
+
+For clj-kondo: add `boundary.audience.core.audience/defaudience clojure.core/def`
+to `.clj-kondo/config.edn` `:lint-as` map.
+
+=== Decision 2a: Dual Identifier Semantics
+
+**Problem**: segments need both a human-meaningful keyword identifier for code
+references and API calls, and a UUID primary key for relational integrity.
+
+**Solution**: two identifiers per segment:
+
+* **`:id` (keyword)** — logical identifier used in `defaudience`, composition
+  references (`{:ref :active-premium}`), and consumer API calls. Stored as
+  `audience_id VARCHAR(255)` in DB.
+* **`id` (UUID)** — database primary key for FK joins (`audience_memberships`).
+  Internal to persistence layer, never exposed to consumer API.
+
+All consumer-facing lookups use keyword `:id`. UUID is an implementation detail.
+
+=== Decision 2b: Code-Defined vs Dynamic Segment Filter Restrictions
+
+**Problem**: code-defined segments (via `defaudience`) can use `:op :fn` with
+Clojure function references. Dynamic segments (admin-created, persisted as JSON)
+cannot serialize function objects.
+
+**Solution**: two schema variants:
+
+* `AudienceDefinition` — used by `defaudience`, allows `:any` for filter `:value`
+  (including fn refs)
+* `DynamicAudienceDefinition` — used by persistence layer, disallows fn-typed
+  values. All filters must be declarative and data-serializable.
+
+The `:behavior` filter type (`:op :fn`) is restricted to code-defined segments.
+Dynamic segments use declarative filter types only (`:demographics`, `:location`,
+`:account-tenure`, `:last-active`, `:role`, `:feature-usage`). Schema validation
+in the persistence layer enforces this boundary.
+
+=== Decision 3: Open Filter Types via Multimethods
+
+**Rationale**: built-in filter types cover common cases (demographics, location,
+tenure, role, behavior, feature-usage). Applications register domain-specific
+filter types (e.g. `:subscription-tier`, `:purchase-history`) by extending two
+multimethods: `filter->sql` (returns HoneySQL clause or nil) and
+`filter->predicate` (returns `(fn [user] -> boolean)`).
+
+[source,clojure]
+----
+(defmulti filter->sql :type)
+(defmulti filter->predicate :type)
+
+;; DB-evaluable:
+(defmethod filter->sql :demographics [f]
+  [(sql-op (:op f)) (:field f) (:value f)])
+
+;; Not DB-evaluable — predicate only:
+(defmethod filter->sql :behavior [_f] nil)
+(defmethod filter->predicate :behavior [f] (:value f))
+----
+
+=== Decision 4: Two-Layer Caching with Scheduled Refresh
+
+**Rationale**: audience resolution can be expensive (DB query + user loading +
+predicate evaluation). Two cache layers optimize for different access patterns:
+
+* **Layer 1 — Membership table** (`audience_memberships`): precomputed segment
+  results in DB. Survives restarts. Source of truth for "who's in this segment."
+
+* **Layer 2 — In-memory/Redis** (via `boundary-cache`): hot cache for
+  `resolve-audience` and `member?` calls. Sub-millisecond lookups.
+
+**Refresh modes**:
+
+* On-demand — stale cache triggers re-evaluation on next call
+* Scheduled — `boundary-jobs` runs cron from `:refresh-schedule` in segment definition
+* Manual — admin button or API call
+
+=== Decision 5: Port-Based Consumer Integration
+
+**Rationale**: `IAudienceResolver` protocol injected via Integrant. Consumer
+libraries depend on the protocol, not the implementation. Easy to mock in tests.
+Consistent with how `IUserRepository`, `ISearchEngine`, etc. work throughout the
+framework.
+
+[source,clojure]
+----
+(defprotocol IAudienceResolver
+  (resolve-audience [this audience-id] [this audience-id opts])
+  (member? [this audience-id user-id]))
+----
+
+=== Decision 6: Dedicated Builder UI with ClojureScript + Replicant
+
+**Rationale**: audience segment composition benefits from interactive, client-side
+UI that standard Hiccup + HTMX cannot provide elegantly. Drag-and-drop filter
+ordering, visual AND/OR/NOT tree composition, and Venn diagram overlap
+visualization require client-side state management.
+
+**Technology split**:
+
+* **Hiccup + HTMX**: page chrome, navigation, save/delete actions, segment list,
+  metadata forms
+* **ClojureScript + Replicant**: filter panel (drag-and-drop), composition builder
+  (visual tree), live preview (count + sample + Venn diagram)
+
+**Communication**: Replicant widgets serialize state to EDN in hidden form fields.
+HTMX submits to server. Preview requests send filter state as EDN body, server
+evaluates and returns count + sample via HTMX swap.
+
+NOTE: This is the first ClojureScript dependency in the Boundary Framework.
+
+**Build tooling**: shadow-cljs compiles Replicant widgets to a single JS artifact
+(`resources/public/js/audience/main.js`) included in the library JAR. Consumers
+get pre-built JS — no CLJS compilation required. CI adds a
+`shadow-cljs compile builder` step. Configuration lives in
+`libs/audience/shadow-cljs.edn`.
+
+**Graceful degradation**: builder UI works with JavaScript disabled via Hiccup +
+HTMX form-based filter editing. Replicant widgets are progressive enhancement
+for drag-and-drop and Venn visualization.
+
+=== Decision 7: Admin Entity Config with Builder Redirect
+
+**Rationale**: admin's existing entity CRUD infrastructure handles segment listing,
+search, filtering. Edit/create actions redirect to the dedicated builder page
+rather than duplicating form logic.
+
+[source,clojure]
+----
+;; resources/conf/dev/admin/audiences.edn
+{:audiences
+ {:label                "Audiences"
+  :table-name           :audience_segments
+  :list-fields          [:label :filter-count :member-count :cached-at :created-at]
+  :edit-redirect-url    "/web/audiences/builder/:id"
+  :create-redirect-url  "/web/audiences/builder"}}
+----
+
+=== Decision 8: `IUserDataSource` Protocol Bridges to User Data
+
+**Rationale**: the audience library must query user data without depending on
+`boundary-user` directly. Applications implement `IUserDataSource` to bridge
+the audience engine to their user storage (which may span multiple tables,
+tenants, or databases).
+
+[source,clojure]
+----
+(defprotocol IUserDataSource
+  (query-users-sql [this honeysql-clause]
+    "Execute HoneySQL WHERE against user table, return user IDs")
+  (load-users [this user-ids]
+    "Load full user maps for predicate evaluation"))
+----
+
+== Architecture
+
+=== File Structure
+
+[source]
+----
+libs/audience/
+├── deps.edn
+├── build.clj                               ; org.boundary-app/boundary-audience
+├── AGENTS.md
+├── src/boundary/audience/
+│   ├── schema.clj                          ; AudienceDefinition, FilterDef, SegmentResult
+│   ├── ports.clj                           ; IAudienceResolver, IAudienceRepository, IAudienceCache, IUserDataSource
+│   ├── core/
+│   │   ├── audience.clj                    ; defaudience macro, registry
+│   │   ├── filter.clj                      ; filter->sql, filter->predicate multimethods
+│   │   ├── composition.clj                 ; AND/OR/NOT logic, segment ref resolution
+│   │   ├── compiler.clj                    ; compile → {:sql-clauses [...] :predicates [...]}
+│   │   └── ui.clj                          ; Hiccup: segment-card, filter-badge, segment-list
+│   └── shell/
+│       ├── service.clj                     ; IAudienceResolver impl
+│       ├── persistence.clj                 ; IAudienceRepository impl
+│       ├── cache.clj                       ; IAudienceCache impl
+│       ├── http.clj                        ; Ring routes: builder UI + API
+│       └── module_wiring.clj               ; Integrant keys
+├── resources/boundary/audience/builder/    ; ClojureScript + Replicant
+│   ├── app.cljs
+│   ├── filter_panel.cljs
+│   └── preview.cljs
+└── test/boundary/audience/
+    ├── core/                               ; ^:unit tests
+    └── shell/                              ; ^:integration + ^:contract tests
+----
+
+=== Dependency Rules (FC/IS)
+
+[source]
+----
+shell/service.clj
+  ├── shell/persistence.clj     (DB)
+  ├── shell/cache.clj           (cache)
+  ├── ports.clj                 (IUserDataSource)
+  └── core/compiler.clj         (pure)
+
+core/compiler.clj
+  ├── core/filter.clj           (pure)
+  └── core/composition.clj      (pure)
+
+core/audience.clj
+  └── schema.clj                (pure)
+
+core/ui.clj
+  └── (no deps on shell or ports)
+----
+
+=== Database Schema
+
+Migration file: `resources/migrations/audience/20260529000000-audience-segments.up.sql`
+
+[source,sql]
+----
+CREATE TABLE audience_segments (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  audience_id   VARCHAR(255) NOT NULL UNIQUE,
+  label         VARCHAR(255) NOT NULL,
+  description   TEXT,
+  filters       JSONB NOT NULL,
+  composition   JSONB,
+  cache_config  JSONB,
+  tags          JSONB,
+  member_count  INTEGER DEFAULT 0,
+  cached_at     TIMESTAMP,
+  source        VARCHAR(50) DEFAULT 'dynamic',
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE audience_memberships (
+  audience_id   UUID REFERENCES audience_segments(id) ON DELETE CASCADE,
+  user_id       UUID NOT NULL,
+  entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (audience_id, user_id)
+);
+
+CREATE INDEX idx_audience_memberships_user ON audience_memberships(user_id);
+----
+
+=== API Endpoints
+
+[cols="1,3,3"]
+|===
+|Method |Path |Handler
+
+|GET |`/web/audiences` |`list-audiences`
+|GET |`/web/audiences/builder` |`builder-page`
+|GET |`/web/audiences/builder/:id` |`builder-page-edit`
+|POST |`/api/audiences` |`create-audience`
+|PUT |`/api/audiences/:id` |`update-audience`
+|DELETE |`/api/audiences/:id` |`delete-audience`
+|POST |`/api/audiences/preview` |`preview-audience`
+|POST |`/api/audiences/:id/evaluate` |`evaluate-audience`
+|GET |`/api/audiences/:id/members` |`list-members`
+|===
+
+== Consequences
+
+=== Benefits
+
+1. **Single source of truth** for audience definitions across all consumer libraries.
+   An "active premium user" means the same thing in email, push, and forms.
+
+2. **Scales to large user bases** via hybrid evaluation. SQL handles the bulk of
+   narrowing; predicates handle what SQL cannot express.
+
+3. **Open filter type system** — applications extend via multimethods without
+   forking or patching the library.
+
+4. **Two-layer caching** keeps hot paths fast (sub-millisecond via L2), scheduled
+   refresh keeps segments warm without on-request evaluation cost.
+
+5. **Builder UI gives admins self-service** segment management without developer
+   intervention. Live preview reduces trial-and-error.
+
+6. **Composable AND/OR/NOT** enables complex targeting without code changes.
+   Marketing teams can combine existing segments in the admin UI.
+
+7. **Consistent with framework patterns** — `defaudience` mirrors `defreport` /
+   `defevent`; port-based DI mirrors all other libraries.
+
+8. **Estimated savings: €2k–€3k/project** by eliminating ad-hoc audience filtering
+   in consumer libraries.
+
+=== Drawbacks
+
+1. **First ClojureScript dependency** in the framework. Adds shadow-cljs (or
+   equivalent) build tooling. Increases CI time.
+
+2. **Membership table growth**: `user_count × segment_count` rows. Applications
+   with many segments and large user bases need periodic cleanup or archival.
+
+3. **Predicate filters require user loading**: `:behavior` and `:feature-usage`
+   filters load user records into memory. For large candidate sets after SQL
+   narrowing, this could be memory-intensive. Batched loading mitigates this.
+
+4. **Composition with NOT**: requires evaluating the negated segment fully before
+   set-difference. Can be expensive for large complement segments.
+
+=== Risks and Mitigations
+
+==== Risk: SQL injection via filter values
+
+**Mitigation**: all filter values pass through HoneySQL parameterized queries.
+`:value` fields are never interpolated into SQL strings. Security tests verify
+this explicitly.
+
+==== Risk: Circular segment references in composition
+
+**Mitigation**: `core/composition.clj` tracks visited segment IDs during
+resolution. Circular references detected and rejected with descriptive error.
+
+==== Risk: Stale cache serving outdated membership
+
+**Mitigation**: three refresh modes (on-demand, scheduled, manual). TTL ensures
+staleness is bounded. `cached?` flag in response lets consumers decide whether
+to force refresh.
+
+==== Risk: ClojureScript build complexity
+
+**Mitigation**: Replicant widgets are self-contained and small. Builder UI works
+with JavaScript disabled (falls back to Hiccup + HTMX form-based filter editing).
+CLJS is progressive enhancement, not a hard dependency for core functionality.
+
+==== Risk: Registry pollution between tests
+
+**Mitigation**: `clear-registry!` function provided (same pattern as
+`boundary-calendar` and `boundary-reports`). Tests use `:each` fixture.
+
+== Implementation Checklist
+
+=== Phase 1: Library Scaffold
+
+- [ ] `libs/audience/deps.edn` with boundary-core, malli, honeysql
+- [ ] `libs/audience/build.clj` — `org.boundary-app/boundary-audience`
+- [ ] Root `deps.edn` — add audience source/test paths
+- [ ] Root `tests.edn` — add `:audience` test suite
+- [ ] `.clj-kondo/config.edn` — `defaudience` lint-as registration
+
+=== Phase 2: Core Library
+
+- [ ] `schema.clj` — AudienceDefinition, FilterDef, SegmentResult, MembershipRecord
+- [ ] `ports.clj` — IAudienceResolver, IAudienceRepository, IAudienceCache, IUserDataSource
+- [ ] `core/audience.clj` — defaudience macro, registry
+- [ ] `core/filter.clj` — multimethods + built-in filter types
+- [ ] `core/composition.clj` — AND/OR/NOT resolution, circular ref detection
+- [ ] `core/compiler.clj` — segment → execution plan
+
+=== Phase 3: Shell Layer
+
+- [ ] `shell/persistence.clj` — IAudienceRepository (next.jdbc + HoneySQL)
+- [ ] `shell/cache.clj` — IAudienceCache (membership table + boundary-cache)
+- [ ] `shell/service.clj` — IAudienceResolver (evaluation orchestrator)
+- [ ] `shell/http.clj` — Ring routes, builder page, API endpoints
+- [ ] `shell/module_wiring.clj` — Integrant keys
+
+=== Phase 4: Builder UI
+
+- [ ] `core/ui.clj` — Hiccup components (segment-card, filter-badge, segment-list)
+- [ ] Builder page layout (Hiccup + HTMX)
+- [ ] ClojureScript + Replicant: filter panel, composition builder, preview
+- [ ] Admin entity config (`audiences.edn`)
+
+=== Phase 5: Tests
+
+- [ ] Unit tests: macro, filter, composition, compiler
+- [ ] Integration tests: service pipeline, cache TTL
+- [ ] Contract tests: persistence round-trips (H2)
+- [ ] Security tests: filter sanitization, auth
+
+=== Phase 6: Documentation
+
+- [ ] `libs/audience/AGENTS.md`
+- [ ] `libs/audience/README.md`
+- [ ] This ADR
+
+=== Future Work
+
+- [ ] Event-driven membership notifications (user entered/left segment)
+- [ ] Segment analytics: membership trends over time, growth/churn rates
+- [ ] A/B segment splitting (random subset of audience for experiments)
+- [ ] Membership export (CSV, JSON)
+- [ ] Segment templates (pre-built common audience patterns)
+- [ ] Tenant-aware segments (multi-tenancy support via `boundary-tenant`)
+
+== References
+
+* link:ADR-001-library-split.adoc[ADR-001: Library Split] — monorepo library structure
+* link:ADR-011-calendar-library.adoc[ADR-011: Calendar Library] — `defevent` macro pattern
+* link:ADR-021-fcis-boundary-rules.adoc[ADR-021: FC/IS Boundary Rules] — core/shell enforcement
+* `libs/reports/src/boundary/reports/core/report.clj` — `defreport` macro reference
+* `libs/calendar/src/boundary/calendar/core/event.clj` — `defevent` macro reference
+* `libs/cache/AGENTS.md` — boundary-cache integration patterns
+* `libs/jobs/AGENTS.md` — boundary-jobs scheduled task patterns
+
+== Approval
+
+**Proposed By**: Boundary Framework Team +
+**Date**: 2026-05-29 +
+**Status**: Proposed +
+**Reviewers**: Architecture Team
