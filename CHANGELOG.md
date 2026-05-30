@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`boundary-realtime`**: Optional `:on-open` callback for `websocket-handler` — `(fn [connection-id])` invoked after a successful connect, for subscribing connections to topics based on the authenticated user's roles. Exceptions thrown by the callback are logged and swallowed, so they do not abort the connection.
 - **`boundary-user`**: Welcome email on admin user creation — optional `send-welcome` checkbox triggers email via `ISmtpProvider` with graceful failure handling.
 - **`boundary-user`**: Dashboard extensibility via `:dashboard-extra-cards` config for injecting custom Hiccup cards into the user dashboard.
 - **`boundary-ui-style`**: Cross-page toast notification system via `X-Toast` response header + `sessionStorage`, works across all page layouts (base, pilot, admin-pilot).
