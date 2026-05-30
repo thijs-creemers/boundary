@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`boundary-realtime`**: Optional `:on-open` callback for `websocket-handler` — `(fn [connection-id])` invoked after a successful connect, for subscribing connections to topics based on the authenticated user's roles. Exceptions thrown by the callback are logged and swallowed, so they do not abort the connection.
 - **`boundary-push`**: New push notification library (`libs/push/`) with multi-platform delivery via FCM (Firebase Cloud Messaging) and APNs (Apple Push Notification service). Features include:
   - `defpush` macro for declarative notification definitions with i18n locale maps, deep links, priority, TTL, collapse keys, and retry configuration
   - Platform-specific provider protocols (`IFCMProvider`, `IAPNsProvider`) behind unified `IPushService` orchestrator
