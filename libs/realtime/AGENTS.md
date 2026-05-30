@@ -36,8 +36,26 @@ WebSocket-based real-time communication with JWT authentication, message routing
 1. Client connects with JWT: `ws://host/ws?token=<jwt>`
 2. Server verifies JWT via `IJWTVerifier` adapter
 3. Connection record created, registered in connection registry
-4. Client can send/receive messages
-5. On disconnect: cleanup registry + unsubscribe from all pub/sub topics
+4. `:on-open` callback invoked (if provided) with the `connection-id`
+5. Client can send/receive messages
+6. On disconnect: cleanup registry + unsubscribe from all pub/sub topics
+
+## WebSocket Handler Options
+
+The `websocket-handler` accepts keyword options:
+
+```clojure
+(require '[boundary.realtime.shell.handlers.ring-websocket :as ws-handler])
+
+(ws-handler/websocket-handler realtime-service
+  :token-param "token"        ;; query param name for JWT (default "token")
+  :on-message  (fn [ws msg]   ;; client→server message handler
+                 (handle-incoming ws msg))
+  :on-open     (fn [conn-id]  ;; called after successful connect + JWT auth
+                 (subscribe-to-user-topics! pubsub conn-id)))
+```
+
+The `:on-open` callback runs after a successful `realtime-ports/connect`. Use it to subscribe the new connection to topics based on the authenticated user's roles. Exceptions are logged and swallowed — they do not abort the connection.
 
 ## Topic-Based Pub/Sub
 
