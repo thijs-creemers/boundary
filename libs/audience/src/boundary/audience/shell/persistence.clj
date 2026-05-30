@@ -48,7 +48,11 @@
     (= "org.postgresql.util.PGobject"
        (.getName (class value)))         (some-> (.getValue value)
                                                  (json/parse-string true))
-    :else                                value))
+    :else
+    (do (log/warn "Unexpected JSON column type — cannot deserialize"
+                  {:type (str (type value))})
+        (throw (ex-info "Cannot deserialize JSON column value"
+                        {:type (str (type value))})))))
 
 ;; =============================================================================
 ;; Keyword <-> string helpers
@@ -191,6 +195,9 @@
   [datasource audience-id user-ids]
   (when (seq user-ids)
     (let [seg-uuid (find-segment-uuid datasource audience-id)]
+      (when-not seg-uuid
+        (throw (ex-info "Cannot save memberships: audience segment not found in DB"
+                        {:type :audience-not-found :audience-id audience-id})))
       (when seg-uuid
         (jdbc/with-transaction [tx datasource]
           (doseq [uid user-ids]

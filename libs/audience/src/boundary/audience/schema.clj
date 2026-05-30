@@ -60,7 +60,7 @@
    [:description {:optional true} :string]
    [:filters [:vector FilterDef]]
    [:compose {:optional true} Composable]
-   [:cache {:optional true} CacheConfig]
+   [:cache-config {:optional true} CacheConfig]
    [:tags {:optional true} [:vector :keyword]]])
 
 (def DynamicAudienceDefinition
@@ -72,7 +72,7 @@
    [:description {:optional true} :string]
    [:filters [:vector DynamicFilterDef]]
    [:compose {:optional true} Composable]
-   [:cache {:optional true} CacheConfig]
+   [:cache-config {:optional true} CacheConfig]
    [:tags {:optional true} [:vector :keyword]]])
 
 ;; =============================================================================
