@@ -931,7 +931,7 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 | `boundary.tools.integrate` | `bb scaffold integrate` — wire modules into deps/tests/wiring |
 | `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
 | `boundary.tools.admin` | `bb create-admin` |
-| `boundary.tools.deploy` | `bb deploy` (handles all 22 libs) |
+| `boundary.tools.deploy` | `bb deploy` (handles all 24 libs) |
 | `boundary.tools.dev` | `bb migrate`, `bb check-links`, `bb smoke-check`, `bb install-hooks` |
 | `boundary.tools.check-fcis` | `bb check:fcis` — FC/IS boundary enforcement (ADR-021) |
 | `boundary.tools.check-tests` | `bb check:placeholder-tests` — placeholder assertion detection |

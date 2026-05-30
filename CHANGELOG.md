@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-26] - 2026-05-30
+
 ### Added
 
+- **`boundary-audience`**: New audience segmentation library (`libs/audience/`) with declarative, rule-based segment definitions. Features include:
+  - `defaudience` macro for code-defined segments with seven built-in filter types (demographics, location, role, account-tenure, last-active, behavior, feature-usage)
+  - Hybrid SQL + predicate evaluation pipeline — SQL-eligible filters are pushed to the database, remaining filters run as Clojure predicates over the candidate set
+  - AND/OR/NOT segment composition with circular-reference detection
+  - Dynamic (DB-persisted) segments via JSON with schema validation that rejects fn-typed values
+  - Cached membership results in `audience_memberships` table with configurable per-segment TTL
+  - Builder UI served via HTMX with Replicant widget mount points for filter panel and composition builder
+  - REST + web endpoints: CRUD, preview with count + sample, evaluate + cache, member listing
+  - Custom filter type extensibility via `filter->sql` and `filter->predicate` multimethods
+  - Integrant wiring with `IAudienceResolver`, `IAudienceRepository`, and `IAudienceCache` components
 - **`boundary-realtime`**: Optional `:on-open` callback for `websocket-handler` — `(fn [connection-id])` invoked after a successful connect, for subscribing connections to topics based on the authenticated user's roles. Exceptions thrown by the callback are logged and swallowed, so they do not abort the connection.
 - **`boundary-push`**: New push notification library (`libs/push/`) with multi-platform delivery via FCM (Firebase Cloud Messaging) and APNs (Apple Push Notification service). Features include:
   - `defpush` macro for declarative notification definitions with i18n locale maps, deep links, priority, TTL, collapse keys, and retry configuration
