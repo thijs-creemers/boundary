@@ -1,7 +1,7 @@
 = Library Overview
-:description: All 22 independently publishable Boundary libraries plus developer tooling.
+:description: All 24 independently publishable Boundary libraries plus developer tooling.
 
-Boundary is a monorepo of 22 libraries publishable to Clojars, plus developer tooling.
+Boundary is a monorepo of 24 libraries publishable to Clojars, plus developer tooling.
 Every library follows the same FC/IS structure, making the codebase instantly familiar across libraries.
 
 == Foundation
@@ -86,6 +86,12 @@ Every library follows the same FC/IS structure, making the codebase instantly fa
 
 | xref:geo.adoc[geo]
 | Geocoding (OSM/Google/Mapbox), DB-backed cache, rate limiting, Haversine distance.
+
+| xref:audience.adoc[audience]
+| Rule-based audience segmentation: `defaudience` macro, hybrid SQL + predicate evaluation, AND/OR/NOT composition, cached membership.
+
+| xref:push.adoc[push]
+| Mobile push notifications via FCM and APNs: `defpush` macro, device token lifecycle, job-backed reliable delivery, delivery analytics.
 
 | xref:ai.adoc[ai]
 | Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard.
