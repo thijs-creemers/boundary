@@ -90,6 +90,9 @@
            ;; Redis client for cache and jobs libs
            redis.clients/jedis                        {:mvn/version "7.5.0"}
 
+           ;; Type-preserving serialization for the Redis cache adapter
+           com.taoensso/nippy                         {:mvn/version "3.4.2"}
+
            ;; Email - javax.mail for SMTP
            com.sun.mail/javax.mail                    {:mvn/version "1.6.2"}
 

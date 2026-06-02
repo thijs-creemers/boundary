@@ -13,7 +13,7 @@ Distributed caching with TTL, atomic operations, pattern matching, and multi-ten
 | `boundary.cache.ports` | Protocols: ICache, IBatchCache, IAtomicCache, IPatternCache, INamespacedCache, ICacheStats |
 | `boundary.cache.schema` | Malli schemas for CacheKey, CacheValue, TTL, CacheConfig, RedisConfig |
 | `boundary.cache.shell.adapters.in-memory` | In-memory adapter (atoms, LRU eviction, TTL) |
-| `boundary.cache.shell.adapters.redis` | Redis adapter (Jedis, connection pooling, JSON serialization) |
+| `boundary.cache.shell.adapters.redis` | Redis adapter (Jedis, connection pooling, Nippy serialization) |
 | `boundary.cache.shell.tenant-cache` | Tenant-scoped wrapper with automatic key prefixing |
 
 ## Usage Patterns
@@ -42,7 +42,7 @@ Distributed caching with TTL, atomic operations, pattern matching, and multi-ten
 
 - **Keys**: Can be strings or keywords, internally converted to strings. Use consistent format
 - **TTL**: In seconds. `nil` from `ttl()` means no expiration set
-- **Serialization**: In-memory stores Clojure values as-is; Redis uses JSON (no Java objects or functions)
+- **Serialization**: In-memory stores Clojure values as-is; Redis uses Nippy (binary, type-preserving — keywords, sets, ratios and `java.time`/Temporal values round-trip intact, matching in-memory). Values must be Nippy-freezable; raw Java objects without a freezer and functions are not supported
 - **Tenant isolation**: `flush-all!` on tenant cache only deletes that tenant's keys (safe)
 
 ## Gotchas
