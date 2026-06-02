@@ -73,10 +73,19 @@
   (nippy/freeze value))
 
 (defn- deserialize-value
-  "Deserialize a value from a Nippy-encoded byte array."
+  "Deserialize a value from a Nippy-encoded byte array.
+
+   Returns nil (treated as a cache miss) when the bytes are not valid Nippy
+   data — e.g. entries written by the previous JSON format before the
+   serialization change, or otherwise corrupt. This lets the cache self-heal
+   on rollout instead of throwing on every stale read."
   [^bytes ba]
   (when ba
-    (nippy/thaw ba)))
+    (try
+      (nippy/thaw ba)
+      (catch Exception e
+        (log/warn e "Unreadable cache entry; treating as a cache miss")
+        nil))))
 
 ;; =============================================================================
 ;; Cache Operations

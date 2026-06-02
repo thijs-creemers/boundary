@@ -6,7 +6,9 @@
   {:kaocha.testable/meta {:integration true :redis true}}
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.cache.shell.adapters.redis :as redis-adapter]
-            [boundary.cache.ports :as ports]))
+            [boundary.cache.ports :as ports])
+  (:import [java.nio.charset StandardCharsets]
+           [redis.clients.jedis Jedis]))
 
 ;; =============================================================================
 ;; Redis availability check
@@ -114,6 +116,23 @@
        (is (= {:role :admin :tags #{:a :b}} got))
        (is (keyword? (:role got)))
        (is (set? (:tags got)))))))
+
+(deftest ^:integration redis-stale-entry-self-heal-test
+  ;; Regression for BOU-47 rollout: entries written by the previous JSON
+  ;; format (or otherwise non-Nippy bytes) must not throw on read. They are
+  ;; treated as a cache miss so the cache self-heals after the format change.
+  (when-redis
+   (testing "non-Nippy bytes deserialize to a cache miss instead of throwing"
+     ;; Write a raw legacy JSON string under the cache's namespaced key,
+     ;; bypassing the adapter's Nippy serialization.
+     (with-open [^Jedis redis (.getResource *pool*)]
+       (.set redis
+             (.getBytes "test:legacy-json" StandardCharsets/UTF_8)
+             (.getBytes "{\"message\":\"hello\"}" StandardCharsets/UTF_8)))
+     (is (nil? (ports/get-value *cache* "legacy-json")))
+     ;; A subsequent write through the adapter overwrites it cleanly.
+     (ports/set-value! *cache* "legacy-json" {:message "hello"})
+     (is (= {:message "hello"} (ports/get-value *cache* "legacy-json"))))))
 
 ;; =============================================================================
 ;; TTL operations
