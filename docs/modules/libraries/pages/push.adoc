@@ -1,0 +1,83 @@
+= push
+:description: Multi-platform push notifications via FCM and APNs with declarative definitions and reliable delivery.
+
+Multi-platform mobile push notifications. Notifications are declared
+with the `defpush` macro and delivered through Firebase Cloud Messaging
+(FCM) and the Apple Push Notification service (APNs) behind a unified
+service, with job-backed reliable delivery and delivery analytics.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.push.core.notification`
+| Pure: `defpush` macro, notification records, i18n locale maps
+
+| `boundary.push.core.errors`
+| Pure: error classification (retryable / permanent / token-invalid / rate-limited)
+
+| `boundary.push.ports`
+| Protocols: `IPushService`, `IFCMProvider`, `IAPNsProvider`
+
+| `boundary.push.shell.service`
+| Orchestrator dispatching to platform providers
+
+| `boundary.push.shell.adapters.fcm`
+| FCM provider — async parallel delivery via `sendAsync` + `CompletableFuture`
+
+| `boundary.push.shell.adapters.apns`
+| APNs provider — async parallel delivery via `sendAsync` + `CompletableFuture`
+
+| `boundary.push.shell.handlers`
+| REST endpoints (devices, callback, stats)
+|===
+
+== Declaring notifications
+
+The `defpush` macro defines notifications declaratively with i18n locale
+maps, deep links, priority, TTL, collapse keys, and retry configuration.
+
+== Device tokens
+
+Device token lifecycle is managed end to end — registration, rotation,
+soft-deactivation, and cleanup of stale tokens. Tokens are stored with
+multi-tenant support.
+
+== Reliable delivery
+
+Delivery runs as jobs via a hard dependency on `boundary-jobs`, so sends
+are retried according to each notification's retry configuration. Error
+classification decides whether a failure is retried, dropped, or marks
+the token invalid.
+
+== Analytics
+
+An HMAC-secured callback endpoint accepts client-reported delivery and
+open events, recorded in `push_analytics_events`.
+
+== Endpoints
+
+[cols="1,3",options="header"]
+|===
+| Endpoint | Purpose
+
+| `/api/push/devices` | Device token CRUD
+| `/api/push/callback` | HMAC-secured delivery/open analytics callback
+| `/api/push/stats/:id` | Per-notification delivery stats
+|===
+
+== Database
+
+[cols="1,3",options="header"]
+|===
+| Table | Holds
+
+| `push_device_tokens` | Registered device tokens
+| `push_send_log` | Per-send delivery records
+| `push_analytics_events` | Client-reported delivery/open events
+|===
+
+Mock providers are included for dev/test, and Integrant wiring is
+provided for all components.
