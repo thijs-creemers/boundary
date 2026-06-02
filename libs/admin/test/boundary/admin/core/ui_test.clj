@@ -667,6 +667,98 @@
           "encoded caller URL must preserve pagination from table-query"))))
 
 ;; =============================================================================
+;; Column Width Tests
+;; =============================================================================
+
+(deftest list-column-weight-test
+  (testing "Explicit :width overrides any type-based default"
+    (is (= 9 (ui/list-column-weight :anything {:type :boolean :width 9})))
+    (is (= 2 (ui/list-column-weight :name {:type :string :width 2}))))
+
+  (testing "Type-based defaults"
+    (is (= 1 (ui/list-column-weight :active {:type :boolean})))
+    (is (= 2 (ui/list-column-weight :status {:type :enum})))
+    (is (= 2 (ui/list-column-weight :qty {:type :int})))
+    (is (= 2 (ui/list-column-weight :price {:type :decimal})))
+    (is (= 2 (ui/list-column-weight :id {:type :uuid})))
+    (is (= 2 (ui/list-column-weight :meta {:type :json})))
+    (is (= 2 (ui/list-column-weight :blob {:type :binary})))
+    (is (= 3 (ui/list-column-weight :created-at {:type :instant})))
+    (is (= 3 (ui/list-column-weight :birth-date {:type :date})))
+    (is (= 6 (ui/list-column-weight :bio {:type :text}))))
+
+  (testing "String name heuristic"
+    (testing "Long-form names get the widest weight"
+      (is (= 6 (ui/list-column-weight :description {:type :string})))
+      (is (= 6 (ui/list-column-weight :omschrijving {:type :string})))
+      (is (= 6 (ui/list-column-weight :address {:type :string})))
+      (is (= 6 (ui/list-column-weight :comment {:type :string}))))
+
+    (testing "Label-ish names get medium weight"
+      (is (= 4 (ui/list-column-weight :name {:type :string})))
+      (is (= 4 (ui/list-column-weight :naam {:type :string})))
+      (is (= 4 (ui/list-column-weight :title {:type :string})))
+      (is (= 4 (ui/list-column-weight :email {:type :string})))
+      (is (= 4 (ui/list-column-weight :first-name {:type :string}))
+          "kebab-cased names match because '-' is a word boundary"))
+
+    (testing "Plain strings get the default weight"
+      (is (= 3 (ui/list-column-weight :sku {:type :string})))
+      (is (= 3 (ui/list-column-weight :code {:type :string}))))
+
+    (testing "Word boundaries prevent substring false positives"
+      (is (= 3 (ui/list-column-weight :username {:type :string}))
+          "'name' inside 'username' must not match the medium pattern"))
+
+    (testing "Unknown/nil type falls through to the string heuristic"
+      (is (= 6 (ui/list-column-weight :description {})))
+      (is (= 3 (ui/list-column-weight :whatever nil))))))
+
+(defn- col-width
+  "Parse the numeric percentage out of a [:col {:style \"width:N%\"}] element."
+  [[_ {:keys [style]}]]
+  (-> style (str/replace #"[^0-9.]" "") Double/parseDouble))
+
+(deftest list-column-styles-test
+  (let [cfg {:fields {:name        {:type :string}
+                      :active      {:type :boolean}
+                      :description {:type :text}
+                      :created-at  {:type :instant}}}
+        fields [:name :active :description :created-at]
+        cols (ui/list-column-styles fields cfg)]
+
+    (testing "Returns a seq (so Hiccup splices) of [:col ...] elements"
+      (is (seq? cols))
+      (is (not (vector? cols)))
+      (is (= 4 (count cols)))
+      (is (every? #(= :col (first %)) cols)))
+
+    (testing "Widths are proportional to weights (4/1/6/3 of 14)"
+      (let [[n a d c] (map col-width cols)]   ; name active description created-at
+        (is (< a c n d) "boolean narrowest, text widest")
+        (is (= 7.14 a) "active = 1/14 ≈ 7.14%")))
+
+    (testing "Widths sum to 100% (last column absorbs rounding remainder)"
+      (is (< (Math/abs (- 100.0 (reduce + 0.0 (map col-width cols)))) 0.001)))
+
+    (testing "Explicit :width is honoured"
+      (let [override-cols (ui/list-column-styles
+                           [:name :active]
+                           {:fields {:name {:type :string :width 1}
+                                     :active {:type :boolean :width 1}}})]
+        (is (= [50.0 50.0] (map col-width override-cols))))))
+
+  (testing "Empty field list yields no columns"
+    (is (empty? (ui/list-column-styles [] {:fields {}}))))
+
+  (testing "Whole-number percentages render without a trailing .0"
+    (let [cols (ui/list-column-styles
+                [:a :b]
+                {:fields {:a {:type :boolean} :b {:type :boolean}}})]
+      (is (every? #(str/includes? (str %) "width:50%") cols)
+          "50% must not be rendered as 50.0%"))))
+
+;; =============================================================================
 ;; Entity Form Tests
 ;; =============================================================================
 

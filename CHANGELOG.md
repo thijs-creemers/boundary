@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`boundary-admin`**: Proportional list-view column widths derived from field `:type` plus a field-name heuristic, replacing the previous even distribution where a boolean column got the same width as a `name` or `description` column (BOU-46). Weights: boolean=1, enum/numeric/uuid/json=2, date/instant=3, text=6; string columns default to 3, with name-like fields (`name`, `title`, `email`, …) widened to 4 and long-form fields (`description`, `address`, `comment`, …) to 6. An optional `:width` key on a field config (a positive integer weight) overrides the computed default. Widths are emitted as proportional `width:N%` on the table `<colgroup>` and resolved deterministically at render time — no runtime AI.
+
 ### Fixed
 
 - **`boundary-cache`**: The Redis adapter now serializes values with Nippy instead of JSON, fixing `class java.lang.String cannot be cast to class java.time.temporal.Temporal` for cached `java.time` values (BOU-47). JSON is lossy — `Temporal` values became ISO-8601 strings, keywords became strings, and sets became vectors — and the loss surfaced only against Redis since the in-memory adapter stores values by reference. Nippy round-trips keywords, sets, ratios and `java.time`/Temporal values intact, matching the in-memory adapter.
