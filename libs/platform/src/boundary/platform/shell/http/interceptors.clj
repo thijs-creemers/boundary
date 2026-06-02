@@ -44,31 +44,73 @@
             [boundary.core.interceptor :as interceptor]
             [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.errors.core :as error-reporting]
+            [boundary.platform.core.csrf :as csrf]
+            [buddy.core.nonce :as nonce]
+            [buddy.core.codecs :as codecs]
             [clojure.string :as str])
   (:import [java.time Instant]
            [java.util UUID]))
 
 ;; ==============================================================================
-;; CSRF Token Validation Helper
+;; CSRF Token Helpers
 ;; ==============================================================================
 
-(defn- valid-csrf-token?
-  "Check if request has a valid CSRF token.
+(defn- request-session-binding
+  "Raw session identifier the CSRF token is bound to: the X-Session-Token header
+   or session-token cookie value, verbatim. Token generation (form/HTMX emission)
+   and validation must use the identical value, so no decoding is applied here.
+   Returns nil when no session is present (request is then not CSRF-protected)."
+  [request]
+  (or (get-in request [:headers "x-session-token"])
+      (get-in request [:cookies "session-token" :value])))
 
-   SECURITY NOTE — this function is a **stub**.  It always returns true because
-   the web UI does not yet emit CSRF tokens (no wrap-anti-forgery middleware,
-   no hidden-field / header generation in forms).  Enabling a real check here
-   without that infrastructure would break every state-changing web form.
+(defn- path-exempt?
+  "True when uri matches any exempt pattern. A pattern ending in \"/*\" matches by
+   prefix (the base path and anything under it); any other pattern matches exactly."
+  [exempt-paths uri]
+  (boolean
+   (some (fn [p]
+           (if (str/ends-with? p "/*")
+             (str/starts-with? uri (subs p 0 (- (count p) 2)))
+             (= p uri)))
+         exempt-paths)))
 
-   To complete CSRF protection:
-   1. Add ring.middleware.anti-forgery/wrap-anti-forgery to the Ring middleware
-      stack so a session-bound token is generated and validated per request.
-   2. Emit the token in every HTML form (hidden field) and HTMX request (header).
-   3. Replace this stub with delegation to the anti-forgery middleware's
-      validation, or remove this interceptor entirely if the middleware handles
-      rejection."
-  [_request]
-  true)
+(defn- issue-csrf-token
+  "Generate a fresh CSRF token bound to `binding`. The CSPRNG nonce lives here
+   (shell); the signing itself is the pure core function."
+  [secret binding]
+  (csrf/generate-token secret binding (nonce/random-bytes 16)))
+
+(def ^:private pre-session-cookie
+  "Cookie holding the pre-session CSRF binding for unauthenticated flows (login,
+   register, MFA), where no session token exists yet. SameSite=Strict so it is not
+   sent on cross-site navigations."
+  "csrf-session")
+
+(defn- mint-pre-session-id
+  "Random opaque value used as the CSRF binding before a session exists."
+  []
+  (codecs/bytes->b64-str (nonce/random-bytes 16) true))
+
+(defn- web-route? [uri]
+  (str/starts-with? (or uri "") "/web"))
+
+(defn- attach-pre-session-cookie
+  "On :leave, set the pre-session cookie when :enter minted one. Marked Secure only
+   in non-dev is left to the platform's cookie policy; we mirror the session cookie's
+   SameSite=Strict, HttpOnly, root path."
+  [ctx]
+  (if-let [id (::pre-session-id ctx)]
+    (update-in ctx [:response :cookies] assoc pre-session-cookie
+               {:value id :http-only true :path "/" :same-site :strict})
+    ctx))
+
+(defn- csrf-403 [ctx]
+  (assoc ctx :response {:status 403
+                        :headers {"Content-Type" "application/json"}
+                        :body {:error "CSRF token validation failed"
+                               :message "Invalid or missing CSRF token"
+                               :type :csrf-validation-failed}}))
 
 ;; ==============================================================================
 ;; HTTP Context Management
@@ -339,35 +381,70 @@
                                             :details (dissoc ex-data :type :message)}})))))))})
 
 (def http-csrf-protection
-  "Validates CSRF tokens for state-changing requests (POST, PUT, DELETE, PATCH).
+  "Validates CSRF tokens for state-changing requests (POST, PUT, DELETE, PATCH) and
+   issues tokens for rendering.
 
-   For Web UI routes (paths starting with /web), this interceptor:
-   - Checks for valid CSRF token on POST/PUT/DELETE/PATCH requests
-   - Allows GET/HEAD/OPTIONS without token
-   - Returns 403 Forbidden if token is missing or invalid
+   Binding model — a token is signed against, and validated with, a per-client
+   binding so a forged cross-site request cannot produce a matching token:
+   - Authenticated requests bind to the session (session-token cookie / header).
+   - Unauthenticated /web flows (login, register, MFA) bind to a pre-session cookie
+     (csrf-session, SameSite=Strict) minted on the page GET.
 
-   For API routes, CSRF protection is skipped (APIs should use other auth mechanisms).
+   A state-changing request is validated (403 on failure) when CSRF is enabled, the
+   path is not in :exempt-paths, and it is either session-authenticated or a /web
+   route. This protects /web/admin and any session-authenticated /api route; it does
+   NOT check token-auth API clients that send no session cookie (not CSRF-vulnerable)
+   or exempt paths (webhooks/callbacks). Safe methods (GET/HEAD/OPTIONS) are never
+   validated.
 
-   Note: This interceptor requires Ring anti-forgery middleware to be active
-   in the handler chain to generate and validate tokens."
+   For rendering, the interceptor exposes a token on the request as
+   :anti-forgery-token and binds csrf/*token* around handler execution, so the page
+   <meta> tag (HTMX) and form hidden fields emit it without per-handler threading.
+
+   Config is read from (:csrf system), injected by the HTTP handler wiring:
+     {:enabled? bool, :secret <signing-key>, :exempt-paths [\"/api/v1/...\"]}"
   {:name :http-csrf-protection
-   :enter (fn [{:keys [request] :as ctx}]
-            (let [method (:request-method request)
-                  uri (:uri request)
-                  web-route? (str/starts-with? (or uri "") "/web")
-                  admin-route? (str/starts-with? (or uri "") "/web/admin")
-                  state-changing? (#{:post :put :delete :patch} method)]
-              (if (and web-route? state-changing? (not admin-route?))
-                ;; Web UI state-changing request (non-admin) — validate CSRF token
-                (if (valid-csrf-token? request)
-                  ctx
-                  (set-response ctx {:status 403
-                                     :headers {"Content-Type" "application/json"}
-                                     :body {:error "CSRF token validation failed"
-                                            :message "Invalid or missing CSRF token"
-                                            :type :csrf-validation-failed}}))
-                ;; Non-web route, safe method, or admin route — skip CSRF check
-                ctx)))})
+   :enter (fn [{:keys [request system] :as ctx}]
+            (let [{:keys [enabled? secret exempt-paths]
+                   :or   {enabled? true}} (:csrf system)
+                  method          (:request-method request)
+                  uri             (or (:uri request) "")
+                  state-changing? (contains? #{:post :put :delete :patch} method)
+                  session-binding (request-session-binding request)
+                  pre-cookie      (get-in request [:cookies pre-session-cookie :value])
+                  expose          (fn [ctx binding]
+                                    (assoc-in ctx [:request :anti-forgery-token]
+                                              (issue-csrf-token secret binding)))]
+              (cond
+                ;; Disabled or misconfigured — no validation, no issuance.
+                (not (and enabled? secret))
+                ctx
+
+                ;; Protected: state-changing, not exempt, and either session-auth or
+                ;; a /web route (which uses the pre-session cookie binding).
+                (and state-changing?
+                     (not (path-exempt? exempt-paths uri))
+                     (or session-binding (web-route? uri)))
+                (let [binding (or session-binding pre-cookie)]
+                  (if (and binding
+                           (csrf/valid-token? secret binding (csrf/extract-token request)))
+                    ;; Valid — expose a token for any form re-rendered in the response.
+                    (expose ctx binding)
+                    (csrf-403 ctx)))
+
+                ;; Authenticated safe/exempt request — issue a token for the page.
+                session-binding
+                (expose ctx session-binding)
+
+                ;; Unauthenticated /web page load — mint a pre-session binding + token
+                ;; so login/register/MFA forms carry one; cookie is set on :leave.
+                (and (web-route? uri) (not state-changing?))
+                (let [id (or pre-cookie (mint-pre-session-id))]
+                  (cond-> (expose ctx id)
+                    (not pre-cookie) (assoc ::pre-session-id id)))
+
+                :else ctx)))
+   :leave attach-pre-session-cookie})
 ;; ==============================================================================
 ;; Rate Limiting
 ;; ==============================================================================
@@ -663,11 +740,15 @@
   (let [;; Create initial HTTP context
         initial-ctx (create-http-context request system)
 
-        ;; Create handler interceptor that bridges to Ring handler
+        ;; Create handler interceptor that bridges to Ring handler.
+        ;; Bind the CSRF token (issued by http-csrf-protection onto the request)
+        ;; for the duration of handler execution — Hiccup is rendered to a string
+        ;; synchronously inside the handler, so layouts/forms can read csrf/*token*.
         handler-interceptor {:name :ring-handler
                              :enter (fn [ctx]
-                                      (let [response (handler (:request ctx))]
-                                        (set-response ctx response)))}
+                                      (binding [csrf/*token* (get-in ctx [:request :anti-forgery-token])]
+                                        (let [response (handler (:request ctx))]
+                                          (set-response ctx response))))}
 
         ;; Combine interceptors with handler at the end
         full-pipeline (conj (vec interceptors) handler-interceptor)

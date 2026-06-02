@@ -56,7 +56,14 @@
    :host       #or [#env HTTP_HOST "0.0.0.0"]
    :join?      false
    ;; Port conflict resolution - if default port is busy, system will try higher ports
-   :port-range {:start 3000 :end 3099}}
+   :port-range {:start 3000 :end 3099}
+   ;; CSRF protection for session-authenticated, state-changing requests.
+   ;; Protects all POST/PUT/DELETE/PATCH carrying a session cookie (incl. /web/admin).
+   ;; :secret defaults to JWT_SECRET when omitted. List webhooks/callbacks (which
+   ;; cannot carry a token) under :exempt-paths; a trailing /* matches by prefix.
+   :security   {:csrf {:enabled?     true
+                       :secret       #or [#env CSRF_SECRET #env JWT_SECRET]
+                       :exempt-paths ["/api/v1/payments/webhook"]}}}
 
   ;; HTTP Router configuration
   :boundary/router

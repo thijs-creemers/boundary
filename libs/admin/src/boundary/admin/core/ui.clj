@@ -16,6 +16,7 @@
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
             [boundary.shared.ui.core.alpine :as alpine]
+            [boundary.platform.core.csrf :as csrf]
             [clojure.string :as str]))
 
 ;; =============================================================================
@@ -177,6 +178,7 @@
          [:span {:class "badge badge-ghost"} [:t :admin/header-welcome {:name (:display-name user (:email user))}]]
          (icons/theme-toggle-button)
          [:form {:method "POST" :action "/web/logout" :class "logout-form"}
+          (csrf/hidden-field)
           [:button {:type "submit" :class "logout-button" :aria-label [:t :admin/button-logout]}
            [:span.logout-icon
             (icons/icon :log-out {:size 18 :aria-label [:t :admin/button-logout]})]

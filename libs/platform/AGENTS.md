@@ -59,7 +59,7 @@ From `boundary.platform.shell.http.interceptors`:
 | `http-correlation-header` | leave | Adds correlation ID to response headers |
 | `http-error-handler` | error | Converts `:type` in ex-data to HTTP status codes |
 | `http-security-headers` | leave | Adds CSP, HSTS, X-Frame-Options, etc. |
-| `http-csrf-protection` | enter | Validates CSRF tokens on state-changing requests |
+| `http-csrf-protection` | enter + leave | Validates CSRF tokens, issues tokens, mints pre-session cookie (see [CSRF Protection](#csrf-protection)) |
 | `http-rate-limit(limit, window-ms, cache?)` | enter | Fixed-window rate limiting (Redis or in-process) |
 
 ### Universal Cross-Cutting Interceptors
@@ -92,6 +92,65 @@ cli-response-pipeline         ; error-handling + response-shape-cli
 (create-cli-pipeline & custom-interceptors)    ; Complete CLI pipeline
 (add-error-handling pipeline)                  ; Add error handling to any pipeline
 ```
+
+---
+
+## CSRF Protection
+
+`http-csrf-protection` (in the default interceptor stack) protects session-cookie
+authenticated, state-changing requests. Pure token functions live in
+`boundary.platform.core.csrf`; the interceptor (shell) does validation, issuance,
+and pre-session cookie minting.
+
+### Token model
+
+A token is `base64url(nonce).base64url(HMAC-SHA256(secret, nonce ‖ binding))`, signed
+with `mac/hash` and verified in constant time with `mac/verify` (buddy). The `binding`
+ties a token to one client so a forged cross-site request cannot produce a match:
+
+- **Authenticated** requests bind to the session (`session-token` cookie or
+  `X-Session-Token` header).
+- **Unauthenticated `/web` flows** (login, register, MFA) bind to a `csrf-session`
+  cookie (`SameSite=Strict`, `HttpOnly`) minted on the page GET and validated on POST.
+
+### What is protected
+
+A state-changing request (POST/PUT/DELETE/PATCH) is validated — **403** on missing or
+invalid token — when CSRF is enabled, the path is not exempt, and it is either
+session-authenticated or a `/web` route. This includes `/web/admin` and any
+session-authenticated `/api` route. **Not** validated: safe methods (GET/HEAD/OPTIONS),
+token-auth API clients sending no session cookie (not CSRF-vulnerable), and exempt
+paths (webhooks/callbacks).
+
+### Configuration
+
+```clojure
+;; resources/conf/<env>/config.edn under :active
+:boundary/http
+{:security
+ {:csrf {:enabled?     true                                  ; false only in test/dev
+         :secret       #or [#env CSRF_SECRET #env JWT_SECRET] ; defaults to JWT_SECRET
+         :exempt-paths ["/api/v1/payments/webhook"]}}}        ; trailing /* = prefix match
+```
+
+The secret falls back to `JWT_SECRET` even without a config block, so prod/acc are
+protected by default. The test profile ships `:enabled? false` so the broad suite need
+not carry tokens; CSRF-specific tests enable it explicitly.
+
+### Emitting tokens in views
+
+The interceptor exposes the token on the request as `:anti-forgery-token` and binds
+`csrf/*token*` around handler execution (Hiccup renders to a string synchronously
+inside the handler), so views emit it with no per-handler threading:
+
+- **HTMX** — the shared `page-layout` renders `<meta name="csrf-token">`; the global
+  `htmx:configRequest` listener in `init.js` attaches `X-CSRF-Token` to every HTMX
+  request. New HTMX actions need nothing.
+- **Plain `<form method=post>`** — splice `(csrf/hidden-field)` (0-arity reads
+  `*token*`) as the first child.
+
+Test helper: `support.handler-test-helpers/with-valid-csrf-token` signs a token bound
+to a request's session/pre-session binding for CSRF-enabled handler tests.
 
 ---
 

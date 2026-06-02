@@ -308,7 +308,15 @@
         ;; Build system services map for HTTP interceptors
         system {:logger logger
                 :metrics-emitter metrics-emitter
-                :error-reporter error-reporter}
+                :error-reporter error-reporter
+                ;; CSRF config consumed by http-csrf-protection interceptor.
+                ;; Enabled by default. Secret falls back to JWT_SECRET so protection
+                ;; works in environments without an explicit :boundary/http config
+                ;; block (e.g. prod/acc). Config keys override these defaults.
+                :csrf (merge {:enabled?     true
+                              :secret       (System/getenv "JWT_SECRET")
+                              :exempt-paths []}
+                             (get-in config [:active :boundary/http :security :csrf]))}
 
         ;; Build i18n middleware (always present — falls back to identity t-fn if not configured)
         i18n-middleware-fn (when i18n

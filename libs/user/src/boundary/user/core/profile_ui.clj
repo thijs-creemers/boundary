@@ -6,6 +6,7 @@
   (:require [boundary.shared.ui.core.components :as ui]
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.icons :as icons]
+            [boundary.platform.core.csrf :as csrf]
             [clojure.string :as str]))
 
 (declare profile-info-fragment
@@ -515,6 +516,7 @@
        [:div.card-body
         [:p [:t :user/mfa-disable-prompt]]
         [:form {:method "POST" :action "/web/profile/mfa/disable"}
+         (csrf/hidden-field)
          (ui/form-field :password [:t :user/password-field-current]
                         (ui/password-input :password "" {:required true})
                         (:password errors))

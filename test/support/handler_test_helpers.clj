@@ -5,7 +5,9 @@
    - Ring request builders (make-request, make-get, make-post, etc.)
    - Response assertion helpers (assert-status, assert-redirect, assert-header)
    - Authentication / CSRF helpers for request enrichment"
-  (:require [clojure.test :refer [is]])
+  (:require [clojure.test :refer [is]]
+            [boundary.platform.core.csrf :as csrf]
+            [buddy.core.nonce :as nonce])
   (:import [java.util UUID]))
 
 ;; =============================================================================
@@ -153,6 +155,23 @@
   [request & [token]]
   (let [csrf-token (or token (str (UUID/randomUUID)))]
     (-> request
-        (assoc-in [:form-params :__anti-forgery-token] csrf-token)
-        (assoc-in [:headers "x-csrf-token"] csrf-token)
+        (assoc-in [:form-params (keyword csrf/field-name)] csrf-token)
+        (assoc-in [:form-params csrf/field-name] csrf-token)
+        (assoc-in [:headers csrf/header-name] csrf-token)
         (assoc :anti-forgery-token csrf-token))))
+
+(defn- request-csrf-binding
+  "The binding a real token must be signed against for this request: the session
+   token, else the pre-session csrf-session cookie."
+  [request]
+  (or (get-in request [:headers "x-session-token"])
+      (get-in request [:cookies "session-token" :value])
+      (get-in request [:cookies "csrf-session" :value])))
+
+(defn with-valid-csrf-token
+  "Attach a CSRF token that passes real validation: signed with `secret` and bound
+   to the request's session (or pre-session) binding. Use in CSRF-enabled handler
+   tests; with-csrf-token's random token only suffices when CSRF is disabled."
+  [request secret]
+  (with-csrf-token request
+    (csrf/generate-token secret (request-csrf-binding request) (nonce/random-bytes 16))))

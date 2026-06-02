@@ -8,6 +8,7 @@
             [boundary.shared.ui.core.layout :as layout]
             [boundary.shared.ui.core.table :as table-ui]
             [boundary.shared.ui.core.icons :as icons]
+            [boundary.platform.core.csrf :as csrf]
             [clojure.string :as str]))
 
 ;; ---------------------------------------------------------------------------
@@ -601,6 +602,7 @@
           [:form.hard-delete-form {:method "post"
                                    :action (str "/web/users/" (:id user) "/hard-delete")
                                    :onsubmit "return confirm('⚠️  PERMANENT DELETE\\n\\nThis will IRREVERSIBLY delete this user and ALL related data.\\n\\nThis action cannot be undone.\\n\\nAre you absolutely sure?');"}
+           (csrf/hidden-field)
            [:button.button.danger {:type "submit"}
             (icons/icon :trash {:size 16})
             [:span [:t :user/button-delete-permanently]]]])
@@ -685,6 +687,7 @@
       [:form {:method "post"
               :action "/web/login"
               :class  "form-card ui-form-shell"}
+       (csrf/hidden-field)
        ;; Hidden field to preserve return-to URL
        (when (:return-to data)
          [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
@@ -750,6 +753,7 @@
       [:form {:method "post"
               :action "/web/login"
               :class  "form-card ui-form-shell"}
+       (csrf/hidden-field)
       ;; Hidden fields to preserve login data
        (when (:return-to data)
          [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
@@ -823,6 +827,7 @@
      [:form {:method "post"
              :action "/web/register"
              :class  "form-card ui-form-shell"}
+      (csrf/hidden-field)
       (when (:return-to data)
         [:input {:type "hidden" :name "return-to" :value (:return-to data)}])
       (ui/form-field :name [:t :common/label-name]
@@ -967,6 +972,7 @@
         [:form {:method "post"
                 :action "/web/sessions/revoke"
                 :class "session-revoke-form"}
+         (csrf/hidden-field)
          [:input {:type "hidden" :name "session-token" :value (:session-token session)}]
          [:input {:type "hidden" :name "user-id" :value user-id}]
          [:button.button.secondary.small
@@ -1031,6 +1037,7 @@
         (when (> (count sessions) 1)
           [:form.session-revoke-all-form {:method "post"
                                           :action (str "/web/users/" (:id user) "/sessions/revoke-all")}
+           (csrf/hidden-field)
            [:input {:type "hidden" :name "keep-current" :value "true"}]
            [:button.button.danger
             {:type "submit"
