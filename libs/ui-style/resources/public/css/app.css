@@ -3880,8 +3880,8 @@ textarea:focus-visible,
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--text-sm);
+  padding: var(--space-3, 12px) var(--space-6, 24px);
+  font-size: var(--text-sm, 0.875rem);
 }
 
 .page-info {

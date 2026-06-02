@@ -6,9 +6,23 @@ Essential commands, conventions, and patterns for working with the Boundary Fram
 
 ## Quick Reference
 
+### Behavior essentials
+1. Don’t assume. Don’t hide confusion. Surface tradeoffs.
+2. Minimum code that solves the problem. Nothing speculative.
+3. Touch only what you must. Clean up only your own mess.
+4. Define success criteria. Loop until verified.
+
 ### Essential Commands
 
 ```bash
+# ⭐ SCAFFOLDER (Primary tool for creating modules/features — use this first!)
+bb scaffold                                        # Interactive module scaffolding wizard
+bb scaffold ai "product module with name, price"   # AI-powered NL scaffolding (interactive confirm)
+bb scaffold ai "product module with name, price" --yes  # AI-powered NL scaffolding (non-interactive)
+bb scaffold --field :invoice-id :string            # Add field to existing module
+bb scaffold --endpoint post create-invoice         # Add HTTP endpoint to existing module
+bb scaffold integrate product                      # Wire scaffolded module into deps/tests/wiring
+
 # Testing - All tests across all libraries
 clojure -M:test:db/h2                                    # All tests (default test profile uses H2 in-memory)
 JWT_SECRET="dev-secret-32-chars-minimum" BND_ENV=test clojure -M:test:db/h2  # With JWT secret
@@ -73,9 +87,6 @@ java -jar target/boundary-*.jar server             # Run standalone jar
 clojure -M:migrate up                              # Run migrations
 
 # Scripting (Babashka)
-bb scaffold                                        # Interactive module scaffolding wizard
-bb scaffold ai "product module with name, price"   # AI-powered NL scaffolding (interactive confirm)
-bb scaffold ai "product module with name, price" --yes  # AI-powered NL scaffolding (non-interactive)
 bb ai explain --file stacktrace.txt                # Explain error via AI
 bb ai gen-tests libs/user/src/boundary/user/core/validation.clj  # Generate test namespace
 bb ai sql "find active users with orders in last 7 days"          # HoneySQL from NL
@@ -85,7 +96,6 @@ bb doctor                                          # Validate config for common 
 bb doctor --env all --ci                           # Check all environments (CI mode)
 bb setup                                           # Interactive config setup wizard
 bb setup ai "PostgreSQL with Stripe"               # AI-powered config setup
-bb scaffold integrate product                      # Wire scaffolded module into deps/tests/wiring
 bb create-admin                                    # Create first admin user for a new project (interactive wizard)
 bb create-admin --env prod                         # Use production config
 bb create-admin --email a@b.com --name "Admin"     # Skip email/name prompts (password still prompted securely)
@@ -145,41 +155,108 @@ clj-paren-repair --help
 └─────────────────────────────────────────────┘
 ```
 
-**Module Structure:**
-```
-libs/{library}/src/boundary/{library}/
-├── core/          # Pure business logic
-├── shell/         # I/O, validation, adapters
-├── ports.clj      # Protocol definitions
-└── schema.clj     # Malli validation schemas
+| **Module Structure:**
+| ```
+| libs/{library}/src/boundary/{library}/
+| ├── core/          # Pure business logic
+| ├── shell/         # I/O, validation, adapters
+| ├── ports.clj      # Protocol definitions
+| └── schema.clj     # Malli validation schemas
+| 
+| # Library structure (monorepo)
+| libs/
+| ├── core/          # Foundation: validation, utilities, interceptors
+| ├── observability/ # Logging, metrics, error reporting
+| ├── platform/      # HTTP, database, CLI infrastructure
+| ├── user/          # Authentication, authorization, MFA
+| ├── admin/         # Auto-CRUD admin interface
+| ├── storage/       # File storage (local & S3)
+| ├── scaffolder/    # Module code generator
+| ├── cache/         # Distributed caching (Redis/in-memory)
+| ├── jobs/          # Background job processing
+| ├── email/         # Production-ready email sending (SMTP)
+| ├── realtime/      # WebSocket/SSE for real-time features
+| ├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
+| ├── workflow/      # State machine workflows with audit trails
+| ├── search/        # Full-text search (PostgreSQL FTS / H2 LIKE)
+| ├── payments/      # PSP abstraction: Mollie, Stripe, Mock (checkout-session flow)
+| ├── external/      # External communication adapters: SMTP, IMAP, Twilio
+| ├── reports/       # Report definitions, PDF/CSV export, scheduling (defreport macro)
+| ├── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
+| ├── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
+| ├── ai/            # Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
+| ├── ui-style/      # Shared UI style bundles, tokens, and CSS assets contract
+| └── i18n/          # Marker-based internationalisation, translation catalogues, locale chains
+| 
+| ├── tools/         # Developer tooling: scaffolding, AI, i18n, deploy, dev utilities (not published to Clojars)
+| ```
 
-# Library structure (monorepo)
-libs/
-├── core/          # Foundation: validation, utilities, interceptors
-├── observability/ # Logging, metrics, error reporting
-├── platform/      # HTTP, database, CLI infrastructure
-├── user/          # Authentication, authorization, MFA
-├── admin/         # Auto-CRUD admin interface
-├── storage/       # File storage (local & S3)
-├── scaffolder/    # Module code generator
-├── cache/         # Distributed caching (Redis/in-memory)
-├── jobs/          # Background job processing
-├── email/         # Production-ready email sending (SMTP)
-├── realtime/      # WebSocket/SSE for real-time features
-├── tenant/        # Multi-tenancy (PostgreSQL schema-per-tenant)
-├── workflow/      # State machine workflows with audit trails
-├── search/        # Full-text search (PostgreSQL FTS / H2 LIKE)
-├── payments/      # PSP abstraction: Mollie, Stripe, Mock (checkout-session flow)
-├── external/      # External communication adapters: SMTP, IMAP, Twilio
-├── reports/       # Report definitions, PDF/CSV export, scheduling (defreport macro)
-├── calendar/      # Calendar events, RRULE recurrence, iCal export/import, conflict detection
-├── geo/           # Geocoding (OSM/Google/Mapbox), DB-backed cache, Haversine distance
-├── ai/            # Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
-├── ui-style/      # Shared UI style bundles, tokens, and CSS assets contract
-└── i18n/          # Marker-based internationalisation, translation catalogues, locale chains
+---
 
-├── tools/         # Developer tooling: scaffolding, AI, i18n, deploy, dev utilities (not published to Clojars)
+## Scaffolder — Enforcing FC/IS Architecture
+
+The **Boundary Scaffolder** (`bb scaffold`) is the **primary tool for creating new modules and features** in Boundary. It automatically generates correct FC/IS structure and prevents the most common architectural violations.
+
+### Why the Scaffolder Matters
+
+The quality gate `bb check:fcis` (run on every commit) enforces strict rules:
+- Core layers **CANNOT** import shell code, I/O, logging, or database code
+- Shell layers **MUST** depend on ports (protocols), not core implementations
+- Dependencies must flow *downward* from shell → core → ports
+
+**The scaffolder generates code that passes these gates by design.** Manually written code frequently violates these rules, especially:
+- Imports from shell in core (Pitfall #5)
+- Validation logic in core instead of shell (Pitfall #4)
+- Schema-database mismatches (Pitfall #6)
+
+### Scaffolder Commands (For LLMs)
+
+| Command | Use When |
+|---------|----------|
+| `bb scaffold` | Creating a new module from scratch (interactive wizard) |
+| `bb scaffold ai "description"` | Generating module structure from natural language description |
+| `bb scaffold --field {type} {name}` | Adding a field to an existing module's schema |
+| `bb scaffold --endpoint {method} {name}` | Adding an HTTP endpoint to an existing module |
+| `bb scaffold integrate {module}` | Wiring a generated module into deps.edn, tests.edn, and system config |
+
+### Scaffolder Best Practices for AI Agents
+
+**RULE 1:** Always start with scaffolder when creating functionality.
+```bash
+bb scaffold ai "invoice module with number, date, amount, status" --yes
 ```
+
+**RULE 2:** Use `bb scaffold --field` instead of manually editing schema.clj:
+```bash
+# Instead of manually adding to schema.clj:
+bb scaffold --field :invoice-id :string "Unique invoice identifier"
+```
+
+**RULE 3:** After scaffolding, immediately run integration:
+```bash
+bb scaffold integrate invoice
+```
+
+**RULE 4:** Run quality gates after scaffolder completes:
+```bash
+bb check:fcis      # Verify FC/IS boundaries
+bb check:deps      # Check dependency direction
+clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
+```
+
+### When NOT to Manually Write Code
+
+❌ **NEVER manually create:**
+- New module directories with existing structure (use scaffolder)
+- Schema files without scaffolder validation
+- Core→shell imports (violates FC/IS)
+- Test files for scaffolded functions (scaffolder generates these)
+
+✅ **OK to manually edit:**
+- Business logic *inside* already-correct core functions
+- Shell service implementations that wire ports
+- HTTP handler bodies (after scaffolder creates the route structure)
+- Test assertions (after scaffolder creates test file)
 
 ---
 
@@ -233,7 +310,37 @@ libs/
 
 ## Common Workflows
 
-### Adding New Functionality
+### ⭐ Creating New Modules — USE THE SCAFFOLDER FIRST
+
+**ALWAYS use the scaffolder to create new modules or add major features.** This ensures strict FC/IS architecture compliance and prevents common mistakes.
+
+**For new modules:**
+```bash
+bb scaffold                                          # Interactive wizard (recommended)
+bb scaffold ai "product module with name, price"    # AI-powered from description (interactive confirm)
+bb scaffold ai "product module with name, price" --yes  # AI-powered (non-interactive)
+```
+
+**Why scaffolder is mandatory:**
+- ✅ Creates correct FC/IS directory structure (core/, shell/, ports.clj, schema.clj)
+- ✅ Generates validated Malli schemas—prevents schema-database mismatches (Pitfall #6)
+- ✅ Prevents core→shell dependencies: scaffolder wires ports correctly (Pitfall #5)
+- ✅ Integrates with quality gates: scaffolder output passes `bb check:fcis`
+- ✅ Auto-generates unit test skeletons with correct metadata
+- ✅ Hooks into deps.edn, tests.edn, and wiring automatically
+- ✅ Enforces kebab-case conventions everywhere
+
+**After scaffolding:**
+```bash
+bb scaffold integrate {module-name}    # Wires your new module into deps/tests/wiring
+```
+
+**For large features within existing modules:**
+Use scaffolder's `--field` and `--endpoint` commands to add fields and HTTP handlers to existing modules. This is faster than manual creation and guarantees FC/IS compliance.
+
+### Adding New Functionality (Manual Workflow)
+
+If you cannot use the scaffolder (rare edge cases), follow this checklist:
 
 1. **Define schema** in `libs/{library}/src/boundary/{library}/schema.clj`
 2. **Write core logic** in `libs/{library}/src/boundary/{library}/core/{domain}.clj` (pure functions)
@@ -241,6 +348,8 @@ libs/
 4. **Define port** in `libs/{library}/src/boundary/{library}/ports.clj` (protocol)
 5. **Implement in service** in `libs/{library}/src/boundary/{library}/shell/service.clj`
 6. **Add HTTP endpoint** in `libs/{library}/src/boundary/{library}/shell/http.clj`
+
+⚠️ **After manual creation, run `bb check:fcis` to verify FC/IS boundaries are not violated.**
 
 ### Testing Workflow
 
@@ -338,6 +447,10 @@ When encountering 500 errors or unexpected behavior:
 ---
 
 ## Common Pitfalls
+
+**Most pitfalls listed below are automatically prevented by the scaffolder.** If you use `bb scaffold` to create modules, you will avoid pitfalls #1, #2, #4, #5, #6, and #9. Manual code creation is where these issues arise.
+
+**LLM Reminder**: When adding functionality, reach for `bb scaffold` first. It's faster, safer, and ensures FC/IS compliance.
 
 ### 1. snake_case vs kebab-case Mixing
 
@@ -818,7 +931,7 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 | `boundary.tools.integrate` | `bb scaffold integrate` — wire modules into deps/tests/wiring |
 | `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
 | `boundary.tools.admin` | `bb create-admin` |
-| `boundary.tools.deploy` | `bb deploy` (handles all 22 libs) |
+| `boundary.tools.deploy` | `bb deploy` (handles all 24 libs) |
 | `boundary.tools.dev` | `bb migrate`, `bb check-links`, `bb smoke-check`, `bb install-hooks` |
 | `boundary.tools.check-fcis` | `bb check:fcis` — FC/IS boundary enforcement (ADR-021) |
 | `boundary.tools.check-tests` | `bb check:placeholder-tests` — placeholder assertion detection |

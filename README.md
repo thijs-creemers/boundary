@@ -6,7 +6,7 @@
 
 ## Why Boundary?
 
-**For developers:** 22 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+**For developers:** 24 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
 **Ship faster:** The scaffolder generates fully structured modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing. AI tooling (`bb scaffold ai`, `bb ai gen-tests`, `bb ai sql`) handles the repetitive parts.
 
@@ -41,7 +41,7 @@ cd my-app
 
 # 2. Add optional modules (e.g. payments, cache, search)
 boundary add payments
-boundary list modules    # see all 18 optional modules
+boundary list modules    # see all 20 optional modules
 
 # 3. Run database migrations
 clojure -M:migrate up
@@ -81,7 +81,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **22 independently publishable libraries** plus development tooling:
+Boundary is a monorepo of **24 independently publishable libraries** plus development tooling:
 
 | Library | Description |
 |---------|-------------|
@@ -106,6 +106,8 @@ Boundary is a monorepo of **22 independently publishable libraries** plus develo
 | [geo](libs/geo/) | Geocoding (OSM/Google/Mapbox), DB cache, Haversine distance |
 | [ai](libs/ai/) | Framework-aware AI tooling: NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
 | [i18n](libs/i18n/) | Marker-based internationalisation with translation catalogues |
+| [push](libs/push/) | Multi-platform push notifications: FCM (Firebase) + APNs (Apple) |
+| [audience](libs/audience/) | Rule-based audience segmentation with SQL + predicate pipeline |
 | [ui-style](libs/ui-style/) | Shared UI style bundles, design tokens, CSS/JS assets |
 | [devtools](libs/devtools/) | Dev-only: error pipeline, dev dashboard, REPL power tools, guidance engine |
 | [tools](libs/tools/) | Dev-only: deploy, doctor, setup, scaffolder integration, quality checks |
@@ -226,13 +228,13 @@ See [ADR-021](./dev-docs/adr/ADR-021-fcis-boundary-rules.adoc) (FC/IS rules) and
 
 ## Releasing a New Version
 
-Version appears in 24+ files — use these steps to bump consistently.
+Version appears in 26+ files — use these steps to bump consistently.
 
 **1. Replace the version string everywhere (all .clj, .edn, and .md files):**
 
 ```bash
-OLD="1.0.1-alpha-20"
-NEW="1.0.1-alpha-20"   # example
+OLD="1.0.1-alpha-26"
+NEW="1.0.1-alpha-26"   # example
 
 # Source and config files
 find . \( -name "*.clj" -o -name "*.edn" \) \
@@ -277,12 +279,12 @@ bb deploy --all
 
 ```clojure
 ;; Validation utilities only
-{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-20"}}}
+{:deps {org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-26"}}}
 
 ;; Full web application stack
-{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-20"}
-        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-20"}
-        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-20"}}}
+{:deps {org.boundary-app/boundary-platform {:mvn/version "1.0.1-alpha-26"}
+        org.boundary-app/boundary-user     {:mvn/version "1.0.1-alpha-26"}
+        org.boundary-app/boundary-admin    {:mvn/version "1.0.1-alpha-26"}}}
 ```
 
 ---

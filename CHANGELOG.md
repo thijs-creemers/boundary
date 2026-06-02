@@ -11,6 +11,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`boundary-cache`**: The Redis adapter now serializes values with Nippy instead of JSON, fixing `class java.lang.String cannot be cast to class java.time.temporal.Temporal` for cached `java.time` values (BOU-47). JSON is lossy — `Temporal` values became ISO-8601 strings, keywords became strings, and sets became vectors — and the loss surfaced only against Redis since the in-memory adapter stores values by reference. Nippy round-trips keywords, sets, ratios and `java.time`/Temporal values intact, matching the in-memory adapter.
 - **`boundary-cache`**: The Redis adapter treats unreadable entries (values written by the previous JSON format, or otherwise non-Nippy bytes) as a cache miss instead of throwing, so the cache self-heals on rollout. Note: the on-the-wire format changes from JSON to Nippy; flushing the cache namespace on deploy is still recommended to avoid log noise from stale reads (BOU-47).
+## [1.0.1-alpha-26] - 2026-05-30
+
+### Added
+
+- **`boundary-audience`**: New audience segmentation library (`libs/audience/`) with declarative, rule-based segment definitions. Features include:
+  - `defaudience` macro for code-defined segments with seven built-in filter types (demographics, location, role, account-tenure, last-active, behavior, feature-usage)
+  - Hybrid SQL + predicate evaluation pipeline — SQL-eligible filters are pushed to the database, remaining filters run as Clojure predicates over the candidate set
+  - AND/OR/NOT segment composition with circular-reference detection
+  - Dynamic (DB-persisted) segments via JSON with schema validation that rejects fn-typed values
+  - Cached membership results in `audience_memberships` table with configurable per-segment TTL
+  - Builder UI served via HTMX with Replicant widget mount points for filter panel and composition builder
+  - REST + web endpoints: CRUD, preview with count + sample, evaluate + cache, member listing
+  - Custom filter type extensibility via `filter->sql` and `filter->predicate` multimethods
+  - Integrant wiring with `IAudienceResolver`, `IAudienceRepository`, and `IAudienceCache` components
+- **`boundary-realtime`**: Optional `:on-open` callback for `websocket-handler` — `(fn [connection-id])` invoked after a successful connect, for subscribing connections to topics based on the authenticated user's roles. Exceptions thrown by the callback are logged and swallowed, so they do not abort the connection.
+- **`boundary-push`**: New push notification library (`libs/push/`) with multi-platform delivery via FCM (Firebase Cloud Messaging) and APNs (Apple Push Notification service). Features include:
+  - `defpush` macro for declarative notification definitions with i18n locale maps, deep links, priority, TTL, collapse keys, and retry configuration
+  - Platform-specific provider protocols (`IFCMProvider`, `IAPNsProvider`) behind unified `IPushService` orchestrator
+  - Device token management — registration, rotation, soft-deactivation, and stale token cleanup
+  - HMAC-secured analytics callback endpoint for client-reported delivery/open tracking
+  - Error classification (retryable/permanent/token-invalid/rate-limited) for intelligent retry decisions
+  - Async parallel delivery via `sendAsync` + `CompletableFuture` for both FCM and APNs
+  - Job-based reliable delivery via hard dependency on `boundary-jobs`
+  - REST endpoints: device CRUD (`/api/push/devices`), callback (`/api/push/callback`), stats (`/api/push/stats/:id`)
+  - Database migrations for `push_device_tokens`, `push_send_log`, `push_analytics_events` with multi-tenant support
+  - Mock providers for dev/test, Integrant wiring for all components
+  - 41 tests, 118 assertions covering unit, integration, and contract layers
+- **`boundary-user`**: Welcome email on admin user creation — optional `send-welcome` checkbox triggers email via `ISmtpProvider` with graceful failure handling.
+- **`boundary-user`**: Dashboard extensibility via `:dashboard-extra-cards` config for injecting custom Hiccup cards into the user dashboard.
+- **`boundary-ui-style`**: Cross-page toast notification system via `X-Toast` response header + `sessionStorage`, works across all page layouts (base, pilot, admin-pilot).
+
+### Fixed
+
+- **`boundary-cache`**: Deterministic LRU eviction — replaced timestamp-based ordering with monotonic access counter. Fixes non-deterministic eviction when entries are created within the same millisecond.
+- **`boundary-user`**: XSS in `create-user-htmx-handler` inline `<script>` — added `escape-js-string` to sanitize `return-to` URL, toast JSON, and user name before interpolation. Prevents quote-breaking and `</script>` tag injection.
+- **`boundary-admin`**: Toast JSON injection via entity labels in delete/bulk-delete handlers — added `escape-json-string` to sanitize label values in `X-Toast` and `HX-Trigger` headers.
+- **`boundary-admin`**: Split-table soft-delete now correctly writes `deleted_at` to both primary and secondary tables in a transaction, fixing `column "deleted_at" does not exist` errors.
+- **`boundary-admin`**: Added config validation for split-table entities missing `:create-redirect-url`, failing early with a clear error instead of a `StreamableResponseBody` crash.
+- **`boundary-admin`**: Added `log/error` to create-entity exception handler (previously swallowed silently).
+- **`boundary-admin`**: Added missing `deleted_at` column to `users` test DDL for embedded PostgreSQL integration tests, fixing 12 pre-existing test errors.
+- **`boundary-user`**: Restored 500 status code for server errors in `create-user-htmx-handler` (was incorrectly returning 200).
+- **`boundary-user`**: Fixed arity mismatch in `create-user-htmx-handler` test calls — handler signature changed to `[user-service email-sender config]` but tests were not updated.
+- **`boundary-ui-style`**: Removed duplicate XHR monkey-patch from `admin-ux.js` — `components.js` already handles `X-Toast` capture for all bundles.
+- **`boundary-ui-style`**: Increased horizontal padding on table pagination for better alignment.
+
+### Fixed (CI)
+
+- **`ci`**: Replaced `:local/root` dep in `bb.edn` with direct `:paths` entry for `libs/tools/src`, preventing `deps.clj` from triggering a Clojure tools download that times out on CI runners.
+
+## [1.0.1-alpha-23] - 2026-05-18
+
+### Fixed
+
+- **`boundary-admin`**: Auto-introspect secondary table fields when `:split-table-update` is configured, so split-table entities no longer require manual field definitions (#158).
+- **`boundary-admin`**: Auto-expand SELECT columns for join queries in split-table setups, ensuring all fields from both tables are fetched (#158).
+- **`boundary-admin`**: Auto-hide `tsvector` generated columns from entity forms and list views (#158).
+- **`boundary-admin`**: Skip required validation for boolean fields, which default to `false` rather than `NULL` (#158).
+- **`boundary-admin`**: Fixed swapped primary/secondary table alias mapping in `resolve-query-config`, which caused wrong SQL column qualifiers for split-table entities (#158).
+- **`boundary-admin`**: Fixed snake_case→kebab-case mismatch in SELECT deduplication that caused duplicate columns in split-table join queries (#158).
+- **`boundary-admin`**: Fixed split-table SELECT auto-expansion assigning columns to wrong table alias when `:secondary-table` maps to the `:from` table in query-overrides (e.g., `a.tenant_id` instead of `u.tenant_id`). Alias is now resolved by matching `:secondary-table` against `:from`/`:join` table names (#158).
+
+### Added
+
+- **`boundary-admin`**: Embedded PostgreSQL test infrastructure (`io.zonky.test/embedded-postgres`) for `admin-user-operations-test`. Split-table tests with `tenant_id` and other PG-specific columns now run against a real PostgreSQL instance instead of H2, fixing 8 pre-existing test errors.
+- **`boundary-admin`**: New test helper namespace `boundary.admin.test.embedded-pg` with `start!`/`stop!`/`db-context`/`with-embedded-pg` for reusable embedded PG lifecycle in tests.
+
+### Fixed (CI)
+
+- **`ci`**: Removed non-existent `:db/h2` alias from all CI test commands. H2 and embedded PostgreSQL deps are already in the `:test` alias; the phantom alias was silently ignored but produced warnings.
+
+### Changed
+
+- Upgraded 10 dependencies to latest versions: ZXing 3.5.4, MySQL Connector/J 9.7.0, nREPL 1.7.0, PostgreSQL 42.7.11, SQLite JDBC 3.53.1.0, Jedis 7.5.0, AWS SDK 2.44.1, spel 0.9.7.
+- Aligned `cheshire` version in `boundary-cli` from 5.12.0 to 6.2.0 (matches rest of monorepo).
+- Aligned `org.clojure/clojure` in `:build` alias from 1.12.3 to 1.12.4.
 
 ## [1.0.1-alpha-22] - 2026-05-05
 
@@ -909,12 +984,14 @@ Copyright 2024-2025 Thijs Creemers. All rights reserved.
 
 ## Version History
 
+- **[1.0.1-alpha-23]** - 2026-05-18: Admin split-table fixes, embedded PostgreSQL tests, dependency upgrades, CI fix
 - **[1.0.1-alpha-20]** - 2026-05-01: Fix `boundary new` bb.edn template — full boundary-tools task suite, version re-alignment
 - **[1.0.1-alpha-14]** - 2026-04-25: Bug fixes — scaffolder in generated projects, AI CLI env fallback, OpenAI double /v1 path, smoke-check / linting in non-monorepo projects
 - **[1.0.1-alpha-13]** - 2026-04-20: DX Vision (devtools, dev dashboard, REPL power, error experience, AI integration), LRU cache fix, CSP hardening
 - **[1.0.1-alpha-12]** - 2026-04-06: E2E testing, admin UI improvements, auth bug fixes, quality gates, version bump
 - **[1.0.0-alpha]** - 2026-02-14: Initial production release
 
+[1.0.1-alpha-23]: https://github.com/thijs-creemers/boundary/releases/tag/1.0.1-alpha-23
 [1.0.1-alpha-20]: https://github.com/thijs-creemers/boundary/releases/tag/1.0.1-alpha-20
 [1.0.1-alpha-14]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-14
 [1.0.1-alpha-13]: https://github.com/thijs-creemers/boundary/releases/tag/v1.0.1-alpha-13

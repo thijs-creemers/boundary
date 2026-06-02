@@ -21,7 +21,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -59,7 +59,8 @@ jobs:
             libs/geo/src \
             libs/ai/src \
             libs/ui-style/src \
-            libs/i18n/src
+            libs/i18n/src \
+            libs/push/src
 
   # =============================================================================
   # Build shared UI assets
@@ -103,7 +104,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -156,7 +157,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -264,7 +265,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -278,7 +279,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :core
+        run: clojure -M:test :core
 
   test-observability:
     name: Test boundary/observability
@@ -291,7 +292,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -305,7 +306,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :observability
+        run: clojure -M:test :observability
 
   test-platform:
     name: Test boundary/platform
@@ -318,7 +319,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -332,7 +333,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :platform
+        run: clojure -M:test :platform
 
   test-user:
     name: Test boundary/user
@@ -345,7 +346,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -359,7 +360,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :user
+        run: clojure -M:test :user
 
   test-admin:
     name: Test boundary/admin
@@ -372,7 +373,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -386,7 +387,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :admin
+        run: clojure -M:test :admin
 
   test-ui-style:
     name: Test boundary/ui-style
@@ -399,7 +400,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -413,7 +414,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :ui-style
+        run: clojure -M:test :ui-style
 
   test-storage:
     name: Test boundary/storage
@@ -426,7 +427,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -440,7 +441,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :storage
+        run: clojure -M:test :storage
 
   test-cache:
     name: Test boundary/cache
@@ -453,7 +454,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -467,7 +468,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :cache
+        run: clojure -M:test :cache
 
   test-jobs:
     name: Test boundary/jobs
@@ -480,7 +481,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -494,7 +495,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :jobs
+        run: clojure -M:test :jobs
 
   test-tenant:
     name: Test boundary/tenant
@@ -507,7 +508,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -521,7 +522,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :tenant
+        run: clojure -M:test :tenant
 
   test-email:
     name: Test boundary/email
@@ -534,7 +535,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -548,7 +549,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :email
+        run: clojure -M:test :email
 
   test-realtime:
     name: Test boundary/realtime
@@ -561,7 +562,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -575,7 +576,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :realtime
+        run: clojure -M:test :realtime
 
   test-workflow:
     name: Test boundary/workflow
@@ -588,7 +589,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -602,7 +603,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :workflow
+        run: clojure -M:test :workflow
 
   test-search:
     name: Test boundary/search
@@ -615,7 +616,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -629,7 +630,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :search
+        run: clojure -M:test :search
 
   test-scaffolder:
     name: Test boundary/scaffolder
@@ -642,7 +643,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -656,7 +657,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :scaffolder
+        run: clojure -M:test :scaffolder
 
   test-reports:
     name: Test boundary/reports
@@ -669,7 +670,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -683,7 +684,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :reports
+        run: clojure -M:test :reports
 
   test-calendar:
     name: Test boundary/calendar
@@ -696,7 +697,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -710,7 +711,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :calendar
+        run: clojure -M:test :calendar
 
   test-geo:
     name: Test boundary/geo
@@ -723,7 +724,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -737,7 +738,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :geo
+        run: clojure -M:test :geo
 
   test-ai:
     name: Test boundary/ai
@@ -750,7 +751,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -764,7 +765,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :ai
+        run: clojure -M:test :ai
 
   # =============================================================================
   # Test external adapters
@@ -780,7 +781,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -794,7 +795,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :external
+        run: clojure -M:test :external
 
   # =============================================================================
   # Test payments library
@@ -810,7 +811,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -824,7 +825,37 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :payments
+        run: clojure -M:test :payments
+
+  # =============================================================================
+  # Test push notifications library
+  # =============================================================================
+  test-push:
+    name: Test boundary/push
+    runs-on: ubuntu-latest
+    needs: [lint, test-jobs]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.5.2
+        with:
+          cli: 1.12.5.1638
+
+      - name: Cache dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test:db/h2 :push
 
   # =============================================================================
   # i18n scan gate — fails if any UI file still has unexternalised string literals
@@ -868,7 +899,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
 
       - name: Cache dependencies
         uses: actions/cache@v5
@@ -882,7 +913,7 @@ jobs:
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
-        run: clojure -M:test:db/h2 :i18n
+        run: clojure -M:test :i18n
 
   # =============================================================================
   # End-to-end Clojure/spel tests
@@ -905,7 +936,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.5.2
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1638
           bb: latest
 
       - name: Cache Maven deps
@@ -952,7 +983,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-calendar, test-reports, test-geo, test-ai]
+    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai]
 
     steps:
       - name: Summary
@@ -976,6 +1007,7 @@ jobs:
           echo "  - boundary/scaffolder"
           echo "  - boundary/external"
           echo "  - boundary/payments"
+          echo "  - boundary/push"
           echo "  - boundary/calendar"
           echo "  - boundary/reports"
           echo "  - boundary/geo"

@@ -71,6 +71,33 @@
     ((:on-open listener) socket)
     (is (= 1 (ports/connection-count registry)))))
 
+(deftest websocket-handler-on-open-callback-receives-connection-id
+  (testing ":on-open opt is invoked with the established connection-id"
+    (let [{:keys [service registry]} (create-test-service)
+          seen    (atom nil)
+          handler (ws-handler/websocket-handler
+                   service :on-open (fn [cid] (reset! seen cid)))
+          response (handler {:query-params {"token" "valid-token"}})
+          listener (:ring.websocket/listener response)
+          {:keys [socket]} (mock-ring-socket)]
+      ((:on-open listener) socket)
+      (is (some? @seen) "callback received a connection-id")
+      (is (some? (ports/find-connection registry @seen))
+          "connection-id resolves to the registered connection"))))
+
+(deftest websocket-handler-on-open-callback-errors-are-swallowed
+  (testing "a throwing :on-open callback does not abort the connection"
+    (let [{:keys [service registry]} (create-test-service)
+          handler (ws-handler/websocket-handler
+                   service :on-open (fn [_] (throw (ex-info "boom" {}))))
+          response (handler {:query-params {"token" "valid-token"}})
+          listener (:ring.websocket/listener response)
+          {:keys [socket open?]} (mock-ring-socket)]
+      ((:on-open listener) socket)
+      (is (true? @open?) "socket stays open despite callback failure")
+      (is (= 1 (ports/connection-count registry))
+          "connection remains registered"))))
+
 (deftest websocket-handler-on-close-unregisters-connection
   (let [{:keys [service registry]} (create-test-service)
         handler (ws-handler/websocket-handler service)

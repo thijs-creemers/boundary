@@ -2,7 +2,18 @@
   "MySQL connection management utilities."
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [clojure.tools.logging.impl :as log-impl]
             [next.jdbc :as jdbc]))
+
+(defn- log-debug [msg]
+  (let [logger (log-impl/get-logger log/*logger-factory* *ns*)]
+    (when (log-impl/enabled? logger :debug)
+      (log/log* logger :debug nil msg))))
+
+(defn- log-warn [msg data]
+  (let [logger (log-impl/get-logger log/*logger-factory* *ns*)]
+    (when (log-impl/enabled? logger :warn)
+      (log/log* logger :warn nil (print-str msg data)))))
 
 ;; =============================================================================
 ;; Connection Configuration
@@ -26,7 +37,7 @@
    Returns:
      nil - side effects only"
   [datasource db-config]
-  (log/debug "Initializing MySQL connection settings")
+  (log-debug "Initializing MySQL connection settings")
   (try
     ;; Set SQL mode for strict behavior (configurable, parameterized for safety)
     (let [sql-mode (get db-config :sql-mode default-sql-mode)]
@@ -39,9 +50,9 @@
     ;; Set character set to UTF8 for proper Unicode handling
     (jdbc/execute! datasource ["SET NAMES utf8mb4"])
 
-    (log/debug "MySQL connection initialized successfully")
+    (log-debug "MySQL connection initialized successfully")
     (catch Exception e
-      (log/warn "Failed to initialize some MySQL settings" {:error (.getMessage e)}))))
+      (log-warn "Failed to initialize some MySQL settings" {:error (.getMessage e)}))))
 
 (defn build-jdbc-url
   "Build MySQL JDBC URL from configuration.

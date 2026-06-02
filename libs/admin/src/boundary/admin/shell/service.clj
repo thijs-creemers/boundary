@@ -16,7 +16,8 @@
    [boundary.platform.shell.adapters.database.common.execution :as db]
    [boundary.platform.shell.persistence-interceptors :as persist-interceptors]
    [boundary.core.utils.type-conversion :as type-conversion]
-   [boundary.core.utils.case-conversion :as case-conversion])
+   [boundary.core.utils.case-conversion :as case-conversion]
+   [clojure.string :as str])
   (:import [java.util UUID]
            [java.time Instant]))
 
@@ -201,12 +202,68 @@
 
 (defn- resolve-query-config
   "Extract query configuration from entity-config, applying :query-overrides if present.
-   Entities without :query-overrides behave exactly as before."
+   Entities without :query-overrides behave exactly as before.
+
+   For split-table entities: ensures the select clause covers ALL known fields,
+   not just those explicitly listed.  When :split-table-update is configured and
+   a :join is present, any field in :fields that is missing from the explicit
+   :select is appended using the appropriate table alias so the admin UI always
+   sees every editable column."
   [entity-config]
-  (let [overrides (:query-overrides entity-config {})
-        table-name (:table-name entity-config)]
+  (let [overrides   (:query-overrides entity-config {})
+        table-name  (:table-name entity-config)
+        split-cfg   (:split-table-update entity-config)
+        raw-select  (:select overrides)
+        ;; For split-table entities, ensure all fields are selected
+        select-clause (if (and split-cfg raw-select (:join overrides))
+                        (let [secondary-fields (:secondary-fields split-cfg #{})
+                              field-aliases    (:field-aliases overrides {})
+                              ;; Collect field names already covered by explicit select OR field-aliases.
+                              ;; Strip table alias prefix and convert snake_case → kebab-case to match
+                              ;; internal field keys (e.g. :a.password_hash → :password-hash).
+                              already-selected (into #{}
+                                                     (map (fn [col]
+                                                            (let [s (name col)
+                                                                  bare (last (str/split s #"\."))]
+                                                              (keyword (case-conversion/snake-case->kebab-case-string bare)))))
+                                                     (concat raw-select (keys field-aliases)))
+                              ;; Fields in entity config that are NOT yet in select
+                              all-fields      (keys (:fields entity-config))
+                              missing         (remove already-selected all-fields)
+                              ;; Derive table aliases and determine which alias maps to the
+                              ;; split-table's :secondary-table.
+                              ;; Expected shape: :from [[:table :alias] ...], :join [[:table :alias] ...]
+                              from-entry      (first (:from overrides))
+                              join-entry      (first (:join overrides))
+                              from-alias      (when (vector? from-entry) (second from-entry))
+                              join-alias      (when (vector? join-entry) (second join-entry))
+                              ;; Match :secondary-table to :from or :join to determine alias mapping
+                              secondary-table (:secondary-table split-cfg)
+                              from-table      (when (vector? from-entry) (first from-entry))
+                              join-table      (when (vector? join-entry) (first join-entry))
+                              secondary-alias (cond
+                                                (= secondary-table from-table) from-alias
+                                                (= secondary-table join-table) join-alias
+                                                :else from-alias)
+                              primary-alias   (if (= secondary-alias from-alias)
+                                                join-alias
+                                                from-alias)
+                              ;; Build qualified column references for missing fields.
+                              ;; :secondary-fields get the alias of :secondary-table,
+                              ;; all other fields get the other table's alias.
+                              extra           (mapv (fn [field]
+                                                      (let [col-name (case-conversion/kebab-case->snake-case-string (name field))
+                                                            alias (if (contains? secondary-fields field)
+                                                                    secondary-alias
+                                                                    primary-alias)]
+                                                        (if alias
+                                                          (keyword (str (name alias) "." col-name))
+                                                          (keyword col-name))))
+                                                    missing)]
+                          (into (vec raw-select) extra))
+                        (or raw-select [:*]))]
     {:from-clause       (or (:from overrides) [table-name])
-     :select-clause     (or (:select overrides) [:*])
+     :select-clause     select-clause
      :join-clause       (:join overrides)
      :field-aliases     (:field-aliases overrides {})
      :soft-delete-table (or (:soft-delete-table overrides) table-name)}))
@@ -542,23 +599,42 @@
              soft-delete? (:soft-delete entity-config false)
              ;; Convert UUID to string for PostgreSQL compatibility
              id-str (type-conversion/uuid->string id)
-             {:keys [soft-delete-table]} (resolve-query-config entity-config)]
+             {:keys [soft-delete-table]} (resolve-query-config entity-config)
+             split-cfg (:split-table-update entity-config)]
 
          (if soft-delete?
-             ; Soft delete: Set deleted-at timestamp and optionally active=false
+           ;; Soft delete: Set deleted-at timestamp and optionally active=false
            (let [now-str (type-conversion/instant->string (Instant/now))
-                  ;; Check if entity has an 'active' field to set on soft-delete
                  has-active-field? (contains? (:fields entity-config) :active)
-                 soft-delete-data-kebab (cond-> {:deleted-at now-str}
-                                          has-active-field? (assoc :active false))
-                  ;; Convert to snake_case for database
-                 soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
-                 query {:update soft-delete-table
-                        :set soft-delete-data
-                        :where [:= primary-key id-str]}]
-             (pos? (db/execute-update! db-ctx query)))
+                 secondary-fields (when split-cfg (:secondary-fields split-cfg #{}))]
 
-            ; Hard delete: Permanent removal
+             (if (and split-cfg secondary-fields (contains? secondary-fields :active) has-active-field?)
+               ;; Split-table: active lives on secondary table, deleted_at may be on both
+               (db/with-transaction* db-ctx
+                 (fn [tx]
+                   (let [secondary-table (:secondary-table split-cfg)
+                         ;; Secondary table gets active=false + deleted_at
+                         secondary-data (case-conversion/kebab-case->snake-case-map
+                                         {:deleted-at now-str :active false})
+                         ;; Primary table gets deleted_at only
+                         primary-data (case-conversion/kebab-case->snake-case-map
+                                       {:deleted-at now-str})]
+                     (db/execute-update! tx {:update secondary-table
+                                             :set    secondary-data
+                                             :where  [:= primary-key id-str]})
+                     (pos? (db/execute-update! tx {:update table-name
+                                                   :set    primary-data
+                                                   :where  [:= primary-key id-str]})))))
+               ;; Non-split: update single table
+               (let [soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                              has-active-field? (assoc :active false))
+                     soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
+                     query {:update soft-delete-table
+                            :set soft-delete-data
+                            :where [:= primary-key id-str]}]
+                 (pos? (db/execute-update! db-ctx query)))))
+
+           ;; Hard delete: Permanent removal
            (let [query {:delete-from table-name
                         :where [:= primary-key id-str]}]
              (pos? (db/execute-update! db-ctx query))))))
@@ -594,8 +670,10 @@
           errors (reduce-kv
                   (fn [errs field-name field-config]
                     ; Skip validation for readonly fields (auto-generated by database)
+                    ; Boolean fields default to false when absent (unchecked checkbox)
                     (if (and (:required field-config)
                              (not (contains? readonly-fields field-name))
+                             (not= (:type field-config) :boolean)
                              (nil? (get data field-name)))
                       (assoc errs field-name ["Field is required"])
                       errs))
@@ -615,26 +693,42 @@
              primary-key (:primary-key entity-config :id)
              soft-delete? (:soft-delete entity-config false)
              {:keys [soft-delete-table]} (resolve-query-config entity-config)
+             split-cfg (:split-table-update entity-config)
 
              ;; Convert UUIDs to strings at database boundary
              id-strings (mapv type-conversion/uuid->string ids)
              now-str (type-conversion/instant->string (Instant/now))
 
-             ;; Check if entity has an 'active' field to set on soft-delete
              has-active-field? (contains? (:fields entity-config) :active)
-             soft-delete-data-kebab (cond-> {:deleted-at now-str}
-                                      has-active-field? (assoc :active false))
-             ;; Convert to snake_case for database
-             soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)
+             secondary-fields (when split-cfg (:secondary-fields split-cfg #{}))
 
-             query (if soft-delete?
-                     {:update soft-delete-table
-                      :set soft-delete-data
-                      :where [:in primary-key id-strings]}
-                     {:delete-from table-name
-                      :where [:in primary-key id-strings]})
-
-             affected-count (db/execute-update! db-ctx query)]
+             affected-count
+             (if (and soft-delete? split-cfg secondary-fields
+                      (contains? secondary-fields :active) has-active-field?)
+               ;; Split-table bulk soft-delete: update both tables
+               (db/with-transaction* db-ctx
+                 (fn [tx]
+                   (let [secondary-table (:secondary-table split-cfg)
+                         secondary-data (case-conversion/kebab-case->snake-case-map
+                                         {:deleted-at now-str :active false})
+                         primary-data (case-conversion/kebab-case->snake-case-map
+                                       {:deleted-at now-str})]
+                     (db/execute-update! tx {:update secondary-table
+                                             :set    secondary-data
+                                             :where  [:in primary-key id-strings]})
+                     (db/execute-update! tx {:update table-name
+                                             :set    primary-data
+                                             :where  [:in primary-key id-strings]}))))
+               ;; Non-split path
+               (if soft-delete?
+                 (let [soft-delete-data-kebab (cond-> {:deleted-at now-str}
+                                                has-active-field? (assoc :active false))
+                       soft-delete-data (case-conversion/kebab-case->snake-case-map soft-delete-data-kebab)]
+                   (db/execute-update! db-ctx {:update soft-delete-table
+                                               :set soft-delete-data
+                                               :where [:in primary-key id-strings]}))
+                 (db/execute-update! db-ctx {:delete-from table-name
+                                             :where [:in primary-key id-strings]})))]
 
          {:success-count affected-count
           :failed-count (- (count ids) affected-count)

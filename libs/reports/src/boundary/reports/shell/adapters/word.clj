@@ -14,12 +14,48 @@
   (:require [boundary.reports.core.report :as core]
             [boundary.reports.ports :as ports]
             [clojure.tools.logging :as log])
-  (:import [java.io ByteArrayOutputStream]
+  (:import [java.io ByteArrayInputStream ByteArrayOutputStream]
+           [java.util.zip ZipEntry ZipInputStream ZipOutputStream]
            [org.apache.poi.xwpf.usermodel XWPFDocument]))
 
 ;; =============================================================================
 ;; Internal helpers
 ;; =============================================================================
+
+(defn- normalize-zip-timestamps
+  "Rewrite a ZIP archive with all entry timestamps zeroed.
+   DOCX is a ZIP container; POI sets each entry's last-modified time to the
+   current clock, causing byte-level non-determinism. Zeroing them makes
+   output reproducible for identical input."
+  [^bytes zip-bytes]
+  (let [baos (ByteArrayOutputStream.)]
+    (with-open [zis (ZipInputStream. (ByteArrayInputStream. zip-bytes))
+                zos (ZipOutputStream. baos)]
+      (loop []
+        (when-let [in-entry (.getNextEntry zis)]
+          (let [out-entry (doto (ZipEntry. (.getName in-entry))
+                            (.setTime 0)
+                            (.setComment (.getComment in-entry))
+                            (.setExtra (.getExtra in-entry)))
+                buf       (byte-array 8192)]
+            (.putNextEntry zos out-entry)
+            (loop []
+              (let [n (.read zis buf)]
+                (when (pos? n)
+                  (.write zos buf 0 n)
+                  (recur))))
+            (.closeEntry zos)
+            (.closeEntry zis))
+          (recur))))
+    (.toByteArray baos)))
+
+(defn- pin-core-properties!
+  "Remove dynamic timestamps from core properties so DOCX output is
+   deterministic for identical input. POI embeds dcterms:created using the
+   current clock; pinning it to the Unix epoch eliminates that variability."
+  [^XWPFDocument doc]
+  (-> doc .getPackage .getPackageProperties
+      (.setCreatedProperty "1970-01-01T00:00:00Z")))
 
 (defn- add-heading! [^XWPFDocument doc text]
   (let [p (.createParagraph doc)
@@ -80,12 +116,13 @@
     (log/debug "Generating Word report" {:id (:id report-def)})
     (let [formatting-context {:zone-id (or (:zone-id opts) (java.time.ZoneId/systemDefault))}
           doc      (XWPFDocument.)
+          _        (pin-core-properties! doc)
           sections (or (:sections report-def) [])]
       (doseq [section sections]
         (render-section! doc section data formatting-context))
       (let [baos   (ByteArrayOutputStream.)
             _      (.write doc baos)
-            result {:bytes    (.toByteArray baos)
+            result {:bytes    (normalize-zip-timestamps (.toByteArray baos))
                     :type     :word
                     :filename (or (:filename report-def)
                                   (str (name (:id report-def)) ".docx"))}]

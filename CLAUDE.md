@@ -58,7 +58,7 @@ bb setup ai "PostgreSQL with Stripe payments"                     # AI-powered c
 bb setup --database postgresql --payment stripe                   # Non-interactive config setup
 bb scaffold integrate product      # Wire scaffolded module into deps/tests/wiring
 bb scaffold integrate product --dry-run                           # Preview integration changes
-bb deploy --all                    # Deploy all 22 libraries to Clojars
+bb deploy --all                    # Deploy all 24 libraries to Clojars
 bb deploy --missing                # Deploy only libraries not yet on Clojars
 bb deploy core platform user       # Deploy specific libraries
 bb create-admin      # Create first admin user for a new project (interactive wizard)
@@ -92,7 +92,7 @@ Use `clj-nrepl-eval --discover-ports` to find running REPLs. Use
 
 ## Architecture: Functional Core / Imperative Shell
 
-This is a Clojure monorepo with 22 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
+This is a Clojure monorepo with 24 independently publishable libraries under `libs/`. Each library follows the FC/IS pattern:
 
 ```
 libs/{library}/src/boundary/{library}/
@@ -107,7 +107,7 @@ libs/{library}/src/boundary/{library}/
 - Core → Ports (allowed)
 - Core → Shell (NEVER - this violates FC/IS)
 
-**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style, i18n, devtools (dev-only)
+**Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style, i18n, push, audience, devtools (dev-only)
 
 The main application source in `src/boundary/` follows the same core/shell structure. Example applications live at https://github.com/tcbv/boundary-examples
 
@@ -163,6 +163,8 @@ Each library has its own `AGENTS.md` with library-specific documentation:
 - `libs/ai/AGENTS.md` - Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard
 - `libs/ui-style/AGENTS.md` - Shared UI style bundles (`:base`, `:pilot`, `:admin-pilot`), design tokens, CSS/JS assets
 - `libs/i18n/AGENTS.md` - Marker-based i18n, translation catalogues, locale chains, scanning tools
+- `libs/push/AGENTS.md` - FCM + APNs push notifications, defpush macro, device management
+- `libs/audience/AGENTS.md` - Rule-based audience segmentation, defaudience macro, SQL+predicate pipeline
 
 ## Custom Test Reporter
 

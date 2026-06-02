@@ -1,7 +1,13 @@
 (ns boundary.platform.shell.adapters.database.sqlite.connection
   "SQLite connection management utilities."
   (:require [clojure.tools.logging :as log]
+            [clojure.tools.logging.impl :as log-impl]
             [next.jdbc :as jdbc]))
+
+(defn- log-msg [level msg]
+  (let [logger (log-impl/get-logger log/*logger-factory* *ns*)]
+    (when (log-impl/enabled? logger level)
+      (log/log* logger level nil (if (string? msg) msg (print-str msg))))))
 
 ;; =============================================================================
 ;; Configuration Constants
@@ -70,21 +76,21 @@
    (let [all-pragmas   (concat default-sqlite-pragmas custom-pragmas)
          success-count (atom 0)
          failure-count (atom 0)]
-     (log/debug "Initializing SQLite PRAGMA settings" {:pragmas-count (count all-pragmas)})
+     (log-msg :debug (print-str "Initializing SQLite PRAGMA settings" {:pragmas-count (count all-pragmas)}))
      (doseq [pragma all-pragmas]
        (try
          (jdbc/execute! datasource [pragma])
-         (log/debug "Applied PRAGMA successfully" {:pragma pragma})
+         (log-msg :debug (print-str "Applied PRAGMA successfully" {:pragma pragma}))
          (swap! success-count inc)
          (catch Exception e
-           (log/warn "Failed to apply PRAGMA, continuing"
-                     {:pragma pragma
-                      :error  (.getMessage e)})
+           (log-msg :warn (print-str "Failed to apply PRAGMA, continuing"
+                                     {:pragma pragma
+                                      :error  (.getMessage e)}))
            (swap! failure-count inc))))
-     (log/info "SQLite PRAGMA initialization completed"
-               {:successful-pragmas @success-count
-                :failed-pragmas     @failure-count
-                :total-pragmas      (count all-pragmas)}))))
+     (log-msg :info (print-str "SQLite PRAGMA initialization completed"
+                               {:successful-pragmas @success-count
+                                :failed-pragmas     @failure-count
+                                :total-pragmas      (count all-pragmas)})))))
 
 (defn build-jdbc-url
   "Build SQLite JDBC URL from configuration.

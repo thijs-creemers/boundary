@@ -71,6 +71,26 @@
                                    entity-name)
           table-metadata (ports/fetch-table-metadata this effective-table-name)
           auto-config (introspection/parse-table-metadata entity-name table-metadata)
+
+          ;; When :split-table-update is configured, also introspect the secondary table
+          ;; so that its fields appear in the entity config (editable in forms, etc.)
+          split-cfg (get-in config [:entities entity-name :split-table-update])
+          auto-config (if split-cfg
+                        (let [secondary-table (:secondary-table split-cfg)
+                              secondary-fields (:secondary-fields split-cfg)
+                              secondary-meta (ports/fetch-table-metadata this secondary-table)
+                              secondary-parsed (introspection/parse-table-metadata entity-name secondary-meta)
+                              ;; Only merge fields that are declared as secondary-fields
+                              secondary-field-configs (select-keys (:fields secondary-parsed) secondary-fields)
+                              ;; Determine which secondary fields are editable (not readonly)
+                              readonly-set (set (:readonly-fields auto-config))
+                              new-editable (vec (remove readonly-set (keys secondary-field-configs)))]
+                          (-> auto-config
+                              (update :fields merge secondary-field-configs)
+                              (update :editable-fields into new-editable)
+                              (update :detail-fields into new-editable)))
+                        auto-config)
+
           ;; Enrich auto-detected fields with enum type/widget/options from Malli schema
           malli-schema (get malli-schemas entity-name)
           enum-overrides (introspection/extract-enum-fields-from-malli-schema malli-schema)

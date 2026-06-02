@@ -1,0 +1,86 @@
+= audience
+:description: Declarative, rule-based audience segmentation with hybrid SQL + predicate evaluation.
+
+Declarative, rule-based audience segmentation. Segments are defined in
+code with the `defaudience` macro or persisted dynamically in the
+database, then evaluated against your user base through a hybrid SQL +
+predicate pipeline.
+
+== Key namespaces
+
+[cols="1,3",options="header"]
+|===
+| Namespace | Purpose
+
+| `boundary.audience.core.segment`
+| Pure: segment records, `defaudience` macro, composition
+
+| `boundary.audience.core.filters`
+| Pure: built-in filter types and the `filter->sql` / `filter->predicate` multimethods
+
+| `boundary.audience.core.evaluation`
+| Pure: hybrid SQL + predicate evaluation pipeline
+
+| `boundary.audience.ports`
+| Protocols: `IAudienceResolver`, `IAudienceRepository`, `IAudienceCache`
+
+| `boundary.audience.shell.service`
+| Service orchestrating resolution, caching, and persistence
+
+| `boundary.audience.shell.handlers`
+| REST + web endpoints (CRUD, preview, evaluate, members)
+|===
+
+== Built-in filter types
+
+[cols="1,3",options="header"]
+|===
+| Filter | Matches on
+
+| `:demographics` | Age, gender, and other profile attributes
+| `:location` | Country, region, city
+| `:role` | Assigned user roles
+| `:account-tenure` | Time since account creation
+| `:last-active` | Recency of last activity
+| `:behavior` | Recorded user events / actions
+| `:feature-usage` | Use of specific product features
+|===
+
+Each filter is resolved through the `filter->sql` and
+`filter->predicate` multimethods. SQL-eligible filters are pushed to the
+database; the rest run as Clojure predicates over the candidate set.
+Define new methods on both multimethods to add custom filter types.
+
+== Composition
+
+Segments compose with AND / OR / NOT. Circular references between
+composed segments are detected and rejected at definition time.
+
+== Dynamic segments
+
+Segments can also be stored in the database as JSON and loaded at
+runtime. Incoming JSON is schema-validated, and fn-typed values are
+rejected so persisted definitions stay data-only.
+
+== Caching
+
+Membership results are cached in an `audience_memberships` table with a
+configurable per-segment TTL, served through the `IAudienceCache`
+component.
+
+== Builder UI
+
+A segment builder is served over HTMX, with Replicant widget mount
+points for the filter panel and the composition builder.
+
+== Endpoints
+
+[cols="1,3",options="header"]
+|===
+| Endpoint group | Purpose
+
+| CRUD | Create, read, update, delete segments
+| Preview | Count + sample of matching members
+| Evaluate | Run evaluation and cache the result
+| Members | List cached members of a segment
+|===
