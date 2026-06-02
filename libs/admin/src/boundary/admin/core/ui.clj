@@ -824,11 +824,13 @@
 
 (def ^:private long-name-pattern
   ;; String fields whose names suggest long-form content deserve extra width.
-  #"(?i)(description|omschrijving|notes?|opmerking|address|adres|comment|bio|summary|samenvatting|content|inhoud|body|message|bericht|excerpt)")
+  ;; \b word-boundaries keep this from matching substrings (e.g. "name" inside
+  ;; "username"); kebab-cased names still match because '-' is a boundary.
+  #"(?i)\b(description|omschrijving|notes?|opmerking|address|adres|comment|bio|summary|samenvatting|content|inhoud|body|message|bericht|excerpt)\b")
 
 (def ^:private medium-name-pattern
   ;; String fields that are typically a sentence-ish label.
-  #"(?i)(name|naam|title|titel|label|subject|onderwerp|email|e-?mail|url|slug|path|pad)")
+  #"(?i)\b(name|naam|title|titel|label|subject|onderwerp|e-?mail|url|slug|path|pad)\b")
 
 (defn list-column-weight
   "Relative width weight for a list column, used to distribute table width
@@ -845,7 +847,7 @@
       (let [field-name (name field)]
         (case (:type field-config)
           :boolean 1
-          (:enum) 2
+          :enum 2
           (:int :decimal :uuid :json :binary) 2
           (:date :instant) 3
           :text 6
@@ -854,6 +856,15 @@
             (re-find long-name-pattern field-name) 6
             (re-find medium-name-pattern field-name) 4
             :else 3)))))
+
+(defn- format-pct
+  "Render a percentage with at most two decimals, dropping a trailing `.0`
+   so whole numbers read as e.g. \"25%\" rather than \"25.0%\"."
+  [n]
+  (let [rounded (/ (Math/round (* (double n) 100.0)) 100.0)]
+    (if (== rounded (Math/rint rounded))
+      (str (long rounded))
+      (str rounded))))
 
 (defn list-column-styles
   "Given the ordered list-fields and the entity config, return a seq of
@@ -869,11 +880,16 @@
   (let [weights (mapv (fn [field]
                         (list-column-weight field (get-in entity-config [:fields field])))
                       list-fields)
-        total (reduce + 0 weights)]
-    (for [w weights]
-      (let [pct (/ (* 100.0 w) (max total 1))]
-        ;; Round to 0.01% to keep markup tidy and deterministic.
-        [:col {:style (str "width:" (/ (Math/round (* pct 100.0)) 100.0) "%")}]))))
+        total   (max (reduce + 0 weights) 1)
+        rounded (mapv (fn [w] (/ (Math/round (/ (* 10000.0 w) total)) 100.0)) weights)
+        ;; The last column absorbs the rounding remainder so the widths sum to
+        ;; exactly 100% instead of drifting to 99.99% / 100.01%.
+        pcts    (if (seq rounded)
+                  (let [head (pop rounded)]
+                    (conj head (- 100.0 (reduce + 0.0 head))))
+                  rounded)]
+    (for [p pcts]
+      [:col {:style (str "width:" (format-pct p) "%")}])))
 
 (defn entity-table
   "Generate entity table with sorting and pagination.
@@ -941,7 +957,8 @@
               [:input {:type "hidden" :name k :value v}])
 
             [:table.data-table {:class "data-table table"}
-              ;; Explicit column widths for table-layout: fixed
+              ;; Column sizing for table-layout: fixed — framing columns via CSS
+              ;; classes, data columns via proportional inline widths.
              [:colgroup
               [:col {:class "col-select"}]  ; Checkbox
               ;; Proportional widths derived from field type + name heuristic
