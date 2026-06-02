@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`boundary-cache`**: The Redis adapter now serializes values with Nippy instead of JSON, fixing `class java.lang.String cannot be cast to class java.time.temporal.Temporal` for cached `java.time` values (BOU-47). JSON is lossy — `Temporal` values became ISO-8601 strings, keywords became strings, and sets became vectors — and the loss surfaced only against Redis since the in-memory adapter stores values by reference. Nippy round-trips keywords, sets, ratios and `java.time`/Temporal values intact, matching the in-memory adapter.
+- **`boundary-cache`**: The Redis adapter treats unreadable entries (values written by the previous JSON format, or otherwise non-Nippy bytes) as a cache miss instead of throwing, so the cache self-heals on rollout. Note: the on-the-wire format changes from JSON to Nippy; flushing the cache namespace on deploy is still recommended to avoid log noise from stale reads (BOU-47).
+
 ## [1.0.1-alpha-22] - 2026-05-05
 
 ### Fixed
