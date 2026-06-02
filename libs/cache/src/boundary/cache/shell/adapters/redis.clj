@@ -16,14 +16,15 @@
    - Microservices architecture
 
    Redis Data Structures Used:
-   - Strings: For cache values (JSON serialized)
+   - Strings: For cache values (Nippy serialized, stored as binary)
    - TTL: Built-in Redis expiration
    - Atomic ops: INCR, DECR, SETNX, etc."
   (:require [boundary.cache.ports :as ports]
-            [cheshire.core :as json]
             [clojure.string :as str]
-            [clojure.tools.logging :as log])
-  (:import [redis.clients.jedis Jedis JedisPool JedisPoolConfig]
+            [clojure.tools.logging :as log]
+            [taoensso.nippy :as nippy])
+  (:import [java.nio.charset StandardCharsets]
+           [redis.clients.jedis Jedis JedisPool JedisPoolConfig]
            [redis.clients.jedis.params SetParams ScanParams]))
 
 ;; =============================================================================
@@ -53,16 +54,29 @@
         key))
     key))
 
+(defn- key-bytes
+  "Encode a namespaced key string to UTF-8 bytes.
+
+   Matches how Jedis encodes String keys, so keys written via the binary
+   value commands remain reachable by the String key-only commands (DEL,
+   EXISTS, TTL, EXPIRE, SCAN, INCR, ...)."
+  ^bytes [^String s]
+  (.getBytes s StandardCharsets/UTF_8))
+
 (defn- serialize-value
-  "Serialize value to JSON string."
-  [value]
-  (json/generate-string value))
+  "Serialize a value to a Nippy-encoded byte array.
+
+   Unlike JSON, Nippy preserves Clojure types (keywords, sets, ratios) and
+   java.time/Temporal values, so cached values round-trip with full fidelity
+   matching the in-memory adapter."
+  ^bytes [value]
+  (nippy/freeze value))
 
 (defn- deserialize-value
-  "Deserialize value from JSON string."
-  [json-str]
-  (when json-str
-    (json/parse-string json-str true)))
+  "Deserialize a value from a Nippy-encoded byte array."
+  [^bytes ba]
+  (when ba
+    (nippy/thaw ba)))
 
 ;; =============================================================================
 ;; Cache Operations
@@ -75,9 +89,9 @@
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)
-              json-str (.get redis namespaced-key)]
-          (when json-str
-            (deserialize-value json-str))))))
+              ba (.get redis (key-bytes namespaced-key))]
+          (when ba
+            (deserialize-value ba))))))
 
   (set-value! [this key value]
     (ports/set-value! this key value (:default-ttl config)))
@@ -85,11 +99,11 @@
   (set-value! [_ key value ttl-seconds]
     (with-redis pool
       (fn [^Jedis redis]
-        (let [namespaced-key (add-namespace namespace key)
+        (let [kb (key-bytes (add-namespace namespace key))
               serialized (serialize-value value)]
           (if ttl-seconds
-            (.setex redis namespaced-key (long ttl-seconds) serialized)
-            (.set redis namespaced-key serialized))
+            (.setex redis kb (long ttl-seconds) serialized)
+            (.set redis kb serialized))
           true))))
 
   (delete-key! [_ key]
@@ -130,7 +144,9 @@
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-keys (mapv #(add-namespace namespace %) keys)
-              values (.mget redis (into-array String namespaced-keys))]
+              key-byte-arrays (into-array (Class/forName "[B")
+                                          (map key-bytes namespaced-keys))
+              values (.mget redis key-byte-arrays)]
           (into {}
                 (keep-indexed
                  (fn [idx value]
@@ -147,11 +163,11 @@
         ;; Use pipeline for efficiency
         (let [pipeline (.pipelined redis)]
           (doseq [[k v] key-value-map]
-            (let [namespaced-key (add-namespace namespace k)
+            (let [kb (key-bytes (add-namespace namespace k))
                   serialized (serialize-value v)]
               (if ttl-seconds
-                (.setex pipeline namespaced-key (long ttl-seconds) serialized)
-                (.set pipeline namespaced-key serialized))))
+                (.setex pipeline kb (long ttl-seconds) serialized)
+                (.set pipeline kb serialized))))
           (.sync pipeline)
           (count key-value-map)))))
 
@@ -192,27 +208,27 @@
   (set-if-absent! [_ key value ttl-seconds]
     (with-redis pool
       (fn [^Jedis redis]
-        (let [namespaced-key (add-namespace namespace key)
+        (let [kb (key-bytes (add-namespace namespace key))
               serialized (serialize-value value)
               params (SetParams/setParams)]
           (.nx params)
           (when ttl-seconds
             (.ex params (long ttl-seconds)))
-          (let [result (.set redis namespaced-key serialized params)]
+          (let [result (.set redis kb serialized params)]
             (= result "OK"))))))
 
   (compare-and-swap! [_ key expected-value new-value]
     (with-redis pool
       (fn [^Jedis redis]
-        (let [namespaced-key (add-namespace namespace key)]
+        (let [kb (key-bytes (add-namespace namespace key))]
           ;; Watch key for changes
-          (.watch redis (into-array String [namespaced-key]))
-          (let [current-json (.get redis namespaced-key)
-                current-value (when current-json (deserialize-value current-json))]
+          (.watch redis (into-array (Class/forName "[B") [kb]))
+          (let [current-ba (.get redis kb)
+                current-value (when current-ba (deserialize-value current-ba))]
             (if (= current-value expected-value)
               (let [transaction (.multi redis)
-                    new-json (serialize-value new-value)]
-                (.set transaction namespaced-key new-json)
+                    new-ba (serialize-value new-value)]
+                (.set transaction kb new-ba)
                 (let [result (.exec transaction)]
                   (some? result)))
               (do

@@ -91,6 +91,30 @@
    (testing "exists? returns false for missing key"
      (is (false? (ports/exists? *cache* "absent-xyz"))))))
 
+(deftest ^:integration redis-type-fidelity-test
+  ;; Regression for BOU-47: JSON serialization lost java.time and Clojure
+  ;; value types (Temporal -> String, keyword -> String, set -> vector),
+  ;; which surfaced only against Redis. Nippy must round-trip them intact,
+  ;; matching the in-memory adapter.
+  (when-redis
+   (testing "java.time/Temporal values round-trip as Temporal, not String"
+     (let [instant (java.time.Instant/parse "2026-06-02T10:00:00Z")
+           local-date (java.time.LocalDate/parse "2026-06-02")
+           ldt (java.time.LocalDateTime/parse "2026-06-02T10:00:00")
+           value {:created-at instant :on local-date :at ldt}]
+       (ports/set-value! *cache* "temporal" value)
+       (let [got (ports/get-value *cache* "temporal")]
+         (is (= value got))
+         (is (instance? java.time.temporal.Temporal (:created-at got)))
+         (is (instance? java.time.Instant (:created-at got))))))
+
+   (testing "keyword values and sets keep their Clojure types"
+     (ports/set-value! *cache* "clj-types" {:role :admin :tags #{:a :b}})
+     (let [got (ports/get-value *cache* "clj-types")]
+       (is (= {:role :admin :tags #{:a :b}} got))
+       (is (keyword? (:role got)))
+       (is (set? (:tags got)))))))
+
 ;; =============================================================================
 ;; TTL operations
 ;; =============================================================================
