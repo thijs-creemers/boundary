@@ -118,6 +118,9 @@
    [:sortable {:optional true
                :description "Whether field can be used for sorting"}
     :boolean]
+   [:width {:optional true
+            :description "Relative column-width weight for list view (overrides type-based default; higher = wider)"}
+    [:int {:min 1}]]
    [:filterable {:optional true
                  :description "Whether field can be used in filters"}
     :boolean]
@@ -339,7 +342,6 @@
    [:filters {:optional true
               :description "Advanced field-specific filters (Week 2)"}
     [:map-of :keyword FieldFilter]]])
-
 
 ;; =============================================================================
 ;; Action Schemas

@@ -822,6 +822,59 @@
      [:div.inline-error-message
       (str/join ", " errors)]]))
 
+(def ^:private long-name-pattern
+  ;; String fields whose names suggest long-form content deserve extra width.
+  #"(?i)(description|omschrijving|notes?|opmerking|address|adres|comment|bio|summary|samenvatting|content|inhoud|body|message|bericht|excerpt)")
+
+(def ^:private medium-name-pattern
+  ;; String fields that are typically a sentence-ish label.
+  #"(?i)(name|naam|title|titel|label|subject|onderwerp|email|e-?mail|url|slug|path|pad)")
+
+(defn list-column-weight
+  "Relative width weight for a list column, used to distribute table width
+   proportionally instead of evenly.
+
+   Resolution order:
+   1. Explicit `:width` in the field config (interpreted as a weight) wins.
+   2. Otherwise derived from `:type`, with a name-based heuristic for strings
+      (e.g. \"description\" gets more room than \"status\").
+
+   Pure: takes a field keyword + its config map, returns a positive number."
+  [field field-config]
+  (or (:width field-config)
+      (let [field-name (name field)]
+        (case (:type field-config)
+          :boolean 1
+          (:enum) 2
+          (:int :decimal :uuid :json :binary) 2
+          (:date :instant) 3
+          :text 6
+          ;; :string and anything unrecognised fall through to the heuristic
+          (cond
+            (re-find long-name-pattern field-name) 6
+            (re-find medium-name-pattern field-name) 4
+            :else 3)))))
+
+(defn list-column-styles
+  "Given the ordered list-fields and the entity config, return a seq of
+   Hiccup `[:col {:style ...}]` elements with proportional `width:N%` for the
+   data columns. The select/actions framing columns are sized via CSS classes
+   elsewhere, so widths here sum to 100% of the remaining data area.
+
+   Returns a seq (not a vector) so Hiccup splices the elements into the
+   surrounding `:colgroup` rather than treating them as a single element.
+
+   Pure helper — no I/O."
+  [list-fields entity-config]
+  (let [weights (mapv (fn [field]
+                        (list-column-weight field (get-in entity-config [:fields field])))
+                      list-fields)
+        total (reduce + 0 weights)]
+    (for [w weights]
+      (let [pct (/ (* 100.0 w) (max total 1))]
+        ;; Round to 0.01% to keep markup tidy and deterministic.
+        [:col {:style (str "width:" (/ (Math/round (* pct 100.0)) 100.0) "%")}]))))
+
 (defn entity-table
   "Generate entity table with sorting and pagination.
 
@@ -891,8 +944,9 @@
               ;; Explicit column widths for table-layout: fixed
              [:colgroup
               [:col {:class "col-select"}]  ; Checkbox
-              (for [_ list-fields]
-                [:col])  ; Auto-width for data columns
+              ;; Proportional widths derived from field type + name heuristic
+              ;; (overridable via :width in the field config).
+              (list-column-styles list-fields entity-config)
               [:col {:class "col-actions"}]]  ; Actions
              [:thead
               [:tr
