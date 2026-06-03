@@ -1,5 +1,6 @@
 {:paths ["scripts"                    ; still needed for docs_lint.clj + verify_doc_links.clj
          "libs/tools/src"              ; boundary-tools — pure bb, no Maven deps needed at runtime
+         "libs/devtools/resources"     ; shared error catalogue EDN (boundary/devtools/core/error_catalog.edn)
          "libs/boundary-cli/src"       ; bbin installs via --deps-root repo-root, so root bb.edn :paths must include CLI src
          "libs/boundary-cli/resources"]
  :tasks

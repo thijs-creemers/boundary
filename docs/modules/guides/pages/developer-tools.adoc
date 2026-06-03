@@ -57,7 +57,10 @@ Navigate to `http://localhost:9999/dashboard/errors` to see all recent BND-coded
 | BND-4xx | Auth (JWT failures, session issues, permission denied)
 | BND-5xx | Interceptor pipeline (missing interceptors, execution errors)
 | BND-6xx | FC/IS violations (core importing shell, side effects in core)
+| BND-7xx | Tooling (circular library deps, admin entity config, wiring issues)
 |===
+
+Use `bb guide error BND-xxx` to look up any code with its full explanation and fix.
 
 == Inspecting Routes
 

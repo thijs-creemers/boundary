@@ -11,44 +11,31 @@
 
 (ns boundary.tools.help
   (:require [boundary.tools.ansi :refer [bold green red yellow dim cyan]]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]))
 
 ;; =============================================================================
-;; Error code catalog (simplified, BB-compatible)
+;; Error code catalog — loaded from shared EDN (single source of truth)
 ;; =============================================================================
 
 (def error-catalog
-  {"BND-001" {:title   "Missing required configuration key"
-              :explain "A required key is missing from your config.edn file."
-              :fix     "Check resources/conf/<env>/config.edn and add the missing key. Run `bb doctor` to identify which keys are missing."}
-   "BND-002" {:title   "Invalid provider value"
-              :explain "A :provider key in config.edn has a value that is not recognized."
-              :fix     "Run `bb doctor` to see valid provider values for each module."}
-   "BND-003" {:title   "FC/IS violation — core depends on shell"
-              :explain "A namespace under core/ is importing from shell/, which violates the Functional Core / Imperative Shell architecture."
-              :fix     "Move the side-effecting logic to shell/ and pass data through ports. Run `bb check:fcis` to find all violations."}
-   "BND-004" {:title   "Schema validation failure"
-              :explain "Input data does not match the Malli schema defined in schema.clj."
-              :fix     "Check the Malli schema in the relevant library's schema.clj and ensure the data conforms. Common issue: kebab-case vs snake_case mismatch."}
-   "BND-005" {:title   "Database migration conflict"
-              :explain "Two migration files have the same version number or there is a gap in the sequence."
-              :fix     "Check resources/migrations/ for duplicate version numbers and rename as needed."}
-   "BND-006" {:title   "JWT_SECRET not configured"
-              :explain "The user/auth module requires JWT_SECRET but it is not set in the environment."
-              :fix     "Export JWT_SECRET with at least 32 characters: export JWT_SECRET=\"your-secret-here\""}
-   "BND-007" {:title   "Circular library dependency"
-              :explain "Two or more libraries depend on each other, creating a cycle."
-              :fix     "Run `bb check:deps` to identify the cycle. Extract shared code into a lower-level library (usually core)."}
-   "BND-008" {:title   "Admin entity config missing required field"
-              :explain "An admin entity EDN file is missing a required field such as :entity/name or :entity/table."
-              :fix     "Check the entity EDN file in resources/conf/<env>/admin/ and add the missing field."}
-   "BND-009" {:title   "Unresolved #env reference"
-              :explain "A #env reference in config.edn has no value set and no #or default."
-              :fix     "Either set the environment variable or wrap the reference in #or [#env VAR \"default-value\"]."}
-   "BND-010" {:title   "Module not wired in wiring.clj"
-              :explain "A module is active in config.edn but has no require entry in wiring.clj, so Integrant cannot find its init-key methods."
-              :fix     "Add a require for the module in libs/platform/src/boundary/platform/shell/system/wiring.clj."}})
+  "Map of BND-xxx code → {:code :category :title :description :fix}.
+   Loaded from libs/devtools/resources/boundary/devtools/core/error_catalog.edn,
+   which is on the BB classpath via bb.edn :paths."
+  (-> "boundary/devtools/core/error_catalog.edn"
+      io/resource
+      slurp
+      edn/read-string))
+
+(def ^:private category-label
+  {:config      "Configuration"
+   :validation  "Validation"
+   :persistence "Persistence"
+   :auth        "Auth"
+   :interceptor "Interceptor"
+   :fcis        "FC/IS"
+   :tooling     "Tooling"})
 
 ;; =============================================================================
 ;; Topic help content
@@ -359,8 +346,22 @@
       (println)
       (println (bold "Error Code Reference"))
       (println)
-      (doseq [[code {:keys [title]}] (sort-by key error-catalog)]
-        (println (str "  " (cyan code) "  " title)))
+      (println (dim "Ranges:"))
+      (println "  BND-1xx   Configuration (missing env vars, invalid providers, bad config)")
+      (println "  BND-2xx   Validation (Malli schema failures, type mismatches)")
+      (println "  BND-3xx   Persistence (SQL errors, migration issues, connection problems)")
+      (println "  BND-4xx   Auth (JWT failures, session issues, permission denied)")
+      (println "  BND-5xx   Interceptor pipeline (missing interceptors, execution errors)")
+      (println "  BND-6xx   FC/IS violations (core importing shell, side effects in core)")
+      (println "  BND-7xx   Tooling (circular deps, admin config, wiring issues)")
+      (println)
+      (doseq [[cat codes] (->> (vals error-catalog)
+                               (sort-by :code)
+                               (group-by :category)
+                               (sort-by (fn [[cat _]] (name cat))))]
+        (println (str "  " (bold (get category-label cat (name cat))) ":"))
+        (doseq [{:keys [code title]} codes]
+          (println (str "    " (cyan code) "  " title))))
       (println)
       (println (dim "Usage: bb guide error BND-xxx")))
     (let [upper-code (str/upper-case code)
@@ -370,14 +371,14 @@
         (do
           (println (red (str "Unknown error code: " upper-code)))
           (println)
-          (println (dim "Known codes:"))
-          (doseq [k (sort (keys error-catalog))]
-            (println (dim (str "  " k)))))
+          (println (dim "Known ranges: BND-1xx config, BND-2xx validation, BND-3xx persistence,"))
+          (println (dim "              BND-4xx auth, BND-5xx interceptor, BND-6xx FC/IS, BND-7xx tooling"))
+          (println (dim "Run `bb guide error` (no code) for the full listing.")))
         (do
           (println (bold (str upper-code " — " (:title entry))))
           (println)
           (println (cyan "What happened:"))
-          (println (str "  " (:explain entry)))
+          (println (str "  " (:description entry)))
           (println)
           (println (cyan "How to fix:"))
           (println (str "  " (:fix entry))))))))
