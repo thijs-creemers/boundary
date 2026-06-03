@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`boundary-devtools`**: Unified error-code catalogue — `bb guide error BND-201` and `bb guide error BND-601` now return title, cause, and fix instead of "Unknown error code" (BOU-49). The single source of truth is a new EDN file (`libs/devtools/resources/boundary/devtools/core/error_catalog.edn`) consumed by both the JVM runtime classifier (`error_codes.clj`) and the Babashka CLI (`bb guide`). BND-0xx tooling codes are retired in favour of the BND-1xx..7xx range scheme: BND-1xx configuration, BND-2xx validation, BND-3xx persistence, BND-4xx auth, BND-5xx interceptor, BND-6xx FC/IS violations, BND-7xx tooling/build (new — circular deps BND-701, admin entity config BND-702, module not wired BND-703, migration version conflict BND-305). `bb guide error` (no code) now lists all codes grouped by category with range descriptions.
+
 - **`boundary-admin`**: Proportional list-view column widths derived from field `:type` plus a field-name heuristic, replacing the previous even distribution where a boolean column got the same width as a `name` or `description` column (BOU-46). Weights: boolean=1, enum/numeric/uuid/json=2, date/instant=3, text=6; string columns default to 3, with name-like fields (`name`, `title`, `email`, …) widened to 4 and long-form fields (`description`, `address`, `comment`, …) to 6. An optional `:width` key on a field config (a positive integer weight) overrides the computed default. Widths are emitted as proportional `width:N%` on the table `<colgroup>` and resolved deterministically at render time — no runtime AI.
 
 ### Changed
