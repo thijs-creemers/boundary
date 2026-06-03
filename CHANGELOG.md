@@ -11,10 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`boundary-admin`**: Proportional list-view column widths derived from field `:type` plus a field-name heuristic, replacing the previous even distribution where a boolean column got the same width as a `name` or `description` column (BOU-46). Weights: boolean=1, enum/numeric/uuid/json=2, date/instant=3, text=6; string columns default to 3, with name-like fields (`name`, `title`, `email`, …) widened to 4 and long-form fields (`description`, `address`, `comment`, …) to 6. An optional `:width` key on a field config (a positive integer weight) overrides the computed default. Widths are emitted as proportional `width:N%` on the table `<colgroup>` and resolved deterministically at render time — no runtime AI.
 
+### Changed
+
+- **`boundary-platform`**: The default HTTP interceptor stack is no longer skipped for `:no-doc` routes. Interceptor application is now controlled by an explicit per-route `:skip-interceptors?` flag (set only on genuinely-internal endpoints such as health checks); `:no-doc` once again means only "exclude from the Swagger spec". As a result every `/web` route now runs the full stack — request logging, metrics, error reporting, correlation header, CSRF, and security headers — where previously it ran none. The most visible effect is that HTML pages now carry the security headers (CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, …) they were silently missing. The shipped CSP allows `'unsafe-inline'`/`'unsafe-eval'` for HTMX/Alpine and all UI assets are self-hosted, so rendering is unaffected (BOU-43).
+- **`boundary-platform`**: Replaced the `ring/ring-anti-forgery` dependency with `buddy/buddy-core`. CSRF tokens are generated and verified directly (HMAC-SHA256, constant-time) rather than via Ring's session-backed anti-forgery middleware, which did not fit the framework's cookie/header session model (BOU-43).
+
 ### Fixed
 
 - **`boundary-cache`**: The Redis adapter now serializes values with Nippy instead of JSON, fixing `class java.lang.String cannot be cast to class java.time.temporal.Temporal` for cached `java.time` values (BOU-47). JSON is lossy — `Temporal` values became ISO-8601 strings, keywords became strings, and sets became vectors — and the loss surfaced only against Redis since the in-memory adapter stores values by reference. Nippy round-trips keywords, sets, ratios and `java.time`/Temporal values intact, matching the in-memory adapter.
 - **`boundary-cache`**: The Redis adapter treats unreadable entries (values written by the previous JSON format, or otherwise non-Nippy bytes) as a cache miss instead of throwing, so the cache self-heals on rollout. Note: the on-the-wire format changes from JSON to Nippy; flushing the cache namespace on deploy is still recommended to avoid log noise from stale reads (BOU-47).
+
+### Security
+
+- **`boundary-platform`**: CSRF protection is now enforced for session-authenticated, state-changing requests (POST/PUT/DELETE/PATCH), replacing a stub that always passed (BOU-43). A request is validated — `403` on a missing or invalid token — when CSRF is enabled, the path is not exempt, and the request is either session-authenticated (`session-token` cookie / `X-Session-Token` header) or a `/web` route. This protects `/web`, `/web/admin`, and any session-authenticated `/api` route; token-auth API clients that send no session cookie are not CSRF-vulnerable and are not checked. Details:
+  - Tokens are signed, session-bound double-submit values (`base64url(nonce).base64url(HMAC-SHA256(secret, nonce ‖ binding))`); authenticated requests bind to the session, unauthenticated `/web` flows (login, register, MFA) bind to a `SameSite=Strict` `csrf-session` cookie minted on the page GET.
+  - Tokens are emitted automatically: the shared page layout renders a `<meta name="csrf-token">` tag and a global `htmx:configRequest` listener attaches `X-CSRF-Token` to every HTMX request, so HTMX actions need no per-form changes. Plain `<form method=post>` forms include a hidden field via `(boundary.platform.core.csrf/hidden-field)`.
+  - Configured under `:boundary/http :security :csrf {:enabled? :secret :exempt-paths}`. The secret falls back to `JWT_SECRET`, so prod/acc are protected without an explicit config block; list webhooks/callbacks (which cannot carry a token) under `:exempt-paths` (a trailing `/*` matches by path-segment prefix). A startup warning is logged if CSRF is enabled with no secret.
+
 ## [1.0.1-alpha-26] - 2026-05-30
 
 ### Added

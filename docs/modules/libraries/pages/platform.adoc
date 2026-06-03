@@ -32,7 +32,11 @@ Declarative cross-cutting concerns (auth, rate limiting, audit):
    :enter (fn [ctx]
             (if (admin? (get-in ctx [:request :session :user]))
               ctx
-              (assoc ctx :response {:status 403 :body {:error "Forbidden"}})))
+              ;; To short-circuit you MUST set :halt? true — setting :response
+              ;; alone does not stop the pipeline, so the downstream handler
+              ;; would run and overwrite this response. See "Interceptor phases".
+              (assoc ctx :halt? true
+                         :response {:status 403 :body {:error "Forbidden"}})))
    :leave (fn [ctx] ctx)   ; optional response processing
    :error (fn [ctx err]    ; optional error handling
             (assoc ctx :response {:status 500 :body {:error "Internal error"}}))})
@@ -47,11 +51,23 @@ Declarative cross-cutting concerns (auth, rate limiting, audit):
 
 == Built-in interceptors
 
-* `:auth/require-authenticated` — JWT validation
-* `:auth/require-role` — role-based access control
-* `:rate-limit/per-ip` — rate limiting by IP
-* `:audit/log-request` — request audit logging
-* `:validation/validate-body` — request body validation
+The default HTTP stack (`boundary.platform.shell.http.interceptors/default-http-interceptors`)
+is applied to every route unless the route opts out with `:skip-interceptors? true`
+(used only for internal endpoints such as health checks). In `:enter`/`:leave` order:
+
+* `http-request-logging` — request entry/completion logging with timing
+* `http-request-metrics` — timing and status-code metrics
+* `http-error-reporting` — captures exceptions to the error-tracking service
+* `http-correlation-header` — adds `X-Correlation-ID` to the response
+* `http-csrf-protection` — validates/issues CSRF tokens (see <<csrf-protection>>)
+* `http-security-headers` — CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, …
+* `http-error-handler` — maps an exception's `:type` to an HTTP status
+
+`http-rate-limit` (fixed-window, optionally Redis-backed) is available to attach per route.
+
+NOTE: `:skip-interceptors?` is independent of `:no-doc`. `:no-doc` only excludes a
+route from the Swagger spec; it does **not** affect interceptors. All `/web` routes are
+`:no-doc` yet still run the full stack so that security interceptors apply to the UI.
 
 == Interceptor phases
 
@@ -60,6 +76,52 @@ Declarative cross-cutting concerns (auth, rate limiting, audit):
 * `:error` — exception handling (custom error responses)
 
 Enter phases run in order; leave phases run in reverse order.
+
+To reject a request from `:enter`, set `:halt? true` in the context (alongside the
+`:response`). The pipeline short-circuits only on `:halt?` — setting `:response` by
+itself does not stop forward execution, so a later interceptor or the route handler
+would overwrite it. `:leave` still runs for interceptors that already executed.
+
+[#csrf-protection]
+== CSRF protection
+
+`http-csrf-protection` enforces CSRF for session-authenticated, state-changing
+requests and issues tokens for rendering. Pure token functions live in
+`boundary.platform.core.csrf`.
+
+A state-changing request (POST/PUT/DELETE/PATCH) is validated — `403` on a missing or
+invalid token — when CSRF is enabled, the path is not exempt, and the request is either
+session-authenticated (`session-token` cookie / `X-Session-Token` header) or a `/web`
+route. This covers `/web`, `/web/admin`, and any session-authenticated `/api` route.
+Token-auth API clients that send no session cookie are not CSRF-vulnerable and are not
+checked; safe methods (GET/HEAD/OPTIONS) and `:exempt-paths` are skipped.
+
+[source,clojure]
+----
+;; resources/conf/<env>/config.edn under :active
+:boundary/http
+{:security
+ {:csrf {:enabled?     true                                  ; false only in test/dev
+         :secret       #or [#env CSRF_SECRET #env JWT_SECRET] ; defaults to JWT_SECRET
+         :exempt-paths ["/api/v1/payments/webhook"]}}}        ; trailing /* = segment-prefix
+----
+
+Tokens are emitted with no per-handler wiring: the shared page layout renders
+`<meta name="csrf-token">`, and a global `htmx:configRequest` listener attaches the
+`X-CSRF-Token` header to every HTMX request. Plain (non-HTMX) forms include a hidden
+field:
+
+[source,clojure]
+----
+(require '[boundary.platform.core.csrf :as csrf])
+
+[:form {:method "post" :action "/web/logout"}
+ (csrf/hidden-field)        ; reads the token bound for the current request
+ [:button "Logout"]]
+----
+
+See xref:guides:authentication.adoc#csrf[the authentication guide] for the request flow
+and the unauthenticated (login) pre-session token.
 
 == Testing
 
