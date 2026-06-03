@@ -5,9 +5,13 @@
    All tests are tagged ^:security ^:unit."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
+            [boundary.platform.core.csrf :as csrf]
             [boundary.platform.core.http.problem-details :as problem-details]
             [boundary.platform.shell.http.interceptors :as interceptors]
+            [boundary.platform.shell.http.reitit-router :as reitit-router]
+            [boundary.platform.ports.http :as http-ports]
             [boundary.admin.core.schema-introspection :as schema-intro]
+            [buddy.core.nonce :as nonce]
             [honey.sql :as sql]
             [hiccup2.core :as h]))
 
@@ -47,44 +51,214 @@
 ;; CSRF interceptor routing logic
 ;; =============================================================================
 
-(deftest ^:security ^:unit csrf-interceptor-routing-test
-  (let [enter (:enter interceptors/http-csrf-protection)]
+(def ^:private csrf-secret "test-secret-at-least-32-chars-long!!")
+(def ^:private csrf-session "session-token-xyz")
 
-    (testing "POST to /web/ path triggers CSRF check"
-      ;; NOTE: valid-csrf-token? is currently a stub that always returns true.
-      ;; This test documents the routing logic, not the token validation.
-      (let [ctx {:request {:request-method :post
-                           :uri "/web/profile/update"}}
-            result (enter ctx)]
-        ;; With the stub returning true, POST to /web should pass through
-        (is (not (= 403 (get-in result [:response :status]))))))
+(defn- valid-csrf-token
+  "A token bound to csrf-session, as the UI layer would emit."
+  []
+  (csrf/generate-token csrf-secret csrf-session (nonce/random-bytes 16)))
 
-    (testing "GET requests to /web/ skip CSRF check"
-      (let [ctx {:request {:request-method :get
-                           :uri "/web/profile"}}
-            result (enter ctx)]
-        (is (nil? (:response result)))))
+(defn- run-csrf
+  "Run the CSRF interceptor :enter with the given csrf config and request.
+   Returns the resulting context."
+  [csrf-config request]
+  ((:enter interceptors/http-csrf-protection)
+   {:request request :system {:csrf csrf-config}}))
 
-    (testing "API routes skip CSRF check"
-      (let [ctx {:request {:request-method :post
-                           :uri "/api/v1/users"}}
-            result (enter ctx)]
-        (is (nil? (:response result)))))
+(defn- session-request
+  "A request carrying a session cookie, optionally with a CSRF token form field."
+  [method uri & {:keys [token]}]
+  (cond-> {:request-method method
+           :uri uri
+           :cookies {"session-token" {:value csrf-session}}}
+    token (assoc :form-params {"__anti-forgery-token" token})))
 
-    (testing "Admin routes skip CSRF check"
-      (let [ctx {:request {:request-method :post
-                           :uri "/web/admin/users"}}
-            result (enter ctx)]
-        (is (nil? (:response result)))))
+(deftest ^:security ^:unit csrf-interceptor-protection-test
+  (let [cfg {:enabled? true :secret csrf-secret :exempt-paths ["/api/v1/payments/webhook"]}]
 
-    (testing "PUT/DELETE/PATCH to /web/ are state-changing"
-      (doseq [method [:put :delete :patch]]
-        (let [ctx {:request {:request-method method
-                             :uri "/web/profile/update"}}
-              result (enter ctx)]
-          ;; With stub returning true, these pass through
-          (is (not (= 403 (get-in result [:response :status])))
-              (str method " should be checked as state-changing")))))))
+    (testing "session POST to /web without a token is rejected with 403"
+      (is (= 403 (get-in (run-csrf cfg (session-request :post "/web/profile/update"))
+                         [:response :status]))))
+
+    (testing "session POST to /web with a valid token passes through"
+      (is (nil? (:response (run-csrf cfg (session-request :post "/web/profile/update"
+                                                          :token (valid-csrf-token)))))))
+
+    (testing "session POST to /web with an invalid token is rejected"
+      (is (= 403 (get-in (run-csrf cfg (session-request :post "/web/profile/update"
+                                                        :token "bogus.token"))
+                         [:response :status]))))
+
+    (testing "token presented via X-CSRF-Token header is accepted"
+      (let [req (-> (session-request :post "/web/profile/update")
+                    (assoc-in [:headers "x-csrf-token"] (valid-csrf-token)))]
+        (is (nil? (:response (run-csrf cfg req))))))
+
+    (testing "/web/admin is now protected (no token → 403)"
+      (is (= 403 (get-in (run-csrf cfg (session-request :post "/web/admin/users"))
+                         [:response :status]))))
+
+    (testing "session-authenticated /api route is protected (no token → 403)"
+      (is (= 403 (get-in (run-csrf cfg (session-request :post "/api/v1/users"))
+                         [:response :status]))))
+
+    (testing "token-auth API request without a session cookie is skipped"
+      (is (nil? (:response (run-csrf cfg {:request-method :post :uri "/api/v1/users"})))))
+
+    (testing "exempt path (webhook) is skipped even with a session cookie"
+      (is (nil? (:response (run-csrf cfg (session-request :post "/api/v1/payments/webhook"))))))
+
+    (testing "GET / HEAD / OPTIONS are never checked"
+      (doseq [m [:get :head :options]]
+        (is (nil? (:response (run-csrf cfg (session-request m "/web/profile"))))
+            (str m " must skip CSRF"))))
+
+    (testing "PUT/DELETE/PATCH with a session and no token are rejected"
+      (doseq [m [:put :delete :patch]]
+        (is (= 403 (get-in (run-csrf cfg (session-request m "/web/profile/update"))
+                           [:response :status]))
+            (str m " should be checked as state-changing"))))
+
+    (testing "disabled config skips all checks"
+      (is (nil? (:response (run-csrf {:enabled? false :secret csrf-secret}
+                                     (session-request :post "/web/profile/update"))))))
+
+    (testing "wildcard exempt matches on a path-segment boundary, not bare prefix"
+      (let [wild {:enabled? true :secret csrf-secret :exempt-paths ["/api/hooks/*"]}]
+        ;; under the exempt subtree -> skipped
+        (is (nil? (:response (run-csrf wild (session-request :post "/api/hooks/stripe")))))
+        (is (nil? (:response (run-csrf wild (session-request :post "/api/hooks")))))
+        ;; sibling path sharing the prefix but not the boundary -> still protected
+        (is (= 403 (get-in (run-csrf wild (session-request :post "/api/hooks-evil"))
+                           [:response :status])))))))
+
+(defn- run-csrf-full
+  "Run both :enter and :leave so pre-session cookie effects are observable."
+  [csrf-config request]
+  (let [enter (:enter interceptors/http-csrf-protection)
+        leave (:leave interceptors/http-csrf-protection)]
+    (leave (enter {:request request :system {:csrf csrf-config}}))))
+
+(deftest ^:security ^:unit csrf-pre-session-test
+  (let [cfg {:enabled? true :secret csrf-secret :exempt-paths []}]
+
+    (testing "unauthenticated /web page GET mints a pre-session cookie and a token"
+      (let [ctx (run-csrf-full cfg {:request-method :get :uri "/web/login"})
+            cookie (get-in ctx [:response :cookies "csrf-session"])]
+        (is (string? (get-in ctx [:request :anti-forgery-token])) "form token issued")
+        (is (string? (:value cookie)) "pre-session cookie set")
+        (is (= :strict (:same-site cookie)))
+        (is (true? (:http-only cookie)))))
+
+    (testing "login POST with a token bound to the pre-session cookie passes"
+      ;; The GET mints the binding (delivered as the csrf-session cookie); a token
+      ;; bound to that value, submitted with the cookie, validates on POST.
+      (let [get-ctx   (run-csrf-full cfg {:request-method :get :uri "/web/login"})
+            cookie-id (get-in get-ctx [:response :cookies "csrf-session" :value])
+            token     (csrf/generate-token csrf-secret cookie-id (nonce/random-bytes 16))
+            post      {:request-method :post :uri "/web/login"
+                       :cookies {"csrf-session" {:value cookie-id}}
+                       :form-params {"__anti-forgery-token" token}}]
+        (is (string? cookie-id))
+        (is (nil? (:response (run-csrf cfg post))))))
+
+    (testing "login POST without a token is rejected"
+      (is (= 403 (get-in (run-csrf cfg {:request-method :post :uri "/web/login"
+                                        :cookies {"csrf-session" {:value "abc"}}})
+                         [:response :status]))))
+
+    (testing "login POST with a token bound to a different pre-session is rejected"
+      (let [token (csrf/generate-token csrf-secret "other-pre-session" (nonce/random-bytes 16))]
+        (is (= 403 (get-in (run-csrf cfg {:request-method :post :uri "/web/login"
+                                          :cookies {"csrf-session" {:value "abc"}}
+                                          :form-params {"__anti-forgery-token" token}})
+                           [:response :status])))))
+
+    (testing "unauthenticated /web POST with no session and no pre-session cookie fails closed"
+      (is (= 403 (get-in (run-csrf cfg {:request-method :post :uri "/web/login"})
+                         [:response :status]))))))
+
+(deftest ^:security ^:unit csrf-token-bound-during-render-test
+  (testing "csrf/*token* is bound to the issued token while the handler renders"
+    (let [captured (atom :unset)
+          handler  (fn [_req] (reset! captured (csrf/current-token)) {:status 200})
+          _resp    (interceptors/run-http-interceptors
+                    handler
+                    [interceptors/http-csrf-protection]
+                    {:request-method :get :uri "/web/login" :cookies {}}
+                    {:csrf {:enabled? true :secret csrf-secret}})]
+      (is (string? @captured) "handler observed a bound CSRF token")
+      (is (= 2 (count (str/split @captured #"\."))) "token has nonce.mac form")))
+
+  (testing "no token is bound for a session-less, non-web request"
+    (let [captured (atom :unset)
+          handler  (fn [_req] (reset! captured (csrf/current-token)) {:status 200})]
+      (interceptors/run-http-interceptors
+       handler [interceptors/http-csrf-protection]
+       {:request-method :get :uri "/api/v1/ping" :cookies {}}
+       {:csrf {:enabled? true :secret csrf-secret}})
+      (is (nil? @captured)))))
+
+;; =============================================================================
+;; CSRF through the real router (regression for the :no-doc interceptor-skip bug:
+;; /web routes are :no-doc true, and previously :no-doc dropped the default
+;; interceptor stack, so CSRF never ran on the web UI it is meant to protect.)
+;; =============================================================================
+
+(defn- compile-web-handler
+  "Compile a single normalized route through the real reitit router with CSRF on."
+  [route]
+  (http-ports/compile-routes
+   (reitit-router/->ReititRouter)
+   [route]
+   {:swagger-enabled false
+    :system {:csrf {:enabled? true :secret csrf-secret :exempt-paths ["/web/hook"]}}}))
+
+(defn- req
+  "Build a request for the compiled handler. Cookies/token go through real headers
+   because the router's wrap-cookies/wrap-params reparse them from the raw request."
+  [method uri & {:keys [session? token]}]
+  (cond-> {:request-method method :uri uri :headers {}}
+    session? (assoc-in [:headers "cookie"] (str "session-token=" csrf-session))
+    token    (assoc-in [:headers "x-csrf-token"] token)))
+
+(deftest ^:security ^:unit csrf-runs-on-web-routes-through-router-test
+  (let [web-route {:path "/web/profile/update"
+                   :no-doc true                       ; as wiring marks every /web route
+                   :methods {:post {:handler (fn [_] {:status 200 :body "ok"})}
+                             :get  {:handler (fn [_] {:status 200 :body "ok"})}}}
+        handler   (compile-web-handler web-route)]
+
+    (testing "session POST to a :no-doc /web route WITHOUT a token is blocked (regression)"
+      (is (= 403 (:status (handler (req :post "/web/profile/update" :session? true))))))
+
+    (testing "session POST with a valid token passes the router stack"
+      (let [token (csrf/generate-token csrf-secret csrf-session (nonce/random-bytes 16))]
+        (is (= 200 (:status (handler (req :post "/web/profile/update"
+                                          :session? true :token token)))))))
+
+    (testing "GET to the same route is not blocked"
+      (is (= 200 (:status (handler (req :get "/web/profile/update" :session? true))))))
+
+    (testing "session-less /web POST with no pre-session cookie fails closed (403)"
+      (is (= 403 (:status (handler (req :post "/web/profile/update"))))))
+
+    (testing "session-less non-web POST is skipped (token-auth API, not CSRF-vulnerable)"
+      (let [api ((compile-web-handler {:path "/api/v1/things"
+                                       :methods {:post {:handler (fn [_] {:status 200 :body "ok"})}}})
+                 (req :post "/api/v1/things"))]
+        (is (= 200 (:status api)))))))
+
+(deftest ^:security ^:unit csrf-skip-interceptors-flag-test
+  (testing ":skip-interceptors? routes bypass the stack (health/internal endpoints)"
+    (let [route   {:path "/health"
+                   :no-doc true
+                   :methods {:post {:skip-interceptors? true
+                                    :handler (fn [_] {:status 200 :body "ok"})}}}
+          handler (compile-web-handler route)]
+      ;; A session POST with no token would be 403 if CSRF ran; skip flag lets it pass.
+      (is (= 200 (:status (handler (req :post "/health" :session? true))))))))
 
 ;; =============================================================================
 ;; Hiccup XSS escaping

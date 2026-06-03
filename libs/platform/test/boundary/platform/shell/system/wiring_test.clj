@@ -24,7 +24,7 @@
         captured-config (atom nil)
         compiled-handler (fn [request] {:status 200 :body request})
         config {:active {:boundary/settings {:name "Boundary"
-                                            :version "1.2.3"}}}
+                                             :version "1.2.3"}}}
         handler (with-redefs [boundary.platform.ports.http/compile-routes
                               (fn [_router routes router-config]
                                 (reset! captured-routes routes)
@@ -78,7 +78,8 @@
       (is (= {:logger ::logger
               :metrics-emitter ::metrics
               :error-reporter ::error-reporter}
-             (:system @captured-config))))
+             (dissoc (:system @captured-config) :csrf)))
+      (is (true? (get-in @captured-config [:system :csrf :enabled?]))))
 
     (testing "the returned handler is the compiled handler after wrapping"
       (is (= {:status 200 :body {:request-method :get}}
@@ -142,7 +143,8 @@
       (is (= {:logger ::logger
               :metrics-emitter ::metrics
               :error-reporter ::error-reporter}
-             (:system @captured-config))))
+             (dissoc (:system @captured-config) :csrf)))
+      (is (true? (get-in @captured-config [:system :csrf :enabled?]))))
 
     (testing "method override middleware rewrites POST requests to the requested verb"
       (let [wrapped-handler ((first (:middleware @captured-config)) compiled-handler)]

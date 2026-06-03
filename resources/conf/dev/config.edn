@@ -56,7 +56,15 @@
    :host       #or [#env HTTP_HOST "0.0.0.0"]
    :join?      false
    ;; Port conflict resolution - if default port is busy, system will try higher ports
-   :port-range {:start 3000 :end 3099}}
+   :port-range {:start 3000 :end 3099}
+   ;; CSRF protection for session-authenticated, state-changing requests.
+   ;; Protects all POST/PUT/DELETE/PATCH carrying a session cookie (incl. /web/admin).
+   ;; Dev uses CSRF_SECRET or the literal fallback below. In prod/acc (no :csrf block)
+   ;; the secret falls back to JWT_SECRET via wiring. List webhooks/callbacks (which
+   ;; cannot carry a token) under :exempt-paths; a trailing /* matches by prefix.
+   :security   {:csrf {:enabled?     true
+                       :secret       #or [#env CSRF_SECRET "boundary-dev-csrf-secret-change-me-min-32"]
+                       :exempt-paths ["/api/v1/payments/webhook"]}}}
 
   ;; HTTP Router configuration
   :boundary/router

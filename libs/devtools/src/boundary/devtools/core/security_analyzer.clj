@@ -63,7 +63,7 @@
       :csp                (analyze-csp-config config)
       :lockout            {:max-attempts  (get validation :max-failed-attempts 5)
                            :duration-mins (get validation :lockout-duration-minutes 15)}
-      :csrf-enabled?      (not (false? (get-in config [:boundary/http :security :csrf])))
+      :csrf-enabled?      (not (false? (get-in config [:boundary/http :security :csrf :enabled?])))
       :rate-limiting?     (boolean rate-limiting?)
       :active-sessions    (or active-sessions 0)
       :recent-failures    (or recent-auth-failures [])})))

@@ -186,16 +186,18 @@
   ([handler-config]
    (convert-handler-config handler-config nil))
 
-  ([{:keys [handler middleware interceptors coercion parameters summary tags produces consumes no-doc responses]} system]
+  ([{:keys [handler middleware interceptors coercion parameters summary tags produces consumes no-doc responses skip-interceptors?]} system]
    (let [resolved-handler (resolve-handler-fn handler)
          resolved-middleware (resolve-middleware-fns middleware)
 
          ;; Treat system services as optional; interceptors can run with {}.
          system (or system {})
 
-         ;; Skip default HTTP interceptors for internal routes (Swagger, health checks with :no-doc)
-         ;; These routes return special response formats that shouldn't go through interceptors
-         skip-interceptors? no-doc
+         ;; Skip the default HTTP interceptor stack ONLY for routes that explicitly
+         ;; opt out via :skip-interceptors? (genuinely-internal endpoints such as
+         ;; health checks). This is decoupled from :no-doc — :no-doc only controls
+         ;; Swagger visibility. All /web routes are :no-doc but MUST keep the default
+         ;; stack so security interceptors (CSRF, security headers) apply to them.
 
          ;; Always apply default HTTP interceptors UNLESS route explicitly opts out;
          ;; append any route-specific interceptors.

@@ -6,6 +6,7 @@
   (:require [boundary.shared.ui.core.alpine :as alpine]
             [boundary.shared.ui.core.components :as components]
             [boundary.shared.ui.core.icons :as icons]
+            [boundary.platform.core.csrf :as csrf]
             [boundary.ui-style :as ui-style]))
 
 (def ^:private default-css
@@ -69,6 +70,7 @@
            [:span "Profile & Security"]]
           [:div.dropdown-divider]
           [:form {:method "POST" :action "/web/logout"}
+           (csrf/hidden-field)
            [:button.dropdown-item {:type "submit"}
             (icons/icon :log-out {:size 18})
             [:span "Logout"]]]]]]
@@ -88,16 +90,22 @@
      Complete HTML page structure"
   [title content & [opts]]
   (let [{:keys [user flash css js skip-header body-attrs brand brand-href
-                meta-description lang theme-color extra-head]
+                meta-description lang theme-color extra-head csrf-token]
          :or   {css         default-css
                 js          default-js
                 skip-header false
                 body-attrs  {}
-                lang        "en"}} opts]
+                lang        "en"}} opts
+        ;; Falls back to the token bound for the current request, so handlers need
+        ;; not thread it explicitly. An explicit :csrf-token opt still overrides.
+        csrf-token (or csrf-token (csrf/current-token))]
     [:html {:lang lang}
      [:head
       [:meta {:charset "UTF-8"}]
       [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
+      ;; CSRF token for HTMX requests — read by the htmx:configRequest listener in init.js.
+      (when csrf-token
+        [:meta {:name "csrf-token" :content csrf-token}])
       (when meta-description
         [:meta {:name "description" :content meta-description}])
       (when theme-color

@@ -209,6 +209,22 @@ clj-nrepl-eval -p <port> "(require '[integrant.repl :as ig-repl]) (ig-repl/reset
  [:span#spinner.htmx-indicator "Loading..."]]
 ```
 
+#### CSRF Tokens in Forms
+
+State-changing requests are CSRF-protected (see platform AGENTS.md → CSRF Protection).
+
+- **HTMX forms** (`hx-post`/`hx-put`/`hx-delete`) — nothing to do; the global
+  `htmx:configRequest` listener attaches `X-CSRF-Token` from the page `<meta>` tag.
+- **Plain `[:form {:method "post"}]`** — splice `(csrf/hidden-field)` as the first
+  child (`require [boundary.platform.core.csrf :as csrf]`). It reads the token bound
+  for the current request, so no threading is needed:
+
+```clojure
+[:form {:method "post" :action "/web/logout"}
+ (csrf/hidden-field)
+ [:button "Logout"]]
+```
+
 ### UI Component Hierarchy
 
 ```
