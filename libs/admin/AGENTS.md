@@ -46,6 +46,35 @@ Also add the entity keyword to `:entity-discovery :allowlist`.
 
 ---
 
+## Column Widths in List View
+
+List-view column widths are resolved in three layers:
+
+**Layer 1 — type/name heuristic** (`list-column-weight` in `core/ui.clj`): width derived automatically from `:type` and field name. Default weights:
+
+| Type / name pattern | Weight |
+|---|---|
+| `:boolean` | 1 |
+| `:enum`, `:int`, `:decimal`, `:uuid`, `:json` | 2 |
+| `:date`, `:instant` | 3 |
+| `:string` + name matches description/bio/body/address/notes/comment/… | 6 |
+| `:string` + name matches name/email/title/slug/url/label/… | 4 |
+| `:string` (other) / `:text` | 3 / 6 |
+
+**Layer 2 — manual `:width` override**: add `{:width N}` (positive int, min 1) to a field config to override the heuristic for that field. Use when the heuristic default is wrong for a specific domain field.
+
+**Layer 3 — AI suggestion via `bb ai admin-entity`**: when generating an entity config, the AI reads the same defaults and only emits `:width` for fields whose semantics differ from layer 1 (e.g. `:sku` → `{:width 1}`, narrow code field). Do not add `:width` by hand when `bb ai admin-entity` already handles it, and do not remove AI-suggested `:width` values without checking the rendered table.
+
+```clojure
+;; Layer 2 example — manually narrow a ref code column
+{:ref {:type :string :label "Ref" :width 1}}
+
+;; No :width needed — heuristic already gives :description weight 6
+{:description {:type :string :label "Description"}}
+```
+
+---
+
 ## Common Configuration Gotchas
 
 ### 1. Entity Not Visible in Sidebar
