@@ -209,7 +209,7 @@ Three migrations under `libs/push/resources/boundary/push/migrations/`:
 
 **`push_send_log`** (migration `20260524000001`)
 - Snapshot of each outbound attempt: title, body, priority, status, sent_at
-- Not written by current persistence shell (analytics events used instead)
+- Not written by current persistence shell (analytics events used instead); table is effectively dead weight — scheduled for removal or repurposing
 
 **`push_analytics_events`** (migration `20260524000002`)
 - Event-sourced: `:sent` written at delivery time; `:delivered`/`:opened` from callbacks
@@ -263,7 +263,7 @@ Require `boundary.push.shell.module-wiring` at system start to load the `defmeth
 6. **`push_send_log` is legacy** — migration creates the table but current persistence shell writes to `push_analytics_events` only
 7. **Upsert strategy** — persistence uses INSERT + catch `SQLIntegrityConstraintViolationException` + UPDATE for H2+PostgreSQL compat (avoids dialect-specific `ON CONFLICT`)
 8. **FCM "multicast" is concurrent single sends** — `fcm-send-multicast!` sends one per-token request via `sendAsync`, not FCM batch API
-9. **APNs JWT is minted per call** — `make-jwt` runs on every `apns-send!` and `apns-send-batch!` invocation; no caching
+9. **APNs JWT is minted per call** — `make-jwt` runs on every `apns-send!` and `apns-send-batch!` invocation; no caching. Fine for normal throughput; at broadcast scale (thousands of tokens) this becomes a known bottleneck — JWT caching with a ~45-min expiry window is the fix
 10. **Registry is global mutable state** — call `notif/clear-registry!` in test setup when testing notification lookup
 
 ## REPL Smoke Checks
