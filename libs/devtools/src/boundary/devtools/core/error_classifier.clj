@@ -1,6 +1,6 @@
 (ns boundary.devtools.core.error-classifier
   "Classify exceptions into BND-xxx error codes.
-   Pure functions — no I/O, no side effects.
+   Pure functions — catalog data loaded once at namespace init via boundary.devtools.error-codes.
 
    Classification strategy (ordered, first match wins):
    1. ex-data with :boundary/error-code — direct BND code

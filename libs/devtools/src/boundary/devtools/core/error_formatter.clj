@@ -1,6 +1,6 @@
 (ns boundary.devtools.core.error-formatter
   "Rich error output formatting for development mode.
-   Pure functions — no I/O, no side effects."
+   Pure functions — catalog data loaded once at namespace init via boundary.devtools.error-codes."
   (:require [boundary.devtools.error-codes :as codes]
             [boundary.devtools.core.stacktrace :as stacktrace]
             [clojure.string :as str]))

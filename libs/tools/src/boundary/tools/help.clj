@@ -21,9 +21,9 @@
 
 (def error-catalog
   "Map of BND-xxx code → {:code :category :title :description :fix}.
-   Loaded from libs/devtools/resources/boundary/devtools/core/error_catalog.edn,
+   Loaded from libs/devtools/resources/boundary/devtools/error_catalog.edn,
    which is on the BB classpath via bb.edn :paths."
-  (let [r (io/resource "boundary/devtools/core/error_catalog.edn")]
+  (let [r (io/resource "boundary/devtools/error_catalog.edn")]
     (when-not r
       (throw (ex-info "error_catalog.edn not found on classpath — check bb.edn :paths includes libs/devtools/resources" {})))
     (-> r slurp edn/read-string)))
