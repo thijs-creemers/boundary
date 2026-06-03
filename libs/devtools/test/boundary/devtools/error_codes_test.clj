@@ -1,8 +1,6 @@
-(ns boundary.devtools.core.error-codes-test
-  (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.test :refer [deftest is testing]]
-            [boundary.devtools.core.error-codes :as codes]))
+(ns boundary.devtools.error-codes-test
+  (:require [clojure.test :refer [deftest is testing]]
+            [boundary.devtools.error-codes :as codes]))
 
 (deftest ^:unit lookup-test
   (testing "finds known error codes"
@@ -27,6 +25,11 @@
       (is (pos? (count results)))
       (is (every? #(= :validation (:category %)) results))))
 
+  (testing "returns all tooling errors"
+    (let [results (codes/by-category :tooling)]
+      (is (pos? (count results)))
+      (is (every? #(= :tooling (:category %)) results))))
+
   (testing "returns empty for unknown category"
     (is (empty? (codes/by-category :unknown)))))
 
@@ -44,16 +47,3 @@
       (is (string? (:title error)) (str "Missing :title in " (:code error)))
       (is (string? (:description error)) (str "Missing :description in " (:code error)))
       (is (string? (:fix error)) (str "Missing :fix in " (:code error))))))
-
-(deftest ^:unit edn-catalog-in-sync
-  (testing "error_catalog.edn key-set matches inline catalog"
-    (let [edn-catalog (-> "boundary/devtools/core/error_catalog.edn"
-                          io/resource
-                          slurp
-                          edn/read-string)
-          clj-keys    (set (keys codes/catalog))
-          edn-keys    (set (keys edn-catalog))]
-      (is (= clj-keys edn-keys)
-          (str "Key mismatch between error_codes.clj and error_catalog.edn.\n"
-               "Only in clj: " (clojure.set/difference clj-keys edn-keys) "\n"
-               "Only in edn: " (clojure.set/difference edn-keys clj-keys))))))

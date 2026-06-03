@@ -8,7 +8,7 @@
    3. Message pattern — regex on .getMessage()
    4. Exception type — SQLException, ConnectException, etc.
    5. Unclassified — nil code"
-  (:require [boundary.devtools.core.error-codes :as codes]))
+  (:require [boundary.devtools.error-codes :as codes]))
 
 (defn- root-cause
   "Walk the cause chain to find the root cause."
