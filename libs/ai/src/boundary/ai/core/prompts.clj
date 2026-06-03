@@ -367,7 +367,8 @@ Output ONLY valid EDN with this structure:
   :hide-fields     #{:deleted-at}
   :readonly-fields #{:id :created-at :updated-at}
   :fields
-  {:status     {:type :enum :label \"Status\"
+  {:sku        {:type :string :label \"SKU\" :width 1}
+   :status     {:type :enum :label \"Status\"
                 :options [[:active \"Active\"] [:archived \"Archived\"]]
                 :filterable true}
    :created-at {:type :instant :label \"Created\" :filterable true}}
@@ -384,7 +385,24 @@ Rules:
 - For enum fields, provide :options as vectors of [keyword label] pairs
 - Field types: :string, :text, :int, :decimal, :boolean, :enum, :instant, :email, :uuid, :json
 - Group related fields logically into :field-groups
-- Output ONLY the EDN map, no explanation, no markdown fences"
+- Output ONLY the EDN map, no explanation, no markdown fences
+
+Column width — :width is an optional positive integer weight for list-view columns.
+The UI already applies a type/name heuristic (layer 1); omit :width when the heuristic is correct:
+  :boolean                                              → 1  (narrow badge)
+  :enum                                                 → 2  (short label)
+  :int / :decimal / :uuid / :json                       → 2  (numbers / opaque)
+  :date / :instant                                      → 3  (date string)
+  :text                                                 → 6  (long-form)
+  :string with name containing description/bio/body/address/notes/comment/summary/excerpt/content/message
+                                                        → 6  (long-form semantics)
+  :string with name containing name/email/title/label/slug/url/subject
+                                                        → 4  (sentence-length label)
+  :string (all other cases)                             → 3  (default)
+Only add :width when field semantics differ from these defaults:
+  - Short identifiers (sku, code, ref, barcode, pin, zip, iso, ticker) → :width 1 or 2
+  - Long free-text :string fields not caught by name heuristic         → :width 6
+  - :width must be a positive integer (minimum 1); omit when the default is already correct"
        (when (seq existing-entities)
          (str "\n\nExisting entity configurations for reference:\n"
               (str/join "\n---\n" existing-entities)))))
