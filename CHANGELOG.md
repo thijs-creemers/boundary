@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`boundary-push`**: Comprehensive developer documentation for the push notification library (BOU-44). `AGENTS.md` now covers all five protocols (`IPushService`, `IFCMProvider`, `IAPNsProvider`, `IDeviceTokenStore`, `IPushAnalyticsStore`), Integrant wiring keys, HTTP routes, job handler arg shapes, HMAC callback flow, DB table overview, and REPL smoke checks. `README.md` corrects the Integrant configuration (actual `ig/init-key` dispatch keys), fixes API function names (`register-device!` / `unregister-device!` / `get-user-devices`), and adds the missing `push_analytics_events` migration to the DDL reference.
+
+### Added (previously)
+
 - **`boundary-devtools`**: Unified error-code catalogue — `bb guide error BND-201` and `bb guide error BND-601` now return title, cause, and fix instead of "Unknown error code" (BOU-49). `error_catalog.edn` (`libs/devtools/resources/`) is the single source of truth consumed by both the JVM runtime (`boundary.devtools.error-codes`, moved out of `core/` so I/O is permitted) and the Babashka CLI (`bb guide`). BND-0xx tooling codes are retired in favour of the BND-1xx..7xx range scheme: BND-1xx configuration, BND-2xx validation, BND-3xx persistence, BND-4xx auth, BND-5xx interceptor, BND-6xx FC/IS violations, BND-7xx tooling/build (new — circular deps BND-701, admin entity config BND-702, module not wired BND-703, migration version conflict BND-305). `bb guide error` (no code) lists all codes grouped by category in numerical range order.
 
 - **`boundary-platform`**: `discover-migration-dirs` now scans each resolved migration directory after discovery and emits a `WARN` log for any subdirectory that contains `.sql` files (e.g. `migrations/tenant/`). Catches the class of misconfiguration where tenant-scoped migrations are placed inside the public migration root and silently applied to the wrong schema; the warning fires on the first `clojure -M:migrate up` run rather than producing a hard-to-diagnose data error later.
