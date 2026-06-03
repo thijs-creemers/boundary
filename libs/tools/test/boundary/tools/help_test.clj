@@ -10,13 +10,24 @@
   (testing "all error codes have required fields"
     (doseq [[code entry] help/error-catalog]
       (is (string? (:title entry)) (str code " missing :title"))
-      (is (string? (:explain entry)) (str code " missing :explain"))
+      (is (string? (:description entry)) (str code " missing :description"))
       (is (string? (:fix entry)) (str code " missing :fix"))))
 
   (testing "error codes follow BND-xxx format"
     (doseq [code (keys help/error-catalog)]
       (is (re-matches #"BND-\d{3}" code)
-          (str "invalid error code format: " code)))))
+          (str "invalid error code format: " code))))
+
+  (testing "runtime codes are present"
+    (is (some? (get help/error-catalog "BND-201")) "BND-201 must resolve")
+    (is (some? (get help/error-catalog "BND-601")) "BND-601 must resolve"))
+
+  (testing "both families present"
+    (let [codes (set (keys help/error-catalog))]
+      (is (some #(clojure.string/starts-with? % "BND-1") codes) "BND-1xx config family")
+      (is (some #(clojure.string/starts-with? % "BND-2") codes) "BND-2xx validation family")
+      (is (some #(clojure.string/starts-with? % "BND-6") codes) "BND-6xx FC/IS family")
+      (is (some #(clojure.string/starts-with? % "BND-7") codes) "BND-7xx tooling family"))))
 
 ;; =============================================================================
 ;; Topic functions

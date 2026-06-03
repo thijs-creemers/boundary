@@ -1,6 +1,6 @@
 (ns boundary.devtools.core.error-classifier
   "Classify exceptions into BND-xxx error codes.
-   Pure functions — no I/O, no side effects.
+   Pure functions — catalog data loaded once at namespace init via boundary.devtools.error-codes.
 
    Classification strategy (ordered, first match wins):
    1. ex-data with :boundary/error-code — direct BND code
@@ -8,7 +8,7 @@
    3. Message pattern — regex on .getMessage()
    4. Exception type — SQLException, ConnectException, etc.
    5. Unclassified — nil code"
-  (:require [boundary.devtools.core.error-codes :as codes]))
+  (:require [boundary.devtools.error-codes :as codes]))
 
 (defn- root-cause
   "Walk the cause chain to find the root cause."
