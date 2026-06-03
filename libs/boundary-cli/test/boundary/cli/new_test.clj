@@ -35,6 +35,7 @@
       (testing "generates required files"
         (doseq [f ["deps.edn" "bb.edn" ".gitignore" ".env" ".env.example" "tests.edn"
                    "CLAUDE.md" "AGENTS.md"
+                   ".claude/skills/boundary/SKILL.md"
                    "resources/conf/dev/config.edn"
                    "resources/conf/test/config.edn"
                    "src/boundary/config.clj"
@@ -52,6 +53,12 @@
           (is (str/includes? content "test-proj"))
           (is (not (str/includes? content "{{project-name}}")))))
 
+      (testing "Claude Code skill points the agent at the scaffolder"
+        (let [content (slurp (io/file tmp ".claude/skills/boundary/SKILL.md"))]
+          (is (str/includes? content "bb scaffold"))
+          (is (str/includes? content "name: boundary"))
+          (is (not (str/includes? content "{{")))))
+
       (testing "sentinel comments are present in AGENTS.md"
         (let [content (slurp (io/file tmp "AGENTS.md"))]
           (is (str/includes? content "<!-- boundary:available-modules -->"))
@@ -62,6 +69,28 @@
         ;; cleanup
         (doseq [f (reverse (file-seq (io/file tmp)))]
           (.delete f))))))
+
+(defn- find-repo-root
+  "Walk up from the working directory looking for .claude-plugin/marketplace.json.
+   Returns the root as a File, or nil when running outside the monorepo."
+  []
+  (loop [dir (io/file (System/getProperty "user.dir"))]
+    (when dir
+      (if (.exists (io/file dir ".claude-plugin/marketplace.json"))
+        dir
+        (recur (.getParentFile dir))))))
+
+(deftest plugin-skill-in-sync-test
+  (testing "claude-plugin SKILL.md is byte-identical to the project template"
+    (if-let [root (find-repo-root)]
+      (let [plugin-skill (io/file root "claude-plugin/skills/boundary/SKILL.md")
+            template     (io/resource "boundary/cli/templates/claude-skill.md.tmpl")]
+        (is (.exists plugin-skill) "Missing claude-plugin/skills/boundary/SKILL.md")
+        (is (some? template) "Missing claude-skill.md.tmpl resource")
+        (when (and (.exists plugin-skill) template)
+          (is (= (slurp template) (slurp plugin-skill))
+              "claude-plugin/skills/boundary/SKILL.md and libs/boundary-cli/resources/boundary/cli/templates/claude-skill.md.tmpl must stay byte-identical — copy the template over the plugin file")))
+      (println "Skipping plugin-skill sync check: monorepo root not found"))))
 
 (deftest directory-exists-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-exists-test")]

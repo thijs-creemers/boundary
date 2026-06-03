@@ -78,6 +78,7 @@
                      "tests.edn"                           "tests.edn.tmpl"
                      "CLAUDE.md"                           "CLAUDE.md.tmpl"
                      "AGENTS.md"                           "AGENTS.md.tmpl"
+                     ".claude/skills/boundary/SKILL.md"    "claude-skill.md.tmpl"
                      "resources/conf/dev/config.edn"       "dev-config.edn.tmpl"
                      "resources/conf/test/config.edn"      "test-config.edn.tmpl"
                      "src/boundary/config.clj"             "config.clj.tmpl"
@@ -116,4 +117,6 @@
       (doseq [{:keys [name description add-command]} (take 6 (cat/optional-modules))]
         (println (format "  %-25s %s" add-command description)))
       (println "  ... (boundary list modules for full list)")
+      (println "\nAI-ready: CLAUDE.md, AGENTS.md and a Claude Code skill (.claude/skills/boundary/) are included.")
+      (println "Open an agentic CLI (e.g. Claude Code) and ask: \"add a product module with name and price\".")
       (println (str "\nNext:\n  cd " project-name "\n  boundary add <module>    (optional)\n  clojure -M:repl")))))

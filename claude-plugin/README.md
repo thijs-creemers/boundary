@@ -1,0 +1,32 @@
+# Boundary Claude Code Plugin
+
+Makes agentic CLIs (Claude Code and compatible tools) aware of Boundary's
+scaffolder and AI tooling, so the agent reaches for `bb scaffold` / `bb ai`
+instead of hand-writing module boilerplate.
+
+New projects created with `boundary new` already include this skill at
+`.claude/skills/boundary/SKILL.md` — the plugin is for **existing** projects.
+
+## Install
+
+In Claude Code:
+
+```
+/plugin marketplace add thijs-creemers/boundary
+/plugin install boundary@boundary
+```
+
+## What it provides
+
+A single `boundary` skill with:
+
+- A decision table mapping user requests ("add a product module") to the
+  right `bb scaffold` / `bb ai` / `bb setup` / `bb doctor` / `bb guide` command
+- Scaffold-first rules (never hand-write a module skeleton)
+- FC/IS architecture invariants (core purity, case conventions, field sync)
+
+## Keeping in sync
+
+`skills/boundary/SKILL.md` must stay byte-identical to
+`libs/boundary-cli/resources/boundary/cli/templates/claude-skill.md.tmpl`.
+A test in `libs/boundary-cli` enforces this.

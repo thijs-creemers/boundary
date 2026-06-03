@@ -1,0 +1,11 @@
+{
+  "name": "boundary",
+  "description": "Boundary framework toolkit for agentic CLIs: scaffold FC/IS modules, explain errors, generate tests, SQL copilot, and project setup via bb tasks.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Thijs Creemers"
+  },
+  "homepage": "https://github.com/thijs-creemers/boundary",
+  "repository": "https://github.com/thijs-creemers/boundary",
+  "license": "EPL-2.0"
+}

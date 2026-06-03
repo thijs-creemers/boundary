@@ -2,6 +2,24 @@
 
 Built with the [Boundary Framework](https://github.com/thijs-creemers/boundary) (Clojure, FC/IS architecture).
 
+## For AI Agents: Scaffold, Don't Hand-Write
+
+This project ships a generator toolchain. When asked to add a module, entity,
+field, endpoint, or adapter — use the scaffolder. It generates the complete
+FC/IS structure (core/shell/ports/schema), tests, and migrations:
+
+```bash
+bb scaffold ai "product module with name, price, stock" --yes   # from natural language (needs AI provider)
+bb scaffold generate --module-name product --entity Product \
+  --field name:string:required --field price:decimal:required   # explicit, no AI needed
+bb scaffold integrate product   # wire module into deps.edn / tests.edn / wiring
+bb guide next                   # state-aware: what should happen next?
+```
+
+More tooling: `bb ai explain|gen-tests|sql|docs|admin-entity`, `bb setup ai "<desc>"`,
+`bb doctor --all`, `bb check`. The full decision table lives in
+`.claude/skills/boundary/SKILL.md`.
+
 ## Build & Development Commands
 
 ```bash
