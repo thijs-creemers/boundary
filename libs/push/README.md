@@ -50,37 +50,56 @@
 Add to `resources/conf/{env}/config.edn` and require `boundary.push.shell.module-wiring` at system start:
 
 ```edn
-:boundary/push
-{:fcm-credentials  #env BND_PUSH_FCM_CREDENTIALS_JSON
- :apns-credentials {:key-id     #env BND_PUSH_APNS_KEY_ID
-                    :team-id    #env BND_PUSH_APNS_TEAM_ID
-                    :private-key #env BND_PUSH_APNS_PRIVATE_KEY
-                    :bundle-id  #env BND_PUSH_APNS_BUNDLE_ID
-                    :sandbox?   false}
- :db               #ig/ref :boundary/db
- :jobs             #ig/ref :boundary/jobs}
+:boundary.push/fcm-provider  {:provider         :fcm
+                               :project-id       #env BND_PUSH_FCM_PROJECT_ID
+                               :credentials-path #env BND_PUSH_FCM_CREDENTIALS_PATH}
+
+:boundary.push/apns-provider {:provider  :apns
+                               :team-id   #env BND_PUSH_APNS_TEAM_ID
+                               :key-id    #env BND_PUSH_APNS_KEY_ID
+                               :key-path  #env BND_PUSH_APNS_KEY_PATH
+                               :bundle-id #env BND_PUSH_APNS_BUNDLE_ID
+                               :sandbox?  false}
+
+:boundary.push/device-store    {:db #ig/ref :boundary/db}
+:boundary.push/analytics-store {:db #ig/ref :boundary/db}
+
+:boundary.push/service {:device-store    #ig/ref :boundary.push/device-store
+                        :analytics-store #ig/ref :boundary.push/analytics-store
+                        :fcm-provider    #ig/ref :boundary.push/fcm-provider
+                        :apns-provider   #ig/ref :boundary.push/apns-provider
+                        :job-queue       #ig/ref :boundary/jobs
+                        :callback-secret #env BND_PUSH_CALLBACK_SECRET}
+
+:boundary.push/job-handlers {:push-service #ig/ref :boundary.push/service}
+
+:boundary.push/routes {:device-store    #ig/ref :boundary.push/device-store
+                       :analytics-store #ig/ref :boundary.push/analytics-store
+                       :callback-secret #env BND_PUSH_CALLBACK_SECRET}
 ```
+
+Use `:provider :mock` for FCM and APNs in dev/test environments.
 
 ---
 
 ## API
 
 ```clojure
-(require '[boundary.push.shell.service :as push])
+(require '[boundary.push.ports :as push-ports])
 
 ;; Send immediately via job queue
-(push/send-push! service :notification-id template-vars opts)
+(push-ports/send-push! service :notification-id template-vars {:user-id uuid :locale :en})
 
 ;; Schedule for a future instant
-(push/schedule-push! service :notification-id template-vars opts instant)
+(push-ports/schedule-push! service :notification-id template-vars {:user-id uuid} future-instant)
 
 ;; Broadcast to all active tokens for a platform
-(push/broadcast! service :notification-id template-vars {:platform :fcm})
+(push-ports/broadcast! service :notification-id template-vars {:platform :fcm})
 
-;; Device token management
-(push/register-token! service {:user-id uuid :token "..." :platform :fcm :app-id "com.example"})
-(push/deactivate-token! service token)
-(push/list-tokens service user-id)
+;; Device token management (via IDeviceTokenStore)
+(push-ports/register-device! device-store user-id {:token "..." :platform :fcm :app-id "com.example"})
+(push-ports/unregister-device! device-store user-id token)
+(push-ports/get-user-devices device-store user-id)
 ```
 
 ---
@@ -90,7 +109,7 @@ Add to `resources/conf/{env}/config.edn` and require `boundary.push.shell.module
 Run once before using push notifications. When `boundary-push` is on the classpath, `clojure -M:migrate up` auto-discovers these migrations:
 
 ```sql
--- libs/push/resources/boundary/push/migrations/20260524000000-device-tokens.up.sql
+-- 20260524000000-device-tokens.up.sql
 CREATE TABLE IF NOT EXISTS push_device_tokens (
     id            UUID PRIMARY KEY,
     user_id       UUID NOT NULL,
@@ -106,7 +125,7 @@ CREATE TABLE IF NOT EXISTS push_device_tokens (
     CONSTRAINT uq_push_device_token UNIQUE (token, app_id)
 );
 
--- libs/push/resources/boundary/push/migrations/20260524000001-push-send-log.up.sql
+-- 20260524000001-push-send-log.up.sql  (created for future detailed logging)
 CREATE TABLE IF NOT EXISTS push_send_log (
     id                  UUID PRIMARY KEY,
     notification_id     VARCHAR(255) NOT NULL,
@@ -122,6 +141,20 @@ CREATE TABLE IF NOT EXISTS push_send_log (
     error_message       TEXT,
     created_at          TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     sent_at             TIMESTAMP,
+    tenant_id           UUID
+);
+
+-- 20260524000002-analytics-events.up.sql  (used by persistence shell)
+CREATE TABLE IF NOT EXISTS push_analytics_events (
+    id                  UUID PRIMARY KEY,
+    notification_id     VARCHAR(255) NOT NULL,
+    device_token        VARCHAR(512) NOT NULL,
+    platform            VARCHAR(10) NOT NULL,
+    event_type          VARCHAR(20) NOT NULL,
+    user_id             UUID,
+    provider_message_id VARCHAR(255),
+    error_message       TEXT,
+    timestamp           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     tenant_id           UUID
 );
 ```
