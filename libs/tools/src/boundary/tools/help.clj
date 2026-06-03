@@ -23,10 +23,14 @@
   "Map of BND-xxx code → {:code :category :title :description :fix}.
    Loaded from libs/devtools/resources/boundary/devtools/core/error_catalog.edn,
    which is on the BB classpath via bb.edn :paths."
-  (-> "boundary/devtools/core/error_catalog.edn"
-      io/resource
-      slurp
-      edn/read-string))
+  (let [r (io/resource "boundary/devtools/core/error_catalog.edn")]
+    (when-not r
+      (throw (ex-info "error_catalog.edn not found on classpath — check bb.edn :paths includes libs/devtools/resources" {})))
+    (-> r slurp edn/read-string)))
+
+(def ^:private category-order
+  "Display order matching BND-1xx..7xx numerical range scheme."
+  [:config :validation :persistence :auth :interceptor :fcis :tooling])
 
 (def ^:private category-label
   {:config      "Configuration"
@@ -355,13 +359,13 @@
       (println "  BND-6xx   FC/IS violations (core importing shell, side effects in core)")
       (println "  BND-7xx   Tooling (circular deps, admin config, wiring issues)")
       (println)
-      (doseq [[cat codes] (->> (vals error-catalog)
-                               (sort-by :code)
-                               (group-by :category)
-                               (sort-by (fn [[cat _]] (name cat))))]
-        (println (str "  " (bold (get category-label cat (name cat))) ":"))
-        (doseq [{:keys [code title]} codes]
-          (println (str "    " (cyan code) "  " title))))
+      (let [by-cat (group-by :category (vals error-catalog))]
+        (doseq [cat category-order
+                :let [codes (sort-by :code (get by-cat cat []))]
+                :when (seq codes)]
+          (println (str "  " (bold (get category-label cat (name cat))) ":"))
+          (doseq [{:keys [code title]} codes]
+            (println (str "    " (cyan code) "  " title)))))
       (println)
       (println (dim "Usage: bb guide error BND-xxx")))
     (let [upper-code (str/upper-case code)
