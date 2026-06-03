@@ -47,7 +47,9 @@
 
 (defn- nested-sql-subdirs
   "Returns display paths for any subdirectory of dir-path that contains .sql files.
-   Direct children of dir-path are not flagged — only deeper nesting."
+   Reports the immediate parent of each flagged file (leaf-only). A file at
+   migrations/tenant/v2/001.sql appears as 'migrations/tenant/v2/' — the
+   intermediate 'migrations/tenant/' is not separately reported."
   [dir-path]
   (let [dir-file (or (let [f (io/file dir-path)]
                        (when (.isDirectory f) f))
@@ -57,7 +59,7 @@
     (when dir-file
       (let [canonical-dir (.getCanonicalPath dir-file)]
         (->> (file-seq dir-file)
-             (filter #(and (.isFile %) (.. % getName (endsWith ".sql"))))
+             (filter #(and (.isFile %) (.endsWith (.getName %) ".sql")))
              (map #(.getParentFile %))
              (remove #(= canonical-dir (.getCanonicalPath %)))
              (map (fn [parent]

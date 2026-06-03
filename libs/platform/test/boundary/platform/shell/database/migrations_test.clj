@@ -37,6 +37,17 @@
   (testing "returns empty for non-existent directory"
     (is (nil? (#'migrations/nested-sql-subdirs "nonexistent-migrations-xyz/"))))
 
+  (testing "deeply nested file uses leaf dir as display path"
+    (with-temp-dir
+      (fn [root]
+        (let [v2-dir (io/file root "tenant" "v2")]
+          (.mkdirs v2-dir)
+          (spit (io/file v2-dir "001.up.sql") "")
+          (let [dir-path (str (.getCanonicalPath root) "/")
+                subdirs  (#'migrations/nested-sql-subdirs dir-path)]
+            (is (= 1 (count subdirs)))
+            (is (.endsWith (first subdirs) "tenant/v2/")))))))
+
   (testing "flags multiple distinct subdirectories"
     (with-temp-dir
       (fn [root]
