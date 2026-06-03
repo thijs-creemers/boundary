@@ -100,9 +100,52 @@ curl -X DELETE http://localhost:3000/api/auth/sessions/{session-id} \
   -H "Authorization: Bearer <token>"
 ----
 
+[#csrf]
+== CSRF protection
+
+State-changing web requests are protected against Cross-Site Request Forgery by the
+`http-csrf-protection` interceptor (in the default stack). A POST/PUT/DELETE/PATCH is
+validated — and rejected with `403` on a missing or invalid token — when it is either
+session-authenticated or targets a `/web` route. This covers the web UI, `/web/admin`,
+and any session-authenticated `/api` route. Token-auth API clients that send only a
+bearer token (no session cookie) are not CSRF-vulnerable and are not checked.
+
+How a token reaches the browser and back:
+
+* On a page load the interceptor issues a session-bound token and the shared layout
+  renders `<meta name="csrf-token" content="…">`.
+* For HTMX requests, a global `htmx:configRequest` listener copies that token into the
+  `X-CSRF-Token` header automatically — no per-form work.
+* Plain `<form method=post>` forms carry it in a hidden `__anti-forgery-token` field
+  (added via `(boundary.platform.core.csrf/hidden-field)`).
+
+Unauthenticated flows (login, register, MFA) have no session yet, so the token is bound
+to a `SameSite=Strict` `csrf-session` cookie minted on the page GET and validated on the
+subsequent POST.
+
+Configure under `:boundary/http :security :csrf`:
+
+[source,clojure]
+----
+:security {:csrf {:enabled?     true
+                  :secret       #or [#env CSRF_SECRET #env JWT_SECRET]
+                  :exempt-paths ["/api/v1/payments/webhook"]}}  ; webhooks/callbacks
+----
+
+The secret defaults to `JWT_SECRET`, so deployments are protected even without an
+explicit `:csrf` block. Disable it (`:enabled? false`) only in test/dev. List endpoints
+that legitimately cannot send a token (PSP webhooks, OAuth callbacks) under
+`:exempt-paths`; a trailing `/*` matches on a path-segment boundary.
+
+See xref:libraries:platform.adoc#csrf-protection[platform library → CSRF protection] for
+the interceptor internals and token format.
+
 == Key security notes
 
-* `JWT_SECRET` must be set; missing it causes startup failures
+* `JWT_SECRET` must be set; missing it causes startup failures (it is also the default
+  CSRF signing secret)
+* CSRF protection is enforced for session-authenticated, state-changing requests — see
+  <<csrf>>
 * Internal entities use `:password-hash` (kebab-case) — never `:password_hash`
 * The `user` library enforces account lockout after repeated failed login attempts
 
