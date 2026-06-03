@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`boundary-platform`**: `discover-migration-dirs` now scans each resolved migration directory after discovery and emits a `WARN` log for any subdirectory that contains `.sql` files (e.g. `migrations/tenant/`). Catches the class of misconfiguration where tenant-scoped migrations are placed inside the public migration root and silently applied to the wrong schema; the warning fires on the first `clojure -M:migrate up` run rather than producing a hard-to-diagnose data error later.
 - **`boundary-admin`**: Proportional list-view column widths derived from field `:type` plus a field-name heuristic, replacing the previous even distribution where a boolean column got the same width as a `name` or `description` column (BOU-46). Weights: boolean=1, enum/numeric/uuid/json=2, date/instant=3, text=6; string columns default to 3, with name-like fields (`name`, `title`, `email`, …) widened to 4 and long-form fields (`description`, `address`, `comment`, …) to 6. An optional `:width` key on a field config (a positive integer weight) overrides the computed default. Widths are emitted as proportional `width:N%` on the table `<colgroup>` and resolved deterministically at render time — no runtime AI.
 
 ### Changed
