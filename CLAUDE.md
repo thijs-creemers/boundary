@@ -52,7 +52,7 @@ bb quickstart                      # Zero-to-running-app: check env, setup, scaf
 bb guide                           # General help with all commands
 bb guide next                      # State-aware: what should you do next?
 bb guide scaffold                  # Detailed scaffolding help
-bb guide error BND-201             # Look up error code with causes + fixes
+bb guide error BND-003             # Look up error code with causes + fixes (BND-001..BND-010)
 bb setup                           # Interactive config setup wizard
 bb setup ai "PostgreSQL with Stripe payments"                     # AI-powered config setup
 bb setup --database postgresql --payment stripe                   # Non-interactive config setup

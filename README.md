@@ -63,6 +63,31 @@ You get: H2 in-memory database (zero-config), HTTP server on port 3000, a comple
 
 ---
 
+## AI-Native Development (Claude Code & Agentic CLIs)
+
+Projects created with `boundary new` are agent-ready out of the box: they
+include a `CLAUDE.md`, an `AGENTS.md`, and a Claude Code skill at
+`.claude/skills/boundary/SKILL.md` that teaches the agent to use Boundary's
+scaffolder and AI tooling instead of hand-writing boilerplate. Open Claude
+Code in a fresh project and ask:
+
+> add a product module with name, price, and stock
+
+The agent will reach for `bb scaffold` and generate a complete FC/IS module
+with tests and migrations.
+
+For **existing** projects (or to get updates without regenerating), install
+the plugin from this repo's marketplace:
+
+```
+/plugin marketplace add thijs-creemers/boundary
+/plugin install boundary@boundary
+```
+
+See [claude-plugin/README.md](./claude-plugin/README.md) for details.
+
+---
+
 ## Documentation
 
 | Resource | Description |

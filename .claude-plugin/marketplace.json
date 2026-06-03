@@ -1,0 +1,14 @@
+{
+  "name": "boundary",
+  "owner": {
+    "name": "Boundary Framework"
+  },
+  "description": "Plugins for the Boundary Clojure framework",
+  "plugins": [
+    {
+      "name": "boundary",
+      "source": "./claude-plugin",
+      "description": "Boundary framework toolkit: scaffold FC/IS modules, explain errors, generate tests, SQL copilot, and project setup via bb tasks."
+    }
+  ]
+}

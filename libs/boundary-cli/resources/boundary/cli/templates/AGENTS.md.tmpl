@@ -33,6 +33,21 @@ clojure -M:migrate up    # run pending migrations
 boundary add <module>          # add an optional module
 boundary list modules          # human-readable module list
 boundary list modules --json   # machine-readable catalogue (for AI tools)
+
+# Scaffolding — ALWAYS prefer this over hand-writing module code
+bb scaffold ai "product module with name, price, stock" --yes   # natural language (needs AI provider)
+bb scaffold generate --module-name product --entity Product \
+  --field name:string:required --field price:decimal:required   # explicit, no AI needed
+bb scaffold integrate product  # wire module into deps.edn / tests.edn / wiring
+bb guide next                  # state-aware: what should happen next?
+
+# AI tooling (needs Ollama or ANTHROPIC_API_KEY / OPENAI_API_KEY)
+bb ai explain --file stacktrace.txt   # explain a Clojure/Boundary error
+bb ai gen-tests src/path/to/ns.clj    # generate a test namespace
+bb ai sql "find active users with orders in last 7 days"  # HoneySQL from NL
+bb setup ai "PostgreSQL with Stripe payments"             # AI-powered config setup
+bb doctor --all                       # validate config + environment
+bb check                              # quality gates (FC/IS, deps, lint)
 ```
 
 ---
@@ -161,6 +176,16 @@ clj-paren-repair src/{{project-ns}}/core/product.clj
 
 ### Adding new functionality
 
+**Step 0 — scaffold it.** Never hand-write a new module skeleton:
+
+```bash
+bb scaffold ai "invoice module with customer name, total, status" --yes
+bb scaffold integrate invoice
+```
+
+The scaffolder generates schema, ports, core, shell, tests, and migrations.
+Then edit the generated code following this flow:
+
 1. **Define schema** in `schema.clj` (Malli)
 2. **Write pure core logic** in `core/{domain}.clj` — no side effects
 3. **Write unit tests** for core logic (fast, no mocks needed)
@@ -224,6 +249,11 @@ clojure -M:repl-clj
 ---
 
 ## AI Agent Tooling
+
+The agent decision table (scaffold, `bb ai explain|gen-tests|sql|docs`,
+`bb setup ai`, `bb doctor`, `bb guide`) lives in
+`.claude/skills/boundary/SKILL.md` — auto-discovered by Claude Code and
+compatible agentic CLIs. Rule of thumb: **scaffold, don't hand-write.**
 
 Install once with bbin to enable REPL-driven development from the terminal:
 
