@@ -30,3 +30,9 @@ A single `boundary` skill with:
 `skills/boundary/SKILL.md` must stay byte-identical to
 `libs/boundary-cli/resources/boundary/cli/templates/claude-skill.md.tmpl`.
 A test in `libs/boundary-cli` enforces this.
+
+## Versioning
+
+`plugin.json` intentionally has no `version` field: Claude Code then versions
+the plugin by git commit SHA, so every merged change is picked up by
+`/plugin marketplace update` without a manual version bump.

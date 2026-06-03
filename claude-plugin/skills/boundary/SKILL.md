@@ -25,10 +25,11 @@ consistent.
 | Generate tests for a namespace | `bb ai gen-tests <path/to/file.clj>` |
 | SQL (HoneySQL) from a description | `bb ai sql "find active users with orders in last 7 days"` |
 | Admin entity config | `bb ai admin-entity "products with name, price, status"` |
+| Generate module docs (AGENTS.md) | `bb ai docs --module <path> --type agents` |
 | Configure the project (DB, payments, …) | `bb setup ai "PostgreSQL with Stripe payments"` |
 | Validate config + environment | `bb doctor --all` |
 | Quality gates (FC/IS, deps, lint) | `bb check` |
-| Unsure what to do next | `bb guide next` — error codes: `bb guide error BND-201` |
+| Unsure what to do next | `bb guide next` — error codes: `bb guide error BND-003` |
 
 Field spec format: `name:type[:required][:unique]` with types
 `string text integer decimal boolean email uuid enum date datetime json`.

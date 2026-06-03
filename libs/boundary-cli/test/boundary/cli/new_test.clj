@@ -90,7 +90,10 @@
         (when (and (.exists plugin-skill) template)
           (is (= (slurp template) (slurp plugin-skill))
               "claude-plugin/skills/boundary/SKILL.md and libs/boundary-cli/resources/boundary/cli/templates/claude-skill.md.tmpl must stay byte-identical — copy the template over the plugin file")))
-      (println "Skipping plugin-skill sync check: monorepo root not found"))))
+      ;; Outside the monorepo (e.g. testing the published library) there is no
+      ;; plugin copy to compare against — record the skip as a passing assertion.
+      (is (nil? (find-repo-root))
+          "Sync check skipped: monorepo root (.claude-plugin/marketplace.json) not found"))))
 
 (deftest directory-exists-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-exists-test")]
