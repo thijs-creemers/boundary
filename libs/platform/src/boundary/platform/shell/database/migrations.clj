@@ -12,6 +12,7 @@
   (:require [migratus.core :as migratus]
             [boundary.platform.shell.adapters.database.config :as db-config]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
 
 ;; =============================================================================
@@ -44,6 +45,29 @@
          (filter string?)
          (remove empty?))))
 
+(defn- nested-sql-subdirs
+  "Returns display paths for any subdirectory of dir-path that contains .sql files.
+   Reports the immediate parent of each flagged file (leaf-only). A file at
+   migrations/tenant/v2/001.sql appears as 'migrations/tenant/v2/' — the
+   intermediate 'migrations/tenant/' is not separately reported."
+  [dir-path]
+  (let [dir-file (or (let [f (io/file dir-path)]
+                       (when (.isDirectory f) f))
+                     (when-let [url (io/resource dir-path)]
+                       (when (= "file" (.getProtocol url))
+                         (io/file (.toURI url)))))]
+    (when dir-file
+      (let [canonical-dir (.getCanonicalPath dir-file)]
+        (->> (file-seq dir-file)
+             (filter #(and (.isFile %) (.endsWith (.getName %) ".sql")))
+             (map #(.getParentFile %))
+             (remove #(= canonical-dir (.getCanonicalPath %)))
+             (map (fn [parent]
+                    (str dir-path
+                         (subs (.getCanonicalPath parent) (inc (count canonical-dir)))
+                         "/")))
+             distinct)))))
+
 (defn discover-migration-dirs
   "Return the complete set of migration directories visible to the application.
 
@@ -58,6 +82,12 @@
     (log/info "Discovered migration directories"
               {:count (count migration-dirs)
                :dirs migration-dirs})
+    (doseq [dir-path migration-dirs
+            subdir   (nested-sql-subdirs dir-path)]
+      (log/warn (str "Found SQL files in subdirectory '" subdir
+                     "' — these will be applied to the public schema."
+                     " If they are tenant-scoped migrations, move them"
+                     " to a separate classpath resource.")))
     migration-dirs))
 
 (defn create-migratus-config

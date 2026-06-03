@@ -14,6 +14,55 @@
         (doseq [file (reverse (file-seq dir))]
           (.delete file))))))
 
+(deftest nested-sql-subdirs-detects-sql-in-subdirectories
+  (testing "flags subdirectory that contains SQL files, not direct children"
+    (with-temp-dir
+      (fn [root]
+        (let [tenant-dir (io/file root "tenant")]
+          (.mkdirs tenant-dir)
+          (spit (io/file root "001.up.sql") "")
+          (spit (io/file tenant-dir "001-tenants.up.sql") "")
+          (let [dir-path (str (.getCanonicalPath root) "/")
+                subdirs  (#'migrations/nested-sql-subdirs dir-path)]
+            (is (= 1 (count subdirs)))
+            (is (.endsWith (first subdirs) "tenant/")))))))
+
+  (testing "returns empty when no SQL files are nested"
+    (with-temp-dir
+      (fn [root]
+        (spit (io/file root "001.up.sql") "")
+        (is (empty? (#'migrations/nested-sql-subdirs
+                     (str (.getCanonicalPath root) "/")))))))
+
+  (testing "returns empty for non-existent directory"
+    (is (nil? (#'migrations/nested-sql-subdirs "nonexistent-migrations-xyz/"))))
+
+  (testing "deeply nested file uses leaf dir as display path"
+    (with-temp-dir
+      (fn [root]
+        (let [v2-dir (io/file root "tenant" "v2")]
+          (.mkdirs v2-dir)
+          (spit (io/file v2-dir "001.up.sql") "")
+          (let [dir-path (str (.getCanonicalPath root) "/")
+                subdirs  (#'migrations/nested-sql-subdirs dir-path)]
+            (is (= 1 (count subdirs)))
+            (is (.endsWith (first subdirs) "tenant/v2/")))))))
+
+  (testing "flags multiple distinct subdirectories"
+    (with-temp-dir
+      (fn [root]
+        (let [tenant-dir (io/file root "tenant")
+              archive-dir (io/file root "archive")]
+          (.mkdirs tenant-dir)
+          (.mkdirs archive-dir)
+          (spit (io/file tenant-dir "001.up.sql") "")
+          (spit (io/file archive-dir "001.up.sql") "")
+          (let [dir-path (str (.getCanonicalPath root) "/")
+                subdirs  (set (#'migrations/nested-sql-subdirs dir-path))]
+            (is (= 2 (count subdirs)))
+            (is (some #(.endsWith % "tenant/") subdirs))
+            (is (some #(.endsWith % "archive/") subdirs))))))))
+
 (deftest discover-migration-dirs-includes-library-manifests
   (testing "root migrations and library manifests are merged and de-duplicated"
     (with-temp-dir
@@ -71,7 +120,7 @@
                     migratus/migrate (fn [arg] (swap! calls conj [:migrate arg]))
                     migratus/rollback (fn [arg] (swap! calls conj [:rollback arg]))
                     migratus/rollback-until-just-after (fn [arg migration-id]
-                                                          (swap! calls conj [:rollback-until arg migration-id]))
+                                                         (swap! calls conj [:rollback-until arg migration-id]))
                     migratus/completed-list (fn [arg]
                                               (swap! calls conj [:completed-list arg])
                                               ["20260324090101-bootstrap"])
@@ -79,7 +128,7 @@
                                             (swap! calls conj [:pending-list arg])
                                             ["20260325010101-example"])
                     migratus/create (fn [arg name]
-                                       (swap! calls conj [:create arg name]))
+                                      (swap! calls conj [:create arg name]))
                     migratus/reset (fn [arg] (swap! calls conj [:reset arg]))
                     migratus/init (fn [arg] (swap! calls conj [:init arg]))]
         (is (nil? (migrations/migrate)))

@@ -1,6 +1,6 @@
-(ns boundary.devtools.core.error-codes-test
+(ns boundary.devtools.error-codes-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.devtools.core.error-codes :as codes]))
+            [boundary.devtools.error-codes :as codes]))
 
 (deftest ^:unit lookup-test
   (testing "finds known error codes"
@@ -24,6 +24,11 @@
     (let [results (codes/by-category :validation)]
       (is (pos? (count results)))
       (is (every? #(= :validation (:category %)) results))))
+
+  (testing "returns all tooling errors"
+    (let [results (codes/by-category :tooling)]
+      (is (pos? (count results)))
+      (is (every? #(= :tooling (:category %)) results))))
 
   (testing "returns empty for unknown category"
     (is (empty? (codes/by-category :unknown)))))
