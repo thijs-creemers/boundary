@@ -135,7 +135,8 @@
       [{:path "/test/reset"
         :methods {:post {:handler handler
                          :summary "Playwright e2e reset + seed endpoint"
-                         :no-doc  true}}}])))
+                         :no-doc  true
+                         :skip-interceptors? true}}}])))
 
 (defmethod ig/init-key :boundary/http-handler
   [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n user-service request-capture?]}]
@@ -174,21 +175,25 @@
                                                        {:status 302
                                                         :headers {"Location" "/web/login"}}))
                                           :summary "Home page (redirects to login or users)"
-                                          :no-doc true}}}
+                                          :no-doc true
+                                          :skip-interceptors? true}}}
                          {:path "/health"
                           :methods {:get {:handler health-handler
                                           :summary "Health check endpoint"
-                                          :no-doc true}}}
+                                          :no-doc true
+                                          :skip-interceptors? true}}}
                          {:path "/health/ready"
                           :methods {:get {:handler ready-handler
                                           :summary "Readiness check with dependency health"
-                                          :no-doc true}}}
+                                          :no-doc true
+                                          :skip-interceptors? true}}}
                          {:path "/health/live"
                           :methods {:get {:handler (fn [_] {:status 200
                                                             :headers {"Content-Type" "application/json"}
                                                             :body (cheshire.core/generate-string {:status "alive"})})
                                           :summary "Liveness check"
-                                          :no-doc true}}}]
+                                          :no-doc true
+                                          :skip-interceptors? true}}}]
 
         ;; Extract user module routes (normalized format)
         user-static-routes (or (:static user-routes) [])
@@ -305,18 +310,26 @@
                                       versioned-api-routes
                                       (or test-reset-routes []))
 
+        ;; CSRF config consumed by http-csrf-protection interceptor.
+        ;; Enabled by default. Secret falls back to JWT_SECRET so protection works in
+        ;; environments without an explicit :boundary/http config block (e.g. prod/acc).
+        ;; Config keys override these defaults.
+        csrf-config (merge {:enabled?     true
+                            :secret       (System/getenv "JWT_SECRET")
+                            :exempt-paths []}
+                           (get-in config [:active :boundary/http :security :csrf]))
+        ;; Fail-loud guard: an enabled CSRF interceptor with no secret cannot validate
+        ;; (the interceptor would skip all checks — fail open). Surface it at startup.
+        _ (when (and (:enabled? csrf-config) (str/blank? (:secret csrf-config)))
+            (log/warn "CSRF protection is enabled but no secret is configured "
+                      "(set CSRF_SECRET or JWT_SECRET, or :boundary/http :security :csrf :secret). "
+                      "State-changing requests will NOT be CSRF-validated until a secret is set."))
+
         ;; Build system services map for HTTP interceptors
         system {:logger logger
                 :metrics-emitter metrics-emitter
                 :error-reporter error-reporter
-                ;; CSRF config consumed by http-csrf-protection interceptor.
-                ;; Enabled by default. Secret falls back to JWT_SECRET so protection
-                ;; works in environments without an explicit :boundary/http config
-                ;; block (e.g. prod/acc). Config keys override these defaults.
-                :csrf (merge {:enabled?     true
-                              :secret       (System/getenv "JWT_SECRET")
-                              :exempt-paths []}
-                             (get-in config [:active :boundary/http :security :csrf]))}
+                :csrf csrf-config}
 
         ;; Build i18n middleware (always present — falls back to identity t-fn if not configured)
         i18n-middleware-fn (when i18n

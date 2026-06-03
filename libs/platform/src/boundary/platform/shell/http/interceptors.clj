@@ -65,13 +65,16 @@
       (get-in request [:cookies "session-token" :value])))
 
 (defn- path-exempt?
-  "True when uri matches any exempt pattern. A pattern ending in \"/*\" matches by
-   prefix (the base path and anything under it); any other pattern matches exactly."
+  "True when uri matches any exempt pattern. A pattern ending in \"/*\" matches the
+   base path itself and anything beneath it on a path-segment boundary (so \"/api/*\"
+   matches \"/api\" and \"/api/x\" but NOT \"/apix\"); any other pattern matches exactly."
   [exempt-paths uri]
   (boolean
    (some (fn [p]
            (if (str/ends-with? p "/*")
-             (str/starts-with? uri (subs p 0 (- (count p) 2)))
+             (let [base (subs p 0 (- (count p) 2))]    ; drop "/*"
+               (or (= uri base)
+                   (str/starts-with? uri (str base "/"))))
              (= p uri)))
          exempt-paths)))
 
@@ -105,12 +108,18 @@
                {:value id :http-only true :path "/" :same-site :strict})
     ctx))
 
-(defn- csrf-403 [ctx]
-  (assoc ctx :response {:status 403
-                        :headers {"Content-Type" "application/json"}
-                        :body {:error "CSRF token validation failed"
-                               :message "Invalid or missing CSRF token"
-                               :type :csrf-validation-failed}}))
+(defn- csrf-403
+  "Reject with 403 and HALT the pipeline. :halt? is required — run-pipeline does not
+   short-circuit on :response alone, so without it the downstream ring-handler
+   interceptor would run and overwrite this response with the handler's output."
+  [ctx]
+  (assoc ctx
+         :halt? true
+         :response {:status 403
+                    :headers {"Content-Type" "application/json"}
+                    :body {:error "CSRF token validation failed"
+                           :message "Invalid or missing CSRF token"
+                           :type :csrf-validation-failed}}))
 
 ;; ==============================================================================
 ;; HTTP Context Management

@@ -101,13 +101,16 @@
 
 (defn extract-token
   "Pull the submitted CSRF token from a Ring request, checking, in order:
-     1. form param  __anti-forgery-token  (string or keyword key)
-     2. header      x-csrf-token
+     1. form param      __anti-forgery-token  (string or keyword key)
+     2. multipart param __anti-forgery-token  (file-upload forms)
+     3. header          x-csrf-token
    Returns the token String or nil. Pure map access — no I/O."
   [request]
   (or (get-in request [:form-params field-name])
       (get-in request [:form-params (keyword field-name)])
       (get-in request [:params (keyword field-name)])
+      (get-in request [:multipart-params field-name])
+      (get-in request [:multipart-params (keyword field-name)])
       (get-in request [:headers header-name])))
 
 (defn hidden-field

@@ -76,6 +76,9 @@
   (testing "extracts from form-params (keyword key)"
     (is (= "tok" (csrf/extract-token {:form-params {:__anti-forgery-token "tok"}}))))
 
+  (testing "extracts from multipart-params (file-upload forms)"
+    (is (= "tok" (csrf/extract-token {:multipart-params {"__anti-forgery-token" "tok"}}))))
+
   (testing "extracts from header x-csrf-token"
     (is (= "tok" (csrf/extract-token {:headers {"x-csrf-token" "tok"}}))))
 
