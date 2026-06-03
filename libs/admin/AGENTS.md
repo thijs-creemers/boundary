@@ -59,11 +59,12 @@ List-view column widths are resolved in three layers:
 | `:date`, `:instant` | 3 |
 | `:string` + name matches description/bio/body/address/notes/comment/… | 6 |
 | `:string` + name matches name/email/title/slug/url/label/… | 4 |
-| `:string` (other) / `:text` | 3 / 6 |
+| `:string` (other) | 3 |
+| `:text` | 6 |
 
 **Layer 2 — manual `:width` override**: add `{:width N}` (positive int, min 1) to a field config to override the heuristic for that field. Use when the heuristic default is wrong for a specific domain field.
 
-**Layer 3 — AI suggestion via `bb ai admin-entity`**: when generating an entity config, the AI reads the same defaults and only emits `:width` for fields whose semantics differ from layer 1 (e.g. `:sku` → `{:width 1}`, narrow code field). Do not add `:width` by hand when `bb ai admin-entity` already handles it, and do not remove AI-suggested `:width` values without checking the rendered table.
+**Layer 3 — AI suggestion via `bb ai admin-entity`**: when generating an entity config, the AI reads the same defaults and only emits `:width` for fields whose semantics differ from layer 1 (e.g. `:sku` → `{:width 1}`, narrow code field). Prefer letting `bb ai admin-entity` set initial `:width` values; adjust manually if the rendered table needs further tuning.
 
 ```clojure
 ;; Layer 2 example — manually narrow a ref code column
