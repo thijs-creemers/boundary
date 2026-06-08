@@ -264,8 +264,9 @@ Expected: prints `prod true` and `acc true` (was `prod nil`/`acc nil` before thi
 NOTE: do NOT use `bb doctor --env all --ci` as a pass/fail gate here — it already exits 1 on
 `main` because prod/acc carry many unset bare `#env` refs (POSTGRES_HOST, SENTRY_DSN, …) that
 `check-env-refs` flags. That exit code is pre-existing and unrelated to this change; the aero
-one-liner above is the real verification. (Optional sanity: `bb doctor --env all` should report
-no *new* errors beyond the pre-existing unset-env-ref list.)
+one-liner above is the real verification. (Optional sanity: `bb doctor --env all` will now
+additionally list `JWT_SECRET` as an unset required env-ref for prod/acc — this is **expected**
+and intended: prod must fail loud without a secret. It is not a regression.)
 
 - [ ] **Step 4: Commit**
 
