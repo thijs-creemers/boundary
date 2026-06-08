@@ -75,6 +75,12 @@
    :release #or [#env "APP_RELEASE" #env "VERSION"]
    :sample-rate 1.0}
 
+  ;; HTTP server — CSRF enforcement explicitly ON for prod (lib default is opt-in/off).
+  ;; Secret must come from the environment; no literal fallback (fail loud if unset).
+  :boundary/http
+  {:security {:csrf {:enabled? true
+                     :secret   #env "JWT_SECRET"}}}
+
   ;; Internationalisation — marker-based i18n with EDN catalogues
   :boundary/i18n
   {:catalogue-path "boundary/i18n/translations"
