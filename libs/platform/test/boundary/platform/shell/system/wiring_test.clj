@@ -79,7 +79,8 @@
               :metrics-emitter ::metrics
               :error-reporter ::error-reporter}
              (dissoc (:system @captured-config) :csrf)))
-      (is (true? (get-in @captured-config [:system :csrf :enabled?]))))
+      ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
+      (is (false? (get-in @captured-config [:system :csrf :enabled?]))))
 
     (testing "the returned handler is the compiled handler after wrapping"
       (is (= {:status 200 :body {:request-method :get}}
@@ -144,7 +145,8 @@
               :metrics-emitter ::metrics
               :error-reporter ::error-reporter}
              (dissoc (:system @captured-config) :csrf)))
-      (is (true? (get-in @captured-config [:system :csrf :enabled?]))))
+      ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
+      (is (false? (get-in @captured-config [:system :csrf :enabled?]))))
 
     (testing "method override middleware rewrites POST requests to the requested verb"
       (let [wrapped-handler ((first (:middleware @captured-config)) compiled-handler)]
