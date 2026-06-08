@@ -254,15 +254,18 @@ with:
   :boundary/error-reporting
 ```
 
-- [ ] **Step 3: Verify configs load and CSRF reads as enabled**
+- [ ] **Step 3: Verify the CSRF flag resolves to true for prod/acc**
 
-Run: `bb doctor --env all --ci`
-Expected: exit 0, no config errors. (Validates dev/test/prod/acc EDN parse + structure.)
+Primary proof — load each config via aero and read the flag:
 
-If `bb doctor` does not assert the csrf flag specifically, additionally verify the EDN parses and the key resolves:
+Run: `clojure -M -e "(require '[aero.core :as aero]) (doseq [env [\"prod\" \"acc\"]] (let [c (aero/read-config (str \"resources/conf/\" env \"/config.edn\") {:profile (keyword env)})] (println env (get-in c [:active :boundary/http :security :csrf :enabled?]))))"`
+Expected: prints `prod true` and `acc true` (was `prod nil`/`acc nil` before this task).
 
-Run: `JWT_SECRET=verify-only-not-used-at-rest clojure -M -e "(require '[aero.core :as aero]) (doseq [env [\"prod\" \"acc\"]] (let [c (aero/read-config (str \"resources/conf/\" env \"/config.edn\") {:profile (keyword env)})] (println env (get-in c [:active :boundary/http :security :csrf :enabled?]))))"`
-Expected: `prod true` and `acc true`.
+NOTE: do NOT use `bb doctor --env all --ci` as a pass/fail gate here — it already exits 1 on
+`main` because prod/acc carry many unset bare `#env` refs (POSTGRES_HOST, SENTRY_DSN, …) that
+`check-env-refs` flags. That exit code is pre-existing and unrelated to this change; the aero
+one-liner above is the real verification. (Optional sanity: `bb doctor --env all` should report
+no *new* errors beyond the pre-existing unset-env-ref list.)
 
 - [ ] **Step 4: Commit**
 
@@ -290,34 +293,58 @@ In the `csrf.clj` ns docstring (L1-21), add a short paragraph before the closing
    <meta name=\"csrf-token\"> tag + the ui-style init.js htmx:configRequest listener.
 ```
 
-- [ ] **Step 2: Add a CSRF section to libs/platform/AGENTS.md**
+- [ ] **Step 2: Correct the EXISTING CSRF section in libs/platform/AGENTS.md**
 
-Read `libs/platform/AGENTS.md`, then add a `## CSRF protection` section (place after the HTTP interceptor section). Content:
+A `## CSRF Protection` section already exists (~L98-153). Do NOT add a duplicate. Make two
+targeted Edits to flip its stale default-on framing to opt-in and add the `hx-headers` path.
 
-```markdown
-## CSRF protection
+**Edit 2a — Configuration code block + paragraph (currently ~L131, L136-138).** Replace:
 
-Custom synchronizer-token impl in `core/csrf.clj` + `http-csrf-protection`
-interceptor (wired in `default-http-interceptors`). Tokens are HMAC-SHA256 signed
-and bound to the session (authenticated) or a pre-session cookie (login/register/MFA).
+```clojure
+ {:csrf {:enabled?     true                                  ; false only in test/dev
+         :secret       #or [#env CSRF_SECRET #env JWT_SECRET] ; defaults to JWT_SECRET
+         :exempt-paths ["/api/v1/payments/webhook"]}}}        ; trailing /* = prefix match
+```
 
-**Enforcement is opt-in (default off).** Enable per app:
+with:
 
-    :boundary/http {:security {:csrf {:enabled? true :secret <≥32 chars>}}}
+```clojure
+ {:csrf {:enabled?     true                                  ; OPT-IN: lib default is false
+         :secret       #or [#env CSRF_SECRET #env JWT_SECRET] ; defaults to JWT_SECRET
+         :exempt-paths ["/api/v1/payments/webhook"]}}}        ; trailing /* = prefix match
+```
 
-The lib default is off so a framework upgrade can't 403 consumers that don't yet
-emit tokens. Secret falls back to `JWT_SECRET`. A fail-loud WARN fires at startup if
-enabled with a blank secret.
+Then replace the paragraph:
 
-**Emitting tokens** (consumer/app side):
-- Server forms: splice `(csrf/hidden-field)` into each `/web` POST form (nil-safe).
-- HTMX: merge `(csrf/hx-headers)` onto `<body>` attrs (inherits to all `hx-*`), or
-  render `<meta name="csrf-token" :content (csrf/current-token)>` and ship the
-  ui-style `init.js` htmx:configRequest listener.
+> The secret falls back to `JWT_SECRET` even without a config block, so prod/acc are
+> protected by default. The test profile ships `:enabled? false` so the broad suite need
+> not carry tokens; CSRF-specific tests enable it explicitly.
 
-**Scope:** validates state-changing POST/PUT/DELETE/PATCH on `/web` (incl.
-`/web/admin`) or session-authenticated `/api`. Token-auth API clients (no session
-cookie) and `:exempt-paths` are skipped. Safe methods are never checked.
+with:
+
+> **Enforcement is opt-in: the library default is `:enabled? false`** so a framework upgrade
+> can't 403 consumers that don't yet emit tokens. An app turns it on with the block above
+> (after emitting tokens in its `/web` forms). The secret falls back to `JWT_SECRET`; a
+> fail-loud WARN fires at startup if enabled with a blank secret. In this repo, dev/prod/acc
+> set `:enabled? true` explicitly; the test profile ships `:enabled? false` so the broad suite
+> need not carry tokens (CSRF-specific tests enable it explicitly).
+
+**Edit 2b — Emitting tokens, HTMX bullet (currently ~L146-148).** Replace:
+
+```
+- **HTMX** — the shared `page-layout` renders `<meta name="csrf-token">`; the global
+  `htmx:configRequest` listener in `init.js` attaches `X-CSRF-Token` to every HTMX
+  request. New HTMX actions need nothing.
+```
+
+with:
+
+```
+- **HTMX** — either (a) merge `(csrf/hx-headers)` (0-arity reads `*token*`) onto an
+  element's attrs, e.g. `<body>`, so all inherited `hx-*` requests carry the header; or
+  (b) rely on the shared `page-layout`'s `<meta name="csrf-token">` + the global
+  `htmx:configRequest` listener in `init.js`, which attaches `X-CSRF-Token` to every HTMX
+  request (new HTMX actions then need nothing).
 ```
 
 - [ ] **Step 3: Lint + commit**
