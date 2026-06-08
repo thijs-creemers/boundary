@@ -22,6 +22,7 @@
   (:require [buddy.core.mac :as mac]
             [buddy.core.bytes :as bytes]
             [buddy.core.codecs :as codecs]
+            [cheshire.core :as json]
             [clojure.string :as str]))
 
 (def field-name
@@ -125,3 +126,19 @@
   ([token]
    (when token
      [:input {:type "hidden" :name field-name :value token}])))
+
+(defn hx-headers
+  "HTMX attribute fragment carrying the CSRF token, for elements that should send
+   it without relying on the global <meta>/init.js listener. Merge into an
+   element's attribute map (e.g. on <body>) so all inherited hx-* requests include
+   the header: [:body (merge attrs (hx-headers)) ...].
+
+   The 0-arity reads the token bound for the current request (*token*); the 1-arity
+   takes an explicit token. Returns nil when the token is nil, so callers can merge
+   the result unconditionally. The header key uses `header-name` (\"x-csrf-token\");
+   Ring lowercases inbound header names, so the interceptor's `extract-token` reads
+   it consistently."
+  ([] (hx-headers *token*))
+  ([token]
+   (when token
+     {:hx-headers (json/generate-string {header-name token})})))

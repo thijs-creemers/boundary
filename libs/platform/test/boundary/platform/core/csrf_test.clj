@@ -2,6 +2,7 @@
   "Unit tests for pure CSRF token functions."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.string :as str]
+            [cheshire.core :as json]
             [boundary.platform.core.csrf :as csrf]
             [buddy.core.nonce :as nonce]))
 
@@ -89,3 +90,22 @@
   (testing "nil when absent"
     (is (nil? (csrf/extract-token {})))
     (is (nil? (csrf/extract-token {:headers {} :form-params {}})))))
+
+(deftest ^:unit ^:security hx-headers-test
+  (testing "1-arity returns a mergeable {:hx-headers <json>} attr map"
+    (let [token "nonce123.mac456"
+          attrs (csrf/hx-headers token)]
+      (is (map? attrs))
+      (is (contains? attrs :hx-headers))
+      (testing "the json value is {\"x-csrf-token\": <token>}"
+        (is (= {"x-csrf-token" token} (json/parse-string (:hx-headers attrs)))))))
+
+  (testing "nil token returns nil (callers can merge unconditionally)"
+    (is (nil? (csrf/hx-headers nil))))
+
+  (testing "0-arity reads the request-bound *token*"
+    (binding [csrf/*token* "bound.tok"]
+      (is (= {"x-csrf-token" "bound.tok"}
+             (json/parse-string (:hx-headers (csrf/hx-headers)))))))
+  (testing "0-arity returns nil when *token* is unbound"
+    (is (nil? (csrf/hx-headers)))))
