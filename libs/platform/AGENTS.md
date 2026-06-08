@@ -128,14 +128,17 @@ paths (webhooks/callbacks).
 ;; resources/conf/<env>/config.edn under :active
 :boundary/http
 {:security
- {:csrf {:enabled?     true                                  ; false only in test/dev
+ {:csrf {:enabled?     true                                  ; OPT-IN: lib default is false
          :secret       #or [#env CSRF_SECRET #env JWT_SECRET] ; defaults to JWT_SECRET
          :exempt-paths ["/api/v1/payments/webhook"]}}}        ; trailing /* = prefix match
 ```
 
-The secret falls back to `JWT_SECRET` even without a config block, so prod/acc are
-protected by default. The test profile ships `:enabled? false` so the broad suite need
-not carry tokens; CSRF-specific tests enable it explicitly.
+**Enforcement is opt-in: the library default is `:enabled? false`** so a framework upgrade
+can't 403 consumers that don't yet emit tokens. An app turns it on with the block above
+(after emitting tokens in its `/web` forms). The secret falls back to `JWT_SECRET`; a
+fail-loud WARN fires at startup if enabled with a blank secret. In this repo, dev/prod/acc
+set `:enabled? true` explicitly; the test profile ships `:enabled? false` so the broad suite
+need not carry tokens (CSRF-specific tests enable it explicitly).
 
 ### Emitting tokens in views
 
@@ -143,9 +146,11 @@ The interceptor exposes the token on the request as `:anti-forgery-token` and bi
 `csrf/*token*` around handler execution (Hiccup renders to a string synchronously
 inside the handler), so views emit it with no per-handler threading:
 
-- **HTMX** — the shared `page-layout` renders `<meta name="csrf-token">`; the global
-  `htmx:configRequest` listener in `init.js` attaches `X-CSRF-Token` to every HTMX
-  request. New HTMX actions need nothing.
+- **HTMX** — either (a) merge `(csrf/hx-headers)` (0-arity reads `*token*`) onto an
+  element's attrs, e.g. `<body>`, so all inherited `hx-*` requests carry the header; or
+  (b) rely on the shared `page-layout`'s `<meta name="csrf-token">` + the global
+  `htmx:configRequest` listener in `init.js`, which attaches `X-CSRF-Token` to every HTMX
+  request (new HTMX actions then need nothing).
 - **Plain `<form method=post>`** — splice `(csrf/hidden-field)` (0-arity reads
   `*token*`) as the first child.
 

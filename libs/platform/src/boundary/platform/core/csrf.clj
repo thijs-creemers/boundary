@@ -18,7 +18,12 @@
 
    Safety parity with ring-anti-forgery: validation uses buddy's `mac/verify`,
    which performs a constant-time comparison of the recomputed HMAC, so token
-   checks do not leak timing information."
+   checks do not leak timing information.
+
+   Enforcement is opt-in at the interceptor level (default off); see
+   `boundary.platform.shell.http.interceptors/http-csrf-protection`. Emit the token
+   with `hidden-field` (server forms) or `hx-headers` (HTMX elements), or via the
+   <meta name=\"csrf-token\"> tag + the ui-style init.js htmx:configRequest listener."
   (:require [buddy.core.mac :as mac]
             [buddy.core.bytes :as bytes]
             [buddy.core.codecs :as codecs]
