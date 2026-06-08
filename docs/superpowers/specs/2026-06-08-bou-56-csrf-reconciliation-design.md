@@ -25,7 +25,8 @@ implementation:
 
 The ticket's line references (`valid-csrf-token?` ~L55, `http-csrf-protection` ~L341) do not
 match the current tree, confirming it was authored against the pre-BOU-43 state. The branch
-`feat/BOU-56-CSRF-validation` has zero commits ahead of `main` — no BOU-56 work started.
+`feat/BOU-56-CSRF-validation` carries only this design commit ahead of `main` — no BOU-56 *code*
+work started.
 
 **Decision (brainstorm):** keep the BOU-43 custom implementation. Do **not** switch to stock
 `wrap-anti-forgery` (it cannot express the pre-session login binding the custom impl provides,
@@ -65,18 +66,32 @@ The fail-loud startup WARN (wiring.clj ~L323, fires only when enabled + blank se
 
 ### A2. Compensate this repo's protection
 
-This repo is itself a platform consumer. Flipping the lib default off would silently unprotect
-environments that relied on default-on. Make this repo's intent explicit:
+This repo is itself a platform consumer. Today prod/acc carry **no `:csrf` config and no
+`:boundary/http` block at all** — their HTTP + CSRF settings come entirely from the wiring
+defaults, so they currently inherit `:enabled? true` + `:secret (System/getenv "JWT_SECRET")`.
+The moment A1 flips the wiring default to `false`, prod/acc silently drop from default-on to
+default-off. That causal chain is exactly why the explicit block below is load-bearing, not tidying.
 
-- `resources/conf/prod/config.edn` — add
-  `:security {:csrf {:enabled? true :secret #env JWT_SECRET}}` under `:boundary/http`
+- `resources/conf/prod/config.edn` — **create** a `:boundary/http` key under `:active` (none
+  exists today) containing `:security {:csrf {:enabled? true :secret #env JWT_SECRET}}`
   (no literal fallback — prod must fail loud without a secret).
-- `resources/conf/acc/config.edn` — same.
-- `resources/conf/dev/config.edn` — already `:enabled? true`; no change.
+- `resources/conf/acc/config.edn` — same (verify in plan whether acc already has a `:boundary/http`
+  block; create or extend accordingly).
+- `resources/conf/dev/config.edn` — already has `:boundary/http {:security {:csrf {:enabled? true …}}}`;
+  no change.
 - `resources/conf/test/config.edn` — stays `:enabled? false`; no change.
 
-(Exact nesting/key placement to match each file's existing `:boundary/http` shape — verified in
-the implementation plan.)
+**Merge behavior (verified, safe).** csrf-config is read via `(get-in config [:active
+:boundary/http :security :csrf])`, independent of other HTTP settings. Port/host/join? are read on
+a separate path — `src/boundary/config.clj` `http-config` uses per-key `or` fallbacks
+(`(or (:port http-cfg) 3000)`, etc.) — so a partial `:boundary/http` block carrying only
+`:security` is **additive**: each missing HTTP key independently falls back to its default. There
+is no "authoritative block" hazard; adding only `:security` cannot shadow port/host/join. No extra
+HTTP keys required.
+
+Note: prod/acc also define no `:boundary/router`/`:boundary/admin`, suggesting these env configs
+are deployment templates not fully exercised as the live server config in this repo. The
+load-bearing change is the CSRF `:enabled?`/`:secret` flag; port/host are moot either way.
 
 ### A3. Add `hx-headers` helper
 
@@ -165,8 +180,10 @@ The stable contract BOU-57 (and any consumer) integrates against:
 
 - Platform lib-suite **version bump** (BOU-56 #6) — separate release step (boundary-version-bump
   skill + release checklist). Run after code lands.
-- Optional: drop the now-unused `ring/ring-anti-forgery` dependency if confirmed unreferenced
-  (decision is to not use stock middleware). Verify before removing.
+- ~~Drop unused `ring/ring-anti-forgery` dep~~ — **no-op**: verified `ring/ring-anti-forgery` is
+  not a declared dependency anywhere in the repo (platform declares only `ring/ring-core` +
+  `ring/ring-jetty-adapter`). The custom impl never depended on stock middleware; nothing to remove.
+  The ticket's "declared dep" claim was part of the same stale premise.
 - BOU-57 implementation (boundary-license repo).
 
 ## Test plan summary
