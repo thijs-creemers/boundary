@@ -311,10 +311,11 @@
                                       (or test-reset-routes []))
 
         ;; CSRF config consumed by http-csrf-protection interceptor.
-        ;; Enabled by default. Secret falls back to JWT_SECRET so protection works in
-        ;; environments without an explicit :boundary/http config block (e.g. prod/acc).
-        ;; Config keys override these defaults.
-        csrf-config (merge {:enabled?     true
+        ;; Opt-in: disabled by default so a framework upgrade cannot 403 consumers
+        ;; that don't yet emit tokens. Each app enables it (after emitting tokens in
+        ;; its /web forms) via :boundary/http :security :csrf :enabled? true. Secret
+        ;; falls back to JWT_SECRET. Config keys override these defaults.
+        csrf-config (merge {:enabled?     false
                             :secret       (System/getenv "JWT_SECRET")
                             :exempt-paths []}
                            (get-in config [:active :boundary/http :security :csrf]))

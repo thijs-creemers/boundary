@@ -411,11 +411,13 @@
    <meta> tag (HTMX) and form hidden fields emit it without per-handler threading.
 
    Config is read from (:csrf system), injected by the HTTP handler wiring:
-     {:enabled? bool, :secret <signing-key>, :exempt-paths [\"/api/v1/...\"]}"
+     {:enabled? bool, :secret <signing-key>, :exempt-paths [\"/api/v1/...\"]}
+   Enforcement is opt-in: when :enabled? is absent or false the interceptor is a
+   no-op (no validation, no issuance). Apps enable it after emitting tokens."
   {:name :http-csrf-protection
    :enter (fn [{:keys [request system] :as ctx}]
             (let [{:keys [enabled? secret exempt-paths]
-                   :or   {enabled? true}} (:csrf system)
+                   :or   {enabled? false}} (:csrf system)
                   method          (:request-method request)
                   uri             (or (:uri request) "")
                   state-changing? (contains? #{:post :put :delete :patch} method)
