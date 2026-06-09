@@ -427,7 +427,9 @@
                                     (assoc-in ctx [:request :anti-forgery-token]
                                               (issue-csrf-token secret binding)))]
               (cond
-                ;; Disabled or misconfigured — no validation, no issuance.
+                ;; Disabled or misconfigured — no validation, no issuance. Wiring aborts
+                ;; startup on enabled-but-secretless config, so the secretless case here is
+                ;; a defensive second layer for direct/test invocation that bypasses wiring.
                 (not (and enabled? secret))
                 ctx
 
