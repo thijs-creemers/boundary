@@ -18,10 +18,16 @@
 
    Safety parity with ring-anti-forgery: validation uses buddy's `mac/verify`,
    which performs a constant-time comparison of the recomputed HMAC, so token
-   checks do not leak timing information."
+   checks do not leak timing information.
+
+   Enforcement is opt-in at the interceptor level (default off); see
+   `boundary.platform.shell.http.interceptors/http-csrf-protection`. Emit the token
+   with `hidden-field` (server forms) or `hx-headers` (HTMX elements), or via the
+   <meta name=\"csrf-token\"> tag + the ui-style init.js htmx:configRequest listener."
   (:require [buddy.core.mac :as mac]
             [buddy.core.bytes :as bytes]
             [buddy.core.codecs :as codecs]
+            [cheshire.core :as json]
             [clojure.string :as str]))
 
 (def field-name
@@ -125,3 +131,19 @@
   ([token]
    (when token
      [:input {:type "hidden" :name field-name :value token}])))
+
+(defn hx-headers
+  "HTMX attribute fragment carrying the CSRF token, for elements that should send
+   it without relying on the global <meta>/init.js listener. Merge into an
+   element's attribute map (e.g. on <body>) so all inherited hx-* requests include
+   the header: [:body (merge attrs (hx-headers)) ...].
+
+   The 0-arity reads the token bound for the current request (*token*); the 1-arity
+   takes an explicit token. Returns nil when the token is nil, so callers can merge
+   the result unconditionally. The header key uses `header-name` (\"x-csrf-token\");
+   Ring lowercases inbound header names, so the interceptor's `extract-token` reads
+   it consistently."
+  ([] (hx-headers *token*))
+  ([token]
+   (when token
+     {:hx-headers (json/generate-string {header-name token})})))

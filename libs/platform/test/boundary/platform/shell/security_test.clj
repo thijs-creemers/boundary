@@ -133,6 +133,14 @@
         (is (= 403 (get-in (run-csrf wild (session-request :post "/api/hooks-evil"))
                            [:response :status])))))))
 
+(deftest ^:security ^:unit csrf-default-is-opt-in-test
+  (testing "a :csrf map with a secret but NO :enabled? key is a no-op (opt-in, default off)"
+    (let [cfg {:secret csrf-secret :exempt-paths []} ; note: no :enabled? key
+          ctx (run-csrf cfg (session-request :post "/web/profile/update"))]
+      (is (nil? (:response ctx)) "missing :enabled? must default to off — no 403")
+      (is (nil? (get-in ctx [:request :anti-forgery-token]))
+          "default-off must not run the issuance path either"))))
+
 (defn- run-csrf-full
   "Run both :enter and :leave so pre-session cookie effects are observable."
   [csrf-config request]
