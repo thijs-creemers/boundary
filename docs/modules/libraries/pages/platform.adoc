@@ -101,14 +101,22 @@ checked; safe methods (GET/HEAD/OPTIONS) and `:exempt-paths` are skipped.
 ;; resources/conf/<env>/config.edn under :active
 :boundary/http
 {:security
- {:csrf {:enabled?     true                                  ; false only in test/dev
+ {:csrf {:enabled?     true                                  ; OPT-IN: lib default is false
          :secret       #or [#env CSRF_SECRET #env JWT_SECRET] ; defaults to JWT_SECRET
          :exempt-paths ["/api/v1/payments/webhook"]}}}        ; trailing /* = segment-prefix
 ----
 
-Tokens are emitted with no per-handler wiring: the shared page layout renders
-`<meta name="csrf-token">`, and a global `htmx:configRequest` listener attaches the
-`X-CSRF-Token` header to every HTMX request. Plain (non-HTMX) forms include a hidden
+Enforcement is opt-in: the library default is `:enabled? false`, so upgrading the
+framework cannot start rejecting requests from a consumer that does not yet emit
+tokens. An app turns it on with the block above (after emitting tokens in its `/web`
+forms); the secret falls back to `JWT_SECRET`, and a startup warning is logged if CSRF
+is enabled with a blank secret.
+
+Tokens are emitted with no per-handler wiring. For HTMX, either merge
+`(csrf/hx-headers)` onto an element's attributes (e.g. `<body>`) so all inherited
+`hx-*` requests carry the `X-CSRF-Token` header, or rely on the shared page layout's
+`<meta name="csrf-token">` tag plus the global `htmx:configRequest` listener that
+attaches the header to every HTMX request. Plain (non-HTMX) forms include a hidden
 field:
 
 [source,clojure]
