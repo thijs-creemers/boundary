@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-28] - 2026-06-09
+
 ### Added
 
 - **`boundary-push`**: Comprehensive developer documentation for the push notification library (BOU-44). `AGENTS.md` now covers all five protocols (`IPushService`, `IFCMProvider`, `IAPNsProvider`, `IDeviceTokenStore`, `IPushAnalyticsStore`), Integrant wiring keys, HTTP routes, job handler arg shapes, HMAC callback flow, DB table overview, and REPL smoke checks. `README.md` corrects the Integrant configuration (actual `ig/init-key` dispatch keys), fixes API function names (`register-device!` / `unregister-device!` / `get-user-devices`), and adds the missing `push_analytics_events` migration to the DDL reference.
