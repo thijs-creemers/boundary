@@ -320,11 +320,14 @@
                             :exempt-paths []}
                            (get-in config [:active :boundary/http :security :csrf]))
         ;; Fail-loud guard: an enabled CSRF interceptor with no secret cannot validate
-        ;; (the interceptor would skip all checks — fail open). Surface it at startup.
+        ;; (the interceptor short-circuits to a no-op — fail OPEN). Refuse to boot rather
+        ;; than start an app that silently accepts unvalidated state-changing requests.
         _ (when (and (:enabled? csrf-config) (str/blank? (:secret csrf-config)))
-            (log/warn "CSRF protection is enabled but no secret is configured "
-                      "(set CSRF_SECRET or JWT_SECRET, or :boundary/http :security :csrf :secret). "
-                      "State-changing requests will NOT be CSRF-validated until a secret is set."))
+            (throw (ex-info (str "CSRF protection is enabled but no secret is configured. "
+                                 "An enabled interceptor with a blank secret fails OPEN — "
+                                 "state-changing requests would NOT be CSRF-validated. "
+                                 "Set CSRF_SECRET or JWT_SECRET, or :boundary/http :security :csrf :secret.")
+                            {:csrf/enabled? true :csrf/secret-present? false})))
 
         ;; Build system services map for HTTP interceptors
         system {:logger logger

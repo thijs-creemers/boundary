@@ -135,8 +135,9 @@ paths (webhooks/callbacks).
 
 **Enforcement is opt-in: the library default is `:enabled? false`** so a framework upgrade
 can't 403 consumers that don't yet emit tokens. An app turns it on with the block above
-(after emitting tokens in its `/web` forms). The secret falls back to `JWT_SECRET`; a
-fail-loud WARN fires at startup if enabled with a blank secret. In this repo, dev/prod/acc
+(after emitting tokens in its `/web` forms). The secret falls back to `JWT_SECRET`; the
+system wiring **fails loud** (throws, app refuses to boot) if enabled with a blank secret,
+rather than letting the interceptor fail open. In this repo, dev/prod/acc
 set `:enabled? true` explicitly; the test profile ships `:enabled? false` so the broad suite
 need not carry tokens (CSRF-specific tests enable it explicitly).
 

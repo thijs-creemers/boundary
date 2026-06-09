@@ -109,8 +109,9 @@ checked; safe methods (GET/HEAD/OPTIONS) and `:exempt-paths` are skipped.
 Enforcement is opt-in: the library default is `:enabled? false`, so upgrading the
 framework cannot start rejecting requests from a consumer that does not yet emit
 tokens. An app turns it on with the block above (after emitting tokens in its `/web`
-forms); the secret falls back to `JWT_SECRET`, and a startup warning is logged if CSRF
-is enabled with a blank secret.
+forms); the secret falls back to `JWT_SECRET`. Startup fails loud — the system wiring
+throws and the app refuses to boot if CSRF is enabled with a blank secret, rather than
+letting the interceptor fail open (run unvalidated).
 
 Tokens are emitted with no per-handler wiring. For HTMX, either merge
 `(csrf/hx-headers)` onto an element's attributes (e.g. `<body>`) so all inherited

@@ -161,6 +161,21 @@
         (is (= {:status 200 :body {:request-method :get}}
                (handler {:request-method :get})))))))
 
+(deftest ^:security http-handler-fails-loud-when-csrf-enabled-without-secret
+  (testing "CSRF enabled with a blank secret throws at startup (fail closed, not fail open)"
+    ;; :secret "" forces a blank secret regardless of the ambient JWT_SECRET env var,
+    ;; so the guard trips deterministically.
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"CSRF protection is enabled but no secret is configured"
+         (ig/init-key :boundary/http-handler
+                      {:router ::router
+                       :logger ::logger
+                       :metrics-emitter ::metrics
+                       :error-reporter ::error-reporter
+                       :config {:active {:boundary/http {:security {:csrf {:enabled? true
+                                                                           :secret ""}}}}}})))))
+
 (deftest component-init-falls-back-to-no-op-providers-for-unknown-adapters
   (with-redefs [boundary.observability.logging.shell.adapters.no-op/create-logging-component
                 (fn [config] [:logging-no-op config])
