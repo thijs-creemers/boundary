@@ -70,8 +70,17 @@
 (defn lib-dir [lib]
   (str (io/file root-dir "libs" lib)))
 
-(defn artifact-name [lib]
-  (str "boundary-" lib))
+(defn artifact-name
+  "Clojars artifact id for a lib, read from its build.clj coordinate
+   `(def lib 'org.boundary-app/<artifact>)`. Reading the coordinate (rather than
+   string-prefixing) avoids a double `boundary-` for libs whose dir already starts
+   with it (e.g. boundary-cli → boundary-cli, not boundary-boundary-cli). Falls
+   back to `boundary-<lib>` when build.clj is unreadable."
+  [lib]
+  (let [build-file (io/file (lib-dir lib) "build.clj")]
+    (or (when (.exists build-file)
+          (second (re-find #"\(def lib '[^/]+/([^\)\s]+)" (slurp build-file))))
+        (str "boundary-" lib))))
 
 (defn read-version [lib]
   (let [build-file (io/file (lib-dir lib) "build.clj")]
@@ -85,6 +94,26 @@
                          artifact version artifact version)
         response (http/get url {:throw false})]
     (= 200 (:status response))))
+
+(defn version-mismatches
+  "Seq of {:lib :actual :expected} for libraries whose build.clj version differs
+   from `expected`. Empty when every lib is in lockstep. Used as a pre-deploy
+   guard so a release tag can never be published from source carrying a different
+   version (the failure mode that froze a stale jar under an immutable Clojars
+   coordinate)."
+  [expected]
+  (keep (fn [lib]
+          (let [actual (read-version lib)]
+            (when (not= actual expected)
+              {:lib lib :actual actual :expected expected})))
+        all-libs))
+
+(defn unpublished-libs
+  "The libs for which `published-fn` is falsey, order preserved. `published-fn`
+   is injected so the pure selection is testable without hitting the network;
+   callers pass `published?`."
+  [libs published-fn]
+  (filterv (fn [lib] (not (published-fn lib))) libs))
 
 (defn check-env! []
   (when (or (str/blank? (System/getenv "CLOJARS_USERNAME"))
@@ -168,13 +197,47 @@
       (System/exit 1)))
   (deploy-sequence! libs))
 
+(defn cmd-check-versions
+  "Pre-deploy guard: assert every lib's build.clj version equals `expected` (the
+   release tag). Exits 1 on any mismatch so the publish workflow aborts before
+   shipping a version that disagrees with the tag/source."
+  [expected]
+  (when (str/blank? expected)
+    (println (red "Error: --check-versions requires a version argument."))
+    (System/exit 1))
+  (let [mismatches (version-mismatches expected)]
+    (if (empty? mismatches)
+      (println (green (str "✓ All " (count all-libs) " libs at " expected)))
+      (do
+        (println (red (str "✗ build.clj version mismatch vs expected " expected ":")))
+        (doseq [{:keys [lib actual]} mismatches]
+          (println (red (str "  " (artifact-name lib) ": " (or actual "<none>")))))
+        (System/exit 1)))))
+
+(defn cmd-verify
+  "Post-deploy check: assert every artifact's POM is live on Clojars at its
+   build.clj version. Exits 1 if any are missing, so a partial/failed deploy
+   fails the workflow instead of silently leaving a half-published release."
+  []
+  (println "Verifying all artifacts are published on Clojars...")
+  (let [missing (unpublished-libs all-libs published?)]
+    (if (empty? missing)
+      (println (green (str "✓ All " (count all-libs) " artifacts published.")))
+      (do
+        (println (red "✗ Missing on Clojars:"))
+        (doseq [lib missing]
+          (println (red (str "  " (artifact-name lib) " " (read-version lib)))))
+        (System/exit 1)))))
+
 (defn print-help []
   (println (bold "bb deploy") "— Deploy Boundary libraries to Clojars")
   (println)
   (println "Usage:")
-  (println "  bb deploy --all              Deploy all 23 artifacts in dependency order")
-  (println "  bb deploy --missing          Deploy only artifacts not yet on Clojars")
-  (println "  bb deploy <lib> [lib...]     Deploy specific libraries")
+  (println "  bb deploy --all                 Deploy all artifacts in dependency order")
+  (println "  bb deploy --missing             Deploy only artifacts not yet on Clojars")
+  (println "  bb deploy --check-versions VER  Guard: every build.clj == VER (no deploy)")
+  (println "  bb deploy --verify              Check every artifact is live on Clojars")
+  (println "  bb deploy <lib> [lib...]        Deploy specific libraries")
   (println)
   (println "Available artifacts:")
   (doseq [lib all-libs]
@@ -193,6 +256,8 @@
     (or (empty? args) (contains? (set args) "--help")) (print-help)
     (= args ["--all"])                                  (cmd-all)
     (= args ["--missing"])                              (cmd-missing)
+    (= args ["--verify"])                               (cmd-verify)
+    (= (first args) "--check-versions")                 (cmd-check-versions (second args))
     :else                                               (cmd-specific args)))
 
 (when (= *file* (System/getProperty "babashka.file"))

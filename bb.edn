@@ -94,6 +94,7 @@
                                  'boundary.tools.check-fcis-test
                                  'boundary.tools.check-test
                                  'boundary.tools.quickstart-test
+                                 'boundary.tools.deploy-test
                                  'boundary.tools.help-test)
                         (let [summary (clojure.test/run-tests
                                        'boundary.tools.doctor-test
@@ -104,6 +105,7 @@
                                        'boundary.tools.check-fcis-test
                                        'boundary.tools.check-test
                                        'boundary.tools.quickstart-test
+                                       'boundary.tools.deploy-test
                                        'boundary.tools.help-test)]
                           (when (pos? (+ (:fail summary) (:error summary)))
                             (System/exit 1))))}
