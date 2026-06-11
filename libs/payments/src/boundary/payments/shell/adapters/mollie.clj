@@ -52,6 +52,21 @@
       {:checkout-url         (get-in body [:_links :checkout :href])
        :provider-checkout-id (:id body)}))
 
+  (create-off-session-payment [_ _opts]
+    ;; Mollie recurring payments (sequenceType=recurring) are not implemented yet.
+    (throw (ex-info "Mollie create-off-session-payment is not implemented yet"
+                    {:type     :not-implemented
+                     :provider :mollie
+                     :method   :create-off-session-payment})))
+
+  (expire-checkout-session [_ provider-checkout-id]
+    ;; Mollie payments expire automatically; explicit expiry is not implemented yet.
+    (throw (ex-info "Mollie expire-checkout-session is not implemented yet"
+                    {:type                 :not-implemented
+                     :provider             :mollie
+                     :method               :expire-checkout-session
+                     :provider-checkout-id provider-checkout-id})))
+
   (get-payment-status [_ provider-checkout-id]
     (let [payment (fetch-payment api-key provider-checkout-id)]
       (if payment

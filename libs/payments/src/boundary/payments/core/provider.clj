@@ -37,14 +37,14 @@
 
 (defn mollie-status->payment-status
   "Map a Mollie payment status string to a PaymentStatusResult :status keyword.
-   Returns :pending for unrecognised statuses (e.g. \"open\", \"expired\")."
+   Returns :pending for unrecognised statuses (e.g. \"open\")."
   [status]
   (case status
     "paid"       :paid
     "failed"     :failed
     "canceled"   :cancelled
     "cancelled"  :cancelled
-    "expired"    :failed
+    "expired"    :expired
     :pending))
 
 (defn stripe-event->event-type
