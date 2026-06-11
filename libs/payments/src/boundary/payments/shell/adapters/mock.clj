@@ -21,11 +21,14 @@
        :provider-payment-id  (str "mock-payment-" checkout-id)}))
 
   (create-off-session-payment [_ {:keys [amount-cents currency description
-                                         provider-customer-id metadata]}]
+                                         provider-customer-id
+                                         provider-payment-method-id metadata]}]
     (let [payment-id (str "mock-payment-" (UUID/randomUUID))
-          status     (or (:mock-status metadata) :paid)]
-      (log/infof "Mock PSP: off-session payment %s for customer %s — %d %s (%s) → %s"
-                 payment-id provider-customer-id amount-cents currency description status)
+          ;; Keep in sync with schema/OffSessionPaymentStatus.
+          status     (get #{:pending :paid :failed} (:mock-status metadata) :paid)]
+      (log/infof "Mock PSP: off-session payment %s for customer %s (method %s) — %d %s (%s) → %s"
+                 payment-id provider-customer-id (or provider-payment-method-id "default mandate")
+                 amount-cents currency description status)
       {:provider-payment-id payment-id
        :status              status}))
 

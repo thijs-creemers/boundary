@@ -116,7 +116,17 @@
                    :provider-customer-id "mock-customer-abc"
                    :metadata             {:mock-status :failed}})]
       (is (= :failed (:status result)))
-      (is (string? (:provider-payment-id result))))))
+      (is (string? (:provider-payment-id result)))))
+
+  (testing "invalid :mock-status falls back to :paid"
+    (let [result (ports/create-off-session-payment
+                  provider
+                  {:amount-cents         4900
+                   :currency             "EUR"
+                   :description          "Monthly subscription"
+                   :provider-customer-id "mock-customer-abc"
+                   :metadata             {:mock-status :chargeback}})]
+      (is (= :paid (:status result))))))
 
 ;; =============================================================================
 ;; expire-checkout-session

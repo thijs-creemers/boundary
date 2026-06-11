@@ -7,6 +7,12 @@
    :chargeback) plus :cancelled for user/PSP-cancelled payments."
   [:enum :pending :paid :failed :cancelled :expired :chargeback])
 
+(def OffSessionPaymentStatus
+  "Statuses an off-session charge can report at creation time. Subset of
+   PaymentStatus — a just-created charge cannot be cancelled, expired or
+   charged back."
+  [:enum :pending :paid :failed])
+
 (def CheckoutRequest
   [:map
    [:amount-cents  pos-int?]
@@ -18,7 +24,7 @@
    ;; Mandate options — request storage of the payment method for later
    ;; off-session charges (Stripe: setup_future_usage; Mollie: sequenceType).
    [:setup-future-usage   {:optional true} [:maybe [:enum :off-session :on-session]]]
-   [:customer-email       {:optional true} [:maybe :string]]
+   [:customer-email       {:optional true} [:maybe [:re #".+@.+"]]]
    [:provider-customer-id {:optional true} [:maybe :string]]])
 
 (def CheckoutResult
@@ -41,7 +47,7 @@
 (def OffSessionPaymentResult
   [:map
    [:provider-payment-id :string]
-   [:status              PaymentStatus]])
+   [:status              OffSessionPaymentStatus]])
 
 (def PaymentStatusResult
   [:map

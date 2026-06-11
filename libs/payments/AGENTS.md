@@ -92,7 +92,8 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 - Auto-approves every payment — no network calls
 - `create-checkout-session` → `{:checkout-url "/web/payment/mock-return?checkout-id=<uuid>"}`
 - `create-off-session-payment` → `{:status :paid}`; override the simulated
-  outcome with `:metadata {:mock-status :failed}` (any `PaymentStatus` keyword)
+  outcome with `:metadata {:mock-status :failed}` (`:pending`, `:paid` or
+  `:failed` — anything else falls back to `:paid`)
 - `verify-webhook-signature` → always `true`
 - `get-payment-status` → always `{:status :paid}` plus mock
   `provider-customer-id`/`provider-payment-method-id` mandate fields

@@ -75,7 +75,15 @@
                           :currency           "EUR"
                           :description        "Test"
                           :redirect-url       "https://example.com"
-                          :setup-future-usage :sometimes})))))
+                          :setup-future-usage :sometimes}))))
+
+  (testing "rejects customer-email without an @"
+    (is (not (m/validate schema/CheckoutRequest
+                         {:amount-cents   100
+                          :currency       "EUR"
+                          :description    "Test"
+                          :redirect-url   "https://example.com"
+                          :customer-email "not-an-email"})))))
 
 ;; =============================================================================
 ;; CheckoutResult
@@ -209,7 +217,14 @@
   (testing "rejects unknown status"
     (is (not (m/validate schema/OffSessionPaymentResult
                          {:provider-payment-id "pi_abc123"
-                          :status              :unknown})))))
+                          :status              :unknown}))))
+
+  (testing "rejects PaymentStatus values outside the off-session subset"
+    (doseq [status [:cancelled :expired :chargeback]]
+      (is (not (m/validate schema/OffSessionPaymentResult
+                           {:provider-payment-id "pi_abc123"
+                            :status              status}))
+          (str "should reject status " status)))))
 
 ;; =============================================================================
 ;; ExpireCheckoutResult
