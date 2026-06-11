@@ -36,6 +36,7 @@
 
   (process-webhook [this raw-body headers])
   ;; Returns {:event-type :payment.paid|:payment.failed|:payment.cancelled
+  ;;                       |:payment.expired|:payment.authorized
   ;;          :provider-payment-id "..."
   ;;          :provider-checkout-id "..."
   ;;          :payload {...}}
