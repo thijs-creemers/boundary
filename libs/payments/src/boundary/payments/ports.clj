@@ -6,12 +6,14 @@
   ;; Returns a keyword identifying the provider: :mock, :mollie, :stripe
 
   (create-checkout-session [this {:keys [amount-cents currency description
-                                         redirect-url webhook-url metadata
+                                         redirect-url success-url cancel-url
+                                         webhook-url metadata
                                          setup-future-usage customer-email
                                          provider-customer-id]}])
   ;; Hosted checkout for the first payment. Pass :setup-future-usage :off-session
   ;; to store a mandate/payment-method for later off-session charges
   ;; (Stripe: setup_future_usage=off_session; Mollie: sequenceType=first).
+  ;; :success-url/:cancel-url override :redirect-url when given (Stripe).
   ;; Returns {:checkout-url "..." :provider-checkout-id "..."
   ;;          :provider-payment-id "..."}   ; optional, when known at creation
 
@@ -25,6 +27,8 @@
   ;; Returns {:provider-payment-id "..." :status :pending|:paid|:failed}
 
   (get-payment-status [this provider-checkout-id])
+  ;; Stripe accepts both Checkout Session ids (cs_...) and PaymentIntent ids
+  ;; (pi_...), dispatched by prefix; Mollie takes a payment id.
   ;; Returns {:status :pending|:paid|:failed|:cancelled|:expired|:chargeback
   ;;          :provider-payment-id "..."
   ;;          :provider-customer-id "..."          ; optional, mandate follow-up

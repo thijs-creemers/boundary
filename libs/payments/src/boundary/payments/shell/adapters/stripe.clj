@@ -57,23 +57,31 @@
                 :when (and k v)]
             [k v]))))
 
-(defn- stripe-checkout-params
-  "Build form-encoded params map for a Stripe Checkout Session.
-   Includes a checkout_id in payment_intent_data metadata so that
-   payment_intent.* webhook events can be correlated back to the session."
-  [{:keys [amount-cents currency description redirect-url checkout-id]}]
-  ;; Stripe Checkout Session uses nested form params for line_items.
-  ;; payment_intent_data[metadata][checkout_id] propagates to the
-  ;; PaymentIntent object, which is :data.object in webhook events.
-  {"line_items[0][price_data][currency]"                    (str/lower-case (or currency "eur"))
-   "line_items[0][price_data][unit_amount]"                 (str amount-cents)
-   "line_items[0][price_data][product_data][name]"          description
-   "line_items[0][quantity]"                                "1"
-   "payment_method_types[0]"                                "card"
-   "mode"                                                   "payment"
-   "success_url"                                            redirect-url
-   "cancel_url"                                             redirect-url
-   "payment_intent_data[metadata][checkout_id]"             checkout-id})
+(defn- post-form
+  "POST form-encoded params to a Stripe endpoint. Returns {:status int :body parsed-map}."
+  [api-key path params]
+  (let [response (http/post (str stripe-api-base path)
+                            {:headers          (merge (stripe-headers api-key)
+                                                      {"Content-Type" "application/x-www-form-urlencoded"})
+                             :body             (form-encode params)
+                             :as               :string
+                             :throw-exceptions false})]
+    {:status (:status response)
+     :body   (json/parse-string (:body response) true)}))
+
+(defn- pending-payment-status
+  "Degrade a failed status poll to :pending — same convention as the Mollie
+   adapter — except for auth/config errors (401/403), which throw."
+  [provider-id status body]
+  (if (contains? #{401 403} status)
+    (throw (ex-info "Stripe get-payment-status authentication failed"
+                    {:type        :internal-error
+                     :provider-id provider-id
+                     :status      status
+                     :body        body}))
+    (do (log/warnf "Stripe get-payment-status: %s returned %s — reporting :pending"
+                   provider-id status)
+        {:status :pending :provider-payment-id nil})))
 
 (defrecord StripePaymentProvider [api-key webhook-secret]
   ports/IPaymentProvider
@@ -82,49 +90,96 @@
 
   (create-checkout-session [_ opts]
     (let [checkout-id (str (UUID/randomUUID))
-          params   (stripe-checkout-params (assoc opts :checkout-id checkout-id))
-          response (http/post (str stripe-api-base "/checkout/sessions")
-                              {:headers           (merge (stripe-headers api-key)
-                                                         {"Content-Type" "application/x-www-form-urlencoded"})
-                               :body              (form-encode params)
-                               :as                :string
-                               :throw-exceptions  false})
-          body     (json/parse-string (:body response) true)]
-      (log/infof "Stripe create-checkout: status=%d id=%s" (:status response) (:id body))
-      (when-not (#{200 201} (:status response))
+          params      (provider/stripe-checkout-params (assoc opts :checkout-id checkout-id))
+          {:keys [status body]} (post-form api-key "/checkout/sessions" params)]
+      (log/infof "Stripe create-checkout: status=%d id=%s" status (:id body))
+      (when-not (#{200 201} status)
         (throw (ex-info "Stripe checkout creation failed"
                         {:type   :internal-error
-                         :status (:status response)
+                         :status status
                          :body   body})))
-      {:checkout-url         (:url body)
-       :provider-checkout-id (:id body)}))
+      (cond-> {:checkout-url         (:url body)
+               :provider-checkout-id (:id body)}
+        (:payment_intent body)
+        (assoc :provider-payment-id (provider/stripe-object-id (:payment_intent body))))))
 
-  (create-off-session-payment [_ _opts]
-    ;; Real implementation lands with the Stripe PaymentIntents adapter (BOU-63).
-    (throw (ex-info "Stripe create-off-session-payment is not implemented yet (BOU-63)"
-                    {:type     :not-implemented
-                     :provider :stripe
-                     :method   :create-off-session-payment})))
+  (create-off-session-payment [_ opts]
+    ;; Confirmed off-session PaymentIntent against a stored customer/mandate.
+    ;; Card outcomes (card_declined, authentication_required, ...) are a normal
+    ;; business result of an unattended charge → returned as :failed. Auth and
+    ;; config errors still throw.
+    (let [params (provider/stripe-off-session-params opts)
+          {:keys [status body]} (post-form api-key "/payment_intents" params)]
+      (cond
+        (#{200 201} status)
+        (do (log/infof "Stripe off-session payment: id=%s status=%s" (:id body) (:status body))
+            {:provider-payment-id (:id body)
+             :status              (provider/stripe-intent-status->payment-status
+                                   (:status body) {:off-session? true})})
+
+        (= "card_error" (get-in body [:error :type]))
+        (let [pi-id (provider/stripe-object-id (get-in body [:error :payment_intent]))]
+          (log/warnf "Stripe off-session payment declined: code=%s pi=%s"
+                     (get-in body [:error :code]) pi-id)
+          (if pi-id
+            {:provider-payment-id pi-id :status :failed}
+            (throw (ex-info "Stripe off-session payment declined without a PaymentIntent"
+                            {:type   :internal-error
+                             :status status
+                             :body   body}))))
+
+        :else
+        (throw (ex-info "Stripe off-session payment failed"
+                        {:type   :internal-error
+                         :status status
+                         :body   body})))))
 
   (expire-checkout-session [_ provider-checkout-id]
-    ;; Real implementation lands with the Stripe PaymentIntents adapter (BOU-63).
-    (throw (ex-info "Stripe expire-checkout-session is not implemented yet (BOU-63)"
-                    {:type                 :not-implemented
-                     :provider             :stripe
-                     :method               :expire-checkout-session
-                     :provider-checkout-id provider-checkout-id})))
+    (let [{:keys [status body]} (post-form api-key
+                                           (str "/checkout/sessions/" provider-checkout-id "/expire")
+                                           {})]
+      (log/infof "Stripe expire-checkout: status=%s id=%s" status (:id body))
+      (when-not (= 200 status)
+        (throw (ex-info "Stripe expire-checkout-session failed"
+                        {:type                 :internal-error
+                         :provider-checkout-id provider-checkout-id
+                         :status               status
+                         :body                 body})))
+      {:provider-checkout-id (or (:id body) provider-checkout-id)
+       :status               :expired}))
 
-  (get-payment-status [_ provider-checkout-id]
-    (let [url      (str stripe-api-base "/checkout/sessions/" provider-checkout-id)
-          response (http/get url {:headers          (stripe-headers api-key)
-                                  :as               :string
-                                  :throw-exceptions false})
-          body     (json/parse-string (:body response) true)]
-      {:status              (case (:payment_status body)
-                              "paid"                 :paid
-                              "no_payment_required"  :paid
-                              :pending)
-       :provider-payment-id (:payment_intent body)}))
+  (get-payment-status [_ provider-id]
+    ;; Accepts both Checkout Session ids (cs_...) and PaymentIntent ids
+    ;; (pi_...), dispatched by prefix. Session polls expand the PaymentIntent
+    ;; so completed checkouts expose provider-customer-id and
+    ;; provider-payment-method-id for mandate storage.
+    (if (provider/stripe-payment-intent-id? provider-id)
+      (let [response (http/get (str stripe-api-base "/payment_intents/" provider-id)
+                               {:headers          (stripe-headers api-key)
+                                :as               :string
+                                :throw-exceptions false})
+            body     (json/parse-string (:body response) true)]
+        (if (= 200 (:status response))
+          {:status                     (provider/stripe-intent-status->payment-status (:status body))
+           :provider-payment-id        (:id body)
+           :provider-customer-id       (provider/stripe-object-id (:customer body))
+           :provider-payment-method-id (provider/stripe-object-id (:payment_method body))}
+          (pending-payment-status provider-id (:status response) body)))
+      (let [response (http/get (str stripe-api-base "/checkout/sessions/" provider-id)
+                               {:headers          (stripe-headers api-key)
+                                :query-params     {"expand[]" "payment_intent"}
+                                :as               :string
+                                :throw-exceptions false})
+            body     (json/parse-string (:body response) true)
+            pi       (:payment_intent body)]
+        (if (= 200 (:status response))
+          {:status                     (provider/stripe-session-status->payment-status
+                                        (:status body) (:payment_status body))
+           :provider-payment-id        (provider/stripe-object-id pi)
+           :provider-customer-id       (provider/stripe-object-id (:customer body))
+           :provider-payment-method-id (when (map? pi)
+                                         (provider/stripe-object-id (:payment_method pi)))}
+          (pending-payment-status provider-id (:status response) body)))))
 
   (verify-webhook-signature [_ raw-body headers]
     (let [sig-header (or (get headers "stripe-signature")

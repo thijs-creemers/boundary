@@ -13,6 +13,10 @@
    [:currency      [:string {:min 3 :max 3}]]
    [:description   :string]
    [:redirect-url  :string]
+   ;; Optional explicit success/cancel URLs (Stripe Checkout). Both fall back
+   ;; to :redirect-url when omitted.
+   [:success-url   {:optional true} [:maybe :string]]
+   [:cancel-url    {:optional true} [:maybe :string]]
    [:webhook-url   {:optional true} [:maybe :string]]
    [:metadata      {:optional true} [:maybe :map]]
    ;; Mandate options — request storage of the payment method for later

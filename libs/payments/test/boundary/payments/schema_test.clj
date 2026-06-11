@@ -69,6 +69,15 @@
                      :customer-email     "jane@example.com"
                      :provider-customer-id "cus_abc123"})))
 
+  (testing "accepts optional explicit success/cancel URLs"
+    (is (m/validate schema/CheckoutRequest
+                    {:amount-cents 4900
+                     :currency     "EUR"
+                     :description  "Test product"
+                     :redirect-url "https://example.com/done"
+                     :success-url  "https://example.com/success"
+                     :cancel-url   "https://example.com/cancel"})))
+
   (testing "rejects unknown setup-future-usage value"
     (is (not (m/validate schema/CheckoutRequest
                          {:amount-cents       100

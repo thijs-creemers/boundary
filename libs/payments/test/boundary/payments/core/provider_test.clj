@@ -128,3 +128,188 @@
     (is (= :payment.cancelled  (provider/stripe-event->event-type "payment_intent.canceled")))
     (is (= :payment.authorized (provider/stripe-event->event-type "payment_intent.amount_capturable_updated")))
     (is (nil?                   (provider/stripe-event->event-type "checkout.session.completed")))))
+
+;; =============================================================================
+;; stripe-payment-intent-id? (get-payment-status id dispatch)
+;; =============================================================================
+
+(deftest ^:unit stripe-payment-intent-id?-test
+  (testing "pi_ ids are PaymentIntent ids"
+    (is (true? (provider/stripe-payment-intent-id? "pi_3abc123"))))
+
+  (testing "cs_ ids are not PaymentIntent ids"
+    (is (false? (provider/stripe-payment-intent-id? "cs_test_abc"))))
+
+  (testing "nil and unknown prefixes are not PaymentIntent ids"
+    (is (false? (provider/stripe-payment-intent-id? nil)))
+    (is (false? (provider/stripe-payment-intent-id? "ch_123")))
+    (is (false? (provider/stripe-payment-intent-id? "")))))
+
+;; =============================================================================
+;; stripe-object-id (expandable field handling)
+;; =============================================================================
+
+(deftest ^:unit stripe-object-id-test
+  (testing "returns string ids unchanged"
+    (is (= "pi_1" (provider/stripe-object-id "pi_1"))))
+
+  (testing "extracts :id from an expanded object map"
+    (is (= "pm_9" (provider/stripe-object-id {:id "pm_9" :object "payment_method"}))))
+
+  (testing "returns nil for nil or unexpected values"
+    (is (nil? (provider/stripe-object-id nil)))
+    (is (nil? (provider/stripe-object-id 42)))))
+
+;; =============================================================================
+;; stripe-intent-status->payment-status
+;; =============================================================================
+
+(deftest ^:unit stripe-intent-status->payment-status-test
+  (testing "succeeded → :paid"
+    (is (= :paid (provider/stripe-intent-status->payment-status "succeeded"))))
+
+  (testing "canceled → :cancelled"
+    (is (= :cancelled (provider/stripe-intent-status->payment-status "canceled"))))
+
+  (testing "in-flight statuses → :pending"
+    (is (= :pending (provider/stripe-intent-status->payment-status "requires_payment_method")))
+    (is (= :pending (provider/stripe-intent-status->payment-status "requires_confirmation")))
+    (is (= :pending (provider/stripe-intent-status->payment-status "requires_capture")))
+    (is (= :pending (provider/stripe-intent-status->payment-status "processing"))))
+
+  (testing "requires_action → :pending in the default (poll) context"
+    (is (= :pending (provider/stripe-intent-status->payment-status "requires_action"))))
+
+  (testing "requires_action → :failed in off-session context (SCA cannot complete)"
+    (is (= :failed (provider/stripe-intent-status->payment-status
+                    "requires_action" {:off-session? true}))))
+
+  (testing "succeeded/canceled unaffected by off-session context"
+    (is (= :paid (provider/stripe-intent-status->payment-status "succeeded" {:off-session? true})))
+    (is (= :cancelled (provider/stripe-intent-status->payment-status "canceled" {:off-session? true}))))
+
+  (testing "unknown statuses → :pending"
+    (is (= :pending (provider/stripe-intent-status->payment-status "something_new")))))
+
+;; =============================================================================
+;; stripe-session-status->payment-status
+;; =============================================================================
+
+(deftest ^:unit stripe-session-status->payment-status-test
+  (testing "expired session → :expired regardless of payment_status"
+    (is (= :expired (provider/stripe-session-status->payment-status "expired" "unpaid")))
+    (is (= :expired (provider/stripe-session-status->payment-status "expired" nil))))
+
+  (testing "paid / no_payment_required → :paid"
+    (is (= :paid (provider/stripe-session-status->payment-status "complete" "paid")))
+    (is (= :paid (provider/stripe-session-status->payment-status "complete" "no_payment_required"))))
+
+  (testing "open or complete-but-unpaid → :pending"
+    (is (= :pending (provider/stripe-session-status->payment-status "open" "unpaid")))
+    (is (= :pending (provider/stripe-session-status->payment-status "complete" "unpaid")))
+    (is (= :pending (provider/stripe-session-status->payment-status nil nil)))))
+
+;; =============================================================================
+;; stripe-checkout-params (request shaping)
+;; =============================================================================
+
+(deftest ^:unit stripe-checkout-params-test
+  (let [base-opts {:amount-cents 11900
+                   :currency     "EUR"
+                   :description  "Premium plan"
+                   :redirect-url "https://app.example.com/return"
+                   :checkout-id  "internal-uuid"}]
+
+    (testing "base params: payment mode, line item, urls default to redirect-url"
+      (let [params (provider/stripe-checkout-params base-opts)]
+        (is (= "payment" (get params "mode")))
+        (is (= "eur"     (get params "line_items[0][price_data][currency]")))
+        (is (= "11900"   (get params "line_items[0][price_data][unit_amount]")))
+        (is (= "Premium plan" (get params "line_items[0][price_data][product_data][name]")))
+        (is (= "https://app.example.com/return" (get params "success_url")))
+        (is (= "https://app.example.com/return" (get params "cancel_url")))
+        (is (= "internal-uuid" (get params "payment_intent_data[metadata][checkout_id]")))))
+
+    (testing "explicit success/cancel URLs override redirect-url"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts
+                           :success-url "https://app.example.com/ok"
+                           :cancel-url  "https://app.example.com/nope"))]
+        (is (= "https://app.example.com/ok"   (get params "success_url")))
+        (is (= "https://app.example.com/nope" (get params "cancel_url")))))
+
+    (testing "setup-future-usage :off-session adds payment_intent_data[setup_future_usage]"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts :setup-future-usage :off-session))]
+        (is (= "off_session" (get params "payment_intent_data[setup_future_usage]")))))
+
+    (testing "setup-future-usage :on-session maps to on_session"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts :setup-future-usage :on-session))]
+        (is (= "on_session" (get params "payment_intent_data[setup_future_usage]")))))
+
+    (testing "no setup-future-usage → no setup_future_usage / customer_creation params"
+      (let [params (provider/stripe-checkout-params base-opts)]
+        (is (not (contains? params "payment_intent_data[setup_future_usage]")))
+        (is (not (contains? params "customer_creation")))))
+
+    (testing "mandate without existing customer forces customer_creation=always"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts :setup-future-usage :off-session))]
+        (is (= "always" (get params "customer_creation")))))
+
+    (testing "existing provider-customer-id is reused; no customer_creation, no customer_email"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts
+                           :setup-future-usage   :off-session
+                           :provider-customer-id "cus_abc"
+                           :customer-email       "jane@example.com"))]
+        (is (= "cus_abc" (get params "customer")))
+        (is (not (contains? params "customer_creation")))
+        ;; Stripe rejects customer + customer_email on the same session
+        (is (not (contains? params "customer_email")))))
+
+    (testing "customer-email is sent when there is no existing customer"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts :customer-email "jane@example.com"))]
+        (is (= "jane@example.com" (get params "customer_email")))))
+
+    (testing "metadata propagates to session and payment_intent_data metadata"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts :metadata {:order-id "ord-1" :plan "premium"}))]
+        (is (= "ord-1"   (get params "metadata[order-id]")))
+        (is (= "premium" (get params "metadata[plan]")))
+        (is (= "ord-1"   (get params "payment_intent_data[metadata][order-id]")))
+        ;; internal checkout_id correlation key must survive a metadata merge
+        (is (= "internal-uuid" (get params "payment_intent_data[metadata][checkout_id]")))))))
+
+;; =============================================================================
+;; stripe-off-session-params (request shaping)
+;; =============================================================================
+
+(deftest ^:unit stripe-off-session-params-test
+  (let [base-opts {:amount-cents         4900
+                   :currency             "EUR"
+                   :description          "Monthly subscription"
+                   :provider-customer-id "cus_abc"}]
+
+    (testing "base params: amount, currency, customer, off_session + confirm"
+      (let [params (provider/stripe-off-session-params base-opts)]
+        (is (= "4900"    (get params "amount")))
+        (is (= "eur"     (get params "currency")))
+        (is (= "cus_abc" (get params "customer")))
+        (is (= "true"    (get params "off_session")))
+        (is (= "true"    (get params "confirm")))
+        (is (= "Monthly subscription" (get params "description")))))
+
+    (testing "payment method is included when given, omitted otherwise"
+      (is (= "pm_9" (get (provider/stripe-off-session-params
+                          (assoc base-opts :provider-payment-method-id "pm_9"))
+                         "payment_method")))
+      (is (not (contains? (provider/stripe-off-session-params base-opts)
+                          "payment_method"))))
+
+    (testing "metadata is flattened to metadata[k] params"
+      (let [params (provider/stripe-off-session-params
+                    (assoc base-opts :metadata {:subscription-id "sub-42"}))]
+        (is (= "sub-42" (get params "metadata[subscription-id]")))))))

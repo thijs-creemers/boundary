@@ -37,6 +37,8 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 ;;        :currency     "EUR"        ; ISO 4217
 ;;        :description  string
 ;;        :redirect-url string       ; where PSP sends the user after payment
+;;        :success-url  string       ; optional; Stripe; defaults to :redirect-url
+;;        :cancel-url   string       ; optional; Stripe; defaults to :redirect-url
 ;;        :webhook-url  string       ; optional; Mollie uses this
 ;;        :metadata     map          ; optional; passed through to PSP
 ;;        :setup-future-usage :off-session|:on-session ; optional; store mandate
@@ -53,9 +55,11 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 ;;        :provider-payment-method-id string  ; optional; default mandate otherwise
 ;;        :metadata     map}                  ; optional
 ;; Returns: {:provider-payment-id string :status :pending|:paid|:failed}
-;; Implemented by Mock; Stripe/Mollie throw {:type :not-implemented} (BOU-63)
+;; Implemented by Mock and Stripe; Mollie throws {:type :not-implemented}
 
 (get-payment-status [this provider-checkout-id])
+;; Stripe accepts both cs_... (Checkout Session) and pi_... (PaymentIntent)
+;; ids, dispatched by prefix; Mollie takes a payment id.
 ;; Returns: {:status :pending|:paid|:failed|:cancelled|:expired|:chargeback
 ;;           :provider-payment-id string
 ;;           :provider-customer-id       string   ; optional, mandate follow-up
@@ -63,7 +67,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 
 (expire-checkout-session [this provider-checkout-id])
 ;; Returns: {:provider-checkout-id string :status :expired}
-;; Implemented by Mock; Stripe/Mollie throw {:type :not-implemented} (BOU-63)
+;; Implemented by Mock and Stripe; Mollie throws {:type :not-implemented}
 
 (verify-webhook-signature [this raw-body headers])
 ;; Returns: boolean
@@ -107,10 +111,33 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 - Requires `:api-key` and `:webhook-base-url`
 
 ### Stripe (`:stripe`)
-- REST API: `https://api.stripe.com/v1/checkout/sessions`
+- REST API: `https://api.stripe.com/v1` (Checkout Sessions + PaymentIntents)
 - Webhook: HMAC-SHA256 over `timestamp.raw-body`, verified with `Stripe-Signature` header
 - Event mapping: `"payment_intent.succeeded"` → `:payment.paid`, etc.
 - Requires `:api-key` and `:webhook-secret`
+- **Checkout**: mode `payment`; `:setup-future-usage :off-session` sends
+  `payment_intent_data[setup_future_usage]=off_session` and (without an
+  existing `:provider-customer-id`) `customer_creation=always` so the saved
+  payment method has a Customer to attach to. Stripe rejects
+  `customer` + `customer_email` together, so `:customer-email` is only sent
+  when no `:provider-customer-id` is given.
+- **Off-session**: confirmed PaymentIntent (`off_session=true`, `confirm=true`)
+  against a stored customer (+ optional payment method, default otherwise).
+  Card errors from confirm (`card_declined`, `authentication_required`, ...)
+  return `{:status :failed}` with the failed PaymentIntent id — they do not
+  throw. Auth/config errors throw `{:type :internal-error}`.
+- **Status poll** (`get-payment-status`): accepts `cs_...` and `pi_...` ids
+  (prefix dispatch). Session polls expand the PaymentIntent so a completed
+  checkout exposes `provider-customer-id`/`provider-payment-method-id` for
+  mandate storage.
+- **Status mapping** — PaymentIntent: `succeeded` → `:paid`, `canceled` →
+  `:cancelled`, `requires_payment_method`/`requires_confirmation`/
+  `requires_capture`/`processing` → `:pending`; `requires_action` → `:pending`
+  when polling, `:failed` for an off-session charge (SCA cannot complete
+  unattended). Checkout Session: `expired` → `:expired`,
+  `payment_status` `paid`/`no_payment_required` → `:paid`, else `:pending`.
+- 401/403 on status poll throws; other poll failures (404, 5xx) degrade to
+  `{:status :pending :provider-payment-id nil}` (Mollie symmetry).
 
 ---
 
