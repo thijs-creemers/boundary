@@ -83,6 +83,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 | `:payment.authorized` | Authorized, not yet captured |
 | `:payment.failed` | Payment attempt failed |
 | `:payment.cancelled` | Cancelled by user or PSP |
+| `:payment.expired` | Checkout/payment expired before completion |
 
 ---
 
@@ -104,7 +105,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 - REST API: `https://api.mollie.com/v2/payments`
 - Webhook: form-POST with `id=<payment-id>` (no HMAC signing)
 - `verify-webhook-signature` → always `true`; real verification happens via `get-payment-status`
-- Status mapping: `"paid"` → `:payment.paid`, `"failed"` → `:payment.failed`, `"canceled"/"cancelled"` → `:payment.cancelled`
+- Status mapping: `"paid"` → `:payment.paid`, `"failed"` → `:payment.failed`, `"canceled"/"cancelled"` → `:payment.cancelled`, `"expired"` → `:payment.expired`
 - Requires `:api-key` and `:webhook-base-url`
 
 ### Stripe (`:stripe`)

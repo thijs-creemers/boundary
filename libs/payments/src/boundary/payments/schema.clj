@@ -65,7 +65,8 @@
 
 (def WebhookResult
   [:map
-   [:event-type           [:enum :payment.paid :payment.failed :payment.cancelled :payment.authorized]]
+   [:event-type           [:enum :payment.paid :payment.failed :payment.cancelled
+                           :payment.expired :payment.authorized]]
    [:provider-payment-id  {:optional true} [:maybe :string]]
    [:provider-checkout-id {:optional true} [:maybe :string]]
    [:payload              :map]])

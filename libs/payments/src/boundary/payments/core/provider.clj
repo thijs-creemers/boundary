@@ -18,6 +18,7 @@
       "failed"     :payment.failed
       "canceled"   :payment.cancelled
       "cancelled"  :payment.cancelled
+      "expired"    :payment.expired
       nil)
 
     :stripe

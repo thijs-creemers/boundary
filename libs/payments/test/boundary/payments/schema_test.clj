@@ -143,7 +143,8 @@
 
 (deftest ^:unit webhook-result-schema-test
   (testing "accepts all valid event types"
-    (doseq [event-type [:payment.paid :payment.failed :payment.cancelled :payment.authorized]]
+    (doseq [event-type [:payment.paid :payment.failed :payment.cancelled
+                        :payment.expired :payment.authorized]]
       (is (m/validate schema/WebhookResult
                       {:event-type event-type :payload {}})
           (str "should accept event-type " event-type))))
