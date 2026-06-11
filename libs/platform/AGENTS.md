@@ -158,6 +158,31 @@ inside the handler), so views emit it with no per-handler threading:
 Test helper: `support.handler-test-helpers/with-valid-csrf-token` signs a token bound
 to a request's session/pre-session binding for CSRF-enabled handler tests.
 
+### Ring consumers (handlers outside the interceptor stack)
+
+`http-csrf-protection` only protects handlers that run **through** the default
+interceptor stack. An app that mounts its own routes as a Ring handler **in front of**
+the platform handler (matching and serving requests before they reach the interceptor
+chain) bypasses CSRF entirely — `csrf/*token*` is never bound (so `hidden-field` /
+`<meta>` emit nothing) and POSTs are never validated.
+
+For that case, wrap the bypassing handler with `interceptors/wrap-csrf`, the Ring
+form of the interceptor (same binding model, same opt-in/exempt/safe-method rules):
+
+```clojure
+(require '[boundary.platform.shell.http.interceptors :as interceptors])
+
+;; csrf-config is the same {:enabled? :secret :exempt-paths} map read from
+;; [:active :boundary/http :security :csrf]; thread it in from system config.
+(def app-web-handler
+  (interceptors/wrap-csrf my-web-routes-handler csrf-config))
+```
+
+It returns 403 on a bad/absent token for state-changing requests and binds
+`csrf/*token*` around the handler on safe/authenticated requests, so `hidden-field`,
+`hx-headers`, and `page-layout`'s `<meta>` work exactly as under the interceptor.
+Disabled or secretless config makes it a pass-through.
+
 ---
 
 ## Route Configuration

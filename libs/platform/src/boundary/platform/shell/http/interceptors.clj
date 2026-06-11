@@ -458,6 +458,79 @@
 
                 :else ctx)))
    :leave attach-pre-session-cookie})
+
+(def ^:private csrf-reject-response
+  "Ring 403 returned by `wrap-csrf` on a failed/absent token. Body is a literal
+   JSON string so the middleware is self-contained — it does not depend on a
+   downstream response serializer (unlike the interceptor, whose map body is
+   serialized later in the stack)."
+  {:status  403
+   :headers {"Content-Type" "application/json"}
+   :body    "{\"error\":\"CSRF token validation failed\",\"message\":\"Invalid or missing CSRF token\",\"type\":\"csrf-validation-failed\"}"})
+
+(defn wrap-csrf
+  "Ring-middleware form of `http-csrf-protection`, for handlers that run OUTSIDE
+   the interceptor stack — e.g. an app that mounts its own routes in front of the
+   platform handler and so never passes through the default interceptor chain.
+
+   Identical binding model and semantics to the interceptor:
+   - State-changing (POST/PUT/DELETE/PATCH) requests that are not exempt and are
+     either session-authenticated or a /web route are validated against the
+     session token / pre-session cookie binding; a bad or absent token yields 403
+     and the wrapped handler does not run.
+   - Safe or authenticated requests issue a token and bind `csrf/*token*` around
+     the handler, so form hidden-fields and the page `<meta>` tag emit it without
+     per-handler threading.
+   - An unauthenticated /web page load mints a pre-session binding and sets the
+     `csrf-session` cookie on the response (for login/register/MFA forms).
+   - Safe methods (GET/HEAD/OPTIONS) and token-auth API clients (no session
+     cookie, not CSRF-vulnerable) are never blocked.
+
+   Opt-in: a falsy/absent `:enabled?` or a blank `:secret` makes it a pass-through.
+
+   Config: {:enabled? bool :secret <signing-key> :exempt-paths [\"/...\"]}."
+  [handler {:keys [enabled? secret exempt-paths] :or {enabled? false}}]
+  (fn [request]
+    (let [method          (:request-method request)
+          uri             (or (:uri request) "")
+          state-changing? (contains? #{:post :put :delete :patch} method)
+          session-binding (request-session-binding request)
+          pre-cookie      (get-in request [:cookies pre-session-cookie :value])
+          ;; Bind *token* (a fresh token for `bind-val`) around the handler so any
+          ;; Hiccup rendered while handling can emit it.
+          render          (fn [bind-val]
+                            (binding [csrf/*token* (issue-csrf-token secret bind-val)]
+                              (handler request)))]
+      (cond
+        ;; Disabled or secretless — no validation, no issuance.
+        (not (and enabled? secret))
+        (handler request)
+
+        ;; Protected: state-changing, not exempt, session-auth or /web route.
+        (and state-changing?
+             (not (path-exempt? exempt-paths uri))
+             (or session-binding (web-route? uri)))
+        (let [bind-val (or session-binding pre-cookie)]
+          (if (and bind-val
+                   (csrf/valid-token? secret bind-val (csrf/extract-token request)))
+            (render bind-val)
+            csrf-reject-response))
+
+        ;; Authenticated safe/exempt request — issue a token for the page.
+        session-binding
+        (render session-binding)
+
+        ;; Unauthenticated /web page load — mint a pre-session binding + token and
+        ;; set the cookie on the response so the login/register/MFA form carries one.
+        (and (web-route? uri) (not state-changing?))
+        (let [id   (or pre-cookie (mint-pre-session-id))
+              resp (render id)]
+          (if pre-cookie
+            resp
+            (assoc-in resp [:cookies pre-session-cookie]
+                      {:value id :http-only true :path "/" :same-site :strict})))
+
+        :else (handler request)))))
 ;; ==============================================================================
 ;; Rate Limiting
 ;; ==============================================================================
