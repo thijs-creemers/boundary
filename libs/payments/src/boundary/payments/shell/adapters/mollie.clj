@@ -72,7 +72,9 @@
       (if payment
         {:status              (provider/mollie-status->payment-status (:status payment))
          :provider-payment-id (:id payment)}
-        {:status :pending :provider-payment-id nil})))
+        ;; :provider-payment-id deliberately absent (not nil) so callers
+        ;; merging the result cannot clobber a stored payment id.
+        {:status :pending})))
 
   (verify-webhook-signature [_ _raw-body _headers]
     ;; Mollie does not use HMAC signing. Verification happens by fetching

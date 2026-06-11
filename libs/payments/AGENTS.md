@@ -130,14 +130,18 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
   (prefix dispatch). Session polls expand the PaymentIntent so a completed
   checkout exposes `provider-customer-id`/`provider-payment-method-id` for
   mandate storage.
-- **Status mapping** — PaymentIntent: `succeeded` → `:paid`, `canceled` →
-  `:cancelled`, `requires_payment_method`/`requires_confirmation`/
-  `requires_capture`/`processing` → `:pending`; `requires_action` → `:pending`
-  when polling, `:failed` for an off-session charge (SCA cannot complete
-  unattended). Checkout Session: `expired` → `:expired`,
-  `payment_status` `paid`/`no_payment_required` → `:paid`, else `:pending`.
+- **Status mapping** — PaymentIntent: `succeeded` → `:paid`,
+  `requires_payment_method`/`requires_confirmation`/`requires_capture`/
+  `processing` → `:pending`; `canceled` and `requires_action` → `:cancelled` /
+  `:pending` when polling, both `:failed` for an off-session charge (SCA
+  cannot complete unattended; port contract is `:pending|:paid|:failed`).
+  Checkout Session: `expired` → `:expired`, `payment_status`
+  `paid`/`no_payment_required` → `:paid`, else `:pending`.
+- Metadata keys/values are truncated to Stripe's limits (40/500 chars); the
+  50-keys-per-object limit is not enforced.
 - 401/403 on status poll throws; other poll failures (404, 5xx) degrade to
-  `{:status :pending :provider-payment-id nil}` (Mollie symmetry).
+  `{:status :pending}` without a `:provider-payment-id` key, so merging
+  callers cannot clobber a stored id (Mollie symmetry).
 
 ---
 

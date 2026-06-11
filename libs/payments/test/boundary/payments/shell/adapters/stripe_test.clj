@@ -449,11 +449,13 @@
         (is (some? ex))
         (is (= :internal-error (:type (ex-data ex)))))))
 
-  (testing "404 degrades to :pending with nil provider-payment-id (Mollie symmetry)"
+  (testing "404 degrades to :pending without a provider-payment-id key (Mollie symmetry)"
     (with-redefs [http/get (fn [_url _req]
                              (json-response 404 {:error {:message "No such session"}}))]
-      (is (= {:status :pending :provider-payment-id nil}
-             (ports/get-payment-status provider "cs_missing"))))))
+      (let [result (ports/get-payment-status provider "cs_missing")]
+        (is (= {:status :pending} result))
+        ;; key absent, not nil — merging callers must not clobber a stored id
+        (is (not (contains? result :provider-payment-id)))))))
 
 ;; =============================================================================
 ;; expire-checkout-session

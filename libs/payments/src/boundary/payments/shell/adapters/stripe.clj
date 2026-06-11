@@ -71,7 +71,9 @@
 
 (defn- pending-payment-status
   "Degrade a failed status poll to :pending — same convention as the Mollie
-   adapter — except for auth/config errors (401/403), which throw."
+   adapter — except for auth/config errors (401/403), which throw.
+   :provider-payment-id is deliberately absent (not nil) so callers merging
+   the result cannot clobber a stored payment id."
   [provider-id status body]
   (if (contains? #{401 403} status)
     (throw (ex-info "Stripe get-payment-status authentication failed"
@@ -81,7 +83,7 @@
                      :body        body}))
     (do (log/warnf "Stripe get-payment-status: %s returned %s — reporting :pending"
                    provider-id status)
-        {:status :pending :provider-payment-id nil})))
+        {:status :pending})))
 
 (defrecord StripePaymentProvider [api-key webhook-secret]
   ports/IPaymentProvider

@@ -184,9 +184,11 @@
     (is (= :failed (provider/stripe-intent-status->payment-status
                     "requires_action" {:off-session? true}))))
 
-  (testing "succeeded/canceled unaffected by off-session context"
-    (is (= :paid (provider/stripe-intent-status->payment-status "succeeded" {:off-session? true})))
-    (is (= :cancelled (provider/stripe-intent-status->payment-status "canceled" {:off-session? true}))))
+  (testing "succeeded unaffected by off-session context"
+    (is (= :paid (provider/stripe-intent-status->payment-status "succeeded" {:off-session? true}))))
+
+  (testing "canceled → :failed in off-session context (port contract is :pending|:paid|:failed)"
+    (is (= :failed (provider/stripe-intent-status->payment-status "canceled" {:off-session? true}))))
 
   (testing "unknown statuses → :pending"
     (is (= :pending (provider/stripe-intent-status->payment-status "something_new")))))
@@ -281,7 +283,22 @@
         (is (= "premium" (get params "metadata[plan]")))
         (is (= "ord-1"   (get params "payment_intent_data[metadata][order-id]")))
         ;; internal checkout_id correlation key must survive a metadata merge
-        (is (= "internal-uuid" (get params "payment_intent_data[metadata][checkout_id]")))))))
+        (is (= "internal-uuid" (get params "payment_intent_data[metadata][checkout_id]")))))
+
+    (testing "unknown setup-future-usage is ignored — no throw, no params"
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts :setup-future-usage :weekly))]
+        (is (not (contains? params "payment_intent_data[setup_future_usage]")))
+        (is (not (contains? params "customer_creation")))))
+
+    (testing "metadata keys/values are truncated to Stripe limits (40/500 chars)"
+      (let [long-key (keyword (apply str (repeat 60 "k")))
+            long-val (apply str (repeat 600 "v"))
+            params   (provider/stripe-checkout-params
+                      (assoc base-opts :metadata {long-key long-val}))
+            trunc-key (str "metadata[" (apply str (repeat 40 "k")) "]")]
+        (is (contains? params trunc-key))
+        (is (= 500 (count (get params trunc-key))))))))
 
 ;; =============================================================================
 ;; stripe-off-session-params (request shaping)
