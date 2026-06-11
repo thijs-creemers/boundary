@@ -99,6 +99,21 @@
       {:checkout-url         (:url body)
        :provider-checkout-id (:id body)}))
 
+  (create-off-session-payment [_ _opts]
+    ;; Real implementation lands with the Stripe PaymentIntents adapter (BOU-63).
+    (throw (ex-info "Stripe create-off-session-payment is not implemented yet (BOU-63)"
+                    {:type     :not-implemented
+                     :provider :stripe
+                     :method   :create-off-session-payment})))
+
+  (expire-checkout-session [_ provider-checkout-id]
+    ;; Real implementation lands with the Stripe PaymentIntents adapter (BOU-63).
+    (throw (ex-info "Stripe expire-checkout-session is not implemented yet (BOU-63)"
+                    {:type                 :not-implemented
+                     :provider             :stripe
+                     :method               :expire-checkout-session
+                     :provider-checkout-id provider-checkout-id})))
+
   (get-payment-status [_ provider-checkout-id]
     (let [url      (str stripe-api-base "/checkout/sessions/" provider-checkout-id)
           response (http/get url {:headers          (stripe-headers api-key)

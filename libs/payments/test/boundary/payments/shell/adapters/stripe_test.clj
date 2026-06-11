@@ -166,3 +166,29 @@
                  :data {:object {:id "pi_no_meta" :metadata {}}}}
           result (ports/process-webhook provider (json/generate-string event) {})]
       (is (nil? (:provider-checkout-id result))))))
+
+;; =============================================================================
+;; new port methods — not implemented until BOU-63
+;; =============================================================================
+
+(deftest ^:integration not-implemented-stubs-test
+  (testing "create-off-session-payment throws a clear :not-implemented error"
+    (let [ex (try
+               (ports/create-off-session-payment
+                provider
+                {:amount-cents         100
+                 :currency             "EUR"
+                 :description          "Recurring"
+                 :provider-customer-id "cus_abc"})
+               nil
+               (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? ex))
+      (is (= :not-implemented (:type (ex-data ex))))))
+
+  (testing "expire-checkout-session throws a clear :not-implemented error"
+    (let [ex (try
+               (ports/expire-checkout-session provider "cs_abc")
+               nil
+               (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? ex))
+      (is (= :not-implemented (:type (ex-data ex)))))))

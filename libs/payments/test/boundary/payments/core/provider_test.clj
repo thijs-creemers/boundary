@@ -44,6 +44,9 @@
   (testing "maps Mollie cancelled (British spelling)"
     (is (= :payment.cancelled (provider/normalize-event-type "cancelled" :mollie))))
 
+  (testing "maps Mollie expired status"
+    (is (= :payment.expired (provider/normalize-event-type "expired" :mollie))))
+
   (testing "returns nil for unknown Mollie status"
     (is (nil? (provider/normalize-event-type "open" :mollie)))
     (is (nil? (provider/normalize-event-type "pending" :mollie)))
@@ -90,6 +93,7 @@
     (is (= :payment.failed    (provider/mollie-status->event-type "failed")))
     (is (= :payment.cancelled (provider/mollie-status->event-type "canceled")))
     (is (= :payment.cancelled (provider/mollie-status->event-type "cancelled")))
+    (is (= :payment.expired   (provider/mollie-status->event-type "expired")))
     (is (nil?                  (provider/mollie-status->event-type "open")))))
 
 ;; =============================================================================
@@ -109,8 +113,8 @@
   (testing "maps cancelled to :cancelled"
     (is (= :cancelled (provider/mollie-status->payment-status "cancelled"))))
 
-  (testing "maps expired to :failed"
-    (is (= :failed (provider/mollie-status->payment-status "expired"))))
+  (testing "maps expired to :expired (aligned with boundary-license PaymentStatus)"
+    (is (= :expired (provider/mollie-status->payment-status "expired"))))
 
   (testing "returns :pending for unrecognised statuses"
     (is (= :pending (provider/mollie-status->payment-status "open")))

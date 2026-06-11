@@ -57,7 +57,33 @@
                          {:amount-cents 100
                           :currency    "EURO"
                           :description "Test"
-                          :redirect-url "https://example.com"})))))
+                          :redirect-url "https://example.com"}))))
+
+  (testing "accepts mandate-related optional fields for off-session reuse"
+    (is (m/validate schema/CheckoutRequest
+                    {:amount-cents       4900
+                     :currency           "EUR"
+                     :description        "First installment"
+                     :redirect-url       "https://example.com/done"
+                     :setup-future-usage :off-session
+                     :customer-email     "jane@example.com"
+                     :provider-customer-id "cus_abc123"})))
+
+  (testing "rejects unknown setup-future-usage value"
+    (is (not (m/validate schema/CheckoutRequest
+                         {:amount-cents       100
+                          :currency           "EUR"
+                          :description        "Test"
+                          :redirect-url       "https://example.com"
+                          :setup-future-usage :sometimes}))))
+
+  (testing "rejects customer-email without an @"
+    (is (not (m/validate schema/CheckoutRequest
+                         {:amount-cents   100
+                          :currency       "EUR"
+                          :description    "Test"
+                          :redirect-url   "https://example.com"
+                          :customer-email "not-an-email"})))))
 
 ;; =============================================================================
 ;; CheckoutResult
@@ -75,15 +101,21 @@
 
   (testing "rejects missing provider-checkout-id"
     (is (not (m/validate schema/CheckoutResult
-                         {:checkout-url "https://psp.example.com/pay/abc"})))))
+                         {:checkout-url "https://psp.example.com/pay/abc"}))))
+
+  (testing "accepts optional provider-payment-id"
+    (is (m/validate schema/CheckoutResult
+                    {:checkout-url         "https://psp.example.com/pay/abc"
+                     :provider-checkout-id "cs_test_abc123"
+                     :provider-payment-id  "pi_abc123"}))))
 
 ;; =============================================================================
 ;; PaymentStatusResult
 ;; =============================================================================
 
 (deftest ^:unit payment-status-result-schema-test
-  (testing "accepts all valid statuses"
-    (doseq [status [:pending :paid :failed :cancelled]]
+  (testing "accepts all valid statuses (aligned with boundary-license PaymentStatus)"
+    (doseq [status [:pending :paid :failed :cancelled :expired :chargeback]]
       (is (m/validate schema/PaymentStatusResult {:status status})
           (str "should accept status " status))))
 
@@ -91,6 +123,13 @@
     (is (m/validate schema/PaymentStatusResult
                     {:status              :paid
                      :provider-payment-id "pi_abc123"})))
+
+  (testing "accepts optional mandate fields for off-session follow-up"
+    (is (m/validate schema/PaymentStatusResult
+                    {:status                     :paid
+                     :provider-payment-id        "pi_abc123"
+                     :provider-customer-id       "cus_abc123"
+                     :provider-payment-method-id "pm_abc123"})))
 
   (testing "rejects unknown status"
     (is (not (m/validate schema/PaymentStatusResult {:status :unknown}))))
@@ -104,7 +143,8 @@
 
 (deftest ^:unit webhook-result-schema-test
   (testing "accepts all valid event types"
-    (doseq [event-type [:payment.paid :payment.failed :payment.cancelled :payment.authorized]]
+    (doseq [event-type [:payment.paid :payment.failed :payment.cancelled
+                        :payment.expired :payment.authorized]]
       (is (m/validate schema/WebhookResult
                       {:event-type event-type :payload {}})
           (str "should accept event-type " event-type))))
@@ -125,3 +165,82 @@
 
   (testing "rejects missing event-type"
     (is (not (m/validate schema/WebhookResult {:payload {}})))))
+
+;; =============================================================================
+;; OffSessionPaymentRequest
+;; =============================================================================
+
+(deftest ^:unit off-session-payment-request-schema-test
+  (testing "accepts a valid off-session payment request"
+    (is (m/validate schema/OffSessionPaymentRequest
+                    {:amount-cents         4900
+                     :currency             "EUR"
+                     :description          "Monthly subscription"
+                     :provider-customer-id "cus_abc123"})))
+
+  (testing "accepts optional payment-method and metadata"
+    (is (m/validate schema/OffSessionPaymentRequest
+                    {:amount-cents                4900
+                     :currency                    "EUR"
+                     :description                 "Monthly subscription"
+                     :provider-customer-id        "cus_abc123"
+                     :provider-payment-method-id  "pm_abc123"
+                     :metadata                    {:subscription-id "sub-42"}})))
+
+  (testing "rejects missing provider-customer-id"
+    (is (not (m/validate schema/OffSessionPaymentRequest
+                         {:amount-cents 4900
+                          :currency     "EUR"
+                          :description  "Monthly subscription"}))))
+
+  (testing "rejects zero amount-cents"
+    (is (not (m/validate schema/OffSessionPaymentRequest
+                         {:amount-cents         0
+                          :currency             "EUR"
+                          :description          "Monthly subscription"
+                          :provider-customer-id "cus_abc123"})))))
+
+;; =============================================================================
+;; OffSessionPaymentResult
+;; =============================================================================
+
+(deftest ^:unit off-session-payment-result-schema-test
+  (testing "accepts a valid off-session payment result"
+    (doseq [status [:pending :paid :failed]]
+      (is (m/validate schema/OffSessionPaymentResult
+                      {:provider-payment-id "pi_abc123"
+                       :status              status})
+          (str "should accept status " status))))
+
+  (testing "rejects missing provider-payment-id"
+    (is (not (m/validate schema/OffSessionPaymentResult {:status :paid}))))
+
+  (testing "rejects unknown status"
+    (is (not (m/validate schema/OffSessionPaymentResult
+                         {:provider-payment-id "pi_abc123"
+                          :status              :unknown}))))
+
+  (testing "rejects PaymentStatus values outside the off-session subset"
+    (doseq [status [:cancelled :expired :chargeback]]
+      (is (not (m/validate schema/OffSessionPaymentResult
+                           {:provider-payment-id "pi_abc123"
+                            :status              status}))
+          (str "should reject status " status)))))
+
+;; =============================================================================
+;; ExpireCheckoutResult
+;; =============================================================================
+
+(deftest ^:unit expire-checkout-result-schema-test
+  (testing "accepts a valid expire-checkout result"
+    (is (m/validate schema/ExpireCheckoutResult
+                    {:provider-checkout-id "cs_test_abc123"
+                     :status               :expired})))
+
+  (testing "rejects non-expired status"
+    (is (not (m/validate schema/ExpireCheckoutResult
+                         {:provider-checkout-id "cs_test_abc123"
+                          :status               :paid}))))
+
+  (testing "rejects missing provider-checkout-id"
+    (is (not (m/validate schema/ExpireCheckoutResult {:status :expired})))))

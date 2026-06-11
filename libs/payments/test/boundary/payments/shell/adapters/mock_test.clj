@@ -48,7 +48,21 @@
   (testing "omits payment-id from URL when metadata has no :payment-id key"
     (let [result (ports/create-checkout-session provider
                                                 (assoc base-request :metadata {:order-ref "xyz"}))]
-      (is (not (str/includes? (:checkout-url result) "payment-id"))))))
+      (is (not (str/includes? (:checkout-url result) "payment-id")))))
+
+  (testing "returns a provider-payment-id derived from the checkout id"
+    (let [{:keys [provider-checkout-id provider-payment-id]}
+          (ports/create-checkout-session provider base-request)]
+      (is (= (str "mock-payment-" provider-checkout-id) provider-payment-id))))
+
+  (testing "accepts mandate options (setup-future-usage) without breaking"
+    (let [result (ports/create-checkout-session
+                  provider
+                  (assoc base-request
+                         :setup-future-usage :off-session
+                         :customer-email     "jane@example.com"))]
+      (is (string? (:checkout-url result)))
+      (is (string? (:provider-checkout-id result))))))
 
 ;; =============================================================================
 ;; get-payment-status
@@ -61,7 +75,69 @@
 
   (testing "provider-payment-id is derived from checkout id"
     (let [result (ports/get-payment-status provider "mock-checkout-123")]
-      (is (= "mock-payment-mock-checkout-123" (:provider-payment-id result))))))
+      (is (= "mock-payment-mock-checkout-123" (:provider-payment-id result)))))
+
+  (testing "exposes mock mandate details for off-session follow-up"
+    (let [result (ports/get-payment-status provider "mock-checkout-123")]
+      (is (= "mock-customer-mock-checkout-123" (:provider-customer-id result)))
+      (is (= "mock-pm-mock-checkout-123" (:provider-payment-method-id result))))))
+
+;; =============================================================================
+;; create-off-session-payment
+;; =============================================================================
+
+(deftest ^:integration create-off-session-payment-test
+  (testing "auto-approves and returns a provider-payment-id"
+    (let [result (ports/create-off-session-payment
+                  provider
+                  {:amount-cents         4900
+                   :currency             "EUR"
+                   :description          "Monthly subscription"
+                   :provider-customer-id "mock-customer-abc"})]
+      (is (= :paid (:status result)))
+      (is (string? (:provider-payment-id result)))
+      (is (str/starts-with? (:provider-payment-id result) "mock-payment-"))))
+
+  (testing "each call generates a unique provider-payment-id"
+    (let [request {:amount-cents         100
+                   :currency             "EUR"
+                   :description          "Recurring"
+                   :provider-customer-id "mock-customer-abc"}
+          id1 (:provider-payment-id (ports/create-off-session-payment provider request))
+          id2 (:provider-payment-id (ports/create-off-session-payment provider request))]
+      (is (not= id1 id2))))
+
+  (testing "metadata :mock-status overrides the simulated outcome"
+    (let [result (ports/create-off-session-payment
+                  provider
+                  {:amount-cents         4900
+                   :currency             "EUR"
+                   :description          "Monthly subscription"
+                   :provider-customer-id "mock-customer-abc"
+                   :metadata             {:mock-status :failed}})]
+      (is (= :failed (:status result)))
+      (is (string? (:provider-payment-id result)))))
+
+  (testing "invalid :mock-status falls back to :paid"
+    (let [result (ports/create-off-session-payment
+                  provider
+                  {:amount-cents         4900
+                   :currency             "EUR"
+                   :description          "Monthly subscription"
+                   :provider-customer-id "mock-customer-abc"
+                   :metadata             {:mock-status :chargeback}})]
+      (is (= :paid (:status result))))))
+
+;; =============================================================================
+;; expire-checkout-session
+;; =============================================================================
+
+(deftest ^:integration expire-checkout-session-test
+  (testing "returns the checkout id with :expired status"
+    (let [result (ports/expire-checkout-session provider "mock-checkout-123")]
+      (is (= {:provider-checkout-id "mock-checkout-123"
+              :status               :expired}
+             result)))))
 
 ;; =============================================================================
 ;; verify-webhook-signature

@@ -20,7 +20,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 | Namespace | Purpose |
 |-----------|---------|
 | `boundary.payments.ports` | `IPaymentProvider` protocol definition |
-| `boundary.payments.schema` | Malli schemas: `CheckoutRequest`, `CheckoutResult`, `PaymentStatusResult`, `WebhookResult` |
+| `boundary.payments.schema` | Malli schemas: `CheckoutRequest`, `CheckoutResult`, `OffSessionPaymentRequest`, `OffSessionPaymentResult`, `PaymentStatusResult`, `ExpireCheckoutResult`, `WebhookResult` |
 | `boundary.payments.core.provider` | Pure helpers: `cents->euro`, `normalize-event-type`, status mappers |
 | `boundary.payments.shell.adapters.mock` | Mock adapter — auto-approves, no network calls |
 | `boundary.payments.shell.adapters.mollie` | Mollie PSP adapter (hato HTTP client) |
@@ -38,12 +38,32 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 ;;        :description  string
 ;;        :redirect-url string       ; where PSP sends the user after payment
 ;;        :webhook-url  string       ; optional; Mollie uses this
-;;        :metadata     map}         ; optional; passed through to PSP
-;; Returns: {:checkout-url string :provider-checkout-id string}
+;;        :metadata     map          ; optional; passed through to PSP
+;;        :setup-future-usage :off-session|:on-session ; optional; store mandate
+;;        :customer-email       string  ; optional
+;;        :provider-customer-id string} ; optional; reuse existing PSP customer
+;; Returns: {:checkout-url string :provider-checkout-id string
+;;           :provider-payment-id string} ; optional, when known at creation
+
+(create-off-session-payment [this opts])
+;; opts: {:amount-cents pos-int
+;;        :currency     "EUR"
+;;        :description  string
+;;        :provider-customer-id       string  ; required
+;;        :provider-payment-method-id string  ; optional; default mandate otherwise
+;;        :metadata     map}                  ; optional
+;; Returns: {:provider-payment-id string :status :pending|:paid|:failed}
+;; Implemented by Mock; Stripe/Mollie throw {:type :not-implemented} (BOU-63)
 
 (get-payment-status [this provider-checkout-id])
-;; Returns: {:status :pending|:paid|:failed|:cancelled
-;;           :provider-payment-id string}
+;; Returns: {:status :pending|:paid|:failed|:cancelled|:expired|:chargeback
+;;           :provider-payment-id string
+;;           :provider-customer-id       string   ; optional, mandate follow-up
+;;           :provider-payment-method-id string}  ; optional, mandate follow-up
+
+(expire-checkout-session [this provider-checkout-id])
+;; Returns: {:provider-checkout-id string :status :expired}
+;; Implemented by Mock; Stripe/Mollie throw {:type :not-implemented} (BOU-63)
 
 (verify-webhook-signature [this raw-body headers])
 ;; Returns: boolean
@@ -63,6 +83,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 | `:payment.authorized` | Authorized, not yet captured |
 | `:payment.failed` | Payment attempt failed |
 | `:payment.cancelled` | Cancelled by user or PSP |
+| `:payment.expired` | Checkout/payment expired before completion |
 
 ---
 
@@ -71,15 +92,20 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 ### Mock (`:mock`)
 - Auto-approves every payment — no network calls
 - `create-checkout-session` → `{:checkout-url "/web/payment/mock-return?checkout-id=<uuid>"}`
+- `create-off-session-payment` → `{:status :paid}`; override the simulated
+  outcome with `:metadata {:mock-status :failed}` (`:pending`, `:paid` or
+  `:failed` — anything else falls back to `:paid`)
 - `verify-webhook-signature` → always `true`
-- `get-payment-status` → always `{:status :paid}`
+- `get-payment-status` → always `{:status :paid}` plus mock
+  `provider-customer-id`/`provider-payment-method-id` mandate fields
+- `expire-checkout-session` → `{:status :expired}`
 - Use in development and all automated tests
 
 ### Mollie (`:mollie`)
 - REST API: `https://api.mollie.com/v2/payments`
 - Webhook: form-POST with `id=<payment-id>` (no HMAC signing)
 - `verify-webhook-signature` → always `true`; real verification happens via `get-payment-status`
-- Status mapping: `"paid"` → `:payment.paid`, `"failed"` → `:payment.failed`, `"canceled"/"cancelled"` → `:payment.cancelled`
+- Status mapping: `"paid"` → `:payment.paid`, `"failed"` → `:payment.failed`, `"canceled"/"cancelled"` → `:payment.cancelled`, `"expired"` → `:payment.expired`
 - Requires `:api-key` and `:webhook-base-url`
 
 ### Stripe (`:stripe`)
