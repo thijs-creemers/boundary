@@ -1,6 +1,6 @@
 {:paths ["src" "resources"]
 
- :deps  {org.clojure/clojure {:mvn/version "1.12.4"}
+ :deps  {org.clojure/clojure {:mvn/version "1.12.5"}
          boundary/platform   {:local/root "../platform"}
          boundary/user       {:local/root "../user"}
          boundary/ui-style   {:local/root "../ui-style"}
@@ -11,10 +11,10 @@
  :aliases
  {:test      {:extra-paths ["test"]
               :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
-                            com.h2database/h2   {:mvn/version "2.3.232"}
+                            com.h2database/h2   {:mvn/version "2.4.240"}
                             ;; Embedded PostgreSQL for split-table / tenant tests
                             io.zonky.test/embedded-postgres {:mvn/version "2.2.2"}
-                            io.zonky.test.postgres/embedded-postgres-binaries-darwin-arm64v8 {:mvn/version "16.6.0"}
+                            io.zonky.test.postgres/embedded-postgres-binaries-darwin-arm64v8 {:mvn/version "18.4.0"}
                             org.postgresql/postgresql {:mvn/version "42.7.11"}}
               :main-opts   ["-m" "kaocha.runner"]}
 

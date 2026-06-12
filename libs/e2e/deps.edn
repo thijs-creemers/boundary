@@ -11,7 +11,7 @@
 ;; library layout (`bb check:deps`, `build`, etc.) doesn't choke on it.
 {:paths ["src"]
 
- :deps  {org.clojure/clojure {:mvn/version "1.12.4"}
+ :deps  {org.clojure/clojure {:mvn/version "1.12.5"}
 
          ;; The whole point: Clojure wrapper around Playwright Java.
          ;; Provides browser + API testing helpers with shared traces.
