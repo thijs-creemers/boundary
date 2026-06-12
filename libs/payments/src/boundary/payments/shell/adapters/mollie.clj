@@ -28,7 +28,17 @@
 
   (provider-name [_] :mollie)
 
-  (create-checkout-session [_ {:keys [amount-cents currency description redirect-url webhook-url metadata]}]
+  (create-checkout-session [_ {:keys [amount-cents currency description redirect-url webhook-url metadata
+                                      setup-future-usage]}]
+    ;; Mandate-aware checkout (sequenceType=first + customer creation) is not
+    ;; implemented yet — fail loudly rather than silently ignoring the option,
+    ;; which would leave the caller believing a mandate was stored.
+    (when setup-future-usage
+      (throw (ex-info "Mollie create-checkout-session does not support :setup-future-usage yet"
+                      {:type               :not-implemented
+                       :provider           :mollie
+                       :method             :create-checkout-session
+                       :setup-future-usage setup-future-usage})))
     (let [checkout-id  (str (UUID/randomUUID))
           webhook      (or webhook-url (str webhook-base-url "/api/v1/payments/webhook"))
           payload      {:amount      {:currency (or currency "EUR")
@@ -72,7 +82,9 @@
       (if payment
         {:status              (provider/mollie-status->payment-status (:status payment))
          :provider-payment-id (:id payment)}
-        {:status :pending :provider-payment-id nil})))
+        ;; :provider-payment-id deliberately absent (not nil) so callers
+        ;; merging the result cannot clobber a stored payment id.
+        {:status :pending})))
 
   (verify-webhook-signature [_ _raw-body _headers]
     ;; Mollie does not use HMAC signing. Verification happens by fetching
