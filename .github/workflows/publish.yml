@@ -39,7 +39,7 @@ jobs:
       - name: Setup Clojure
         uses: DeLaGuardo/setup-clojure@13.6.1
         with:
-          cli: 1.11.1.1347
+          cli: 1.12.5.1654
           bb: latest
 
       - name: Cache dependencies
