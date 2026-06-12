@@ -13,7 +13,7 @@
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-push {:mvn/version "1.0.1-alpha-30"}}}
+{:deps {org.boundary-app/boundary-push {:mvn/version "1.0.1-alpha-31"}}}
 ```
 
 ```clojure
