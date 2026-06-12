@@ -26,6 +26,10 @@ permissions:
 jobs:
   publish:
     name: Publish Libraries to Clojars
+    # Only the repo owner may publish: blocks any future collaborator (or a
+    # compromised account with write access) from triggering a Clojars deploy
+    # via tag push or manual dispatch.
+    if: github.actor == 'thijs-creemers'
     runs-on: ubuntu-latest
 
     steps:
