@@ -34,4 +34,20 @@
                (catch clojure.lang.ExceptionInfo e e))]
       (is (some? ex))
       (is (= :not-implemented (:type (ex-data ex))))
-      (is (= :mollie (:provider (ex-data ex)))))))
+      (is (= :mollie (:provider (ex-data ex))))))
+
+  (testing "create-checkout-session with :setup-future-usage throws instead of silently ignoring it"
+    (let [ex (try
+               (ports/create-checkout-session
+                provider
+                {:amount-cents       100
+                 :currency           "EUR"
+                 :description        "First installment"
+                 :redirect-url       "https://example.com/done"
+                 :setup-future-usage :off-session})
+               nil
+               (catch clojure.lang.ExceptionInfo e e))]
+      (is (some? ex))
+      (is (= :not-implemented (:type (ex-data ex))))
+      (is (= :mollie (:provider (ex-data ex))))
+      (is (= :off-session (:setup-future-usage (ex-data ex)))))))

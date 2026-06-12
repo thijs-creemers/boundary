@@ -42,6 +42,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 ;;        :webhook-url  string       ; optional; Mollie uses this
 ;;        :metadata     map          ; optional; passed through to PSP
 ;;        :setup-future-usage :off-session|:on-session ; optional; store mandate
+;;                                   ; Mock/Stripe only; Mollie throws {:type :not-implemented}
 ;;        :customer-email       string  ; optional
 ;;        :provider-customer-id string} ; optional; reuse existing PSP customer
 ;; Returns: {:checkout-url string :provider-checkout-id string
@@ -111,6 +112,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 - `verify-webhook-signature` → always `true`; real verification happens via `get-payment-status`
 - Status mapping: `"paid"` → `:payment.paid`, `"failed"` → `:payment.failed`, `"canceled"/"cancelled"` → `:payment.cancelled`, `"expired"` → `:payment.expired`
 - Requires `:api-key` and `:webhook-base-url`
+- No mandate support yet: `create-checkout-session` with `:setup-future-usage` throws `{:type :not-implemented}` (sequenceType=first pending), as do `create-off-session-payment` and `expire-checkout-session`
 
 ### Stripe (`:stripe`)
 - REST API: `https://api.stripe.com/v1` (Checkout Sessions + PaymentIntents)

@@ -12,7 +12,8 @@
                                          provider-customer-id]}])
   ;; Hosted checkout for the first payment. Pass :setup-future-usage :off-session
   ;; to store a mandate/payment-method for later off-session charges
-  ;; (Stripe: setup_future_usage=off_session; Mollie: sequenceType=first).
+  ;; (Stripe: setup_future_usage=off_session; Mollie throws {:type :not-implemented}
+  ;; until sequenceType=first support lands).
   ;; :success-url/:cancel-url override :redirect-url when given (Stripe).
   ;; Returns {:checkout-url "..." :provider-checkout-id "..."
   ;;          :provider-payment-id "..."}   ; optional, when known at creation
