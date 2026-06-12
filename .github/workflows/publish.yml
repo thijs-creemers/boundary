@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.5.2
+        uses: DeLaGuardo/setup-clojure@13.6.1
         with:
           cli: 1.11.1.1347
           bb: latest
@@ -52,7 +52,7 @@ jobs:
           restore-keys: ${{ runner.os }}-clojure-
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
@@ -99,7 +99,7 @@ jobs:
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.version.outputs.version }}
@@ -114,7 +114,12 @@ jobs:
 
             See [CHANGELOG.md](https://github.com/thijs-creemers/boundary/blob/main/CHANGELOG.md) for details.
           draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') }}
+          # Never mark releases as prerelease: scripts/install.sh resolves
+          # BOUNDARY_TAG via /releases/latest, which excludes prereleases —
+          # an alpha marked prerelease is silently uninstallable (alpha-29
+          # never became "latest" for exactly this reason).
+          prerelease: false
+          make_latest: "true"
 
       - name: Summary
         run: |
