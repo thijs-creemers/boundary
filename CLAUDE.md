@@ -42,8 +42,8 @@ bb doctor                          # Validate config for common mistakes
 bb doctor --env all --ci           # Check all envs, exit non-zero on error (CI)
 bb doctor --all                    # Run both config + environment checks combined
 bb doctor:env                      # Check development prerequisites (Java, CLI, ports, AI)
-bb check                           # Run ALL quality checks (fcis, deps, placeholder, kondo, doctor)
-bb check --quick                   # Fast subset (fcis + deps only)
+bb check                           # Run ALL quality checks (fcis, deps, ports, placeholder, kondo, doctor)
+bb check --quick                   # Fast subset (fcis + deps + ports only)
 bb check --fix                     # Auto-fix what can be fixed
 bb db:status                       # Show database config and migration status
 bb db:reset                        # Drop + recreate + migrate (with confirmation)
@@ -72,6 +72,8 @@ bb scripts/docs_lint.clj  # Run documentation drift linter directly
 bb check:fcis                    # FC/IS enforcement: core/ must not import shell/IO/logging/DB
 bb check:placeholder-tests       # Detect (is true) placeholder assertions in tests
 bb check:deps                    # Verify library dependency direction + cycle detection
+bb check:ports                   # Hexagonal enforcement: modules must define ports.clj; shell/web must not bypass protocols
+                                 #   Escape hatch: ^:boundary/allow-direct ns metadata, or .boundary/check-ports.edn allowlist
 clojure -M:test:db/h2 --focus-meta :security  # Security-focused tests (error mapping, CSRF, XSS, SQL)
 ```
 

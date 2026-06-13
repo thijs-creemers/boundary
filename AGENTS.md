@@ -107,10 +107,11 @@ bb smoke-check                                     # Verify deps.edn aliases and
 bb install-hooks                                   # Configure git hooks path to .githooks
 bb scripts/docs_lint.clj                           # Run documentation drift linter directly
 
-# Quality Gates (all run in CI + check:fcis runs in pre-commit)
+# Quality Gates (all run in CI + check:fcis/check:ports run in pre-commit)
 bb check:fcis                                      # FC/IS enforcement: core/ must not import shell/IO/logging/DB
 bb check:placeholder-tests                         # Detect (is true) placeholder assertions in tests
 bb check:deps                                      # Verify library dependency direction + cycle detection
+bb check:ports                                     # Hexagonal: modules must define ports.clj; shell/web must not bypass protocols
 clojure -M:test:db/h2 --focus-meta :security             # Security-focused tests (error mapping, CSRF, XSS, SQL)
 ```
 
@@ -821,18 +822,21 @@ See `libs/i18n/AGENTS.md` for complete API reference, middleware wiring, and com
 
 ## Quality Gates
 
-Six automated safeguards run in CI (and `check:fcis` in pre-commit) to prevent regressions caught during QA review (PRs #108–#116).
+Seven automated safeguards run in CI (and `check:fcis` + `check:ports` in pre-commit) to prevent regressions caught during QA review (PRs #108–#116).
 
 | Gate | Command | What it catches | Hard fail? |
 |------|---------|-----------------|------------|
 | **FC/IS enforcement** | `bb check:fcis` | Core namespaces importing shell, I/O, logging, or DB code | Yes |
 | **Placeholder tests** | `bb check:placeholder-tests` | `(is true)` / `(is (= true true))` masking missing coverage | Yes |
 | **Dependency direction** | `bb check:deps` | Core independence violations, circular deps between libraries | Yes (cycles/core); warn (undeclared) |
+| **Ports / hexagonal** | `bb check:ports` | Modules missing `ports.clj`; shell coupling to another module's `shell.persistence`/`shell.service`; web/HTTP requiring `shell.persistence` directly | Yes |
 | **Security tests** | `clojure -M:test:db/h2 --focus-meta :security` | Error→HTTP mapping, CSRF routing, XSS escaping, SQL injection, sensitive field leaks | Yes (test failure) |
 | **clj-kondo lint** | `clojure -M:clj-kondo --lint ...` | Static analysis (existing gate) | Yes |
 | **Config doctor** | `bb doctor --env dev --ci` | Configuration errors (existing gate) | Yes |
 
-**Scripts location:** `libs/tools/src/boundary/tools/check_{fcis,tests,deps}.clj`
+**`check:ports` escape hatch (for legitimate exceptions / gradual adoption):** add `^:boundary/allow-direct` metadata to a namespace to exempt it from the coupling rules, or list `:allow-missing-ports` (module ns prefixes) / `:allow-direct` (namespaces) in a `.boundary/check-ports.edn` at the repo root.
+
+**Scripts location:** `libs/tools/src/boundary/tools/check_{fcis,tests,deps,ports}.clj`
 **Security tests:** `libs/platform/test/boundary/platform/shell/security_test.clj` (tagged `^:security ^:unit`)
 **Handler test helpers:** `test/support/handler_test_helpers.clj` (Ring request builders, response assertions)
 **ADRs:** `dev-docs/adr/ADR-021-fcis-boundary-rules.adoc`, `ADR-022-error-handling-conventions.adoc`
@@ -936,6 +940,7 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 | `boundary.tools.check-fcis` | `bb check:fcis` — FC/IS boundary enforcement (ADR-021) |
 | `boundary.tools.check-tests` | `bb check:placeholder-tests` — placeholder assertion detection |
 | `boundary.tools.check-deps` | `bb check:deps` — dependency direction linting + cycle detection |
+| `boundary.tools.check-ports` | `bb check:ports` — hexagonal boundary enforcement (ports.clj presence + protocol usage) |
 | `boundary.tools.parsing` | Shared source-parsing utilities for quality-gate checkers |
 
 See `libs/tools/AGENTS.md` for the full command reference.

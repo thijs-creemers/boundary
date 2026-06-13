@@ -27,6 +27,9 @@
    {:id    :deps
     :label "Dependency direction"
     :cmd   ["bb" "check:deps"]}
+   {:id    :ports
+    :label "Ports / hexagonal"
+    :cmd   ["bb" "check:ports"]}
    {:id    :placeholder-tests
     :label "Placeholder tests"
     :cmd   ["bb" "check:placeholder-tests"]}
@@ -41,7 +44,7 @@
 
 (def quick-check-ids
   "Check IDs included in --quick mode."
-  #{:fcis :deps})
+  #{:fcis :deps :ports})
 
 ;; =============================================================================
 ;; Check execution
@@ -113,6 +116,7 @@
   (println "Checks:")
   (println "  fcis               FC/IS boundary enforcement")
   (println "  deps               Library dependency direction + cycle detection")
+  (println "  ports              Hexagonal boundaries: ports.clj presence + protocol usage")
   (println "  placeholder-tests  Detect (is true) placeholder assertions")
   (println "  linting            clj-kondo lint across all sources")
   (println "  doctor             Config doctor validation"))
