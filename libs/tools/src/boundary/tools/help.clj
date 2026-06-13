@@ -19,14 +19,28 @@
 ;; Error code catalog — loaded from shared EDN (single source of truth)
 ;; =============================================================================
 
+(defn- read-catalog
+  "Parse the error catalogue from a classpath resource (or nil).
+
+   Returns {} when the resource is absent instead of throwing, so that
+   `boundary.tools.help` loads — and every unrelated bb task (doctor,
+   scaffold, …) starts — even in a consumer project that depends on
+   boundary-tools without boundary-devtools on the classpath. The catalogue
+   ships inside the boundary-tools jar (see build.clj), so this fallback only
+   triggers on a broken classpath. (BOU-76)"
+  [resource]
+  (if resource
+    (-> resource slurp edn/read-string)
+    {}))
+
 (def error-catalog
-  "Map of BND-xxx code → {:code :category :title :description :fix}.
-   Loaded from libs/devtools/resources/boundary/devtools/error_catalog.edn,
-   which is on the BB classpath via bb.edn :paths."
-  (let [r (io/resource "boundary/devtools/error_catalog.edn")]
-    (when-not r
-      (throw (ex-info "error_catalog.edn not found on classpath — check bb.edn :paths includes libs/devtools/resources" {})))
-    (-> r slurp edn/read-string)))
+  "Delay of {BND-xxx code → {:code :category :title :description :fix}}.
+
+   Loaded lazily (not at namespace-load time) and degrades gracefully to {}
+   when the resource is missing — see read-catalog. Deref with @error-catalog.
+   The EDN is packaged into the boundary-tools jar and also resolves from
+   libs/devtools/resources via bb.edn :paths inside the monorepo."
+  (delay (read-catalog (io/resource "boundary/devtools/error_catalog.edn"))))
 
 (def ^:private category-order
   "Display order matching BND-1xx..7xx numerical range scheme."
@@ -344,48 +358,61 @@
 ;; Error code lookup
 ;; =============================================================================
 
+(defn- catalog-unavailable []
+  (println)
+  (println (yellow "Error catalogue not available on the classpath."))
+  (println (dim "  The boundary-tools jar ships boundary/devtools/error_catalog.edn;"))
+  (println (dim "  inside the monorepo it loads from libs/devtools/resources via bb.edn :paths."))
+  (println (dim "  Reinstall/upgrade boundary-tools, or add libs/devtools/resources to bb.edn :paths.")))
+
 (defn- help-error [code]
-  (if-not code
-    (do
-      (println)
-      (println (bold "Error Code Reference"))
-      (println)
-      (println (dim "Ranges:"))
-      (println "  BND-1xx   Configuration (missing env vars, invalid providers, bad config)")
-      (println "  BND-2xx   Validation (Malli schema failures, type mismatches)")
-      (println "  BND-3xx   Persistence (SQL errors, migration issues, connection problems)")
-      (println "  BND-4xx   Auth (JWT failures, session issues, permission denied)")
-      (println "  BND-5xx   Interceptor pipeline (missing interceptors, execution errors)")
-      (println "  BND-6xx   FC/IS violations (core importing shell, side effects in core)")
-      (println "  BND-7xx   Tooling (circular deps, admin config, wiring issues)")
-      (println)
-      (let [by-cat (group-by :category (vals error-catalog))]
-        (doseq [cat category-order
-                :let [codes (sort-by :code (get by-cat cat []))]
-                :when (seq codes)]
-          (println (str "  " (bold (get category-label cat (name cat))) ":"))
-          (doseq [{:keys [code title]} codes]
-            (println (str "    " (cyan code) "  " title)))))
-      (println)
-      (println (dim "Usage: bb guide error BND-xxx")))
-    (let [upper-code (str/upper-case code)
-          entry      (get error-catalog upper-code)]
-      (println)
-      (if-not entry
-        (do
-          (println (red (str "Unknown error code: " upper-code)))
-          (println)
-          (println (dim "Known ranges: BND-1xx config, BND-2xx validation, BND-3xx persistence,"))
-          (println (dim "              BND-4xx auth, BND-5xx interceptor, BND-6xx FC/IS, BND-7xx tooling"))
-          (println (dim "Run `bb guide error` (no code) for the full listing.")))
-        (do
-          (println (bold (str upper-code " — " (:title entry))))
-          (println)
-          (println (cyan "What happened:"))
-          (println (str "  " (:description entry)))
-          (println)
-          (println (cyan "How to fix:"))
-          (println (str "  " (:fix entry))))))))
+  (let [catalog @error-catalog]
+    (cond
+      (empty? catalog) (catalog-unavailable)
+
+      (not code)
+      (do
+        (println)
+        (println (bold "Error Code Reference"))
+        (println)
+        (println (dim "Ranges:"))
+        (println "  BND-1xx   Configuration (missing env vars, invalid providers, bad config)")
+        (println "  BND-2xx   Validation (Malli schema failures, type mismatches)")
+        (println "  BND-3xx   Persistence (SQL errors, migration issues, connection problems)")
+        (println "  BND-4xx   Auth (JWT failures, session issues, permission denied)")
+        (println "  BND-5xx   Interceptor pipeline (missing interceptors, execution errors)")
+        (println "  BND-6xx   FC/IS violations (core importing shell, side effects in core)")
+        (println "  BND-7xx   Tooling (circular deps, admin config, wiring issues)")
+        (println)
+        (let [by-cat (group-by :category (vals catalog))]
+          (doseq [cat category-order
+                  :let [codes (sort-by :code (get by-cat cat []))]
+                  :when (seq codes)]
+            (println (str "  " (bold (get category-label cat (name cat))) ":"))
+            (doseq [{:keys [code title]} codes]
+              (println (str "    " (cyan code) "  " title)))))
+        (println)
+        (println (dim "Usage: bb guide error BND-xxx")))
+
+      :else
+      (let [upper-code (str/upper-case code)
+            entry      (get catalog upper-code)]
+        (println)
+        (if-not entry
+          (do
+            (println (red (str "Unknown error code: " upper-code)))
+            (println)
+            (println (dim "Known ranges: BND-1xx config, BND-2xx validation, BND-3xx persistence,"))
+            (println (dim "              BND-4xx auth, BND-5xx interceptor, BND-6xx FC/IS, BND-7xx tooling"))
+            (println (dim "Run `bb guide error` (no code) for the full listing.")))
+          (do
+            (println (bold (str upper-code " — " (:title entry))))
+            (println)
+            (println (cyan "What happened:"))
+            (println (str "  " (:description entry)))
+            (println)
+            (println (cyan "How to fix:"))
+            (println (str "  " (:fix entry)))))))))
 
 ;; =============================================================================
 ;; Topic help dispatcher
