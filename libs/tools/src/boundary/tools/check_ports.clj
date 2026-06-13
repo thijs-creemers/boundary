@@ -53,6 +53,14 @@
   (boolean (or (str/includes? ns-str ".shell.")
                (str/ends-with? ns-str ".shell"))))
 
+(defn core-ns?
+  "True when `ns-str` lives under a module's core/ layer. Core namespaces are
+   never a delivery layer — they are exempt from the web/HTTP rule even when a
+   path segment happens to match (e.g. a `…core.api` namespace)."
+  [ns-str]
+  (boolean (or (str/includes? ns-str ".core.")
+               (str/ends-with? ns-str ".core"))))
+
 (defn ns->module
   "Given a namespace string, return the owning module prefix — everything
    before the first `.core`/`.shell`/`.ports` segment. Returns nil when the
@@ -64,8 +72,7 @@
 (defn persistence-require?
   "True when a required namespace is a module's shell persistence namespace."
   [req]
-  (or (= req "persistence")
-      (str/ends-with? req ".shell.persistence")))
+  (str/ends-with? req ".shell.persistence"))
 
 (defn service-require?
   "True when a required namespace is a module's shell service namespace."
@@ -170,9 +177,14 @@
 
 (defn web-persistence-violations
   "Rule 3: a web/HTTP namespace requiring a shell persistence namespace.
-   Returns a seq of violation maps."
+   Returns a seq of violation maps.
+
+   Scope: applies to any delivery-layer namespace — `web/*` as well as
+   `shell.http`/`shell.api` handlers — including a handler reaching into its
+   own module's persistence (HTTP handlers must go through a service port, not
+   the repository). Core namespaces are exempt even if a path segment matches."
   [ns-str requires]
-  (when (web-layer? ns-str)
+  (when (and (web-layer? ns-str) (not (core-ns? ns-str)))
     (->> requires
          (filter persistence-require?)
          (map (fn [req]
@@ -246,19 +258,20 @@
 ;; ---------------------------------------------------------------------------
 
 (defn collect-violations
-  "Collect all ports violations across the source roots. Pure-ish core used by
-   both -main and tests; takes the config allowlists explicitly."
-  [{:keys [allow-missing-ports allow-direct]}]
-  (let [roots       (source-roots)
-        modules     (module-dirs roots)
-        missing     (->> modules
-                         (keep module-completeness-violation)
-                         (remove #(contains? allow-missing-ports (:module %))))
-        coupling    (->> roots
-                         (mapcat clj-files)
-                         (mapcat #(check-file % allow-direct)))]
-    {:modules    (count modules)
-     :violations (concat missing coupling)}))
+  "Collect all ports violations across the given source roots (defaults to
+   `source-roots`). Used by both -main and tests; takes the config allowlists
+   explicitly."
+  ([config] (collect-violations config (source-roots)))
+  ([{:keys [allow-missing-ports allow-direct]} roots]
+   (let [modules  (module-dirs roots)
+         missing  (->> modules
+                       (keep module-completeness-violation)
+                       (remove #(contains? allow-missing-ports (:module %))))
+         coupling (->> roots
+                       (mapcat clj-files)
+                       (mapcat #(check-file % allow-direct)))]
+     {:modules    (count modules)
+      :violations (concat missing coupling)})))
 
 (defn -main [& _args]
   (let [config     (-> (read-config)

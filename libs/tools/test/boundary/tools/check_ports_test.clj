@@ -78,6 +78,13 @@
                "boundary.license.billing.core.invoice"
                ["boundary.license.customer.shell.persistence"]))))
 
+(deftest ^:unit web-persistence-exempts-core-namespaces-with-web-segment
+  (testing "a core namespace is never treated as a web/HTTP delivery layer,
+            even when a path segment (api/http) matches"
+    (is (empty? (ports/web-persistence-violations
+                 "boundary.license.billing.core.api"
+                 ["boundary.license.customer.shell.persistence"])))))
+
 ;; ---------------------------------------------------------------------------
 ;; Escape hatch — ^:boundary/allow-direct ns metadata
 ;; ---------------------------------------------------------------------------
@@ -108,3 +115,69 @@
   (let [dirs (map ports/dir->ns-prefix (ports/module-dirs (ports/source-roots)))]
     (is (some #{"boundary.user"} dirs))
     (is (some #{"boundary.tenant"} dirs))))
+
+;; ---------------------------------------------------------------------------
+;; End-to-end — collect-violations over a temp fixture tree
+;; ---------------------------------------------------------------------------
+
+(defn- spit-ns
+  "Create dirs + write a .clj file under `src-root` for a namespace path."
+  [src-root rel-path content]
+  (let [f (io/file src-root rel-path)]
+    (.mkdirs (.getParentFile f))
+    (spit f content)))
+
+(defn- build-fixture!
+  "Lay out a fixture project under a temp `<tmp>/src` root:
+   - billing module: core/ + shell/, NO ports.clj, shell.service requires
+     catalog.shell.service (cross-module)
+   - catalog module: core/ + shell/ + ports.clj with a defprotocol (complete)
+   - web/http requires billing.shell.persistence (web-persistence)
+   Returns the src-root File."
+  []
+  (let [tmp (.toFile (java.nio.file.Files/createTempDirectory
+                      "check-ports-fixture"
+                      (make-array java.nio.file.attribute.FileAttribute 0)))
+        src (io/file tmp "src")]
+    (spit-ns src "boundary/fixture/billing/core/calc.clj"
+             "(ns boundary.fixture.billing.core.calc)")
+    (spit-ns src "boundary/fixture/billing/shell/service.clj"
+             "(ns boundary.fixture.billing.shell.service\n  (:require [boundary.fixture.catalog.shell.service :as cat]))")
+    (spit-ns src "boundary/fixture/catalog/core/calc.clj"
+             "(ns boundary.fixture.catalog.core.calc)")
+    (spit-ns src "boundary/fixture/catalog/shell/service.clj"
+             "(ns boundary.fixture.catalog.shell.service)")
+    (spit-ns src "boundary/fixture/catalog/ports.clj"
+             "(ns boundary.fixture.catalog.ports)\n(defprotocol ICatalog (find-it [this id]))")
+    (spit-ns src "boundary/fixture/web/http.clj"
+             "(ns boundary.fixture.web.http\n  (:require [boundary.fixture.billing.shell.persistence :as db]))")
+    src))
+
+(deftest ^:integration collect-violations-detects-all-three-classes
+  (let [src   (build-fixture!)
+        empty {:allow-missing-ports #{} :allow-direct #{}}
+        {:keys [modules violations]} (ports/collect-violations empty [src])
+        by-kind (group-by :kind violations)]
+    (is (= 2 modules) "billing + catalog are modules; web is not")
+    (testing "rule 1 — billing missing ports.clj, catalog is complete"
+      (is (= ["boundary.fixture.billing"]
+             (map :module (:missing-ports by-kind)))))
+    (testing "rule 2 — billing shell requires catalog shell service"
+      (is (= [{:kind :cross-module
+               :ns   "boundary.fixture.billing.shell.service"
+               :req  "boundary.fixture.catalog.shell.service"}]
+             (map #(dissoc % :file) (:cross-module by-kind)))))
+    (testing "rule 3 — web requires billing persistence"
+      (is (= [{:kind :web-persistence
+               :ns   "boundary.fixture.web.http"
+               :req  "boundary.fixture.billing.shell.persistence"}]
+             (map #(dissoc % :file) (:web-persistence by-kind)))))))
+
+(deftest ^:integration collect-violations-honours-allowlists
+  (let [src (build-fixture!)
+        cfg {:allow-missing-ports #{"boundary.fixture.billing"}
+             :allow-direct        #{"boundary.fixture.web.http"
+                                    "boundary.fixture.billing.shell.service"}}
+        {:keys [violations]} (ports/collect-violations cfg [src])]
+    (is (empty? violations)
+        "allowlisting the module + the two coupled namespaces clears every violation")))
