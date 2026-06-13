@@ -55,6 +55,11 @@
           (ports/create-checkout-session provider base-request)]
       (is (= (str "mock-payment-" provider-checkout-id) provider-payment-id))))
 
+  (testing "returns a correlation-id equal to the checkout id"
+    (let [{:keys [provider-checkout-id correlation-id]}
+          (ports/create-checkout-session provider base-request)]
+      (is (= provider-checkout-id correlation-id))))
+
   (testing "accepts mandate options (setup-future-usage) without breaking"
     (let [result (ports/create-checkout-session
                   provider
@@ -158,19 +163,19 @@
     (let [result (ports/process-webhook provider "{}" {})]
       (is (= :payment.paid (:event-type result)))))
 
-  (testing "extracts checkout-id from JSON string body"
+  (testing "extracts correlation-id from JSON string body"
     (let [result (ports/process-webhook provider
                                         "{\"checkout-id\": \"abc-123\"}" {})]
-      (is (= "abc-123" (:provider-checkout-id result)))
+      (is (= "abc-123" (:correlation-id result)))
       (is (str/starts-with? (:provider-payment-id result) "mock-payment-abc-123"))))
 
   (testing "processes a map body directly"
     (let [result (ports/process-webhook provider {:checkout-id "map-456"} {})]
-      (is (= "map-456" (:provider-checkout-id result)))))
+      (is (= "map-456" (:correlation-id result)))))
 
-  (testing "generates a random id when checkout-id is absent"
+  (testing "generates a random correlation-id when checkout-id is absent"
     (let [result (ports/process-webhook provider "{}" {})]
-      (is (string? (:provider-checkout-id result)))
+      (is (string? (:correlation-id result)))
       (is (string? (:provider-payment-id result)))))
 
   (testing "does not throw on invalid JSON"
@@ -179,3 +184,15 @@
   (testing "payload contains the parsed body"
     (let [result (ports/process-webhook provider "{\"foo\": \"bar\"}" {})]
       (is (= {:foo "bar"} (:payload result))))))
+
+;; =============================================================================
+;; correlation round-trip — create → webhook (BOU-78 acceptance)
+;; =============================================================================
+
+(deftest ^:contract create-to-webhook-correlation-round-trip-test
+  (testing "the :correlation-id from CheckoutResult is recoverable from the webhook"
+    (let [{:keys [correlation-id]} (ports/create-checkout-session provider base-request)
+          ;; mock webhook echoes the checkout id back under :checkout-id
+          processed (ports/process-webhook provider {:checkout-id correlation-id} {})]
+      (is (string? correlation-id))
+      (is (= correlation-id (:correlation-id processed))))))

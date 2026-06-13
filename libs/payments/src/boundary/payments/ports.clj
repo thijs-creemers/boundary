@@ -16,6 +16,8 @@
   ;; until sequenceType=first support lands).
   ;; :success-url/:cancel-url override :redirect-url when given (Stripe).
   ;; Returns {:checkout-url "..." :provider-checkout-id "..."
+  ;;          :correlation-id "..."         ; internal id echoed by the webhook —
+  ;;                                         ; store this to correlate (see process-webhook)
   ;;          :provider-payment-id "..."}   ; optional, when known at creation
 
   (create-off-session-payment [this {:keys [amount-cents currency description
@@ -43,7 +45,10 @@
   ;; Returns {:event-type :payment.paid|:payment.failed|:payment.cancelled
   ;;                       |:payment.expired|:payment.authorized
   ;;          :provider-payment-id "..."
-  ;;          :provider-checkout-id "..."
+  ;;          :correlation-id "..."          ; matches create-checkout-session's
+  ;;                                         ; :correlation-id — correlate on THIS
+  ;;          :provider-checkout-id "..."    ; optional: genuine session id only
+  ;;                                         ; when the payload carries one
   ;;          :payload {...}}
 
   (verify-webhook-signature [this raw-body headers]))
