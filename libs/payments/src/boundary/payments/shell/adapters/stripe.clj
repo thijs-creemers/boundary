@@ -101,7 +101,11 @@
                          :status status
                          :body   body})))
       (cond-> {:checkout-url         (:url body)
-               :provider-checkout-id (:id body)}
+               :provider-checkout-id (:id body)
+               ;; Internal correlation id, also embedded in the PaymentIntent
+               ;; metadata (payment_intent_data[metadata][checkout_id]) so the
+               ;; webhook can recover it. Consumers store this to match webhooks.
+               :correlation-id       checkout-id}
         (:payment_intent body)
         (assoc :provider-payment-id (provider/stripe-object-id (:payment_intent body))))))
 
@@ -213,7 +217,11 @@
         (throw (ex-info "Unhandled Stripe event type"
                         {:type       :internal-error
                          :event-type (:type event)})))
+      ;; payment_intent.* events carry the PaymentIntent id (pi_…) and the
+      ;; internal correlation id from metadata, but NOT the cs_… session id —
+      ;; so we surface :correlation-id (round-trips CheckoutResult) and omit the
+      ;; misleading :provider-checkout-id rather than aliasing the UUID to it.
       {:event-type            event-type
        :provider-payment-id   (:id pi-obj)
-       :provider-checkout-id  (get-in pi-obj [:metadata :checkout_id])
+       :correlation-id        (get-in pi-obj [:metadata :checkout_id])
        :payload               event})))

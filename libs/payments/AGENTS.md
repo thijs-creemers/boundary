@@ -46,6 +46,7 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 ;;        :customer-email       string  ; optional
 ;;        :provider-customer-id string} ; optional; reuse existing PSP customer
 ;; Returns: {:checkout-url string :provider-checkout-id string
+;;           :correlation-id string       ; internal id echoed by the webhook
 ;;           :provider-payment-id string} ; optional, when known at creation
 
 (create-off-session-payment [this opts])
@@ -76,9 +77,30 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 (process-webhook [this raw-body headers])
 ;; Returns: {:event-type           keyword
 ;;           :provider-payment-id  string
-;;           :provider-checkout-id string
+;;           :correlation-id       string  ; matches CheckoutResult/:correlation-id
+;;           :provider-checkout-id string  ; optional; only when the payload
+;;                                         ; carries a genuine session id
 ;;           :payload              map}
 ```
+
+### Correlating a webhook to its checkout (BOU-78)
+
+**Store `:correlation-id` from the checkout result and match webhooks on it.**
+It is the one field guaranteed to round-trip across every provider. Do **not**
+correlate on `:provider-checkout-id` — a Stripe `payment_intent.*` webhook never
+carries the `cs_…` session id, so it is absent from the webhook result.
+
+Which id appears where:
+
+| Field | create-checkout-session | get-payment-status | process-webhook |
+|-------|-------------------------|--------------------|-----------------|
+| `:correlation-id` (internal UUID) | ✅ always | — | ✅ always (from metadata) |
+| `:provider-checkout-id` | ✅ `cs_…` / `tr_…` | — (the input arg) | ⛔ Stripe PI events: absent; Mollie: absent |
+| `:provider-payment-id` | optional (`pi_…` if known) | ✅ `pi_…` / `tr_…` | ✅ `pi_…` / `tr_…` |
+
+- **Mock**: `:correlation-id` == `:provider-checkout-id` (both the generated UUID).
+- **Stripe**: `:correlation-id` is the UUID written to `payment_intent_data[metadata][checkout_id]` at creation and read back from PI metadata in the webhook.
+- **Mollie**: `:correlation-id` is the UUID written to `metadata.checkout-id`; the webhook's `:provider-payment-id` (`tr_…`) equals the creation `:provider-checkout-id`.
 
 ### Normalized event types
 
@@ -184,12 +206,14 @@ Always verify the signature before processing:
   (let [raw-body (slurp (:body request))
         headers  (:headers request)]
     (if (ports/verify-webhook-signature payment-provider raw-body headers)
-      (let [{:keys [event-type provider-checkout-id]}
+      ;; Correlate on :correlation-id — the field that round-trips across all
+      ;; providers. (:provider-checkout-id is absent for Stripe PI webhooks.)
+      (let [{:keys [event-type correlation-id]}
             (ports/process-webhook payment-provider raw-body headers)]
         (case event-type
-          :payment.paid      (activate-order! provider-checkout-id)
-          :payment.failed    (mark-order-failed! provider-checkout-id)
-          :payment.cancelled (cancel-order! provider-checkout-id)
+          :payment.paid      (activate-order! correlation-id)
+          :payment.failed    (mark-order-failed! correlation-id)
+          :payment.cancelled (cancel-order! correlation-id)
           nil)) ; ignore unknown event types
       {:status 400 :body "Invalid signature"})))
 ```

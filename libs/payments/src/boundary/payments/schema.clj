@@ -35,6 +35,12 @@
   [:map
    [:checkout-url        :string]
    [:provider-checkout-id :string]
+   ;; Adapter-internal correlation id embedded in the PSP's payment metadata at
+   ;; session creation. The webhook surfaces the SAME value as :correlation-id,
+   ;; so a consumer can match every webhook to its stored checkout using only
+   ;; fields available here — unlike :provider-checkout-id, which a webhook
+   ;; payload may not carry (Stripe payment_intent.* events have no session id).
+   [:correlation-id      :string]
    ;; Some providers expose the underlying payment id at session creation.
    [:provider-payment-id {:optional true} [:maybe :string]]])
 
@@ -72,5 +78,12 @@
    [:event-type           [:enum :payment.paid :payment.failed :payment.cancelled
                            :payment.expired :payment.authorized]]
    [:provider-payment-id  {:optional true} [:maybe :string]]
+   ;; Adapter-internal correlation id recovered from the PSP payment metadata —
+   ;; matches CheckoutResult/:correlation-id. This is the field consumers should
+   ;; correlate on; it is provider-agnostic and always present when the checkout
+   ;; was created through this adapter.
+   [:correlation-id       {:optional true} [:maybe :string]]
+   ;; The genuine provider session id (cs_…/tr_…), only when the webhook payload
+   ;; actually carries one. Absent for Stripe payment_intent.* events.
    [:provider-checkout-id {:optional true} [:maybe :string]]
    [:payload              :map]])
