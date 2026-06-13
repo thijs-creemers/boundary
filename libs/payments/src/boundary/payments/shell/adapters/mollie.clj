@@ -60,7 +60,10 @@
                          :status (:status response)
                          :body   body})))
       {:checkout-url         (get-in body [:_links :checkout :href])
-       :provider-checkout-id (:id body)}))
+       :provider-checkout-id (:id body)
+       ;; Internal correlation id, also stored in Mollie payment metadata
+       ;; (metadata.checkout-id) so the webhook can recover it.
+       :correlation-id       checkout-id}))
 
   (create-off-session-payment [_ _opts]
     ;; Mollie recurring payments (sequenceType=recurring) are not implemented yet.
@@ -105,8 +108,11 @@
         (throw (ex-info "Unhandled Mollie payment status"
                         {:type   :internal-error
                          :status status})))
+      ;; :provider-payment-id is the genuine Mollie payment id (tr_…) — the same
+      ;; value returned as :provider-checkout-id at creation. :correlation-id is
+      ;; the internal UUID recovered from metadata, round-tripping CheckoutResult.
       {:event-type            event-type
        :provider-payment-id   payment-id
-       :provider-checkout-id  (get-in payment [:metadata :checkoutId]
+       :correlation-id        (get-in payment [:metadata :checkoutId]
                                       (get-in payment [:metadata :checkout-id]))
        :payload               (or payment {})})))

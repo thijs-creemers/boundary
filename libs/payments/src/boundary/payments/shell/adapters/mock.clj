@@ -18,6 +18,7 @@
       {:checkout-url         (cond-> (str "/web/payment/mock-return?checkout-id=" checkout-id)
                                payment-id (str "&payment-id=" payment-id))
        :provider-checkout-id checkout-id
+       :correlation-id       checkout-id
        :provider-payment-id  (str "mock-payment-" checkout-id)}))
 
   (create-off-session-payment [_ {:keys [amount-cents currency description
@@ -53,7 +54,8 @@
                       (catch Exception _ {}))
                  (or raw-body {}))]
       (log/infof "Mock PSP: processing webhook %s" body)
-      {:event-type            :payment.paid
-       :provider-payment-id   (str "mock-payment-" (or (:checkout-id body) (UUID/randomUUID)))
-       :provider-checkout-id  (or (:checkout-id body) (str (UUID/randomUUID)))
-       :payload               body})))
+      (let [correlation-id (or (:checkout-id body) (str (UUID/randomUUID)))]
+        {:event-type          :payment.paid
+         :provider-payment-id (str "mock-payment-" correlation-id)
+         :correlation-id      correlation-id
+         :payload             body}))))

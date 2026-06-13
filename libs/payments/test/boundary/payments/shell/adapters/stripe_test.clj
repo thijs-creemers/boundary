@@ -42,7 +42,9 @@
 (def ^:private paid-event
   {:type "payment_intent.succeeded"
    :data {:object {:id       "pi_test_123"
-                   :metadata {:checkout_id "cs_test_abc"}}}})
+                   ;; checkout_id is the adapter-internal correlation UUID set at
+                   ;; session creation — NOT the cs_… session id.
+                   :metadata {:checkout_id "corr_test_abc"}}}})
 
 (defn- form-decode
   "Decode an application/x-www-form-urlencoded body into a string->string map."
@@ -155,8 +157,13 @@
     (testing "extracts provider-payment-id from data.object.id"
       (is (= "pi_test_123" (:provider-payment-id result))))
 
-    (testing "extracts provider-checkout-id from data.object.metadata.checkout_id"
-      (is (= "cs_test_abc" (:provider-checkout-id result))))
+    (testing "extracts correlation-id from data.object.metadata.checkout_id"
+      (is (= "corr_test_abc" (:correlation-id result))))
+
+    (testing "does not alias the internal correlation id to provider-checkout-id"
+      ;; payment_intent.* events carry no cs_… session id — the field is absent
+      ;; rather than misleadingly set to the internal UUID (BOU-78).
+      (is (not (contains? result :provider-checkout-id))))
 
     (testing "payload contains the full parsed event"
       (is (= "payment_intent.succeeded" (get-in result [:payload :type]))))
@@ -171,18 +178,50 @@
 ;; =============================================================================
 
 (deftest ^:integration process-webhook-metadata-round-trip-test
-  (testing "checkout_id from PaymentIntent metadata is recovered as provider-checkout-id"
+  (testing "checkout_id from PaymentIntent metadata is recovered as correlation-id"
     (let [event {:type "payment_intent.succeeded"
                  :data {:object {:id       "pi_round_trip"
-                                 :metadata {:checkout_id "cs_original_session"}}}}
+                                 :metadata {:checkout_id "corr_original"}}}}
           result (ports/process-webhook provider (json/generate-string event) {})]
-      (is (= "cs_original_session" (:provider-checkout-id result)))))
+      (is (= "corr_original" (:correlation-id result)))))
 
-  (testing "provider-checkout-id is nil when metadata has no checkout_id"
+  (testing "correlation-id is nil when metadata has no checkout_id"
     (let [event {:type "payment_intent.succeeded"
                  :data {:object {:id "pi_no_meta" :metadata {}}}}
           result (ports/process-webhook provider (json/generate-string event) {})]
-      (is (nil? (:provider-checkout-id result))))))
+      (is (nil? (:correlation-id result))))))
+
+;; =============================================================================
+;; correlation round-trip — create → webhook (BOU-78 acceptance)
+;; =============================================================================
+
+(deftest ^:contract create-to-webhook-correlation-round-trip-test
+  (testing "the :correlation-id from CheckoutResult is recoverable from the webhook"
+    (let [captured (atom nil)]
+      (with-redefs [http/post (fn [_url req]
+                                (reset! captured req)
+                                (json-response 200 {:id  "cs_live_1"
+                                                    :url "https://checkout.stripe.com/c/pay/cs_live_1"}))]
+        (let [created        (ports/create-checkout-session
+                              provider
+                              {:amount-cents 4900
+                               :currency     "EUR"
+                               :description  "Premium plan"
+                               :redirect-url "https://app.example.com/return"})
+              correlation-id (:correlation-id created)
+              ;; the adapter embedded the same id in PI metadata at creation
+              sent-checkout-id (-> (form-decode (:body @captured))
+                                   (get "payment_intent_data[metadata][checkout_id]"))
+              ;; Stripe later delivers a payment_intent.* webhook echoing it back
+              webhook-event  {:type "payment_intent.succeeded"
+                              :data {:object {:id       "pi_live_1"
+                                              :metadata {:checkout_id sent-checkout-id}}}}
+              processed      (ports/process-webhook provider (json/generate-string webhook-event) {})]
+          (is (string? correlation-id))
+          (is (= correlation-id sent-checkout-id)
+              "creation echoes the internal id into PI metadata")
+          (is (= correlation-id (:correlation-id processed))
+              "consumer can match the webhook to the stored checkout via :correlation-id"))))))
 
 ;; =============================================================================
 ;; create-checkout-session
@@ -219,6 +258,10 @@
           (is (= "ord-1" (get params "payment_intent_data[metadata][order-id]")))
           (is (= "https://checkout.stripe.com/c/pay/cs_test_123" (:checkout-url result)))
           (is (= "cs_test_123" (:provider-checkout-id result)))
+          ;; correlation-id is the internal UUID also written to PI metadata
+          (is (string? (:correlation-id result)))
+          (is (= (:correlation-id result)
+                 (get params "payment_intent_data[metadata][checkout_id]")))
           (is (nil? (:provider-payment-id result)))))))
 
   (testing "explicit success/cancel URLs override redirect-url"

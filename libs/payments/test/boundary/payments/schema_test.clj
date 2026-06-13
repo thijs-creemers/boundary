@@ -102,20 +102,29 @@
   (testing "accepts a valid checkout result"
     (is (m/validate schema/CheckoutResult
                     {:checkout-url         "https://psp.example.com/pay/abc"
-                     :provider-checkout-id "cs_test_abc123"})))
+                     :provider-checkout-id "cs_test_abc123"
+                     :correlation-id       "corr-uuid-123"})))
 
   (testing "rejects missing checkout-url"
     (is (not (m/validate schema/CheckoutResult
-                         {:provider-checkout-id "cs_test_abc123"}))))
+                         {:provider-checkout-id "cs_test_abc123"
+                          :correlation-id       "corr-uuid-123"}))))
 
   (testing "rejects missing provider-checkout-id"
     (is (not (m/validate schema/CheckoutResult
-                         {:checkout-url "https://psp.example.com/pay/abc"}))))
+                         {:checkout-url   "https://psp.example.com/pay/abc"
+                          :correlation-id "corr-uuid-123"}))))
+
+  (testing "rejects missing correlation-id — consumers must always be able to correlate"
+    (is (not (m/validate schema/CheckoutResult
+                         {:checkout-url         "https://psp.example.com/pay/abc"
+                          :provider-checkout-id "cs_test_abc123"}))))
 
   (testing "accepts optional provider-payment-id"
     (is (m/validate schema/CheckoutResult
                     {:checkout-url         "https://psp.example.com/pay/abc"
                      :provider-checkout-id "cs_test_abc123"
+                     :correlation-id       "corr-uuid-123"
                      :provider-payment-id  "pi_abc123"}))))
 
 ;; =============================================================================
@@ -162,8 +171,15 @@
     (is (m/validate schema/WebhookResult
                     {:event-type            :payment.paid
                      :provider-payment-id   "pi_abc"
+                     :correlation-id        "corr-uuid-123"
                      :provider-checkout-id  "cs_abc"
                      :payload               {:id "evt_abc"}})))
+
+  (testing "accepts a correlation-only result (Stripe payment_intent.* — no session id)"
+    (is (m/validate schema/WebhookResult
+                    {:event-type      :payment.paid
+                     :correlation-id  "corr-uuid-123"
+                     :payload         {:id "evt_abc"}})))
 
   (testing "rejects unknown event-type"
     (is (not (m/validate schema/WebhookResult

@@ -35,6 +35,8 @@
   ;; libs/devtools/resources; copied here at build time.
   (b/copy-file {:src    "../devtools/resources/boundary/devtools/error_catalog.edn"
                 :target (str class-dir "/boundary/devtools/error_catalog.edn")})
+  (spit (str class-dir "/cljdoc.edn")
+        (pr-str {:cljdoc/root "libs/tools"}))
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
 
