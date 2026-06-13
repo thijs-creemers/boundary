@@ -19,7 +19,7 @@
                 :scm {:url "https://github.com/thijs-creemers/boundary"
                       :connection "scm:git:git://github.com/thijs-creemers/boundary.git"
                       :developerConnection "scm:git:ssh://git@github.com/thijs-creemers/boundary.git"
-                      :tag (str "v" version)}
+                      :tag version}
                 :pom-data [[:description "PSP abstraction for Boundary framework: multi-provider payment processing (Mollie, Stripe, Mock), checkout flow, webhook verification"]
                            [:url "https://github.com/thijs-creemers/boundary"]
                            [:licenses
@@ -28,8 +28,6 @@
                              [:url "https://www.eclipse.org/legal/epl-2.0/"]]]]})
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir class-dir})
-  (spit (str class-dir "/cljdoc.edn")
-        (pr-str {:cljdoc/root "libs/payments"}))
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
 

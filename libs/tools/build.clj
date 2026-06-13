@@ -19,7 +19,7 @@
                 :scm {:url "https://github.com/thijs-creemers/boundary"
                       :connection "scm:git:git://github.com/thijs-creemers/boundary.git"
                       :developerConnection "scm:git:ssh://git@github.com/thijs-creemers/boundary.git"
-                      :tag (str "v" version)}
+                      :tag version}
                 :pom-data [[:description "Developer tooling for the Boundary framework: scaffolding, AI assistance, i18n management, deployment and development utilities"]
                            [:url "https://github.com/thijs-creemers/boundary"]
                            [:licenses
@@ -35,8 +35,6 @@
   ;; libs/devtools/resources; copied here at build time.
   (b/copy-file {:src    "../devtools/resources/boundary/devtools/error_catalog.edn"
                 :target (str class-dir "/boundary/devtools/error_catalog.edn")})
-  (spit (str class-dir "/cljdoc.edn")
-        (pr-str {:cljdoc/root "libs/tools"}))
   (b/jar {:class-dir class-dir
           :jar-file jar-file}))
 
