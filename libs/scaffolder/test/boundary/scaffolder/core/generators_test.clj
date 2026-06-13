@@ -287,6 +287,18 @@
       (is (str/includes? output ":deps"))
       (is (str/includes? output ":aliases")))))
 
+(deftest ^:unit generate-project-bb-edn-test
+  (let [output (gen/generate-project-bb-edn "my-app")]
+    (testing "wires the boundary-tools dependency"
+      (is (str/includes? output "org.boundary-app/boundary-tools")))
+
+    (testing "wires the quality-gate tasks the AGENTS.md template points at"
+      ;; check:ports is required so the generated project can run the gate the
+      ;; shipped AGENTS.md/CLAUDE.md tell developers to run (BOU-80)
+      (is (str/includes? output "check:ports"))
+      (is (str/includes? output "check-ports"))
+      (is (str/includes? output "check:fcis")))))
+
 (deftest ^:unit generate-project-config-test
   (let [output (gen/generate-project-config "my-app")]
     (testing "contains expected Integrant keys"

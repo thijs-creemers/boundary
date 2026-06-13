@@ -839,6 +839,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
              [boundary.tools.check-fcis  :as check-fcis]
              [boundary.tools.check-tests :as check-tests]
              [boundary.tools.check-deps  :as check-deps]
+             [boundary.tools.check-ports :as check-ports]
              [boundary.tools.db          :as db]
              [boundary.tools.quickstart  :as quickstart]
              [boundary.tools.help        :as help]
@@ -871,6 +872,8 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
                             :task (check-tests/-main)}
   check:deps        {:doc \"Verify library dependency direction and detect cycles\"
                      :task (check-deps/-main)}
+  check:ports       {:doc \"Hexagonal enforcement: modules must define ports.clj; shell/web must not bypass protocols\"
+                     :task (check-ports/-main)}
 
   ;; Database management
   migrate           {:doc \"Run database migrations (bb migrate [up|status|rollback|create ...])\"
