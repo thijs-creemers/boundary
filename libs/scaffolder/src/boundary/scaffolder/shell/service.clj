@@ -229,6 +229,8 @@
             deps-content   (generators/generate-project-deps name)
             bb-edn-content (generators/generate-project-bb-edn name)
             readme-content (generators/generate-project-readme name)
+            agents-content (generators/generate-project-agents-md name)
+            claude-content (generators/generate-project-claude-md name)
             config-content (generators/generate-project-config name)
             main-content   (generators/generate-project-main name)
 
@@ -240,6 +242,12 @@
                     :action :create}
                    {:path (str project-root "/README.md")
                     :content readme-content
+                    :action :create}
+                   {:path (str project-root "/AGENTS.md")
+                    :content agents-content
+                    :action :create}
+                   {:path (str project-root "/CLAUDE.md")
+                    :content claude-content
                     :action :create}
                    {:path (str project-root "/resources/conf/dev/config.edn")
                     :content config-content

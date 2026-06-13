@@ -300,3 +300,51 @@
 
     (testing "contains start-system! function"
       (is (str/includes? output "start-system!")))))
+
+;; =============================================================================
+;; generate-project-agents-md
+;; =============================================================================
+
+(deftest ^:unit generate-project-agents-md-test
+  (let [output (gen/generate-project-agents-md "my-app")]
+
+    (testing "names the project"
+      (is (str/includes? output "my-app")))
+
+    (testing "documents the FC/IS + ports architecture"
+      (is (str/includes? output "Functional Core"))
+      (is (str/includes? output "Imperative Shell")))
+
+    (testing "shows the core <- ports <- shell layering"
+      (is (str/includes? output "PORTS"))
+      (is (str/includes? output "ports.clj")))
+
+    (testing "module layout marks ports.clj as required"
+      (is (str/includes? output "core/"))
+      (is (str/includes? output "shell/"))
+      (is (str/includes? output "schema.clj"))
+      ;; ports.clj must be flagged required, not optional
+      (is (re-find #"(?i)ports\.clj.*required" output)))
+
+    (testing "states the protocol dependency rules"
+      ;; shell services depend on protocols from ports.clj
+      (is (re-find #"(?i)shell.*depend.*protocol" output))
+      ;; web/HTTP layers must never require shell.persistence directly
+      (is (str/includes? output "shell.persistence")))
+
+    (testing "points to bb scaffold as the canonical module generator"
+      (is (str/includes? output "bb scaffold")))))
+
+;; =============================================================================
+;; generate-project-claude-md
+;; =============================================================================
+
+(deftest ^:unit generate-project-claude-md-test
+  (let [output (gen/generate-project-claude-md "my-app")]
+
+    (testing "points coding agents to AGENTS.md as the source of truth"
+      (is (str/includes? output "AGENTS.md")))
+
+    (testing "reiterates that ports.clj is required"
+      (is (str/includes? output "ports.clj"))
+      (is (re-find #"(?i)required" output)))))

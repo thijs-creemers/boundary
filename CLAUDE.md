@@ -100,14 +100,21 @@ This is a Clojure monorepo with 24 independently publishable libraries under `li
 libs/{library}/src/boundary/{library}/
 ├── core/       # Pure functions ONLY - no I/O, no logging, no exceptions
 ├── shell/      # All side effects: persistence, services, HTTP handlers
-├── ports.clj   # Protocol definitions (interfaces)
+├── ports.clj   # Protocol definitions (interfaces)  ← REQUIRED, not optional
 └── schema.clj  # Malli validation schemas
 ```
 
 **Dependency rules (strictly enforced):**
 - Shell → Core (allowed)
 - Core → Ports (allowed)
+- Shell → Ports (allowed — shell services depend on protocols, not concrete records)
 - Core → Shell (NEVER - this violates FC/IS)
+
+**Module checklist** - every module MUST have a `ports.clj` (enforced by `bb check:ports`):
+1. Define protocols in `ports.clj` — this layer is **required**, not optional
+2. Shell services depend on those protocols, not on another module's concrete records
+3. Cross-module calls go through service ports; web/HTTP layers never require `*.shell.persistence` directly
+4. Use `bb scaffold` to create modules — it generates `ports.clj` correctly
 
 **Libraries:** core, observability, platform, user, admin, storage, scaffolder, cache, jobs, email, tenant, realtime, external, payments, workflow, search, reports, calendar, geo, ai, ui-style, i18n, push, audience, devtools (dev-only)
 

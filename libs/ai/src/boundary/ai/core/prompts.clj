@@ -284,10 +284,11 @@ Output ONLY the JSON object, no markdown fences."))
 Structure:
 1. ## 1. Purpose — what the module does, what problem it solves
 2. ## 2. Key Namespaces — markdown table with Namespace | Layer | Responsibility
-3. ## 3. Integrant Configuration — edn config example
-4. ## 4. Public API — usage examples with (require ...) and example calls
-5. ## 5. Common Pitfalls — numbered list of known gotchas
-6. ## 6. Testing Commands — bash code block with test commands
+3. ## 3. Ports & Protocols — document ports.clj as a REQUIRED layer: list the protocols it defines, and state that shell services depend on these protocols (not concrete records), cross-module calls go through service ports, and web/HTTP layers never require *.shell.persistence directly
+4. ## 4. Integrant Configuration — edn config example
+5. ## 5. Public API — usage examples with (require ...) and example calls
+6. ## 6. Common Pitfalls — numbered list of known gotchas
+7. ## 7. Testing Commands — bash code block with test commands
 
 Output ONLY the markdown content."
 
