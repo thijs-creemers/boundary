@@ -839,6 +839,7 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
              [boundary.tools.check-fcis  :as check-fcis]
              [boundary.tools.check-tests :as check-tests]
              [boundary.tools.check-deps  :as check-deps]
+             [boundary.tools.check-ports :as check-ports]
              [boundary.tools.db          :as db]
              [boundary.tools.quickstart  :as quickstart]
              [boundary.tools.help        :as help]
@@ -871,6 +872,8 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
                             :task (check-tests/-main)}
   check:deps        {:doc \"Verify library dependency direction and detect cycles\"
                      :task (check-deps/-main)}
+  check:ports       {:doc \"Hexagonal enforcement: modules must define ports.clj; shell/web must not bypass protocols\"
+                     :task (check-ports/-main)}
 
   ;; Database management
   migrate           {:doc \"Run database migrations (bb migrate [up|status|rollback|create ...])\"
@@ -1170,6 +1173,147 @@ Distributed under the Eclipse Public License version 2.0.
   )
 "
             ns-name name)))
+
+;; =============================================================================
+;; Agent Guidance Generators (AGENTS.md / CLAUDE.md)
+;; =============================================================================
+
+(defn generate-project-agents-md
+  "Generate AGENTS.md for a new project.
+
+   This is the canonical agent guidance file delivered at project
+   scaffold time. It documents the Functional Core / Imperative Shell +
+   Hexagonal (ports) architecture and marks ports.clj as a REQUIRED layer,
+   so the convention does not silently erode in hand-written modules.
+
+   Args:
+     name - Project name
+
+   Returns:
+     String content for AGENTS.md
+
+   Pure: true"
+  [name]
+  (format "# AGENTS.md — %s
+
+Guidance for coding agents (Claude Code, etc.) working in this Boundary project.
+
+## Architecture: Functional Core / Imperative Shell + Ports
+
+This project follows the **Functional Core / Imperative Shell** (FC/IS) pattern
+with a **Hexagonal (ports & adapters)** boundary. Dependencies flow downward:
+the shell depends on protocols defined in `ports.clj`; the core implements the
+behaviour those protocols describe. The core never depends on the shell.
+
+```
+┌─────────────────────────────────────────────┐
+│         IMPERATIVE SHELL (shell/*)          │
+│  I/O, persistence, HTTP, side effects        │
+└─────────────────────────────────────────────┘
+                    ↓ depends on
+┌─────────────────────────────────────────────┐
+│              PORTS (ports.clj)              │
+│  Protocol definitions (interfaces)          │
+└─────────────────────────────────────────────┘
+                    ↑ implemented by
+┌─────────────────────────────────────────────┐
+│         FUNCTIONAL CORE (core/*)            │
+│  Pure functions, business logic only         │
+└─────────────────────────────────────────────┘
+```
+
+## Module Layout
+
+Every module under `src/boundary/{module}/` has the same shape:
+
+```
+src/boundary/{module}/
+├── core/        # Pure business logic — no I/O, no logging, no exceptions
+├── shell/       # All side effects: persistence, services, HTTP handlers
+├── ports.clj    # Protocol definitions (interfaces)  ← REQUIRED, not optional
+└── schema.clj   # Malli validation schemas
+```
+
+**`ports.clj` is required for every module.** A module with `core/` and
+`shell/` but no `ports.clj` is incomplete — the shell would couple directly to
+concrete implementations instead of protocols, defeating the architecture.
+
+## Dependency & Boundary Rules
+
+- ✅ Shell → Core (shell calls core)
+- ✅ Core → Ports (core depends on protocols)
+- ✅ Shell → Adapters (shell implements protocols from `ports.clj`)
+- ❌ Core → Shell (NEVER — this violates FC/IS)
+
+Concrete rules every module MUST follow:
+
+1. **Shell services depend on the protocols declared in `ports.clj`**, never on
+   another module's concrete records.
+2. **Cross-module calls go through service ports**, not by reaching into another
+   module's `shell.*` namespaces.
+3. **Web / HTTP layers never require `*.shell.persistence` directly** — they go
+   through the service port so the persistence adapter stays swappable.
+
+## Creating Modules — use the scaffolder
+
+`bb scaffold` is the canonical way to create modules. It generates the full
+FC/IS structure **including a correct `ports.clj`** and passes the quality gates
+(`bb check:fcis`, `bb check:ports`) by design.
+
+```bash
+bb scaffold                                          # interactive wizard
+bb scaffold ai \"product module with name, price\" --yes  # from a description
+```
+
+Do **not** hand-write a new module skeleton — you will almost certainly forget
+`ports.clj` and drift from the architecture. Let the scaffolder do it.
+
+## Quality Gates
+
+```bash
+bb check:fcis     # core/ must not import shell/IO/logging/DB
+bb check:ports    # every module must define ports.clj; shell/web must not bypass protocols
+bb check          # run all gates
+```
+"
+          name))
+
+(defn generate-project-claude-md
+  "Generate CLAUDE.md for a new project.
+
+   CLAUDE.md is the file Claude Code reads first. To avoid drift it is a thin
+   pointer to AGENTS.md, repeating only the single non-negotiable rule: every
+   module needs a ports.clj.
+
+   Args:
+     name - Project name
+
+   Returns:
+     String content for CLAUDE.md
+
+   Pure: true"
+  [name]
+  (format "# CLAUDE.md — %s
+
+This file guides Claude Code (claude.ai/code) in this repository.
+
+**Read [AGENTS.md](AGENTS.md) first** — it is the source of truth for this
+project's Functional Core / Imperative Shell + ports architecture and
+conventions. Keep this file thin so the two cannot drift apart.
+
+## The one rule that is easy to forget
+
+Every module under `src/boundary/{module}/` MUST have a **`ports.clj`** defining
+its protocols. This layer is REQUIRED: `core/` + `shell/` without `ports.clj` is
+incomplete, because the shell would couple to concrete implementations instead
+of protocols.
+
+- Shell services depend on the protocols in `ports.clj`, not on concrete records.
+- Web / HTTP layers never require `*.shell.persistence` directly — go through the service port.
+- Use `bb scaffold` to create modules; it generates `ports.clj` correctly.
+- Run `bb check:ports` to verify the boundary.
+"
+          name))
 
 ;; =============================================================================
 ;; Incremental Generators - Add Field

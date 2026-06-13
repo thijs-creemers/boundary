@@ -77,3 +77,10 @@
   (testing "readme type uses README prompt"
     (let [msgs (prompts/docs-messages "libs/user" {} :readme)]
       (is (str/includes? (:content (first msgs)) "README")))))
+
+(deftest build-docs-system-prompt-agents-ports-test
+  ^:unit
+  (testing "agents prompt instructs documenting the ports/protocols convention (BOU-80)"
+    (let [prompt (prompts/build-docs-system-prompt :agents)]
+      (is (str/includes? prompt "Ports & Protocols"))
+      (is (str/includes? prompt "ports.clj")))))
