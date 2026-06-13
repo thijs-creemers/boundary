@@ -162,6 +162,31 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 
 Only one key, one provider at a time. Switch providers by changing `:provider` — no code changes.
 
+### Boot-time credential validation (BOU-77)
+
+`init-key` **fails the boot** when a configured provider is missing a required
+credential — typically a forgotten env var, where Aero `#env` resolves to nil.
+Without this guard the system boots fine and only fails at runtime (Stripe 401
+`Bearer null` on the first charge, HMAC verification against a nil secret on the
+first webhook), shipping a payment system that silently takes no money.
+
+| Provider | Required (fails boot if nil/blank) | Env var |
+|----------|-----------------------------------|---------|
+| `:stripe` | `:api-key`, `:webhook-secret` | `STRIPE_API_KEY`, `STRIPE_WEBHOOK_SECRET` |
+| `:mollie` | `:api-key` | `MOLLIE_API_KEY` |
+| `:mock` | none | — |
+
+On a missing/blank credential it throws `ex-info` with
+`{:type :config-error :provider … :missing-keys [...] :env-vars [...]}` and a
+message naming each missing key + env var, e.g.:
+
+```
+Stripe payment provider configured but :api-key, :webhook-secret nil/blank —
+set STRIPE_API_KEY, STRIPE_WEBHOOK_SECRET (see resources/conf/<env>/config.edn)
+```
+
+`:provider` itself unknown still throws `{:type :internal-error}` (unchanged).
+
 ---
 
 ## Pure Helpers (`boundary.payments.core.provider`)
