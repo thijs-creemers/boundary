@@ -55,9 +55,17 @@ communication channels (SMTP, IMAP, Twilio) but not payments.
 ;;        :description  string
 ;;        :provider-customer-id       string  ; required
 ;;        :provider-payment-method-id string  ; optional; default mandate otherwise
-;;        :metadata     map}                  ; optional
+;;        :metadata     map                   ; optional
+;;        :idempotency-key string}            ; optional; retry-safe charge identity
 ;; Returns: {:provider-payment-id string :status :pending|:paid|:failed}
 ;; Implemented by Mock and Stripe; Mollie throws {:type :not-implemented}
+;;
+;; Idempotency (consumer pattern): pass :idempotency-key = the *stable business
+;; identity* of the charge — the same logical charge must always produce the same
+;; key (e.g. "incasso-<subscription>-<period>"), never a random UUID. A retry
+;; after a crash/lost response then returns the original charge instead of
+;; double-charging. Stripe sends it as the Idempotency-Key header; the Mock
+;; remembers keys in-memory and replays the first result; Mollie ignores it.
 
 (get-payment-status [this provider-checkout-id])
 ;; Stripe accepts both cs_... (Checkout Session) and pi_... (PaymentIntent)
@@ -121,7 +129,10 @@ Which id appears where:
 - `create-checkout-session` → `{:checkout-url "/web/payment/mock-return?checkout-id=<uuid>"}`
 - `create-off-session-payment` → `{:status :paid}`; override the simulated
   outcome with `:metadata {:mock-status :failed}` (`:pending`, `:paid` or
-  `:failed` — anything else falls back to `:paid`)
+  `:failed` — anything else falls back to `:paid`). A repeated
+  `:idempotency-key` replays the first result (per-instance atom cache) — build
+  the provider with `mock/make-mock-provider`, not the bare
+  `->MockPaymentProvider` ctor, to get the cache
 - `verify-webhook-signature` → always `true`
 - `get-payment-status` → always `{:status :paid}` plus mock
   `provider-customer-id`/`provider-payment-method-id` mandate fields
@@ -151,7 +162,9 @@ Which id appears where:
   against a stored customer (+ optional payment method, default otherwise).
   Card errors from confirm (`card_declined`, `authentication_required`, ...)
   return `{:status :failed}` with the failed PaymentIntent id — they do not
-  throw. Auth/config errors throw `{:type :internal-error}`.
+  throw. Auth/config errors throw `{:type :internal-error}`. An
+  `:idempotency-key` is sent as the `Idempotency-Key` HTTP header on
+  `POST /v1/payment_intents`, so a retry returns the original PaymentIntent.
 - **Status poll** (`get-payment-status`): accepts `cs_...` and `pi_...` ids
   (prefix dispatch). Session polls expand the PaymentIntent so a completed
   checkout exposes `provider-customer-id`/`provider-payment-method-id` for

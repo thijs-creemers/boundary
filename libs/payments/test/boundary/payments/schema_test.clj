@@ -212,6 +212,22 @@
                      :provider-payment-method-id  "pm_abc123"
                      :metadata                    {:subscription-id "sub-42"}})))
 
+  (testing "accepts optional idempotency-key"
+    (is (m/validate schema/OffSessionPaymentRequest
+                    {:amount-cents         4900
+                     :currency             "EUR"
+                     :description          "Monthly subscription"
+                     :provider-customer-id "cus_abc123"
+                     :idempotency-key      "incasso-sub-42-2026-06"})))
+
+  (testing "rejects a non-string idempotency-key"
+    (is (not (m/validate schema/OffSessionPaymentRequest
+                         {:amount-cents         4900
+                          :currency             "EUR"
+                          :description          "Monthly subscription"
+                          :provider-customer-id "cus_abc123"
+                          :idempotency-key      42}))))
+
   (testing "rejects missing provider-customer-id"
     (is (not (m/validate schema/OffSessionPaymentRequest
                          {:amount-cents 4900

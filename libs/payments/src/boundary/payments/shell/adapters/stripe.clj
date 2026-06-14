@@ -58,16 +58,19 @@
             [k v]))))
 
 (defn- post-form
-  "POST form-encoded params to a Stripe endpoint. Returns {:status int :body parsed-map}."
-  [api-key path params]
-  (let [response (http/post (str stripe-api-base path)
-                            {:headers          (merge (stripe-headers api-key)
-                                                      {"Content-Type" "application/x-www-form-urlencoded"})
-                             :body             (form-encode params)
-                             :as               :string
-                             :throw-exceptions false})]
-    {:status (:status response)
-     :body   (json/parse-string (:body response) true)}))
+  "POST form-encoded params to a Stripe endpoint. Returns {:status int :body parsed-map}.
+   Optional extra-headers (e.g. {\"Idempotency-Key\" \"...\"}) merge over the defaults."
+  ([api-key path params] (post-form api-key path params nil))
+  ([api-key path params extra-headers]
+   (let [response (http/post (str stripe-api-base path)
+                             {:headers          (merge (stripe-headers api-key)
+                                                       {"Content-Type" "application/x-www-form-urlencoded"}
+                                                       extra-headers)
+                              :body             (form-encode params)
+                              :as               :string
+                              :throw-exceptions false})]
+     {:status (:status response)
+      :body   (json/parse-string (:body response) true)})))
 
 (defn- pending-payment-status
   "Degrade a failed status poll to :pending — same convention as the Mollie
@@ -114,8 +117,13 @@
     ;; Card outcomes (card_declined, authentication_required, ...) are a normal
     ;; business result of an unattended charge → returned as :failed. Auth and
     ;; config errors still throw.
-    (let [params (provider/stripe-off-session-params opts)
-          {:keys [status body]} (post-form api-key "/payment_intents" params)]
+    ;; A provider-side Idempotency-Key (the stable business identity of the
+    ;; charge, e.g. "incasso-<sub>-<period>") makes a retry after a lost response
+    ;; return the original PaymentIntent instead of double-charging.
+    (let [params  (provider/stripe-off-session-params opts)
+          headers (when-let [k (:idempotency-key opts)]
+                    {"Idempotency-Key" k})
+          {:keys [status body]} (post-form api-key "/payment_intents" params headers)]
       (cond
         (#{200 201} status)
         (do (log/infof "Stripe off-session payment: id=%s status=%s" (:id body) (:status body))

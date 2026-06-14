@@ -23,10 +23,14 @@
   (create-off-session-payment [this {:keys [amount-cents currency description
                                             provider-customer-id
                                             provider-payment-method-id
-                                            metadata]}])
+                                            metadata idempotency-key]}])
   ;; Charge a stored customer + payment method without user interaction
   ;; (recurring billing). :provider-payment-method-id is optional — providers
   ;; may fall back to the customer's stored default mandate.
+  ;; :idempotency-key is optional — the stable business identity of the charge
+  ;; (e.g. "incasso-<subscription>-<period>"). A retry with the same key returns
+  ;; the original charge instead of double-charging (Stripe: Idempotency-Key
+  ;; header; Mock: in-memory cache; Mollie: n/a, throws :not-implemented).
   ;; Returns {:provider-payment-id "..." :status :pending|:paid|:failed}
 
   (get-payment-status [this provider-checkout-id])
