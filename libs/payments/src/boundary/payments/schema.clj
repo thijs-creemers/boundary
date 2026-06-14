@@ -52,7 +52,12 @@
    [:provider-customer-id  :string]
    ;; Optional — providers may use the customer's stored default mandate.
    [:provider-payment-method-id {:optional true} [:maybe :string]]
-   [:metadata              {:optional true} [:maybe :map]]])
+   [:metadata              {:optional true} [:maybe :map]]
+   ;; Optional provider-side idempotency key — the stable business identity of
+   ;; the charge (e.g. "incasso-<subscription>-<period>"). A retry with the same
+   ;; key returns the original charge instead of creating a duplicate (Stripe:
+   ;; Idempotency-Key header; Mock: in-memory cache; Mollie: n/a).
+   [:idempotency-key       {:optional true} [:maybe :string]]])
 
 (def OffSessionPaymentResult
   [:map

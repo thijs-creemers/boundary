@@ -41,7 +41,7 @@
   (log/infof "Initializing payment provider: %s" provider)
   (case (or provider :mock)
     :mock   (do (log/info "Using Mock payment provider (development mode)")
-                (mock/->MockPaymentProvider))
+                (mock/make-mock-provider))
     :mollie (do (validate-credentials! :mollie [[:api-key "MOLLIE_API_KEY"]] config)
                 (log/info "Using Mollie payment provider")
                 (mollie/->MolliePaymentProvider api-key webhook-base-url))

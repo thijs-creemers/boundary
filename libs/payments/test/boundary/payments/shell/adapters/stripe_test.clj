@@ -405,6 +405,31 @@
         (is (some? ex))
         (is (= :internal-error (:type (ex-data ex))))))))
 
+(deftest ^:integration create-off-session-payment-idempotency-key-test
+  (testing "sends the Idempotency-Key header when :idempotency-key is given"
+    (let [captured (atom nil)]
+      (with-redefs [http/post (fn [_url req]
+                                (reset! captured req)
+                                (json-response 200 {:id "pi_idem" :status "succeeded"}))]
+        (ports/create-off-session-payment
+         provider
+         {:amount-cents 4900 :currency "EUR" :description "Sub"
+          :provider-customer-id "cus_abc"
+          :idempotency-key "incasso-sub-42-2026-06"})
+        (is (= "incasso-sub-42-2026-06"
+               (get-in @captured [:headers "Idempotency-Key"]))))))
+
+  (testing "omits the Idempotency-Key header when no key is given"
+    (let [captured (atom nil)]
+      (with-redefs [http/post (fn [_url req]
+                                (reset! captured req)
+                                (json-response 200 {:id "pi_plain" :status "succeeded"}))]
+        (ports/create-off-session-payment
+         provider
+         {:amount-cents 4900 :currency "EUR" :description "Sub"
+          :provider-customer-id "cus_abc"})
+        (is (not (contains? (:headers @captured) "Idempotency-Key")))))))
+
 ;; =============================================================================
 ;; get-payment-status — id dispatch (cs_ → Checkout Session, pi_ → PaymentIntent)
 ;; =============================================================================

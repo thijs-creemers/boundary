@@ -5,7 +5,7 @@
             [boundary.payments.ports :as ports]
             [boundary.payments.shell.adapters.mock :as mock]))
 
-(def ^:private provider (mock/->MockPaymentProvider))
+(def ^:private provider (mock/make-mock-provider))
 
 (def ^:private base-request
   {:amount-cents 4900
@@ -132,6 +132,38 @@
                    :provider-customer-id "mock-customer-abc"
                    :metadata             {:mock-status :chargeback}})]
       (is (= :paid (:status result))))))
+
+(deftest ^:integration create-off-session-payment-idempotency-test
+  (testing "a repeated :idempotency-key returns the identical result"
+    (let [prov    (mock/make-mock-provider)
+          request {:amount-cents         4900
+                   :currency             "EUR"
+                   :description          "Monthly subscription"
+                   :provider-customer-id "mock-customer-abc"
+                   :idempotency-key      "incasso-sub-42-2026-06"}
+          first   (ports/create-off-session-payment prov request)
+          again   (ports/create-off-session-payment prov request)]
+      (is (= first again))))
+
+  (testing "different idempotency-keys yield different payment ids"
+    (let [prov (mock/make-mock-provider)
+          base {:amount-cents         4900
+                :currency             "EUR"
+                :description          "Monthly subscription"
+                :provider-customer-id "mock-customer-abc"}
+          a    (ports/create-off-session-payment prov (assoc base :idempotency-key "key-a"))
+          b    (ports/create-off-session-payment prov (assoc base :idempotency-key "key-b"))]
+      (is (not= (:provider-payment-id a) (:provider-payment-id b)))))
+
+  (testing "without an idempotency-key each call is still unique"
+    (let [prov (mock/make-mock-provider)
+          base {:amount-cents         4900
+                :currency             "EUR"
+                :description          "Monthly subscription"
+                :provider-customer-id "mock-customer-abc"}
+          a    (ports/create-off-session-payment prov base)
+          b    (ports/create-off-session-payment prov base)]
+      (is (not= (:provider-payment-id a) (:provider-payment-id b))))))
 
 ;; =============================================================================
 ;; expire-checkout-session
