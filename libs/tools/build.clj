@@ -19,7 +19,7 @@
                 :scm {:url "https://github.com/thijs-creemers/boundary"
                       :connection "scm:git:git://github.com/thijs-creemers/boundary.git"
                       :developerConnection "scm:git:ssh://git@github.com/thijs-creemers/boundary.git"
-                      :tag (str "v" version)}
+                      :tag version}
                 :pom-data [[:description "Developer tooling for the Boundary framework: scaffolding, AI assistance, i18n management, deployment and development utilities"]
                            [:url "https://github.com/thijs-creemers/boundary"]
                            [:licenses
