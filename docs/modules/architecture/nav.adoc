@@ -3,3 +3,4 @@
 ** xref:architecture:monorepo.adoc[Monorepo Structure]
 ** xref:architecture:conventions.adoc[Conventions]
 ** xref:architecture:testing-strategy.adoc[Testing Strategy]
+** xref:architecture:scaling.adoc[Sizing & Scaling]
