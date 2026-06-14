@@ -283,7 +283,7 @@ Use the `:mock` provider in all tests — no PSP credentials required.
 
 ```clojure
 ;; In test setup
-(def test-provider (mock/->MockPaymentProvider))
+(def test-provider (mock/make-mock-provider))
 ```
 
 ---
