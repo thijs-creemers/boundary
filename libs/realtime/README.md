@@ -42,8 +42,8 @@ JWT-authenticated WebSocket support with:
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-realtime {:mvn/version "1.0.1-alpha-31"}
-        org.boundary-app/boundary-user {:mvn/version "1.0.1-alpha-31"}}}
+{:deps {org.boundary-app/boundary-realtime {:mvn/version "1.0.1-alpha-32"}
+        org.boundary-app/boundary-user {:mvn/version "1.0.1-alpha-32"}}}
 ```
 
 ### 2. Create Realtime Service
@@ -1015,7 +1015,7 @@ clojure -M:test
 | `malli` | 0.20.0 | Schema validation |
 | `cheshire` | 6.1.0 | JSON encoding/decoding |
 | `tools.logging` | 1.3.1 | Logging |
-| `boundary/user` | 1.0.1-alpha-31 | JWT authentication (optional) |
+| `boundary/user` | 1.0.1-alpha-32 | JWT authentication (optional) |
 
 ---
 
@@ -1049,5 +1049,5 @@ Distributed under the Eclipse Public License version 2.0.
 ---
 
 **Last Updated**: 2026-02-04  
-**Version**: 1.0.1-alpha-31  
+**Version**: 1.0.1-alpha-32  
 **Status**: Production Ready (Single-Server)
