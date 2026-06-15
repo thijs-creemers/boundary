@@ -22,6 +22,12 @@
   (let [out (gen/render-fc-is (:fc-is sample-knowledge) "{{project-ns}}")]
     (is (str/includes? out "{{project-ns}}.core.product"))))
 
+(deftest render-fc-is-uppercases-io-acronym
+  (let [out (gen/render-fc-is {:layers [{:from :core :to :io :allowed false :reason "even logging"}]
+                               :rules [] :ports-required false :example "(ns x)"} "myapp")]
+    (is (str/includes? out "Core → IO"))
+    (is (not (str/includes? out "Core → Io")))))
+
 (deftest splice-region-replaces-between-markers
   (let [doc "a\n<!-- gen:x -->\nOLD\n<!-- /gen:x -->\nb\n"]
     (is (= "a\n<!-- gen:x -->\nNEW\n<!-- /gen:x -->\nb\n"
@@ -90,6 +96,12 @@
     ;; core must render before payments despite reversed input
     (is (< (clojure.string/index-of out "[core]")
            (clojure.string/index-of out "[payments]")))))
+
+(deftest render-modules-escapes-pipe-in-description
+  (let [out (gen/render-modules [{:name "x" :description "a | b"
+                                  :docs-url "https://h/libs/x/AGENTS.md"}])]
+    (is (str/includes? out "a \\| b"))
+    (is (not (str/includes? out "| a | b |")))))
 
 (def sample-knowledge-full
   {:fc-is (:fc-is sample-knowledge)

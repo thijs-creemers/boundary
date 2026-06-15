@@ -27,15 +27,26 @@
 
 (defn- sub-ns [s ns-token] (str/replace s "{{ns}}" ns-token))
 
+(defn- seg-label
+  "Human label for an FC/IS layer segment keyword (acronyms upper-cased)."
+  [kw]
+  (let [n (name kw)]
+    (get {"io" "IO" "fcis" "FC/IS"} n (str/capitalize n))))
+
+(defn- esc-cell
+  "Escape pipe chars so dynamic text can't break a markdown table cell."
+  [s]
+  (str/replace (str s) "|" "\\|"))
+
 (defn render-fc-is
   "Render the FC/IS layer rules section as markdown. ns-token replaces {{ns}}."
   [{:keys [layers rules ports-required example]} ns-token]
   (let [arrow (fn [{:keys [from to allowed reason]}]
                 (format "| %s → %s | %s |"
-                        (str/capitalize (name from))
-                        (str/capitalize (name to))
+                        (seg-label from)
+                        (seg-label to)
                         (if allowed "✅ allowed"
-                            (str "❌ NEVER — " reason))))]
+                            (str "❌ NEVER — " (esc-cell reason)))))]
     (str "| Direction | Allowed? |\n"
          "|-----------|----------|\n"
          (str/join "\n" (map arrow layers)) "\n\n"
@@ -64,7 +75,7 @@
   [rows]
   (let [label {:clojure "All Clojure code" :db "Database boundary only" :api "API/JSON boundary only"}
         row (fn [{:keys [context case example]}]
-              (format "| %s | %s | `%s` |" (label context) (name case) example))]
+              (format "| %s | %s | `%s` |" (label context) (name case) (esc-cell example)))]
     (str "| Location | Convention | Example |\n"
          "|----------|-----------|---------|\n"
          (str/join "\n" (map row rows)))))
@@ -85,7 +96,7 @@
          (format "|%s|%s|"
                  (apply str (repeat (+ w1 2) "-"))
                  (apply str (repeat (+ w2 2) "-"))) "\n"
-         (str/join "\n" (map #(row (cell-name %) (:description %)) sorted)))))
+         (str/join "\n" (map #(row (cell-name %) (esc-cell (:description %))) sorted)))))
 
 (def knowledge-path "resources/agents/knowledge.edn")
 (def catalogue-resource "boundary/cli/modules-catalogue.edn")
@@ -93,7 +104,10 @@
 
 (defn load-knowledge [] (edn/read-string (slurp knowledge-path)))
 (defn load-modules []
-  (-> (io/resource catalogue-resource) slurp edn/read-string :modules))
+  (if-let [r (io/resource catalogue-resource)]
+    (-> r slurp edn/read-string :modules)
+    (throw (ex-info "modules-catalogue.edn not found on classpath"
+                    {:resource catalogue-resource}))))
 
 (def targets
   [{:file "AGENTS.md"

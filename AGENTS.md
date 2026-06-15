@@ -310,7 +310,7 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 | Core → Ports | ✅ allowed |
 | Shell → Ports | ✅ allowed |
 | Core → Shell | ❌ NEVER — violates FC/IS |
-| Core → Io | ❌ NEVER — even logging |
+| Core → IO | ❌ NEVER — even logging |
 
 Every module MUST define `ports.clj`.
 
