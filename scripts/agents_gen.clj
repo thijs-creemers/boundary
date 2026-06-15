@@ -108,7 +108,7 @@
     :naming   (render-naming (:naming knowledge))
     :fc-is    (render-fc-is (:fc-is knowledge) ns-token)
     :pitfalls (render-pitfalls (:pitfalls knowledge) pitfall-surface ns-token)
-    :modules  (render-modules modules)))
+    :modules  (render-modules (concat modules (:dev-modules knowledge)))))
 
 (defn render-target
   "Return the target file content with each owned section spliced in."

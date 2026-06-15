@@ -826,6 +826,7 @@ Seven automated safeguards run in CI (and `check:fcis` + `check:ports` in pre-co
 | [cache](https://github.com/thijs-creemers/boundary/blob/main/libs/cache/AGENTS.md)                 | Distributed caching — Redis or in-memory, TTL, atomic ops                |
 | [calendar](https://github.com/thijs-creemers/boundary/blob/main/libs/calendar/AGENTS.md)           | iCal, RRULE recurrence, conflict detection, Hiccup UI                    |
 | [core](https://github.com/thijs-creemers/boundary/blob/main/libs/core/AGENTS.md)                   | Pure validation, case conversion, interceptor pipeline, feature flags    |
+| [devtools](https://github.com/thijs-creemers/boundary/blob/main/libs/devtools/AGENTS.md)           | Dev-only tools: REPL helpers, error pipeline, dashboard                  |
 | [email](https://github.com/thijs-creemers/boundary/blob/main/libs/email/AGENTS.md)                 | SMTP email sending, async and queued modes                               |
 | [external](https://github.com/thijs-creemers/boundary/blob/main/libs/external/AGENTS.md)           | External service adapters — Twilio, SMTP, IMAP                           |
 | [geo](https://github.com/thijs-creemers/boundary/blob/main/libs/geo/AGENTS.md)                     | Multi-provider geocoding (OSM/Google/Mapbox), Haversine distance         |
@@ -837,9 +838,11 @@ Seven automated safeguards run in CI (and `check:fcis` + `check:ports` in pre-co
 | [push](https://github.com/thijs-creemers/boundary/blob/main/libs/push/AGENTS.md)                   | Multi-platform push notifications — FCM (Firebase) + APNs (Apple)        |
 | [realtime](https://github.com/thijs-creemers/boundary/blob/main/libs/realtime/AGENTS.md)           | WebSocket pub/sub messaging                                              |
 | [reports](https://github.com/thijs-creemers/boundary/blob/main/libs/reports/AGENTS.md)             | PDF/CSV export and scheduled report generation                           |
+| [scaffolder](https://github.com/thijs-creemers/boundary/blob/main/libs/scaffolder/AGENTS.md)       | Module generation with FC/IS structure, tests, migrations                |
 | [search](https://github.com/thijs-creemers/boundary/blob/main/libs/search/AGENTS.md)               | Full-text search                                                         |
 | [storage](https://github.com/thijs-creemers/boundary/blob/main/libs/storage/AGENTS.md)             | File storage — local filesystem and S3, image processing                 |
 | [tenant](https://github.com/thijs-creemers/boundary/blob/main/libs/tenant/AGENTS.md)               | Multi-tenancy with schema-per-tenant isolation                           |
+| [tools](https://github.com/thijs-creemers/boundary/blob/main/libs/tools/AGENTS.md)                 | Developer CLI: scaffolding, AI, config, i18n, deployment                 |
 | [ui-style](https://github.com/thijs-creemers/boundary/blob/main/libs/ui-style/AGENTS.md)           | Shared CSS/JS style bundles — :base, :pilot, :admin-pilot                |
 | [user](https://github.com/thijs-creemers/boundary/blob/main/libs/user/AGENTS.md)                   | Authentication, JWT, MFA, user management                                |
 | [workflow](https://github.com/thijs-creemers/boundary/blob/main/libs/workflow/AGENTS.md)           | Workflow orchestration with state machines                               |
