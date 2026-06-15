@@ -46,7 +46,7 @@
    :symptom "Validation side effects placed in pure core code."
    :cause   "Calling valid?/throwing inside core functions instead of in the shell service."
    :fix     "Validate in the shell; pass clean data into core functions."
-   :example "(ns {{ns}})\n\n;; WRONG - Validation in core\n(defn create-user [user-data]\n  (when-not (valid? user-data)  ; Side effect in pure code!\n    (throw ...)))\n\n;; CORRECT - Validation in shell\n(defn create-user-service [user-data]\n  (let [[valid? errors data] (validate user-data)]\n    (if valid?\n      ({{ns}}/create-user data)  ; Core gets clean data\n      (throw ...))))"}
+   :example ";; ❌ WRONG - Validation in core\n(defn create-user [user-data]\n  (when-not (valid? user-data)  ; Side effect in pure code!\n    (throw ...)))\n\n;; ✅ CORRECT - Validation in shell\n(defn create-user-service [user-data]\n  (let [[valid? errors data] (validate user-data)]\n    (if valid?\n      (user-core/create-user data)  ; Core gets clean data\n      (throw ...))))"}
 
   {:id "P05"
    :title "core depending on shell"
