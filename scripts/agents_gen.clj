@@ -86,3 +86,51 @@
                  (apply str (repeat (+ w1 2) "-"))
                  (apply str (repeat (+ w2 2) "-"))) "\n"
          (str/join "\n" (map #(row (cell-name %) (:description %)) sorted)))))
+
+(def knowledge-path "resources/agents/knowledge.edn")
+(def catalogue-resource "boundary/cli/modules-catalogue.edn")
+(def tmpl-path "libs/boundary-cli/resources/boundary/cli/templates/AGENTS.md.tmpl")
+
+(defn load-knowledge [] (edn/read-string (slurp knowledge-path)))
+(defn load-modules []
+  (-> (io/resource catalogue-resource) slurp edn/read-string :modules))
+
+(def targets
+  [{:file "AGENTS.md"
+    :sections [:naming :fc-is :pitfalls :modules]
+    :ns-token "myapp" :pitfall-surface :framework}
+   {:file tmpl-path
+    :sections [:naming :fc-is :pitfalls]
+    :ns-token "{{project-ns}}" :pitfall-surface :downstream}])
+
+(defn render-section [section knowledge modules {:keys [ns-token pitfall-surface]}]
+  (case section
+    :naming   (render-naming (:naming knowledge))
+    :fc-is    (render-fc-is (:fc-is knowledge) ns-token)
+    :pitfalls (render-pitfalls (:pitfalls knowledge) pitfall-surface ns-token)
+    :modules  (render-modules modules)))
+
+(defn render-target
+  "Return the target file content with each owned section spliced in."
+  [content knowledge modules {:keys [sections] :as opts}]
+  (reduce (fn [doc section]
+            (splice-region doc (name section)
+                           (render-section section knowledge modules opts)))
+          content sections))
+
+(defn- generate-file [knowledge modules {:keys [file] :as target}]
+  (let [current  (slurp file)
+        rendered (render-target current knowledge modules target)]
+    {:file file :current current :rendered rendered}))
+
+(defn -main [& args]
+  (let [check?    (some #{"--check"} args)
+        knowledge (load-knowledge)
+        modules   (load-modules)
+        results   (map #(generate-file knowledge modules %) targets)]
+    (if check?
+      (println "--check not yet implemented")  ; replaced in Task 9/10
+      (do (doseq [{:keys [file rendered]} results] (spit file rendered))
+          (println "agents:gen — wrote" (count results) "targets")))))
+
+(when (= *file* (System/getProperty "babashka.file")) (apply -main *command-line-args*))

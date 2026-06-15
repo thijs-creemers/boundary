@@ -266,11 +266,11 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 ### 1. ALWAYS Use kebab-case Internally
 
 <!-- gen:naming -->
-| Location | Format | Example |
-|----------|--------|---------|
-| **All Clojure code** | kebab-case | `:password-hash`, `:created-at` |
-| **Database (at boundary only)** | snake_case | `password_hash`, `created_at` |
-| **API (at boundary only)** | camelCase | `passwordHash`, `createdAt` |
+| Location | Convention | Example |
+|----------|-----------|---------|
+| All Clojure code | kebab | `:password-hash, :created-at` |
+| Database boundary only | snake | `password_hash, created_at` |
+| API/JSON boundary only | camel | `passwordHash, createdAt` |
 <!-- /gen:naming -->
 
 ```clojure
@@ -304,11 +304,24 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 ### 3. Dependency Rules
 
 <!-- gen:fc-is -->
-- ✅ Shell → Core (shell calls core)
-- ✅ Core → Ports (core depends on protocols)
-- ✅ Shell → Adapters (shell implements protocols)
-- ❌ Core → Shell (NEVER)
-- ❌ Core → Adapters (NEVER)
+| Direction | Allowed? |
+|-----------|----------|
+| Shell → Core | ✅ allowed |
+| Core → Ports | ✅ allowed |
+| Shell → Ports | ✅ allowed |
+| Core → Shell | ❌ NEVER — violates FC/IS |
+| Core → Io | ❌ NEVER — even logging |
+
+Every module MUST define `ports.clj`.
+
+- core/ must not import shell/IO/logging/DB
+- cross-module calls go through service ports
+- web/HTTP layers never require *.shell.persistence directly
+
+```clojure
+(ns myapp.core.product)
+(defn calculate-total [items] (reduce + (map :price items)))
+```
 <!-- /gen:fc-is -->
 
 ---
@@ -458,37 +471,35 @@ When encountering 500 errors or unexpected behavior:
 **LLM Reminder**: When adding functionality, reach for `bb scaffold` first. It's faster, safer, and ensures FC/IS compliance.
 
 <!-- gen:pitfalls -->
-### 1. snake_case vs kebab-case Mixing
+### 1. snake_case vs kebab-case mixing
 
-**Problem**: Using snake_case internally causes nil lookups.
+- **Symptom:** Using snake_case internally causes nil lookups.
+- **Cause:** snake_case keys used inside Clojure code instead of converting only at boundaries.
+- **Fix:** Always use kebab-case internally; convert at the persistence/HTTP boundary only via snake-case->kebab-case-map / kebab-case->snake-case-map.
 
-**Solution**:
-- Always use kebab-case in all internal code
-- Convert at boundaries only (persistence layer, HTTP layer)
-- Use utilities: `snake-case->kebab-case-map`, `kebab-case->snake-case-map`
+### 2. defrecord changes not taking effect
 
-### 2. defrecord Changes Not Taking Effect
+- **Symptom:** (ig-repl/reset) doesn't recreate defrecord instances.
+- **Cause:** ig-repl/reset reuses existing defrecord instances rather than recompiling them.
+- **Fix:** Run (ig-repl/halt) then (ig-repl/go), or restart the REPL entirely.
 
-**Problem**: `(ig-repl/reset)` doesn't recreate defrecord instances.
-
-**Solution**:
 ```clojure
 (ig-repl/halt)
 (ig-repl/go)
 ;; OR restart REPL entirely
 ```
 
-### 3. Unbalanced Parentheses
+### 3. unbalanced parentheses
 
-**Problem**: Manual editing creates syntax errors.
+- **Symptom:** Manual editing creates syntax errors.
+- **Cause:** Manually fixing delimiters by hand.
+- **Fix:** ALWAYS use the tool, never manually fix: clj-paren-repair <file>.
 
-**Solution**:
-```bash
-# ALWAYS use the tool, never manually fix
-clj-paren-repair libs/user/src/boundary/user/core/user.clj
-```
+### 4. validation in wrong layer
 
-### 4. Validation in Wrong Layer
+- **Symptom:** Validation side effects placed in pure core code.
+- **Cause:** Calling valid?/throwing inside core functions instead of in the shell service.
+- **Fix:** Validate in the shell; pass clean data into core functions.
 
 ```clojure
 ;; ❌ WRONG - Validation in core
@@ -504,33 +515,28 @@ clj-paren-repair libs/user/src/boundary/user/core/user.clj
       (throw ...))))
 ```
 
-### 5. Core Depending on Shell
+### 5. core depending on shell
+
+- **Symptom:** Core namespace requires a shell namespace.
+- **Cause:** Core requiring shell.persistence (or other shell IO) instead of depending on ports only.
+- **Fix:** Core depends on ports only; keep core functions pure.
 
 ```clojure
-;; ❌ WRONG - Core requires shell namespace
-(ns boundary.user.core.user
-  (:require [boundary.user.shell.persistence :as db]))  ; BAD!
+(ns myapp.core.user
+  ;; WRONG - Core requires shell namespace
+  (:require [myapp.shell.persistence :as db]))  ; BAD!
 
-;; ✅ CORRECT - Core depends on ports only
-(ns boundary.user.core.user)
+;; CORRECT - Core depends on ports only
+(ns myapp.core.user)
 (defn find-user-decision [user-id existing-user] ...)  ; Pure logic
 ```
 
-### 6. Schema-Database Mismatch
+### 6. schema-database mismatch
 
-**Problem**: Fields referenced in business logic but missing from database/schema.
+- **Symptom:** 500 errors with cryptic messages, nil values for expected fields, SQL errors about missing columns.
+- **Cause:** Adding logic that uses new fields without adding them to the Malli schema, the database columns, and the persistence transformations.
+- **Fix:** When adding a field, synchronize all three: Malli schema, database column (migration), and persistence layer transformations.
 
-**Root Cause**: Adding logic that uses new fields without:
-1. Adding fields to Malli schema
-2. Adding database columns
-3. Adding field transformations in persistence layer
-
-**Detection**:
-- 500 errors with cryptic messages
-- `nil` values for expected fields
-- SQL errors about missing columns
-
-**Solution**:
 ```clojure
 ;; ALWAYS follow this checklist when adding new fields:
 
@@ -549,28 +555,19 @@ ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN lockout_until TEXT;
 ```
 
-**Prevention**: When referencing a new field in code, immediately check:
-1. Does it exist in the schema?
-2. Does the database table have the column?
-3. Are transformations in place (for types like inst, decimal, etc.)?
+### 7. exception handling - missing :type in ex-data
 
-### 7. Exception Handling - Missing :type in ex-data
+- **Symptom:** Exceptions without :type in ex-data trigger generic 500 errors; log warning "Exception reached HTTP boundary without :type in ex-data".
+- **Cause:** Throwing exceptions from Java methods or using ex-info without a :type key.
+- **Fix:** Wrap external/Java calls in try-catch and ensure ALL ex-info calls include a :type (validation-error, not-found, unauthorized, forbidden, conflict, or internal-error).
 
-**Problem**: Exceptions without `:type` in ex-data trigger generic 500 errors.
-
-**Symptom**: Log warning "Exception reached HTTP boundary without :type in ex-data"
-
-**Root Cause**: Throwing exceptions from Java methods or using `ex-info` without `:type`:
 ```clojure
-;; ❌ WRONG - No :type in ex-data
+;; WRONG - No :type in ex-data
 (parse-long "invalid")  ; Throws NumberFormatException (no ex-data)
 (UUID/fromString "bad") ; Throws IllegalArgumentException (no ex-data)
 (throw (ex-info "Error" {:field :foo}))  ; Missing :type
-```
 
-**Solution**: Wrap external calls in try-catch with typed errors:
-```clojure
-;; ✅ CORRECT - Wrap in try-catch with :type
+;; CORRECT - Wrap in try-catch with :type
 (try
   (parse-long value)
   (catch NumberFormatException _
@@ -581,40 +578,28 @@ ALTER TABLE users ADD COLUMN lockout_until TEXT;
                      :message "Must be a valid integer"}))))
 ```
 
-**Prevention**:
-- ALL `ex-info` calls MUST include `:type` key
-- Wrap calls to Java methods that can throw (parse-long, UUID/fromString, bigdec, etc.)
-- Use validation-error, not-found, unauthorized, forbidden, conflict, or internal-error as types
-- Add new types to error interceptor's case statement if needed
+### 8. Java interop - static vs instance methods
 
-### 8. Java Interop - Static vs Instance Methods
+- **Symptom:** IllegalArgumentException: No matching method <method-name> found taking N args for class java.lang.Class.
+- **Cause:** Using instance method syntax (.method) for static methods or static syntax for instance methods.
+- **Fix:** Use ClassName/method for static methods and (.method object) for instance methods; check Java docs to identify which is which.
 
-**Problem**: Incorrect Java method invocation syntax causes runtime errors.
-
-**Symptom**: `IllegalArgumentException: No matching method <method-name> found taking N args for class java.lang.Class`
-
-**Root Cause**: Using instance method syntax (`.method`) for static methods or vice versa:
 ```clojure
-;; ❌ WRONG - Using instance syntax for static method
+;; WRONG - Using instance syntax for static method
 (.between java.time.Duration instant now)
 ;; Error: No matching method between found taking 2 args
 
-;; ❌ WRONG - Using static syntax for instance method
+;; WRONG - Using static syntax for instance method
 (java.time.Instant/getSeconds my-instant)
 ;; Error: No matching field or method getSeconds
-```
 
-**Solution**: Use correct syntax for static vs instance methods:
-```clojure
-;; ✅ CORRECT - Static method using ClassName/method
+;; CORRECT - Static method using ClassName/method
 (java.time.Duration/between instant now)
 
-;; ✅ CORRECT - Instance method using .method
+;; CORRECT - Instance method using .method
 (.getSeconds duration)
-```
 
-**Common Java Interop Patterns**:
-```clojure
+;; Common Java Interop Patterns:
 ;; Static methods (ClassName/method)
 (java.time.Instant/now)
 (java.util.UUID/randomUUID)
@@ -625,36 +610,6 @@ ALTER TABLE users ADD COLUMN lockout_until TEXT;
 (.toString my-object)
 (.getSeconds duration)
 (.format instant formatter)
-```
-
-### 9. Module API Routes — Wrong Format (Reitit Vectors vs Normalized Maps)
-
-**Problem**: Module `shell/http.clj` files return Reitit-style route vectors instead of the normalized map format expected by the platform wiring. Causes `IllegalArgumentException: Key must be integer` on `(ig-repl/go)`.
-
-**Symptom**:
-```
-Execution error (IllegalArgumentException) at boundary.platform.shell.http.versioning/wrap-route-with-version
-Key must be integer
-```
-
-**Root Cause**: The platform's `apply-versioning` calls `(update route :path ...)`. This works on maps but throws on vectors, because `update` on a Clojure vector requires an integer index, not a keyword.
-
-```clojure
-;; ❌ WRONG - Reitit-style tuple (do NOT use for module :api routes)
-(defn my-routes [svc]
-  [["/api/my-resource"
-    {:get {:handler (fn [req] ...)}}]])
-
-;; ✅ CORRECT - Normalized map format
-(defn my-routes [svc]
-  [{:path    "/my-resource"   ; NO /api prefix — versioning adds /api/v1
-    :methods {:get {:handler (fn [req] ...)
-                    :summary "..."}}}])
-```
-
-**Two rules to remember**:
-1. API routes in `shell/http.clj` MUST be vectors of maps `[{:path "..." :methods {...}}]`, not Reitit vectors.
-2. Paths must NOT include the `/api` prefix. The platform's versioning middleware adds `/api/v1` automatically. Including it produces double-prefixed routes (`/api/v1/api/my-resource`).
 
 ;; Static fields (ClassName/FIELD)
 java.time.temporal.ChronoUnit/DAYS
@@ -663,34 +618,40 @@ java.time.temporal.ChronoUnit/DAYS
 (.length my-string)
 ```
 
-**Prevention**:
-- Check Java documentation to identify static vs instance methods
-- Static methods in Java docs: `public static Duration between(Temporal start, Temporal end)`
-- Instance methods in Java docs: `public long getSeconds()`
-- Use IDE or REPL to verify before committing
-- Test changes via REPL immediately after editing
+### 9. module API routes — wrong format (Reitit vectors vs normalized maps)
 
-### 10. Forward References — Define Before Use
-
-**Problem**: Clojure compiles a file top-to-bottom. A `defn` (or `defn-`) that calls another function defined *later* in the same file causes a compile-time error.
-
-**Symptom**:
-```
-Unable to resolve symbol: my-helper in this context
-  Syntax error compiling at (my_file.clj:42:5)
-```
-
-**Root Cause**: Private helpers placed *after* the public functions that call them.
+- **Symptom:** IllegalArgumentException: Key must be integer at wrap-route-with-version on (ig-repl/go).
+- **Cause:** Module shell/http.clj returns Reitit-style route vectors instead of the normalized map format; the platform's apply-versioning calls (update route :path ...) which throws on vectors.
+- **Fix:** API routes in shell/http.clj MUST be vectors of maps [{:path "..." :methods {...}}], not Reitit vectors, and paths must NOT include the /api prefix (versioning adds /api/v1).
 
 ```clojure
-;; ❌ WRONG — system-component is called before it is defined
+;; WRONG - Reitit-style tuple (do NOT use for module :api routes)
+(defn my-routes [svc]
+  [["/api/my-resource"
+    {:get {:handler (fn [req] ...)}}]])
+
+;; CORRECT - Normalized map format
+(defn my-routes [svc]
+  [{:path    "/my-resource"   ; NO /api prefix — versioning adds /api/v1
+    :methods {:get {:handler (fn [req] ...)
+                    :summary "..."}}}])
+```
+
+### 10. forward references — define before use
+
+- **Symptom:** Unable to resolve symbol: my-helper in this context; Syntax error compiling.
+- **Cause:** Private helpers placed after the public functions that call them; Clojure compiles top-to-bottom.
+- **Fix:** Private helpers must always appear above the first function that calls them (in src/, dev/, and test/ alike).
+
+```clojure
+;; WRONG — system-component is called before it is defined
 (defn dev-resend-invite! [...]
   (let [svc (system-component :boundary/my-service)] ...))  ; used here
 
 (defn- system-component [k]   ; defined here — too late!
   (get integrant.repl.state/system k))
 
-;; ✅ CORRECT — helper defined first
+;; CORRECT — helper defined first
 (defn- system-component [k]
   (get integrant.repl.state/system k))
 
@@ -698,15 +659,11 @@ Unable to resolve symbol: my-helper in this context
   (let [svc (system-component :boundary/my-service)] ...))
 ```
 
-**Rule**: Private helpers must always appear *above* the first function that calls them. This applies in `src/`, `dev/`, and `test/` files alike.
+### 11. Swagger/OpenAPI — parameters invisible without explicit declaration
 
-### 11. Swagger/OpenAPI — Parameters Invisible Without Explicit Declaration
-
-**Problem**: Routes with path or query parameters show no input fields in Swagger UI.
-
-**Root Cause**: `reitit-swagger` only auto-generates parameter fields when the router has a coercion layer configured (Malli/Spec/Schema). Without coercion, Swagger UI renders endpoints with no inputs regardless of route patterns like `/:id`.
-
-**Solution**: Add a `:swagger` key with raw OpenAPI 2.0 parameter specs to every handler (or route) that has path or query parameters:
+- **Symptom:** Routes with path or query parameters show no input fields in Swagger UI.
+- **Cause:** reitit-swagger only auto-generates parameter fields when a coercion layer is configured; without coercion, parameters render with no inputs.
+- **Fix:** Add a :swagger key with raw OpenAPI 2.0 parameter specs to every handler/route that has path or query parameters.
 
 ```clojure
 ;; Path parameter — on the method
@@ -728,8 +685,6 @@ Unable to resolve symbol: my-helper in this context
   :patch  {:handler ... :summary "Update item quantity"}
   :delete {:handler ... :summary "Remove item from cart"}}]
 ```
-
-**Rule**: after adding any new parameterised route, immediately add the `:swagger` block. Without it the parameter is invisible to API consumers using the Swagger UI.
 <!-- /gen:pitfalls -->
 
 ---
@@ -863,34 +818,31 @@ Seven automated safeguards run in CI (and `check:fcis` + `check:ports` in pre-co
 ## Library-Specific Guides
 
 <!-- gen:modules -->
-Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, and workflows.
-
-| Library | Guide | Key Topics |
-|---------|-------|------------|
-| **core** | [`libs/core/AGENTS.md`](libs/core/AGENTS.md) | Validation framework, case conversion, interceptor pipeline, feature flags |
-| **observability** | [`libs/observability/AGENTS.md`](libs/observability/AGENTS.md) | Service/persistence interceptor patterns |
-| **platform** | [`libs/platform/AGENTS.md`](libs/platform/AGENTS.md) | HTTP interceptor architecture |
-| **user** | [`libs/user/AGENTS.md`](libs/user/AGENTS.md) | MFA/security features, authentication patterns |
-| **admin** | [`libs/admin/AGENTS.md`](libs/admin/AGENTS.md) | UI/Frontend (Hiccup, HTMX, Pico CSS, Lucide icons), entity config, form/HTMX pitfalls |
-| **storage** | [`libs/storage/AGENTS.md`](libs/storage/AGENTS.md) | File storage (local/S3), validation, image processing, signed URLs |
-| **scaffolder** | [`libs/scaffolder/AGENTS.md`](libs/scaffolder/AGENTS.md) | Module generation commands and workflow |
-| **cache** | [`libs/cache/AGENTS.md`](libs/cache/AGENTS.md) | Distributed caching protocols, TTL, atomic ops, tenant-scoped cache |
-| **jobs** | [`libs/jobs/AGENTS.md`](libs/jobs/AGENTS.md) | Background job processing, retry logic, worker pools, dead letter queue |
-| **email** | [`libs/email/AGENTS.md`](libs/email/AGENTS.md) | SMTP sending, async/queued modes, jobs integration |
-| **tenant** | [`libs/tenant/AGENTS.md`](libs/tenant/AGENTS.md) | Multi-tenancy, schema-per-tenant, provisioning, lifecycle states, membership management (ADR-016), email invite flow |
-| **realtime** | [`libs/realtime/AGENTS.md`](libs/realtime/AGENTS.md) | WebSocket messaging, JWT auth, pub/sub, message routing |
-| **workflow** | [`libs/workflow/AGENTS.md`](libs/workflow/AGENTS.md) | State machine definitions, transitions, lifecycle hooks, auto-transitions |
-| **search** | [`libs/search/AGENTS.md`](libs/search/AGENTS.md) | Document indexing, FTS/LIKE strategy, filter support, migrations |
-| **payments** | [`libs/payments/AGENTS.md`](libs/payments/AGENTS.md) | PSP abstraction (Mollie, Stripe, Mock), checkout-session flow, webhook verification |
-| **external** | [`libs/external/AGENTS.md`](libs/external/AGENTS.md) | Twilio SMS/WhatsApp, SMTP transport, IMAP mailbox |
-| **reports** | [`libs/reports/AGENTS.md`](libs/reports/AGENTS.md) | `defreport` macro, registry, PDF/CSV export, scheduling |
-| **calendar** | [`libs/calendar/AGENTS.md`](libs/calendar/AGENTS.md) | `defevent` macro, RRULE recurrence (DST-aware), conflict detection, iCal export/import, Hiccup UI |
-| **geo** | [`libs/geo/AGENTS.md`](libs/geo/AGENTS.md) | Multi-provider geocoding (OSM/Google/Mapbox), DB cache, rate limiting, Haversine distance |
-| **ai** | [`libs/ai/AGENTS.md`](libs/ai/AGENTS.md) | Multi-provider AI (Ollama/Anthropic/OpenAI), NL scaffolding, error explainer, test generator, SQL copilot, docs wizard |
-| **ui-style** | [`libs/ui-style/AGENTS.md`](libs/ui-style/AGENTS.md) | App-wide UI contract: style bundles (`:base`, `:pilot`, `:admin-pilot`), tokens, and shared CSS assets |
-| **i18n** | [`libs/i18n/AGENTS.md`](libs/i18n/AGENTS.md) | Marker-based i18n, translation catalogues, locale chains, scanning tools |
-| **devtools** | [`libs/devtools/AGENTS.md`](libs/devtools/AGENTS.md) | Dev-only: error pipeline (BND codes), dev dashboard (localhost:9999), REPL power tools, guidance engine, request recording, AI REPL commands |
-| **tools** | [`libs/tools/AGENTS.md`](libs/tools/AGENTS.md) | Dev-only: deploy, doctor, setup wizard, scaffolder integration, quality checks, deprecated wrapper scanner |
+| Module                                                                                             | Description                                                              |
+|----------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| [admin](https://github.com/thijs-creemers/boundary/blob/main/libs/admin/AGENTS.md)                 | Admin UI with entity config, HTMX forms                                  |
+| [ai](https://github.com/thijs-creemers/boundary/blob/main/libs/ai/AGENTS.md)                       | Multi-provider AI — Ollama, Anthropic Claude, OpenAI                     |
+| [audience](https://github.com/thijs-creemers/boundary/blob/main/libs/audience/AGENTS.md)           | Rule-based audience segmentation with SQL + predicate pipeline           |
+| [cache](https://github.com/thijs-creemers/boundary/blob/main/libs/cache/AGENTS.md)                 | Distributed caching — Redis or in-memory, TTL, atomic ops                |
+| [calendar](https://github.com/thijs-creemers/boundary/blob/main/libs/calendar/AGENTS.md)           | iCal, RRULE recurrence, conflict detection, Hiccup UI                    |
+| [core](https://github.com/thijs-creemers/boundary/blob/main/libs/core/AGENTS.md)                   | Pure validation, case conversion, interceptor pipeline, feature flags    |
+| [email](https://github.com/thijs-creemers/boundary/blob/main/libs/email/AGENTS.md)                 | SMTP email sending, async and queued modes                               |
+| [external](https://github.com/thijs-creemers/boundary/blob/main/libs/external/AGENTS.md)           | External service adapters — Twilio, SMTP, IMAP                           |
+| [geo](https://github.com/thijs-creemers/boundary/blob/main/libs/geo/AGENTS.md)                     | Multi-provider geocoding (OSM/Google/Mapbox), Haversine distance         |
+| [i18n](https://github.com/thijs-creemers/boundary/blob/main/libs/i18n/AGENTS.md)                   | Marker-based i18n, translation catalogues, locale chains                 |
+| [jobs](https://github.com/thijs-creemers/boundary/blob/main/libs/jobs/AGENTS.md)                   | Background job processing with retry logic                               |
+| [observability](https://github.com/thijs-creemers/boundary/blob/main/libs/observability/AGENTS.md) | Interceptor-based metrics, logging, and error reporting                  |
+| [payments](https://github.com/thijs-creemers/boundary/blob/main/libs/payments/AGENTS.md)           | PSP abstraction — Mollie, Stripe, Mock checkout and webhook verification |
+| [platform](https://github.com/thijs-creemers/boundary/blob/main/libs/platform/AGENTS.md)           | HTTP server, Reitit router, Ring middleware pipeline                     |
+| [push](https://github.com/thijs-creemers/boundary/blob/main/libs/push/AGENTS.md)                   | Multi-platform push notifications — FCM (Firebase) + APNs (Apple)        |
+| [realtime](https://github.com/thijs-creemers/boundary/blob/main/libs/realtime/AGENTS.md)           | WebSocket pub/sub messaging                                              |
+| [reports](https://github.com/thijs-creemers/boundary/blob/main/libs/reports/AGENTS.md)             | PDF/CSV export and scheduled report generation                           |
+| [search](https://github.com/thijs-creemers/boundary/blob/main/libs/search/AGENTS.md)               | Full-text search                                                         |
+| [storage](https://github.com/thijs-creemers/boundary/blob/main/libs/storage/AGENTS.md)             | File storage — local filesystem and S3, image processing                 |
+| [tenant](https://github.com/thijs-creemers/boundary/blob/main/libs/tenant/AGENTS.md)               | Multi-tenancy with schema-per-tenant isolation                           |
+| [ui-style](https://github.com/thijs-creemers/boundary/blob/main/libs/ui-style/AGENTS.md)           | Shared CSS/JS style bundles — :base, :pilot, :admin-pilot                |
+| [user](https://github.com/thijs-creemers/boundary/blob/main/libs/user/AGENTS.md)                   | Authentication, JWT, MFA, user management                                |
+| [workflow](https://github.com/thijs-creemers/boundary/blob/main/libs/workflow/AGENTS.md)           | Workflow orchestration with state machines                               |
 <!-- /gen:modules -->
 
 ---

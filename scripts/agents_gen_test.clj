@@ -90,3 +90,18 @@
     ;; core must render before payments despite reversed input
     (is (< (clojure.string/index-of out "[core]")
            (clojure.string/index-of out "[payments]")))))
+
+(def sample-knowledge-full
+  {:fc-is (:fc-is sample-knowledge)
+   :naming [{:context :clojure :case :kebab :example ":password-hash"}]
+   :pitfalls sample-pitfalls})
+
+(deftest render-target-substitutes-and-splices-known-sections
+  (let [doc (str "<!-- gen:naming -->\nx\n<!-- /gen:naming -->\n"
+                 "<!-- gen:fc-is -->\ny\n<!-- /gen:fc-is -->\n")
+        out (gen/render-target doc sample-knowledge-full sample-modules
+                               {:sections [:naming :fc-is] :ns-token "myapp"
+                                :pitfall-surface :framework})]
+    (is (str/includes? out "| Location | Convention"))
+    (is (str/includes? out "Shell → Core"))
+    (is (not (str/includes? out "boundary:")))))
