@@ -271,6 +271,7 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 | **All Clojure code** | kebab-case | `:password-hash`, `:created-at` |
 | **Database (at boundary only)** | snake_case | `password_hash`, `created_at` |
 | **API (at boundary only)** | camelCase | `passwordHash`, `createdAt` |
+<!-- /gen:naming -->
 
 ```clojure
 ;; ✅ CORRECT - Convert ONLY at persistence boundary using shared utilities
@@ -291,7 +292,6 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 ```
 
 **Why**: Recent bug caused authentication failures because service layer used `:password_hash` but entities had `:password-hash`.
-<!-- /gen:naming -->
 
 ### 2. Layer Responsibilities
 
@@ -453,11 +453,11 @@ When encountering 500 errors or unexpected behavior:
 
 ## Common Pitfalls
 
-<!-- gen:pitfalls -->
 **Most pitfalls listed below are automatically prevented by the scaffolder.** If you use `bb scaffold` to create modules, you will avoid pitfalls #1, #2, #4, #5, #6, and #9. Manual code creation is where these issues arise.
 
 **LLM Reminder**: When adding functionality, reach for `bb scaffold` first. It's faster, safer, and ensures FC/IS compliance.
 
+<!-- gen:pitfalls -->
 ### 1. snake_case vs kebab-case Mixing
 
 **Problem**: Using snake_case internally causes nil lookups.

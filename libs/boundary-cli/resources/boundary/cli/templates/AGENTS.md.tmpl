@@ -125,6 +125,7 @@ src/{{project-ns}}/
 | All Clojure code | kebab-case | `:password-hash`, `:created-at` |
 | Database boundary only | snake_case | `password_hash`, `created_at` |
 | API/JSON boundary only | camelCase | `passwordHash`, `createdAt` |
+<!-- /gen:naming -->
 
 Convert **only at boundaries** — never in business logic:
 
@@ -141,7 +142,6 @@ Convert **only at boundaries** — never in business logic:
                                     :updated-at  :updated_at
                                     :user-id     :user_id}))
 ```
-<!-- /gen:naming -->
 
 ### Adding new fields — always synchronise all three
 
