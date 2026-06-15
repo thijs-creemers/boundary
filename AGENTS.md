@@ -385,6 +385,13 @@ clojure -M:test:db/h2
 clojure -M:clj-kondo --lint src test libs/*/src libs/*/test
 ```
 
+### Custom Test Reporter
+
+The Kaocha reporter at `dev/boundary/test/reporter.clj` shows a green ✓ for
+passing tests and a red ✗ for failing tests. It is configured in `tests.edn` as
+`:kaocha/reporter [boundary.test.reporter/reporter]`. The `dev/` directory is on
+the `:test` classpath via `:extra-paths` in `deps.edn`.
+
 ### PostgreSQL Test Runs
 
 The default `test` profile uses in-memory H2. There is currently no dedicated
