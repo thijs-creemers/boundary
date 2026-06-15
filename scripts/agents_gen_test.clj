@@ -80,3 +80,13 @@
     (is (str/includes? out "[core]"))
     (is (str/includes? out "libs/core/AGENTS.md"))
     (is (= out (gen/render-modules sample-modules)))))  ; deterministic
+
+(deftest render-modules-sorts-by-name
+  (let [reversed [{:name "payments" :description "PSP" :category :optional
+                   :docs-url "https://x/libs/payments/AGENTS.md"}
+                  {:name "core" :description "Validation" :category :core
+                   :docs-url "https://x/libs/core/AGENTS.md"}]
+        out (gen/render-modules reversed)]
+    ;; core must render before payments despite reversed input
+    (is (< (clojure.string/index-of out "[core]")
+           (clojure.string/index-of out "[payments]")))))
