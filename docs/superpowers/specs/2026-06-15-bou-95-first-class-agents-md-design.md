@@ -86,10 +86,23 @@ The single source of truth for guardrail knowledge and the future MCP data contr
             {:context :db      :case :snake :example "password_hash"}
             {:context :api     :case :camel :example "passwordHash"}]
  :pitfalls [{:id "P01" :title "snake_case vs kebab-case mixing"
+             :surfaces #{:framework :downstream}
+             :symptom "..." :cause "..." :fix "..."}
+            {:id "P11" :title "Swagger/OpenAPI params invisible without explicit declaration"
+             :surfaces #{:framework}
              :symptom "..." :cause "..." :fix "..."}
             ;; ... lifted verbatim from current prose
             ]}
 ```
+
+**Pitfall audience tagging.** Each pitfall carries `:surfaces`, a set drawn from
+`#{:framework :downstream}`. There is one canonical entry per pitfall (single
+wording), de-duplicating the two docs. The framework `AGENTS.md` renders every
+pitfall; the downstream `AGENTS.md.tmpl` renders only those tagged `:downstream`.
+The current downstream subset is the existing six: snake/kebab mixing, defrecord
+restart, core→shell, missing `:type` in ex-info, validation in wrong layer, forward
+references. Framework-only pitfalls (paren repair, schema-DB mismatch, Java interop,
+reitit route format, swagger params) are tagged `#{:framework}`.
 
 **Namespace token in examples.** Code examples that reference a namespace store a
 sentinel token (e.g. `{{ns}}`) rather than a literal. At render time:
@@ -106,10 +119,13 @@ the two existing docs where it already exists (de-duplicating into one source).
   (`render-fc-is`, `render-naming`, `render-pitfalls`) plus `render-modules`
   (`catalogue -> markdown`). Each takes a `ns-token` argument so the same function
   serves both targets. No IO. Unit-testable.
-- **Targets** — a small table mapping `{file, sections, ns-token}`:
-  - `AGENTS.md` — sections: fc-is, naming, pitfalls, modules; `ns-token` = `myapp`.
+- **Targets** — a small table mapping `{file, sections, ns-token, pitfall-surface}`:
+  - `AGENTS.md` — sections: fc-is, naming, pitfalls (all), modules; `ns-token` =
+    `myapp`; pitfall-surface = `:framework`.
   - `libs/boundary-cli/resources/boundary/cli/templates/AGENTS.md.tmpl` — sections:
-    fc-is, naming, pitfalls; `ns-token` = `{{project-ns}}`.
+    fc-is, naming, pitfalls (filtered to `:downstream`); `ns-token` =
+    `{{project-ns}}`; pitfall-surface = `:downstream`.
+  - The two `CLAUDE.md` files are **not** generated; see Component 3a.
 - **IO wrapper:** for each target, read the file, splice each owned section's
   rendered markdown between its `<!-- gen:SECTION -->` / `<!-- /gen:SECTION -->`
   markers, write back. Idempotent.
@@ -139,6 +155,37 @@ marker insert; generated thereafter):
 **`AGENTS.md.tmpl`** — wrap the three guardrail sections in `<!-- gen:* -->`
 markers: FC/IS, naming, pitfalls. The module marker regions
 (`<!-- boundary:* -->`) and all other template prose stay as today.
+
+### 3a. Reduce `CLAUDE.md` files to AGENTS.md importers
+
+FC/IS + naming are currently duplicated a third and fourth time, in the framework
+`CLAUDE.md` and the downstream `CLAUDE.md.tmpl`. **Verified behavior:** Claude Code
+auto-loads only `CLAUDE.md`, not `AGENTS.md`, but `CLAUDE.md` supports an `@path`
+import that expands the target into context at launch (max import depth 4; the
+official docs recommend exactly this pattern for repos using `AGENTS.md`).
+
+Therefore both `CLAUDE.md` files are reduced to thin stubs that import the
+sibling `AGENTS.md` plus any genuinely Claude-specific notes:
+
+```markdown
+@AGENTS.md
+
+## Claude Code specifics
+<!-- only notes that do NOT belong in AGENTS.md -->
+```
+
+- Framework `CLAUDE.md` → `@AGENTS.md` + retain only Claude-Code-specific notes
+  (e.g. the custom test reporter, clj-nrepl-eval/clj-paren-repair install) that are
+  not in AGENTS.md, or move those into AGENTS.md and keep the stub minimal.
+- Downstream `CLAUDE.md.tmpl` → `@AGENTS.md` + the existing Claude skill pointer.
+  The rendered project's `CLAUDE.md` imports that project's own generated
+  `AGENTS.md`.
+
+This makes `AGENTS.md` the single source for both Claude Code and AGENTS.md-native
+tools (Cursor/Windsurf), with **no** guardrail content left to drift in `CLAUDE.md`.
+The `.claude/skills/boundary/SKILL.md` template (a scaffold command table, minimal
+guardrail overlap) is left as-is. Import cost equals today's inline cost (loads at
+launch either way).
 
 ### 4. Drift guardrail — `bb check:agents`, wired into `bb check`
 
@@ -190,11 +237,30 @@ are the delivered data base. Document the intended MCP tool → source-key mappi
 
 Phase 2's server reads the same data; no schema change required to serve it.
 
+## Notes & Constraints
+
+- **`docs_lint` scope:** `scripts/docs_lint.clj` scans only `.md`/`.adoc` files, not
+  `.tmpl`. The `{{project-ns}}` tokens in `AGENTS.md.tmpl` therefore raise no
+  unknown-namespace false positives. No change needed. Confirmed against repo.
+- **CLI release cadence:** the generated `AGENTS.md.tmpl` ships to downstream users
+  only when `boundary-cli` is next published. `bb check:agents` guarantees the
+  committed template is correct at all times; the release pipeline delivers it. One
+  line in the docs should state this so maintainers regenerate before a CLI release.
+- **No versions in the framework module render:** the framework root module table
+  renders name + description + docs link only — no clojars coord / version — so it
+  does not re-drift on every suite version bump. (Per-project clojars coords in the
+  downstream `installed-modules` region are runtime-filled by `add.clj`, untouched.)
+- **Deterministic alignment:** the module table is column-aligned ASCII. `render-modules`
+  must compute column widths deterministically so output is byte-stable for
+  `--check`.
+
 ## Testing
 
 - **Unit (render fns):** each `render-*` produces expected markdown shape; verify
-  `ns-token` substitution differs correctly between the two targets (`myapp` vs
-  `{{project-ns}}`).
+  `ns-token` substitution differs correctly between the two targets — assert the
+  framework target never emits a `{{...}}` token and the template target always
+  does. Verify pitfall filtering: framework renders all, downstream renders only
+  `:downstream`-tagged entries.
 - **Idempotency:** generating twice yields no change in either target file.
 - **Check-mode:** `--check` detects an injected drift in either file (non-zero
   exit) and passes on synced files.
@@ -202,7 +268,11 @@ Phase 2's server reads the same data; no schema change required to serve it.
   allowlist) is missing from the catalogue, and when a catalogue docs path is dead.
 - **Marker safety:** generating does not alter content inside the template's
   `<!-- boundary:* -->` runtime regions.
-- **Regression:** `bb check-links` still passes after marker insertion in both files.
+- **CLAUDE.md import:** both stub `CLAUDE.md` files contain a valid `@AGENTS.md`
+  import line and no leftover duplicated FC/IS / naming prose.
+- **Regression:** `bb check-links` still passes after marker insertion in both
+  files; a `boundary new` smoke render produces a project whose `CLAUDE.md` imports
+  its `AGENTS.md` and whose `AGENTS.md` reads correctly.
 
 ## Out of Scope
 
@@ -218,13 +288,16 @@ Phase 2's server reads the same data; no schema change required to serve it.
    de-duplicating the two docs into one source; use the `{{ns}}` sentinel in
    examples.
 3. Write `scripts/agents_gen.clj`: pure render fns (incl. `render-modules` from
-   catalogue), target table, splice + `--check`, marker-safety for `boundary:*`.
+   catalogue), target table, pitfall surface filtering, splice + `--check`,
+   marker-safety for `boundary:*`.
 4. Run `bb agents:gen`; verify diffs are only formatting-equivalent in both files.
-5. Add `agents:gen` task + `check:agents` task to `bb.edn`; wire `check:agents`
+5. Reduce framework `CLAUDE.md` and downstream `CLAUDE.md.tmpl` to `@AGENTS.md`
+   importer stubs (move any Claude-only notes into AGENTS.md or keep minimal).
+6. Add `agents:gen` task + `check:agents` task to `bb.edn`; wire `check:agents`
    into the `bb check` aggregate + CI.
-6. Add tests (render, idempotency, check-mode, module-source validation, marker
-   safety).
-7. Document commands in framework `AGENTS.md` + `CLAUDE.md`; add
-   `resources/agents/README.md` with the MCP tool→source mapping.
-8. Run full quality gates (`bb check`, `bb check-links`); sanity-check a
+7. Add tests (render, idempotency, check-mode, module-source validation, marker
+   safety, pitfall filtering, CLAUDE.md import).
+8. Document commands in framework `AGENTS.md`; add `resources/agents/README.md`
+   with the MCP tool→source mapping; add the regenerate-before-CLI-release note.
+9. Run full quality gates (`bb check`, `bb check-links`); sanity-check a
    `boundary new` render to confirm the downstream AGENTS.md reads correctly.
