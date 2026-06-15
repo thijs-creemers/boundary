@@ -22,6 +22,12 @@ Installable module data comes from
 - `bb agents:gen --check` / `bb check:agents` — verify in sync + catalogue valid
 - `bb test:agents`    — generator unit tests
 
+## Maintainer note
+Pitfall numbers (`### N.`) are assigned by render order from `:pitfalls`. Prose that
+references a pitfall by number (e.g. "see Common Pitfalls #11") lives OUTSIDE the
+generated regions and is NOT drift-checked — if you reorder or insert pitfalls in
+`knowledge.edn`, update those hand-written references by hand.
+
 ## Phase 2 — MCP server data contract
 A future Boundary MCP guardrails server serves this same data, no schema change:
 

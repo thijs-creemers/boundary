@@ -908,7 +908,7 @@ clojure -M:run          # Start server on port 3002
 
 ### Swagger parameter documentation
 
-The app reads `query-params`/`path-params` directly and does **not** configure reitit coercion middleware. This means Swagger will not auto-generate input fields from route patterns. See **Common Pitfalls #10** for the required `:swagger` parameter pattern.
+The app reads `query-params`/`path-params` directly and does **not** configure reitit coercion middleware. This means Swagger will not auto-generate input fields from route patterns. See **Common Pitfalls #11** for the required `:swagger` parameter pattern.
 
 ### SQLite `nil` LIMIT/OFFSET pitfall
 
