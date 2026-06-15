@@ -1,5 +1,5 @@
 (ns agents-gen-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is]]
             [clojure.string :as str]
             [agents-gen :as gen]))
 
