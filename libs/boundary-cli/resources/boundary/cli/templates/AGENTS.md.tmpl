@@ -77,6 +77,7 @@ src/{{project-ns}}/
 └── shell/   # All side effects — HTTP handlers, DB access, external calls, services
 ```
 
+<!-- gen:fc-is -->
 **Hard dependency rules — never break these:**
 
 | Direction | Allowed? |
@@ -86,6 +87,7 @@ src/{{project-ns}}/
 | Shell → Ports | ✅ Shell implements protocols |
 | Core → Shell | ❌ NEVER — violates FC/IS |
 | Core → I/O | ❌ NEVER — even logging |
+<!-- /gen:fc-is -->
 
 ```clojure
 ;; ✅ CORRECT — core is pure
@@ -117,6 +119,7 @@ src/{{project-ns}}/
 
 ### Case conversion — a frequent source of bugs
 
+<!-- gen:naming -->
 | Location | Convention | Example |
 |----------|-----------|---------|
 | All Clojure code | kebab-case | `:password-hash`, `:created-at` |
@@ -138,6 +141,7 @@ Convert **only at boundaries** — never in business logic:
                                     :updated-at  :updated_at
                                     :user-id     :user_id}))
 ```
+<!-- /gen:naming -->
 
 ### Adding new fields — always synchronise all three
 
@@ -275,6 +279,7 @@ clj-paren-repair src/my_ns/core.clj  # repair after edits
 
 ## Common Pitfalls
 
+<!-- gen:pitfalls -->
 ### 1. defrecord changes require full restart
 
 `(reset)` does not recreate defrecord instances. After changing a defrecord:
@@ -314,6 +319,7 @@ Any `(ex-info ...)` without a `:type` key in ex-data will produce a generic 500 
 ### 6. Forward references
 
 Clojure compiles top-to-bottom. Private helpers must be defined **above** the functions that call them.
+<!-- /gen:pitfalls -->
 
 ---
 

@@ -265,6 +265,7 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 
 ### 1. ALWAYS Use kebab-case Internally
 
+<!-- gen:naming -->
 | Location | Format | Example |
 |----------|--------|---------|
 | **All Clojure code** | kebab-case | `:password-hash`, `:created-at` |
@@ -290,6 +291,7 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 ```
 
 **Why**: Recent bug caused authentication failures because service layer used `:password_hash` but entities had `:password-hash`.
+<!-- /gen:naming -->
 
 ### 2. Layer Responsibilities
 
@@ -301,11 +303,13 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 
 ### 3. Dependency Rules
 
+<!-- gen:fc-is -->
 - ✅ Shell → Core (shell calls core)
 - ✅ Core → Ports (core depends on protocols)
 - ✅ Shell → Adapters (shell implements protocols)
 - ❌ Core → Shell (NEVER)
 - ❌ Core → Adapters (NEVER)
+<!-- /gen:fc-is -->
 
 ---
 
@@ -449,6 +453,7 @@ When encountering 500 errors or unexpected behavior:
 
 ## Common Pitfalls
 
+<!-- gen:pitfalls -->
 **Most pitfalls listed below are automatically prevented by the scaffolder.** If you use `bb scaffold` to create modules, you will avoid pitfalls #1, #2, #4, #5, #6, and #9. Manual code creation is where these issues arise.
 
 **LLM Reminder**: When adding functionality, reach for `bb scaffold` first. It's faster, safer, and ensures FC/IS compliance.
@@ -725,6 +730,7 @@ Unable to resolve symbol: my-helper in this context
 ```
 
 **Rule**: after adding any new parameterised route, immediately add the `:swagger` block. Without it the parameter is invisible to API consumers using the Swagger UI.
+<!-- /gen:pitfalls -->
 
 ---
 
@@ -856,6 +862,7 @@ Seven automated safeguards run in CI (and `check:fcis` + `check:ports` in pre-co
 
 ## Library-Specific Guides
 
+<!-- gen:modules -->
 Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, and workflows.
 
 | Library | Guide | Key Topics |
@@ -884,6 +891,7 @@ Each library has its own `AGENTS.md` with library-specific patterns, pitfalls, a
 | **i18n** | [`libs/i18n/AGENTS.md`](libs/i18n/AGENTS.md) | Marker-based i18n, translation catalogues, locale chains, scanning tools |
 | **devtools** | [`libs/devtools/AGENTS.md`](libs/devtools/AGENTS.md) | Dev-only: error pipeline (BND codes), dev dashboard (localhost:9999), REPL power tools, guidance engine, request recording, AI REPL commands |
 | **tools** | [`libs/tools/AGENTS.md`](libs/tools/AGENTS.md) | Dev-only: deploy, doctor, setup wizard, scaffolder integration, quality checks, deprecated wrapper scanner |
+<!-- /gen:modules -->
 
 ---
 
