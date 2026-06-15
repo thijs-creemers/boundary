@@ -1,6 +1,26 @@
 (ns agents-gen-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.string :as str]
             [agents-gen :as gen]))
+
+(def sample-knowledge
+  {:fc-is {:layers [{:from :shell :to :core :allowed true}
+                    {:from :core :to :shell :allowed false :reason "violates FC/IS"}]
+           :rules ["core/ must not import shell/IO/logging/DB"]
+           :ports-required true
+           :example "(ns {{ns}}.core.product)"}})
+
+(deftest render-fc-is-emits-rows-and-substitutes-ns
+  (let [out (gen/render-fc-is (:fc-is sample-knowledge) "myapp")]
+    (is (str/includes? out "Shell → Core"))
+    (is (str/includes? out "❌"))
+    (is (str/includes? out "violates FC/IS"))
+    (is (str/includes? out "myapp.core.product"))
+    (is (not (str/includes? out "{{ns}}")))))
+
+(deftest render-fc-is-template-keeps-project-ns-token
+  (let [out (gen/render-fc-is (:fc-is sample-knowledge) "{{project-ns}}")]
+    (is (str/includes? out "{{project-ns}}.core.product"))))
 
 (deftest splice-region-replaces-between-markers
   (let [doc "a\n<!-- gen:x -->\nOLD\n<!-- /gen:x -->\nb\n"]

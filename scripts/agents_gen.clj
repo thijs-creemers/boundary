@@ -24,3 +24,21 @@
     (str (subs content 0 (+ oi (count open)))
          "\n" body "\n"
          (subs content ci))))
+
+(defn- sub-ns [s ns-token] (str/replace s "{{ns}}" ns-token))
+
+(defn render-fc-is
+  "Render the FC/IS layer rules section as markdown. ns-token replaces {{ns}}."
+  [{:keys [layers rules ports-required example]} ns-token]
+  (let [arrow (fn [{:keys [from to allowed reason]}]
+                (format "| %s → %s | %s |"
+                        (str/capitalize (name from))
+                        (str/capitalize (name to))
+                        (if allowed "✅ allowed"
+                            (str "❌ NEVER — " reason))))]
+    (str "| Direction | Allowed? |\n"
+         "|-----------|----------|\n"
+         (str/join "\n" (map arrow layers)) "\n\n"
+         (when ports-required "Every module MUST define `ports.clj`.\n\n")
+         (str/join "\n" (map #(str "- " %) rules)) "\n\n"
+         "```clojure\n" (sub-ns example ns-token) "\n```")))
