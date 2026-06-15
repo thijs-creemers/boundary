@@ -109,9 +109,18 @@ git commit -m "docs(agents): wrap generated sections in gen:* markers (BOU-95)"
   {:context :db      :case :snake :example "password_hash, created_at"}
   {:context :api     :case :camel :example "passwordHash, createdAt"}]
 
- ;; Libraries that have a libs/*/AGENTS.md but are intentionally NOT installable
- ;; app modules (dev/build tooling). Used by module-source validation in Task 10.
- :module-allowlist #{"tools" "devtools" "scaffolder"}
+ ;; Libraries that have a libs/*/AGENTS.md but are NOT installable app modules
+ ;; (dev/build tooling, absent from modules-catalogue.edn). The framework root
+ ;; module table renders catalogue modules ++ these, so every documented lib keeps
+ ;; a pointer. Module-source validation (Task 10) derives its allowlist from the
+ ;; :name values here. Descriptions/docs-urls lifted from each lib's AGENTS.md.
+ :dev-modules
+ [{:name "scaffolder" :description "Module generation / scaffolding"
+   :docs-url "https://github.com/thijs-creemers/boundary/blob/main/libs/scaffolder/AGENTS.md"}
+  {:name "tools" :description "Developer tooling (bb tasks, checks, doctor)"
+   :docs-url "https://github.com/thijs-creemers/boundary/blob/main/libs/tools/AGENTS.md"}
+  {:name "devtools" :description "Dev-only utilities"
+   :docs-url "https://github.com/thijs-creemers/boundary/blob/main/libs/devtools/AGENTS.md"}]
 
  :pitfalls
  [;; ── Task 6 fills this; see below ──
@@ -506,7 +515,9 @@ and one WITHOUT omits it.
     :naming   (render-naming (:naming knowledge))
     :fc-is    (render-fc-is (:fc-is knowledge) ns-token)
     :pitfalls (render-pitfalls (:pitfalls knowledge) pitfall-surface ns-token)
-    :modules  (render-modules modules)))
+    ;; framework module table = installable catalogue modules ++ dev-tooling libs,
+    ;; so every documented lib keeps a pointer (render-modules sorts by :name).
+    :modules  (render-modules (concat modules (:dev-modules knowledge)))))
 
 (defn render-target
   "Return the target file content with each owned section spliced in."
@@ -616,7 +627,7 @@ git commit -m "feat(agents): render targets + first generation of both AGENTS fi
     (let [modules [{:name "core" :docs-url "x/libs/core/AGENTS.md"}
                    {:name "user" :docs-url "x/libs/user/AGENTS.md"}
                    {:name "ghost" :docs-url "x/libs/ghost/AGENTS.md"}]
-          knowledge {:module-allowlist #{"tools"}}
+          knowledge {:dev-modules [{:name "tools"}]}   ; allowlist derived from :name
           problems (gen/validate-modules modules knowledge)]
       ;; newlib has AGENTS.md, not allowlisted, not in catalogue -> flagged
       (is (some #(str/includes? % "newlib") problems))
@@ -647,12 +658,13 @@ git commit -m "feat(agents): render targets + first generation of both AGENTS fi
 
 (defn validate-modules
   "Return a seq of human-readable problems. Empty seq = valid.
-   1) Every libs/<lib> with an AGENTS.md (minus allowlist) must be in the catalogue.
+   1) Every libs/<lib> with an AGENTS.md (minus dev-modules) must be in the catalogue.
    2) Every catalogue :docs-url must resolve to an existing libs/<lib>/AGENTS.md."
-  [modules {:keys [module-allowlist]}]
-  (let [cat-names  (set (map :name modules))
+  [modules {:keys [dev-modules]}]
+  (let [allowlist  (set (map :name dev-modules))
+        cat-names  (set (map :name modules))
         documented (libs-with-agents)
-        missing    (remove module-allowlist (remove cat-names documented))
+        missing    (remove allowlist (remove cat-names documented))
         dead       (for [m modules
                          :let [lib (docs-url->lib (:docs-url m))]
                          :when (and lib (not (.exists (io/file "libs" lib "AGENTS.md"))))]
