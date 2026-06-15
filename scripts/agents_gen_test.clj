@@ -123,3 +123,19 @@
       (is (not-any? #(clojure.string/includes? % "tools") problems))
       ;; ghost: in catalogue but no libs/ghost dir on disk -> dead docs-url flagged
       (is (some #(clojure.string/includes? % "ghost") problems)))))
+
+(deftest validate-modules-allowlist-is-load-bearing
+  (with-redefs [gen/libs-with-agents (constantly #{"tools"})]
+    (let [modules []]  ; tools not in catalogue
+      ;; without tools in :dev-modules -> flagged as missing
+      (is (some #(clojure.string/includes? % "tools")
+                (gen/validate-modules modules {:dev-modules []})))
+      ;; with tools in :dev-modules -> not flagged
+      (is (not-any? #(clojure.string/includes? % "tools")
+                    (gen/validate-modules modules {:dev-modules [{:name "tools"}]}))))))
+
+(deftest validate-modules-flags-unparseable-docs-url
+  (with-redefs [gen/libs-with-agents (constantly #{})]
+    (is (some #(clojure.string/includes? % "unparseable")
+              (gen/validate-modules [{:name "x" :docs-url "https://example.com/not-a-lib"}]
+                                    {:dev-modules []})))))

@@ -131,7 +131,7 @@
 (defn libs-with-agents
   "Set of lib names under libs/ that contain an AGENTS.md."
   []
-  (->> (.listFiles (io/file "libs"))
+  (->> (or (.listFiles (io/file "libs")) [])
        (filter #(.isDirectory %))
        (filter #(.exists (io/file % "AGENTS.md")))
        (map #(.getName %))
@@ -145,18 +145,22 @@
 (defn validate-modules
   "Return a seq of human-readable problems. Empty = valid.
    1) Every libs/<lib> with an AGENTS.md (minus :dev-modules names) must be in the catalogue.
-   2) Every catalogue :docs-url must resolve to an existing libs/<lib>/AGENTS.md."
+   2) Every catalogue :docs-url must parse to libs/<lib>/AGENTS.md and resolve to an existing file."
   [modules {:keys [dev-modules]}]
   (let [allowlist  (set (map :name dev-modules))
         cat-names  (set (map :name modules))
         documented (libs-with-agents)
-        missing    (remove allowlist (remove cat-names documented))
+        missing    (sort (remove allowlist (remove cat-names documented)))
+        bad-url    (for [m modules
+                         :when (nil? (docs-url->lib (:docs-url m)))]
+                     (str "catalogue entry '" (:name m) "' has an unparseable :docs-url (expected .../libs/<lib>/AGENTS.md)"))
         dead       (for [m modules
                          :let [lib (docs-url->lib (:docs-url m))]
                          :when (and lib (not (.exists (io/file "libs" lib "AGENTS.md"))))]
                      (str "catalogue entry '" (:name m) "' docs-url points at missing libs/" lib "/AGENTS.md"))]
     (concat
      (map #(str "lib '" % "' has AGENTS.md but no modules-catalogue.edn entry (add it or add to :dev-modules)") missing)
+     bad-url
      dead)))
 
 (defn run-check
