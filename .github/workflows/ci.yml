@@ -177,9 +177,13 @@ jobs:
       # tools.deps parses many JDBC-driver POMs in parallel and intermittently
       # trips a Maven DefaultModelValidator concurrency bug (HashMap$Node cannot
       # be cast to TreeNode). -Sthreads 1 serialises resolution so the race can't
-      # occur; -P downloads/prepares without running. Warms the cache for smoke.
+      # occur; -P downloads/prepares without running. Prefetch every alias set
+      # smoke-check invokes (:migrate and :test) so each reuses a warm .cpcache
+      # and performs no concurrent resolution.
       - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
-        run: clojure -Sthreads 1 -P -M:migrate
+        run: |
+          clojure -Sthreads 1 -P -M:migrate
+          clojure -Sthreads 1 -P -M:test
 
       - name: Run command smoke check
         run: bb smoke-check
