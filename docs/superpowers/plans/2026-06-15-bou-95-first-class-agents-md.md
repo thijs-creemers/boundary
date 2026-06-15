@@ -128,8 +128,18 @@ Lift each pitfall verbatim from the framework `AGENTS.md` "Common Pitfalls" sect
  :surfaces #{:framework :downstream}
  :symptom "Using (:password_hash user) instead of (:password-hash user) returns nil."
  :cause   "snake_case key used in Clojure code; DB returns snake_case."
- :fix     "Always use kebab-case internally; convert only at the DB boundary."}
+ :fix     "Always use kebab-case internally; convert only at the DB boundary."
+ ;; OPTIONAL — a fenced clojure example, reproduced verbatim where the source
+ ;; pitfall has one (validation-in-wrong-layer, exception handling, java interop,
+ ;; reitit routes, swagger, etc.). Use the {{ns}} sentinel for namespaces.
+ :example "(throw (ex-info \"User not found\" {:type :not-found :id id}))"}
 ```
+
+**Preserve existing code examples.** Several framework pitfalls (validation in
+wrong layer, exception handling, Java interop, reitit routes, swagger) carry
+before/after code blocks that are the most valuable part of the entry. Capture each
+such block in `:example` (verbatim, `{{ns}}` for namespaces) so generation does not
+lose it. Entries without a code block simply omit `:example`.
 
 Tag with `:surfaces`:
 - `#{:framework :downstream}` (the 6 shared, also present in the template today): snake/kebab mixing, defrecord changes not taking effect, core depending on shell, missing `:type` in ex-info, validation in wrong layer, forward references.
@@ -373,18 +383,23 @@ git commit -m "feat(agents): render-fc-is (BOU-95)"
 ```clojure
 (defn render-pitfalls
   "Render pitfalls whose :surfaces contains `surface`. ns-token replaces {{ns}}.
-   Output order follows the input vector (deterministic)."
+   Output order follows the input vector (deterministic). An optional :example is
+   rendered as a fenced clojure block after the Fix line."
   [pitfalls surface ns-token]
   (->> pitfalls
        (filter #(contains? (:surfaces %) surface))
        (map-indexed
-        (fn [i {:keys [title symptom cause fix]}]
+        (fn [i {:keys [title symptom cause fix example]}]
           (sub-ns
-           (format "### %d. %s\n\n- **Symptom:** %s\n- **Cause:** %s\n- **Fix:** %s"
-                   (inc i) title symptom cause fix)
+           (str (format "### %d. %s\n\n- **Symptom:** %s\n- **Cause:** %s\n- **Fix:** %s"
+                        (inc i) title symptom cause fix)
+                (when example (str "\n\n```clojure\n" example "\n```")))
            ns-token)))
        (str/join "\n\n")))
 ```
+
+Add a test asserting an entry WITH `:example` renders a ```` ```clojure ```` block
+and one WITHOUT omits it.
 
 - [ ] **Step 4: Run, verify pass.**
 
