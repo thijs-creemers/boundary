@@ -152,10 +152,16 @@ markers: FC/IS, naming, pitfalls. The module marker regions
      allowlist (e.g. `tools`, `devtools`, `scaffolder` — dev/build tooling not
      published as an installable app module). The allowlist is declared in
      `knowledge.edn` (or alongside it) so the rule is data-driven, not hardcoded.
-   - Every catalogue entry's `:docs-url` / docs path must resolve to an existing
-     `libs/<lib>/AGENTS.md`.
+   - Join key is the catalogue entry's `:name`, matched against `libs/<name>/`.
+   - Every catalogue entry's `:docs-url` must resolve to an existing
+     `libs/<lib>/AGENTS.md`. Note `:docs-url` is a full GitHub URL
+     (e.g. `https://github.com/thijs-creemers/boundary/blob/main/libs/i18n/AGENTS.md`),
+     so the validator parses the `libs/<lib>/AGENTS.md` suffix out of the URL —
+     it does not treat the URL as a filesystem path.
    - The rule keys on presence-of-`AGENTS.md`, not a hardcoded count, so it
-     self-adjusts as libraries gain or lose guides.
+     self-adjusts as libraries gain or lose guides. (Current state: catalogue lists
+     23 modules; 26 libs have an `AGENTS.md`; the 3-lib gap is exactly the
+     framework-only allowlist below.)
 
 Wired into the `bb check` aggregate (subprocess registry in
 `libs/tools/src/boundary/tools/check.clj`) and CI. This is the repo-level "prevents
