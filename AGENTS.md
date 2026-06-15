@@ -799,6 +799,28 @@ See `libs/i18n/AGENTS.md` for complete API reference, middleware wiring, and com
 
 ---
 
+## AGENTS.md generation
+
+FC/IS rules, naming conventions, pitfalls, and the module table in this file —
+and the FC/IS / naming / pitfalls sections of the downstream
+`libs/boundary-cli/resources/boundary/cli/templates/AGENTS.md.tmpl` — are
+generated from `resources/agents/knowledge.edn` (+ `modules-catalogue.edn` for the
+module table). The generator lives at `scripts/agents_gen.clj`.
+
+- Regenerate:  `bb agents:gen`
+- Verify sync: `bb check:agents`  (also part of `bb check` + CI)
+- Add/edit a pitfall, naming rule, or FC/IS rule: edit `resources/agents/knowledge.edn`,
+  then run `bb agents:gen`.
+- Add a library: add it to `modules-catalogue.edn` (or, for dev-only tooling not
+  published as an app module, to `:dev-modules` in `knowledge.edn`), then `bb agents:gen`.
+- **Regenerate before publishing `boundary-cli`** so downstream `boundary new`
+  projects ship the current template.
+
+The per-module AI doc generator (`bb ai docs --module libs/<x> --type agents`) is
+separate and unchanged.
+
+---
+
 ## Quality Gates
 
 Seven automated safeguards run in CI (and `check:fcis` + `check:ports` in pre-commit) to prevent regressions caught during QA review (PRs #108–#116).
