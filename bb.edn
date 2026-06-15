@@ -25,6 +25,7 @@
              [boundary.tools.db          :as db]
              [boundary.tools.check       :as check]
              [boundary.tools.quickstart  :as quickstart]
+             [agents-gen                 :as agents-gen]
              [boundary.tools.help        :as help])
 
   scaffold      {:doc "Interactive module scaffolding wizard (bb scaffold [generate|new|field|endpoint|adapter|ai])"
@@ -65,6 +66,14 @@
                  :task (apply admin/-main *command-line-args*)}
   check-links   {:doc "Validate local markdown links in AGENTS documentation"
                  :task (dev/check-links)}
+  agents:gen    {:doc "Generate AGENTS.md + AGENTS.md.tmpl from resources/agents/knowledge.edn (bb agents:gen [--check])"
+                 :task (apply agents-gen/-main *command-line-args*)}
+  check:agents  {:doc "Verify AGENTS files are in sync with knowledge.edn and the module catalogue is valid (bb check:agents)"
+                 :task (agents-gen/-main "--check")}
+  test:agents   {:doc "Run agents generator unit tests (bb test:agents)"
+                 :task (do (require 'agents-gen-test)
+                           (let [s (clojure.test/run-tests 'agents-gen-test)]
+                             (when (pos? (+ (:fail s) (:error s))) (System/exit 1))))}
   smoke-check   {:doc "Run command smoke checks (verify deps.edn aliases and key commands)"
                  :task (dev/smoke-check)}
   install-hooks {:doc "Configure git hooks path to .githooks"

@@ -33,6 +33,9 @@
    {:id    :placeholder-tests
     :label "Placeholder tests"
     :cmd   ["bb" "check:placeholder-tests"]}
+   {:id    :agents
+    :label "AGENTS.md drift"
+    :cmd   ["bb" "check:agents"]}
    {:id    :linting
     :label "Linting"
     :cmd   (into ["clojure" "-M:clj-kondo" "--lint" "src" "test"]
