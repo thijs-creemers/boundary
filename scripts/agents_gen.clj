@@ -43,6 +43,22 @@
          (str/join "\n" (map #(str "- " %) rules)) "\n\n"
          "```clojure\n" (sub-ns example ns-token) "\n```")))
 
+(defn render-pitfalls
+  "Render pitfalls whose :surfaces contains `surface`. ns-token replaces {{ns}}.
+   Output order follows the input vector (deterministic). An optional :example is
+   rendered as a fenced clojure block after the Fix line."
+  [pitfalls surface ns-token]
+  (->> pitfalls
+       (filter #(contains? (:surfaces %) surface))
+       (map-indexed
+        (fn [i {:keys [title symptom cause fix example]}]
+          (sub-ns
+           (str (format "### %d. %s\n\n- **Symptom:** %s\n- **Cause:** %s\n- **Fix:** %s"
+                        (inc i) title symptom cause fix)
+                (when example (str "\n\n```clojure\n" example "\n```")))
+           ns-token)))
+       (str/join "\n\n")))
+
 (defn render-naming
   "Render the case-convention table as markdown."
   [rows]

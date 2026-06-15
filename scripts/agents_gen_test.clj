@@ -42,3 +42,28 @@
     (is (str/includes? out "| Location | Convention | Example |"))
     (is (str/includes? out "kebab"))
     (is (str/includes? out ":password-hash"))))
+
+(def sample-pitfalls
+  [{:id "P01" :title "kebab mixing" :surfaces #{:framework :downstream}
+    :symptom "nil values" :cause "snake key" :fix "use kebab; convert at boundary {{ns}}"}
+   {:id "P11" :title "swagger params" :surfaces #{:framework}
+    :symptom "invisible params" :cause "no declaration" :fix "declare explicitly"
+    :example "(GET \"/x\" {{ns}}.handler)"}])
+
+(deftest render-pitfalls-framework-includes-all
+  (let [out (gen/render-pitfalls sample-pitfalls :framework "myapp")]
+    (is (str/includes? out "kebab mixing"))
+    (is (str/includes? out "swagger params"))
+    (is (str/includes? out "myapp"))
+    (is (not (str/includes? out "{{ns}}")))))
+
+(deftest render-pitfalls-downstream-filters-to-tagged
+  (let [out (gen/render-pitfalls sample-pitfalls :downstream "{{project-ns}}")]
+    (is (str/includes? out "kebab mixing"))
+    (is (not (str/includes? out "swagger params")))))
+
+(deftest render-pitfalls-renders-optional-example-as-code-block
+  (let [with-ex (gen/render-pitfalls sample-pitfalls :framework "myapp")
+        without-ex (gen/render-pitfalls [(first sample-pitfalls)] :framework "myapp")]
+    (is (str/includes? with-ex "```clojure"))
+    (is (not (str/includes? without-ex "```clojure")))))
