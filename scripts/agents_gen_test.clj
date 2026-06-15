@@ -67,3 +67,16 @@
         without-ex (gen/render-pitfalls [(first sample-pitfalls)] :framework "myapp")]
     (is (str/includes? with-ex "```clojure"))
     (is (not (str/includes? without-ex "```clojure")))))
+
+(def sample-modules
+  [{:name "core" :description "Validation, case conversion" :category :core
+    :docs-url "https://github.com/thijs-creemers/boundary/blob/main/libs/core/AGENTS.md"}
+   {:name "payments" :description "PSP abstraction" :category :optional
+    :docs-url "https://github.com/thijs-creemers/boundary/blob/main/libs/payments/AGENTS.md"}])
+
+(deftest render-modules-emits-aligned-table-with-links
+  (let [out (gen/render-modules sample-modules)]
+    (is (str/includes? out "| Module"))
+    (is (str/includes? out "[core]"))
+    (is (str/includes? out "libs/core/AGENTS.md"))
+    (is (= out (gen/render-modules sample-modules)))))  ; deterministic

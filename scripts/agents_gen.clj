@@ -68,3 +68,21 @@
     (str "| Location | Convention | Example |\n"
          "|----------|-----------|---------|\n"
          (str/join "\n" (map row rows)))))
+
+(defn render-modules
+  "Render the framework module table from catalogue :modules entries.
+   Name links to the lib's AGENTS.md; no version/clojars (avoids version drift)."
+  [modules]
+  (let [sorted (sort-by :name modules)
+        cell-name (fn [{:keys [name docs-url]}] (format "[%s](%s)" name docs-url))
+        names (map cell-name sorted)
+        descs (map :description sorted)
+        w1 (apply max (count "Module") (map count names))
+        w2 (apply max (count "Description") (map count descs))
+        pad (fn [s w] (str s (apply str (repeat (- w (count s)) " "))))
+        row (fn [a b] (format "| %s | %s |" (pad a w1) (pad b w2)))]
+    (str (row "Module" "Description") "\n"
+         (format "|%s|%s|"
+                 (apply str (repeat (+ w1 2) "-"))
+                 (apply str (repeat (+ w2 2) "-"))) "\n"
+         (str/join "\n" (map #(row (cell-name %) (:description %)) sorted)))))
