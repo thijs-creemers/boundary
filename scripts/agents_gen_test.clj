@@ -105,3 +105,21 @@
     (is (str/includes? out "| Location | Convention"))
     (is (str/includes? out "Shell → Core"))
     (is (not (str/includes? out "boundary:")))))
+
+(deftest drifted-files-detects-mismatch
+  (is (empty? (gen/drifted-files [{:file "A" :current "x" :rendered "x"}])))
+  (is (= ["A"] (gen/drifted-files [{:file "A" :current "x" :rendered "y"}]))))
+
+(deftest validate-modules-flags-missing-and-dead-links
+  (with-redefs [gen/libs-with-agents (constantly #{"core" "user" "newlib" "tools"})]
+    (let [modules [{:name "core" :docs-url "x/libs/core/AGENTS.md"}
+                   {:name "user" :docs-url "x/libs/user/AGENTS.md"}
+                   {:name "ghost" :docs-url "x/libs/ghost/AGENTS.md"}]
+          knowledge {:dev-modules [{:name "tools"}]}   ; allowlist derived from :name
+          problems (gen/validate-modules modules knowledge)]
+      ;; newlib: has AGENTS.md, not allowlisted, not in catalogue -> flagged
+      (is (some #(clojure.string/includes? % "newlib") problems))
+      ;; tools: allowlisted via :dev-modules -> NOT flagged
+      (is (not-any? #(clojure.string/includes? % "tools") problems))
+      ;; ghost: in catalogue but no libs/ghost dir on disk -> dead docs-url flagged
+      (is (some #(clojure.string/includes? % "ghost") problems)))))

@@ -123,13 +123,60 @@
         rendered (render-target current knowledge modules target)]
     {:file file :current current :rendered rendered}))
 
+(defn drifted-files
+  "Return the seq of target files whose current content differs from rendered."
+  [results]
+  (->> results (remove #(= (:current %) (:rendered %))) (map :file)))
+
+(defn libs-with-agents
+  "Set of lib names under libs/ that contain an AGENTS.md."
+  []
+  (->> (.listFiles (io/file "libs"))
+       (filter #(.isDirectory %))
+       (filter #(.exists (io/file % "AGENTS.md")))
+       (map #(.getName %))
+       set))
+
+(defn- docs-url->lib
+  "Parse the libs/<lib>/AGENTS.md suffix out of a docs URL. nil if no match."
+  [url]
+  (some-> (re-find #"libs/([^/]+)/AGENTS\.md" (str url)) second))
+
+(defn validate-modules
+  "Return a seq of human-readable problems. Empty = valid.
+   1) Every libs/<lib> with an AGENTS.md (minus :dev-modules names) must be in the catalogue.
+   2) Every catalogue :docs-url must resolve to an existing libs/<lib>/AGENTS.md."
+  [modules {:keys [dev-modules]}]
+  (let [allowlist  (set (map :name dev-modules))
+        cat-names  (set (map :name modules))
+        documented (libs-with-agents)
+        missing    (remove allowlist (remove cat-names documented))
+        dead       (for [m modules
+                         :let [lib (docs-url->lib (:docs-url m))]
+                         :when (and lib (not (.exists (io/file "libs" lib "AGENTS.md"))))]
+                     (str "catalogue entry '" (:name m) "' docs-url points at missing libs/" lib "/AGENTS.md"))]
+    (concat
+     (map #(str "lib '" % "' has AGENTS.md but no modules-catalogue.edn entry (add it or add to :dev-modules)") missing)
+     dead)))
+
+(defn run-check
+  "Print drift + validation problems; System/exit 1 if any."
+  [results modules knowledge]
+  (let [drift   (drifted-files results)
+        invalid (validate-modules modules knowledge)]
+    (doseq [f drift] (println "✗ out of sync (run bb agents:gen):" f))
+    (doseq [p invalid] (println "✗" p))
+    (if (or (seq drift) (seq invalid))
+      (System/exit 1)
+      (println "✓ AGENTS files in sync; module catalogue valid"))))
+
 (defn -main [& args]
   (let [check?    (some #{"--check"} args)
         knowledge (load-knowledge)
         modules   (load-modules)
         results   (map #(generate-file knowledge modules %) targets)]
     (if check?
-      (println "--check not yet implemented")  ; replaced in Task 9/10
+      (run-check results modules knowledge)
       (do (doseq [{:keys [file rendered]} results] (spit file rendered))
           (println "agents:gen — wrote" (count results) "targets")))))
 
