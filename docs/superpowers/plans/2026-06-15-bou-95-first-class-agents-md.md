@@ -184,8 +184,13 @@ In `scripts/agents_gen_test.clj`:
 - [ ] **Step 2: Run the test, verify it fails**
 
 Run: `bb test:agents` (task added in Task 11; until then run inline:)
-`bb -cp scripts -e "(require 'agents-gen-test)(clojure.test/run-tests 'agents-gen-test)"`
+`bb -e "(require 'agents-gen-test)(clojure.test/run-tests 'agents-gen-test)"`
 Expected: FAIL — `agents-gen` namespace / `splice-region` not found.
+
+> **Classpath note:** always run these via plain `bb -e` (NOT `bb -cp scripts -e`).
+> `scripts` is already on the bb.edn `:paths`; passing `-cp` *overrides* `:paths`
+> and would drop `libs/boundary-cli/resources`, making `(io/resource
+> "boundary/cli/modules-catalogue.edn")` return `nil` in later tasks.
 
 - [ ] **Step 3: Implement the scaffold + `splice-region`**
 
@@ -222,7 +227,7 @@ In `scripts/agents_gen.clj`:
 
 - [ ] **Step 4: Run the test, verify it passes**
 
-Run: `bb -cp scripts -e "(require 'agents-gen-test)(clojure.test/run-tests 'agents-gen-test)"`
+Run: `bb -e "(require 'agents-gen-test)(clojure.test/run-tests 'agents-gen-test)"`
 Expected: 3 tests pass, 0 failures.
 
 - [ ] **Step 5: Commit**
@@ -518,9 +523,14 @@ git commit -m "feat(agents): render-fc-is (BOU-95)"
 
 - [ ] **Step 5: Generate for real**
 
-Run: `bb -cp scripts -e "(require 'agents-gen)(agents-gen/-main)"`
+Run: `bb -e "(require 'agents-gen)(agents-gen/-main)"`
 Then: `git diff --stat`
-Expected: only `AGENTS.md` and `AGENTS.md.tmpl` change, and the diffs are formatting-equivalent to the prior hand-written content (reflow only — no lost rules/pitfalls/modules). Read both diffs and confirm.
+Expected: only `AGENTS.md` and `AGENTS.md.tmpl` change. Read both diffs and confirm:
+- `AGENTS.md`: reflow only — no rule/pitfall/module lost; all 11 pitfalls present.
+- `AGENTS.md.tmpl`: expect **genuine reword + reorder** of the pitfall prose (the
+  template's 6 pitfalls converge onto the canonical framework wording and the
+  knowledge.edn ordering) — this is intended, not a regression. Verify the **same
+  6** downstream pitfalls remain (none lost) and `{{project-ns}}` is preserved.
 
 - [ ] **Step 6: Verify links + idempotency**
 
@@ -641,7 +651,7 @@ git commit -m "feat(agents): render targets + first generation of both AGENTS fi
 
 - [ ] **Step 5: Run check against the real repo**
 
-Run: `bb -cp scripts -e "(require 'agents-gen)(agents-gen/-main \"--check\")"`
+Run: `bb -e "(require 'agents-gen)(agents-gen/-main \"--check\")"`
 Expected: `✓ AGENTS files in sync; module catalogue valid`, exit 0. (If a real lib is unexpectedly flagged, either add it to the catalogue or to `:module-allowlist` in `knowledge.edn` — do not weaken the check.)
 
 - [ ] **Step 6: Commit** `feat(agents): module-source validation (BOU-95)`
