@@ -93,6 +93,11 @@ Single EDN file; the source of truth and the future MCP data contract.
 - **Modes:**
   - `bb agents:gen` — write the spliced doc.
   - `bb agents:gen --check` — render + diff only; non-zero exit on drift, no write.
+- **Comparison is byte-exact.** Render functions emit canonical output (fixed
+  spacing/ordering) so `--check` is a plain string equality on the spliced regions;
+  no whitespace normalization. The "formatting-equivalent" diff in build step 4
+  refers only to the one-time hand-edit → generated transition, after which the
+  doc is byte-stable.
 
 ### 3. Marked regions in `AGENTS.md`
 
@@ -112,9 +117,14 @@ hand-maintained and outside markers.
 `bb check:agents` does two things:
 
 1. Runs `agents:gen --check` (AGENTS.md must match what the EDN renders).
-2. **Registry validation:** every `libs/*/AGENTS.md` directory must appear in
-   `:modules`, and every `:modules` entry must point at an existing
-   `libs/*/AGENTS.md`. Catches "added a library, forgot to document it."
+2. **Registry validation** (bidirectional, keyed on presence of an `AGENTS.md`):
+   - Every `libs/<lib>/` directory that **has** an `AGENTS.md` must appear in
+     `:modules`. Catches "added a documented library, forgot to register it."
+   - Every `:modules` entry's `:agents` path must point at an existing file.
+   - Lib directories **without** an `AGENTS.md` are not in the registry and are
+     not required to be (e.g. a lib that ships no agent guide). The 26 documented
+     libs are the validated set today; the rule is presence-of-`AGENTS.md`, not a
+     hardcoded count, so it self-adjusts as libs gain/lose guides.
 
 Added to the `bb check` aggregate and CI. This is the repo-level "prevents error"
 guardrail.
