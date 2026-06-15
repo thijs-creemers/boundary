@@ -35,3 +35,10 @@
 (deftest splice-region-throws-on-missing-marker
   (is (thrown? clojure.lang.ExceptionInfo
                (gen/splice-region "no markers here" "x" "NEW"))))
+
+(deftest render-naming-emits-table
+  (let [out (gen/render-naming [{:context :clojure :case :kebab :example ":password-hash"}
+                                {:context :db :case :snake :example "password_hash"}])]
+    (is (str/includes? out "| Location | Convention | Example |"))
+    (is (str/includes? out "kebab"))
+    (is (str/includes? out ":password-hash"))))

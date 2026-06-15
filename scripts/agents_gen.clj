@@ -42,3 +42,13 @@
          (when ports-required "Every module MUST define `ports.clj`.\n\n")
          (str/join "\n" (map #(str "- " %) rules)) "\n\n"
          "```clojure\n" (sub-ns example ns-token) "\n```")))
+
+(defn render-naming
+  "Render the case-convention table as markdown."
+  [rows]
+  (let [label {:clojure "All Clojure code" :db "Database boundary only" :api "API/JSON boundary only"}
+        row (fn [{:keys [context case example]}]
+              (format "| %s | %s | `%s` |" (label context) (name case) example))]
+    (str "| Location | Convention | Example |\n"
+         "|----------|-----------|---------|\n"
+         (str/join "\n" (map row rows)))))
