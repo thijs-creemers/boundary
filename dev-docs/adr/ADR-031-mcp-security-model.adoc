@@ -1,0 +1,161 @@
+= ADR-031: MCP Server Security Model — Threat Model & Capability/Context Gating
+:status: Proposed
+:date: 2026-06-16
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+=== Background
+
+`boundary-mcp` (ADR introduced by BOU-96) exposes Boundary's framework
+knowledge — and, in later phases, *tools that read, generate, and execute
+code* — to editor agents (Claude Code, Cursor) over the Model Context Protocol.
+The roadmap layers tools in tiers:
+
+* *Tier 0 — read/analyze* (BOU-100): lint, explain-error, describe-module,
+  validate-schema, sql-preview. Zero mutation.
+* *Tier 1 — generate* (BOU-101): scaffold-module, add-field, gen-tests,
+  gen-migration. Write to disk, reversible via git.
+* *Tier 2 — execute* (BOU-102): eval, run-tests, run-migration, query-db.
+  Arbitrary code / SQL execution — a remote-code-execution surface.
+
+=== Threat
+
+An MCP server speaks JSON-RPC to a client the developer is *delegating
+autonomy to*. The realistic worst case is not a malicious operator but an
+over-eager or prompt-injected agent:
+
+. *Agent pointed at a live REPL with a production DB connection.* A Tier 2
+  `eval` or `query-db` runs `DELETE FROM users` or exfiltrates secrets. The
+  agent believed it was helping.
+. *Prompt injection via repo content.* A file the agent reads (issue text,
+  dependency README, a crafted comment) instructs it to invoke a destructive
+  tool. The transport cannot distinguish "the user asked" from "the document
+  said".
+. *CI misconfiguration.* The server boots in a pipeline with write/deploy
+  credentials and an agent triggers migrations or pushes.
+. *Silent blast radius.* A mutation runs with no record of who/what/when, so
+  incident response has nothing to reconstruct.
+
+=== Forces
+
+* Tier 0 must stay frictionless to be useful in an editor.
+* Tier 2 is genuinely dangerous and must be *off* exactly where it is most
+  dangerous (prod, CI) and *on* where it is cheap and reversible (local dev).
+* The decision must be *pure and testable*, not scattered through transport
+  code. It must *fail closed* when the environment is ambiguous.
+* Every consequential action needs an audit trail, and that trail must never
+  pollute the stdio protocol stream.
+
+== Decision
+
+=== 1. Capability tiers as a first-class, declared property
+
+Every tool declares exactly one capability: `:read`, `:generate`, or
+`:execute` (ordered least → most dangerous). The active *context* grants a
+ceiling; a tool runs only if its capability is within the ceiling. Tiers and
+the decision live in the pure namespace `boundary.mcp.core.security`.
+
+=== 2. Context derived from the environment, explicit override wins
+
+A *mode* expresses the resolved posture and its policy ceiling:
+
+[cols="1,1,1,3"]
+|===
+| Mode | Max tier | Read-only? | Meaning
+
+| `:full`       | `:execute`  | no  | Local dev — all tiers
+| `:no-execute` | `:generate` | no  | Tier 2 denied; reads + reversible writes allowed
+| `:read-only`  | `:read`     | yes | Tier 0 only
+| `:disabled`   | (none)      | yes | All tools denied
+|===
+
+Resolution precedence (`security/resolve-context`, pure over an env map):
+
+. *Explicit override* — `MCP_CAPABILITY_MODE` (`full` / `no-execute` /
+  `read-only` / `disabled`). Deliberate, audited, beats everything.
+. *CI detection* — a truthy `CI` env var ⇒ `:read-only`, regardless of
+  `BND_ENV`.
+. *`BND_ENV`* — `dev`/`test` ⇒ `:full`; `prod` ⇒ `:no-execute`; `ci` ⇒
+  `:read-only`.
+. *Fail-closed default* — no signal ⇒ `:read-only` (never `:full`).
+
+This matches the brief — *prod disables Tier 2, CI read-only, local dev full* —
+while defaulting to safety when the environment can't be determined.
+
+=== 3. Tool allowlists
+
+A context may carry an explicit allowlist (`security/with-allowlist`); tools
+outside it are denied even when their tier is within the ceiling. This is the
+mechanism for "this session may only run lint + describe".
+
+=== 4. eval / sandbox policy
+
+* Tier 2 ships *disabled by default* and is gated by the mode above. It never
+  runs in `:read-only`, `:no-execute`, or `:disabled`.
+* `query-db` (when built, BOU-102) must use a read-only role with row limits;
+  it is never a path to writes.
+* The server process should be run with the *least* credentials the task
+  needs. The gate is defense in depth, not a substitute for not handing an
+  agent prod credentials.
+* No tool eval runs without an explicit `:full` (or allowlisted) context and an
+  audit record.
+
+=== 5. Audit logging
+
+`boundary.mcp.ports/AuditLog` records every security-relevant event —
+server start, authorization decision, override use, and (Tier 1/2) every
+mutation. The shell sink (`shell/audit`) emits structured JSON to *stderr* via
+`tools.logging`; *stdout is reserved for the protocol stream* and must never
+carry log output (a logback config pins the console appender to stderr).
+
+=== 6. Pinned protocol version
+
+The server pins the set of MCP revisions it has been reviewed against
+(`protocol/supported-protocol-versions`, currently `2025-06-18`). `initialize`
+negotiates: echo the client's requested version if supported, else propose the
+server's preferred. Speaking only reviewed versions is part of the security
+contract.
+
+=== Integration contract for tool authors (BOU-99/100/101/102)
+
+Before performing any work, a tool handler must:
+
+. call `security/authorize` with the active context and the tool's
+  `{:name :capability}`;
+. on `:allow? false`, return the structured guardrail error (BOU-98) — never
+  perform the action;
+. record the decision (and, for mutations, the action) via the audit log.
+
+The auditable *override* path (override-with-friction, not a straitjacket) is
+specified in BOU-98.
+
+== Consequences
+
+=== Positive
+
+* The dangerous surface is off by default and off where it matters; the
+  decision is one pure, unit-tested function.
+* Fail-closed defaults mean a forgotten `BND_ENV` degrades to read-only, not to
+  full execute.
+* Audit gives incident response a reconstructable trail.
+
+=== Negative / trade-offs
+
+* Local dev with no `BND_ENV` is read-only until configured — a minor friction,
+  chosen deliberately over an unsafe default.
+* `MCP_CAPABILITY_MODE=full` can re-enable execute anywhere (including CI). This
+  is intentional (explicit, audited) but is a foot-gun; it is logged on every
+  server start.
+* The gate trusts its environment inputs. It is one layer; it does not replace
+  running the server with least privilege.
+
+=== Follow-ups
+
+* BOU-98 — structured guardrail error payload + auditable override.
+* BOU-102 — Tier 2 tools must consume this gate and the read-only DB role.
+* Revisit `supported-protocol-versions` on each MCP spec revision.

@@ -9,10 +9,11 @@
   {:name "boundary-mcp" :version "0.1.0"})
 
 (defn- initialize-result
-  "MCP `initialize` handshake result: advertise protocol version, capabilities
-   (tools + resources, both with empty option maps), and server identity."
-  []
-  {:protocolVersion proto/mcp-protocol-version
+  "MCP `initialize` handshake result: negotiate the protocol version against
+   the client's request, advertise capabilities (tools + resources, both with
+   empty option maps), and report server identity."
+  [params]
+  {:protocolVersion (proto/negotiate-version (:protocolVersion params))
    :capabilities    {:tools     {}
                      :resources {}}
    :serverInfo      server-info})
@@ -21,9 +22,9 @@
   "Dispatch a parsed JSON-RPC message against `registry`. Returns a response
    map for requests; nil for notifications and unknown notifications."
   [registry msg]
-  (let [{:keys [id method]} msg]
+  (let [{:keys [id method params]} msg]
     (case method
-      "initialize"                 (proto/success id (initialize-result))
+      "initialize"                 (proto/success id (initialize-result params))
       "ping"                       (proto/success id {})
       "tools/list"                 (proto/success id (registry/list-tools registry))
       "resources/list"             (proto/success id (registry/list-resources registry))

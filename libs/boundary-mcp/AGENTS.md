@@ -34,14 +34,17 @@ printf '%s\n' \
 src/boundary/mcp/
 ├── core/
 │   ├── protocol.clj   # pure JSON-RPC 2.0 + MCP message builders, error codes,
-│   │                  #   pinned spec version (2025-06-18)
+│   │                  #   supported spec versions + negotiation
 │   ├── registry.clj   # tool/resource registry as data (+ list/register fns)
+│   ├── security.clj   # pure capability/context gating (tiers, modes, authorize)
 │   └── handlers.clj   # pure dispatch: initialize, ping, tools/list, resources/list
-├── ports.clj          # Transport protocol (stdio now; HTTP/SSE later)
+├── ports.clj          # Transport + AuditLog protocols
 └── shell/
     ├── codec.clj      # cheshire JSON <-> data (kept out of core)
+    ├── context.clj    # read env -> security context (I/O)
+    ├── audit.clj      # AuditLog sinks: logging (stderr JSON) + in-memory
     ├── stdio.clj      # newline-delimited stdin/stdout loop; logs to stderr
-    └── server.clj     # -main: boots serve loop with empty registry
+    └── server.clj     # -main: resolve context, audit start, boot serve loop
 ```
 
 **Core is pure** — no JSON, no I/O. The shell owns cheshire and stdin/stdout.
@@ -59,8 +62,32 @@ never corrupts the message stream.
 - Adding a transport: implement `boundary.mcp.ports/Transport`; the `serve` loop
   is transport-agnostic.
 
+## Security — capability/context gating (ADR-031)
+
+Threat model: an agent may be pointed at a live REPL with a production DB.
+Every tool declares a **capability tier** — `:read` (Tier 0), `:generate`
+(Tier 1, reversible writes), `:execute` (Tier 2, RCE surface). The active
+**context** grants a ceiling derived from the environment:
+
+| Mode | Max tier | Set by |
+|------|----------|--------|
+| `:full`       | `:execute`  | local dev (`BND_ENV=dev`/`test`) |
+| `:no-execute` | `:generate` | `BND_ENV=prod` |
+| `:read-only`  | `:read`     | CI (`CI` truthy), or no env signal (fail-closed) |
+| `:disabled`   | none        | `MCP_CAPABILITY_MODE=disabled` |
+
+Resolution precedence: **`MCP_CAPABILITY_MODE` override > `CI` > `BND_ENV` >
+fail-closed `:read-only`**. The decision is pure (`core/security/resolve-context`,
+`authorize`); the shell reads env (`shell/context`) and audits (`shell/audit`,
+stderr JSON — never stdout).
+
+**Tool authors (BOU-99/100/101/102):** before any work, call
+`security/authorize` with the context + `{:name :capability}`; on deny, return
+the guardrail error (BOU-98) and do nothing; record the decision via the audit
+log. The auditable override path is BOU-98.
+
 ## Adding tools / resources (BOU-99 / BOU-100)
 
 Register definitions into the registry data and add a dispatch case (or a
-`tools/call` / `resources/read` handler) in `core/handlers.clj`. The stdio
-transport stays unchanged.
+`tools/call` / `resources/read` handler) in `core/handlers.clj`. Gate it per
+the Security section above. The stdio transport stays unchanged.
