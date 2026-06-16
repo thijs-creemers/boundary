@@ -82,9 +82,33 @@ fail-closed `:read-only`**. The decision is pure (`core/security/resolve-context
 stderr JSON — never stdout).
 
 **Tool authors (BOU-99/100/101/102):** before any work, call
-`security/authorize` with the context + `{:name :capability}`; on deny, return
-the guardrail error (BOU-98) and do nothing; record the decision via the audit
-log. The auditable override path is BOU-98.
+`security/authorize` with the context + `{:name :capability}`; on deny, build
+the guardrail error and do nothing (see below); record the decision via the
+audit log.
+
+## Guardrail error payload (ADR-032)
+
+"Guardrail, not straitjacket." Every enforcing tool returns one structured
+payload — the **rule** that fired (a BND code), the **principle** behind it, a
+suggested **fix**, and (when overridable) the audited bypass:
+
+```clojure
+{:code "BND-803" :rule "Capability Tier Exceeded"
+ :principle "...exceeds the ceiling..." :fix "Run in local dev, ..."
+ :overridable? false :details {:tool "eval" :capability :execute :mode :no-execute}}
+```
+
+- BND text comes from the shared `devtools` catalog (`BND-8xx` = MCP guardrails),
+  the single source of truth. `core/guardrail` is pure; `shell/guardrail` does
+  the catalog lookup (I/O) and `boundary/devtools` is a **shell-only** dep.
+- Map a `security/authorize` denial → payload: `shell/guardrail/payload-for-denial`
+  (or `error-for-denial` for the JSON-RPC error, app code `:forbidden` `-32001`).
+- **Hard vs soft:** security/capability denials (BND-801..805) are *not*
+  per-call overridable — the audited override is changing the env/context
+  (`MCP_CAPABILITY_MODE`). Codegen guardrails (BND-806/807, Tier 1) *are*: the
+  caller passes `{:allow true}` (`guardrail/override-requested?`) and the tool
+  records a `:guardrail-override` audit event (`guardrail/override-event`)
+  before proceeding.
 
 ## Adding tools / resources (BOU-99 / BOU-100)
 

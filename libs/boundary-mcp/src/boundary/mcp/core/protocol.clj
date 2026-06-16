@@ -32,13 +32,17 @@
     requested
     mcp-protocol-version))
 
-;; Standard JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification).
+;; Standard JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification),
+;; plus application-defined codes in the reserved server range (-32000..-32099).
 (def error-codes
   {:parse-error      -32700
    :invalid-request  -32600
    :method-not-found -32601
    :invalid-params   -32602
-   :internal-error   -32603})
+   :internal-error   -32603
+   ;; A guardrail/capability denial. The structured guardrail payload rides in
+   ;; the error's :data (see boundary.mcp.core.guardrail).
+   :forbidden        -32001})
 
 (defn request?
   "A JSON-RPC request expects a response (carries an :id); a notification does

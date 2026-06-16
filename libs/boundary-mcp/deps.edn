@@ -8,7 +8,10 @@
         ch.qos.logback/logback-classic {:mvn/version "1.5.34"}
         ;; Reused by core (report formatting / context) once Tier 0 tools land (BOU-100).
         ;; Declared now so the dependency seam is established in the skeleton.
-        boundary/ai               {:local/root "../ai"}}
+        boundary/ai               {:local/root "../ai"}
+        ;; Shared BND error catalog (single source of truth) for guardrail
+        ;; payloads. Used only from shell/guardrail; core stays decoupled.
+        boundary/devtools         {:local/root "../devtools"}}
 
  :aliases
  {;; Launch the stdio MCP server (editor integration).
