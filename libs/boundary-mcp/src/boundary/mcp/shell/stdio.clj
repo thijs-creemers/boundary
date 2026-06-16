@@ -2,8 +2,7 @@
   "Newline-delimited JSON-RPC over stdin/stdout (MCP stdio transport).
    stdout carries protocol messages only; all logging goes to stderr so it
    never corrupts the message stream."
-  (:require [boundary.mcp.core.handlers :as handlers]
-            [boundary.mcp.core.protocol :as proto]
+  (:require [boundary.mcp.core.protocol :as proto]
             [boundary.mcp.ports :as ports]
             [boundary.mcp.shell.codec :as codec]
             [clojure.java.io :as io]
@@ -44,10 +43,11 @@
 
 (defn serve
   "Blocking receive → dispatch → respond loop. Reads messages from `t`,
-   dispatches each against `registry` via the pure core, and writes responses.
-   Returns when the peer closes the stream (EOF). Malformed input yields a
-   JSON-RPC parse error and the loop continues."
-  [t registry]
+   dispatches each with `handle-fn` (a 1-arg fn of the parsed message returning
+   a response map or nil), and writes responses. Returns when the peer closes
+   the stream (EOF). Malformed input yields a JSON-RPC parse error and the loop
+   continues."
+  [t handle-fn]
   (log/info "boundary-mcp stdio server ready")
   (loop []
     (let [msg (try
@@ -64,7 +64,7 @@
         :else
         (do
           (try
-            (when-let [response (handlers/handle registry msg)]
+            (when-let [response (handle-fn msg)]
               (ports/send! t response))
             (catch Exception e
               (log/error e "Error handling MCP message")

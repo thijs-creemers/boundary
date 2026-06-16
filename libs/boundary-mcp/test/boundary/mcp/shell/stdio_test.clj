@@ -1,5 +1,6 @@
 (ns boundary.mcp.shell.stdio-test
-  (:require [boundary.mcp.core.registry :as registry]
+  (:require [boundary.mcp.core.handlers :as handlers]
+            [boundary.mcp.core.registry :as registry]
             [boundary.mcp.shell.codec :as codec]
             [boundary.mcp.shell.stdio :as stdio]
             [clojure.string :as str]
@@ -13,7 +14,7 @@
   (let [in  (StringReader. (str (str/join "\n" lines) "\n"))
         out (StringWriter.)
         t   (stdio/transport in out)]
-    (stdio/serve t registry/empty-registry)
+    (stdio/serve t #(handlers/handle registry/empty-registry %))
     (->> (str/split-lines (str out))
          (remove str/blank?)
          (mapv codec/decode))))

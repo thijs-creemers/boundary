@@ -37,12 +37,17 @@ src/boundary/mcp/
 │   │                  #   supported spec versions + negotiation
 │   ├── registry.clj   # tool/resource registry as data (+ list/register fns)
 │   ├── security.clj   # pure capability/context gating (tiers, modes, authorize)
+│   ├── guardrail.clj  # pure guardrail error payloads (BOU-98)
+│   ├── resources.clj  # pure reflective-resource catalog + producers (BOU-99)
 │   └── handlers.clj   # pure dispatch: initialize, ping, tools/list, resources/list
-├── ports.clj          # Transport + AuditLog protocols
+├── ports.clj          # Transport + AuditLog + SystemSource protocols
 └── shell/
     ├── codec.clj      # cheshire JSON <-> data (kept out of core)
     ├── context.clj    # read env -> security context (I/O)
     ├── audit.clj      # AuditLog sinks: logging (stderr JSON) + in-memory
+    ├── guardrail.clj  # guardrail payloads from the devtools BND catalog (I/O)
+    ├── system_source.clj # SystemSource adapters: in-process (now), nREPL (later)
+    ├── dispatch.clj   # shell dispatch: resources/read (gate+snapshot+encode)
     ├── stdio.clj      # newline-delimited stdin/stdout loop; logs to stderr
     └── server.clj     # -main: resolve context, audit start, boot serve loop
 ```
@@ -109,6 +114,30 @@ suggested **fix**, and (when overridable) the audited bypass:
   caller passes `{:allow true}` (`guardrail/override-requested?`) and the tool
   records a `:guardrail-override` audit event (`guardrail/override-event`)
   before proceeding.
+
+## Reflective resources (ADR-033)
+
+Resources reflect the **running project**, never hardcoded — the answer to
+version skew. Producers (`core/resources`) are pure functions of a project
+**snapshot**; a `SystemSource` port supplies it (hybrid: in-process file
+reflection now; nREPL bridge later for live-system views).
+
+| URI | Source | Status |
+|-----|--------|--------|
+| `boundary://conventions`     | `resources/agents/knowledge.edn` (FC/IS + naming) | concrete |
+| `boundary://module-graph`    | `libs/*/deps.edn` + `ports.clj` presence | concrete |
+| `boundary://kondo-rules`     | `.clj-kondo/config.edn` | concrete |
+| `boundary://schema-registry` | live Malli registry | `:unavailable` until nREPL bridge |
+| `boundary://routes`          | live reitit router | `:unavailable` until nREPL bridge |
+| `boundary://workflows`       | workflow registry | `:unavailable` until nREPL bridge |
+| `boundary://lib/{name}`      | installed lib API surface | `:unavailable` until nREPL bridge |
+
+- `resources/read` is gated (`security/authorize` `:read`) + audited in
+  `shell/dispatch`; denial returns the guardrail payload. Unknown uri →
+  `-32602`. Content is JSON. Live views the snapshot can't fill return
+  `{:status :unavailable :note ...}` (honest, not silent-empty).
+- The in-process adapter reflects the **current working directory** — run from a
+  Boundary project root.
 
 ## Adding tools / resources (BOU-99 / BOU-100)
 

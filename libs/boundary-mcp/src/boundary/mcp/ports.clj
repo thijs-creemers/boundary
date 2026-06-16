@@ -19,3 +19,13 @@
    that stream is reserved for the protocol (see ADR-031)."
   (record! [this event]
     "Persist a single audit event map. Returns the event."))
+
+(defprotocol SystemSource
+  "Supplies a snapshot of the running project's state for reflective resources
+   (BOU-99). The in-process adapter reads the live Integrant system; an nREPL
+   adapter (later) evaluates introspection forms against the project's REPL.
+   The core resource producers are pure functions of this snapshot (ADR-033)."
+  (snapshot [this]
+    "Return the current project snapshot map (keys: :conventions, :module-graph,
+     :kondo-rules, :schema-registry, :routes, :workflows, :libs). Missing keys
+     mean 'not reflected in this context'."))
