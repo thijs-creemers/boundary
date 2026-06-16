@@ -16,6 +16,16 @@
         (is (= {:tools {} :resources {}} (:capabilities result)))
         (is (= "boundary-mcp" (get-in result [:serverInfo :name])))))))
 
+(deftest ^:unit initialize-negotiates-client-version
+  (testing "supported client version is echoed back"
+    (let [resp (handlers/handle reg {:jsonrpc "2.0" :id 1 :method "initialize"
+                                     :params {:protocolVersion "2025-06-18"}})]
+      (is (= "2025-06-18" (get-in resp [:result :protocolVersion])))))
+  (testing "unsupported client version falls back to server preferred"
+    (let [resp (handlers/handle reg {:jsonrpc "2.0" :id 1 :method "initialize"
+                                     :params {:protocolVersion "1999-01-01"}})]
+      (is (= proto/mcp-protocol-version (get-in resp [:result :protocolVersion]))))))
+
 (deftest ^:unit ping-responds-empty
   (let [resp (handlers/handle reg {:jsonrpc "2.0" :id 7 :method "ping"})]
     (is (= 7 (:id resp)))

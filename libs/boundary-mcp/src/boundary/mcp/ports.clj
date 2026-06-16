@@ -12,3 +12,10 @@
      nil at end of stream.")
   (close! [this]
     "Release the transport's underlying resources."))
+
+(defprotocol AuditLog
+  "Records security-relevant events: authorization decisions, overrides,
+   mutations, and server lifecycle. Implementations MUST NOT write to stdout —
+   that stream is reserved for the protocol (see ADR-031)."
+  (record! [this event]
+    "Persist a single audit event map. Returns the event."))

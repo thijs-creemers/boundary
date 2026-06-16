@@ -9,9 +9,28 @@
 
 (def jsonrpc-version "2.0")
 
-;; Pinned MCP protocol revision. The supported-version negotiation policy is
-;; tracked separately in BOU-97; the skeleton pins a single revision.
-(def mcp-protocol-version "2025-06-18")
+;; Supported MCP protocol revisions, newest (preferred) first. Pinning the set
+;; is part of the security contract (ADR-031): the server only speaks versions
+;; it has been reviewed against.
+(def supported-protocol-versions ["2025-06-18"])
+
+;; Preferred revision — what the server proposes when the client's request is
+;; absent or unsupported.
+(def mcp-protocol-version (first supported-protocol-versions))
+
+(defn supported-protocol-version?
+  [version]
+  (boolean (some #{version} supported-protocol-versions)))
+
+(defn negotiate-version
+  "Resolve the protocol version for the handshake: echo the client's
+   `requested` version when supported, otherwise propose the server's
+   preferred. (An MCP client that cannot speak the proposed version disconnects
+   after `initialize`.)"
+  [requested]
+  (if (supported-protocol-version? requested)
+    requested
+    mcp-protocol-version))
 
 ;; Standard JSON-RPC 2.0 error codes (https://www.jsonrpc.org/specification).
 (def error-codes

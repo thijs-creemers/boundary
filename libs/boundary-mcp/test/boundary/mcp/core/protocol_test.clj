@@ -21,3 +21,12 @@
   (is (proto/request? {:id 1 :method "m"}))
   (is (proto/notification? {:method "m"}))
   (is (not (proto/notification? {:id 1 :method "m"}))))
+
+(deftest ^:unit version-negotiation
+  (testing "supported request is echoed"
+    (is (= "2025-06-18" (proto/negotiate-version "2025-06-18"))))
+  (testing "unsupported or absent request falls back to preferred"
+    (is (= proto/mcp-protocol-version (proto/negotiate-version "1999-01-01")))
+    (is (= proto/mcp-protocol-version (proto/negotiate-version nil))))
+  (testing "preferred is the newest supported"
+    (is (= (first proto/supported-protocol-versions) proto/mcp-protocol-version))))
