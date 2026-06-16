@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  stdio MCP transport: stdout is reserved for JSON-RPC protocol messages.
+  All logging MUST go to stderr, or it corrupts the message stream and breaks
+  the client. The console appender therefore targets System.err.
+-->
+<configuration>
+  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %-5level [%logger{20}] %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="STDERR" />
+  </root>
+</configuration>

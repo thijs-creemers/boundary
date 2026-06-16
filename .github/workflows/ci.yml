@@ -60,7 +60,8 @@ jobs:
             libs/ai/src \
             libs/ui-style/src \
             libs/i18n/src \
-            libs/push/src
+            libs/push/src \
+            libs/boundary-mcp/src
 
   # =============================================================================
   # Build shared UI assets
@@ -798,6 +799,35 @@ jobs:
         run: clojure -M:test :ai
 
   # =============================================================================
+  # Test boundary/boundary-mcp (standalone dev lib — not on the app classpath)
+  # =============================================================================
+  test-mcp:
+    name: Test boundary/boundary-mcp
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.6.1
+        with:
+          cli: 1.12.5.1654
+
+      - name: Cache dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+          restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Run tests
+        working-directory: libs/boundary-mcp
+        run: clojure -M:test
+
+  # =============================================================================
   # Test external adapters
   # =============================================================================
   test-external:
@@ -1013,7 +1043,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, check-ports, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai]
+    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, check-ports, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai, test-mcp]
 
     steps:
       - name: Summary
@@ -1043,6 +1073,7 @@ jobs:
           echo "  - boundary/geo"
           echo "  - boundary/ai"
           echo "  - boundary/i18n"
+          echo "  - boundary/boundary-mcp"
           echo "Gates passed:"
           echo "  - config-doctor (no config errors)"
           echo "  - i18n:scan (no unexternalised strings)"
