@@ -1,5 +1,6 @@
 (ns boundary.ai.core.prompts-phase6-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string]
             [boundary.ai.core.prompts :as prompts]))
 
 (deftest ^:unit review-messages-structure

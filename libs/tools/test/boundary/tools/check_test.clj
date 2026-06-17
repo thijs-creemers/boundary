@@ -1,5 +1,7 @@
 (ns boundary.tools.check-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [boundary.tools.check :as check]))
 
 ;; =============================================================================
@@ -12,6 +14,32 @@
       (is (keyword? (:id c)) (str "check missing :id"))
       (is (string? (:label c)) (str "check " (:id c) " missing :label"))
       (is (vector? (:cmd c)) (str "check " (:id c) " missing :cmd")))))
+
+;; =============================================================================
+;; Linting command — glob expansion (BOU-103)
+;; =============================================================================
+
+(deftest linting-cmd-contains-no-unexpanded-glob
+  (testing "no path contains a literal '*' wildcard"
+    (doseq [arg (check/linting-cmd)]
+      (is (not (str/includes? arg "*"))
+          (str "linting cmd arg still contains an unexpanded glob: " arg)))))
+
+(deftest linting-cmd-paths-all-exist
+  (testing "every lint path beyond the leading clojure invocation is an existing directory"
+    ;; cmd = ["clojure" "-M:clj-kondo" "--lint" <path>...]
+    (let [paths (drop 4 (check/linting-cmd))]
+      (doseq [p paths]
+        (is (.isDirectory (io/file p))
+            (str "lint path does not exist: " p))))))
+
+(deftest lib-lint-paths-enumerates-existing-lib-dirs
+  (testing "returns concrete libs/<lib>/src and libs/<lib>/test dirs when libs/ present"
+    (let [paths (check/lib-lint-paths)]
+      (when (.isDirectory (io/file "libs"))
+        (is (seq paths) "expected at least one lib source path")
+        (is (every? #(str/starts-with? % "libs/") paths))
+        (is (every? #(.isDirectory (io/file %)) paths))))))
 
 (deftest quick-check-ids-are-subset-of-all-checks
   (testing "all quick-check-ids exist in all-checks"

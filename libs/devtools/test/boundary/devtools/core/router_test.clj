@@ -23,10 +23,10 @@
 
 (deftest remove-route-test
   (testing "removes a route by method and path"
-    (let [updated (router/remove-route sample-routes :get "/api/users")]
-      (let [users-route (first (filter #(= "/api/users" (first %)) updated))]
-        (is (not (contains? (second users-route) :get)))
-        (is (contains? (second users-route) :post)))))
+    (let [updated (router/remove-route sample-routes :get "/api/users")
+          users-route (first (filter #(= "/api/users" (first %)) updated))]
+      (is (not (contains? (second users-route) :get)))
+      (is (contains? (second users-route) :post))))
   (testing "removes entire path entry when last method removed"
     (let [updated (router/remove-route sample-routes :get "/api/users/:id")]
       (is (not (some #(= "/api/users/:id" (first %)) updated))))))
@@ -34,18 +34,18 @@
 (deftest inject-tap-interceptor-test
   (testing "injects a tap interceptor into a handler's chain"
     (let [tap-fn (fn [ctx] (assoc ctx ::tapped true))
-          updated (router/inject-tap-interceptor sample-routes :create-user tap-fn)]
-      (let [users-route (first (filter #(= "/api/users" (first %)) updated))
-            post-data (get (second users-route) :post)
-            interceptors (:interceptors post-data)]
-        (is (some #(= :devtools/tap (:name %)) interceptors))))))
+          updated (router/inject-tap-interceptor sample-routes :create-user tap-fn)
+          users-route (first (filter #(= "/api/users" (first %)) updated))
+          post-data (get (second users-route) :post)
+          interceptors (:interceptors post-data)]
+      (is (some #(= :devtools/tap (:name %)) interceptors)))))
 
 (deftest remove-tap-interceptor-test
   (testing "removes the tap interceptor from a handler's chain"
     (let [tap-fn (fn [ctx] ctx)
           with-tap (router/inject-tap-interceptor sample-routes :create-user tap-fn)
-          without-tap (router/remove-tap-interceptor with-tap :create-user)]
-      (let [users-route (first (filter #(= "/api/users" (first %)) without-tap))
-            post-data (get (second users-route) :post)
-            interceptors (:interceptors post-data)]
-        (is (not (some #(= :devtools/tap (:name %)) interceptors)))))))
+          without-tap (router/remove-tap-interceptor with-tap :create-user)
+          users-route (first (filter #(= "/api/users" (first %)) without-tap))
+          post-data (get (second users-route) :post)
+          interceptors (:interceptors post-data)]
+      (is (not (some #(= :devtools/tap (:name %)) interceptors))))))

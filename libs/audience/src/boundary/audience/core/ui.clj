@@ -34,7 +34,7 @@
 
    Returns:
      Hiccup [:div.rounded-lg ...] element"
-  [{:keys [id label description filters member-count cached-at]}]
+  [{:keys [label description filters member-count cached-at]}]
   [:div.rounded-lg.border.border-gray-200.bg-white.p-4.shadow-sm
    [:div.flex.items-center.justify-between
     [:h3.text-lg.font-semibold label]

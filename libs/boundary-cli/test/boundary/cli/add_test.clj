@@ -1,5 +1,6 @@
 (ns boundary.cli.add-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [boundary.cli.add :as add]))

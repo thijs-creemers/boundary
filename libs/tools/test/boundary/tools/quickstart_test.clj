@@ -1,7 +1,6 @@
 (ns boundary.tools.quickstart-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.tools.quickstart :as quickstart]
-            [clojure.java.io :as io]))
+            [boundary.tools.quickstart :as quickstart]))
 
 ;; =============================================================================
 ;; Preset resolution

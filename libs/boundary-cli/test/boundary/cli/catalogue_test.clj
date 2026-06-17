@@ -1,5 +1,6 @@
 (ns boundary.cli.catalogue-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.edn]
             [clojure.java.io :as io]
             [boundary.cli.catalogue :as cat]))
 

@@ -71,13 +71,13 @@
     (let [files (prototype/scaffold!
                  test-module
                  {:fields    [[:title :string]]
-                  :endpoints []})]
-      (let [src-dir (str "libs/" test-module "/src/boundary/" test-module)
-            http-path (str src-dir "/shell/http.clj")]
-        (is (not (contains? (set files) http-path))
-            "shell/http.clj is not generated when no http endpoints requested")
-        (is (not (.exists (io/file http-path)))
-            "shell/http.clj file does not exist on disk")))))
+                  :endpoints []})
+          src-dir (str "libs/" test-module "/src/boundary/" test-module)
+          http-path (str src-dir "/shell/http.clj")]
+      (is (not (contains? (set files) http-path))
+          "shell/http.clj is not generated when no http endpoints requested")
+      (is (not (.exists (io/file http-path)))
+          "shell/http.clj file does not exist on disk"))))
 
 (deftest ^:integration scaffold!-cleans-up-after-fixture-test
   (testing "the test fixture removes the generated module directory"

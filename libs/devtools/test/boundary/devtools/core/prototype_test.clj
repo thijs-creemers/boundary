@@ -68,14 +68,14 @@
     (let [fields [[:nickname [:string {:optional true}]]
                   [:email [:email {:unique true}]]
                   [:name :string]]
-          columns (prototype/build-migration-spec "user" fields)]
-      (let [nick-col (first (filter #(= :nickname (:name %)) columns))
-            email-col (first (filter #(= :email (:name %)) columns))
-            name-col (first (filter #(= :name (:name %)) columns))]
-        (is (false? (:not-null nick-col)) "optional field should be nullable")
-        (is (true? (:unique email-col)) "unique field should have unique constraint")
-        (is (true? (:not-null name-col)) "required field should be NOT NULL")
-        (is (nil? (:unique name-col)) "non-unique field should not have unique key")))))
+          columns (prototype/build-migration-spec "user" fields)
+          nick-col (first (filter #(= :nickname (:name %)) columns))
+          email-col (first (filter #(= :email (:name %)) columns))
+          name-col (first (filter #(= :name (:name %)) columns))]
+      (is (false? (:not-null nick-col)) "optional field should be nullable")
+      (is (true? (:unique email-col)) "unique field should have unique constraint")
+      (is (true? (:not-null name-col)) "required field should be NOT NULL")
+      (is (nil? (:unique name-col)) "non-unique field should not have unique key"))))
 
 (deftest enum-form-test
   (testing "standard Malli enum [:enum :a :b :c] produces correct enum-values"
