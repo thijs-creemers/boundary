@@ -19,10 +19,13 @@
    {:id :test-push :title "Hello" :body "World" :channels #{:fcm}})
 
   (let [jobs-atom    (atom [])
-        mock-queue   (reify boundary.jobs.ports/IJobQueue
-                       (enqueue-job! [_ queue-name job]
-                         (swap! jobs-atom conj {:queue queue-name :job job})
-                         (:id job)))
+        ;; Partial mock — send-push! only enqueues, so the other IJobQueue
+        ;; methods are intentionally unimplemented.
+        mock-queue   #_{:clj-kondo/ignore [:missing-protocol-method]}
+        (reify boundary.jobs.ports/IJobQueue
+          (enqueue-job! [_ queue-name job]
+            (swap! jobs-atom conj {:queue queue-name :job job})
+            (:id job)))
         device-store (p/->DeviceTokenStore pt/*db*)
         analytics    (p/->PushAnalyticsStore pt/*db*)
         svc          (service/->PushService

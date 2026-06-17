@@ -1,5 +1,6 @@
 (ns boundary.devtools.core.config-editor-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string]
             [boundary.devtools.core.config-editor :as cfg-edit]
             [integrant.core :as ig]))
 

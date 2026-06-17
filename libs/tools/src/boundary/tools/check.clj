@@ -20,6 +20,31 @@
 ;; Check definitions
 ;; =============================================================================
 
+(defn lib-lint-paths
+  "Enumerate the existing libs/<lib>/src and libs/<lib>/test directories as
+   concrete paths. babashka.process/shell tokenizes but does not invoke a
+   system shell, so an unexpanded glob like \"libs/*/src\" would reach clj-kondo
+   verbatim and fail with \"file does not exist\". Expanding here guarantees only
+   real paths are passed. Returns src paths first, then test paths (sorted)."
+  []
+  (let [libs-dir (io/file "libs")]
+    (when (.isDirectory libs-dir)
+      (let [libs (->> (.listFiles libs-dir)
+                      (filter #(.isDirectory ^java.io.File %))
+                      (sort-by #(.getName ^java.io.File %)))
+            sub-dirs (fn [sub]
+                       (->> libs
+                            (map #(io/file % sub))
+                            (filter #(.isDirectory ^java.io.File %))
+                            (map #(.getPath ^java.io.File %))))]
+        (into (vec (sub-dirs "src")) (sub-dirs "test"))))))
+
+(defn linting-cmd
+  "Build the clj-kondo lint command with concrete, existing source paths."
+  []
+  (into ["clojure" "-M:clj-kondo" "--lint" "src" "test"]
+        (lib-lint-paths)))
+
 (def all-checks
   [{:id    :fcis
     :label "FC/IS boundaries"
@@ -38,9 +63,7 @@
     :cmd   ["bb" "check:agents"]}
    {:id    :linting
     :label "Linting"
-    :cmd   (into ["clojure" "-M:clj-kondo" "--lint" "src" "test"]
-                 (when (.exists (io/file "libs"))
-                   ["libs/*/src" "libs/*/test"]))}
+    :cmd   (linting-cmd)}
    {:id    :doctor
     :label "Config doctor"
     :cmd   ["bb" "doctor"]}])

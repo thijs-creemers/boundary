@@ -1,7 +1,6 @@
 (ns boundary.cli.list-modules
   (:require [boundary.cli.catalogue :as cat]
-            [cheshire.core :as json]
-            [clojure.string :as str]))
+            [cheshire.core :as json]))
 
 (defn- pad [s width]
   (let [s (str s)]

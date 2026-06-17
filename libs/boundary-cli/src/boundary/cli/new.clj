@@ -114,7 +114,7 @@
       (println (str "\n✓ Project created: " project-name "/"))
       (println "\nCore modules installed: core, observability, platform, user")
       (println "\nOptional modules available — add any with:\n")
-      (doseq [{:keys [name description add-command]} (take 6 (cat/optional-modules))]
+      (doseq [{:keys [description add-command]} (take 6 (cat/optional-modules))]
         (println (format "  %-25s %s" add-command description)))
       (println "  ... (boundary list modules for full list)")
       (println "\nAI-ready: CLAUDE.md, AGENTS.md and a Claude Code skill (.claude/skills/boundary/) are included.")
