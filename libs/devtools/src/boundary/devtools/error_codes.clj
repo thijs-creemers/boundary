@@ -12,7 +12,8 @@
      BND-4xx  Authentication/authorization errors
      BND-5xx  Interceptor pipeline errors
      BND-6xx  FC/IS boundary violations
-     BND-7xx  Tooling / build errors"
+     BND-7xx  Tooling / build errors
+     BND-8xx  MCP guardrails (boundary-mcp)"
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]))
 
@@ -60,4 +61,5 @@
     :interceptor "BND-5xx"
     :fcis        "BND-6xx"
     :tooling     "BND-7xx"
+    :mcp         "BND-8xx"
     "BND-???"))

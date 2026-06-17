@@ -1,0 +1,96 @@
+= ADR-033: Reflective MCP Resources — Ground Truth from the Running Project
+:status: Proposed
+:date: 2026-06-16
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+The MCP server should expose Boundary's project knowledge to agents as
+*resources*: conventions, the schema registry, the module graph, clj-kondo
+rules, workflows, routes, and per-library API surface. The hard requirement
+(BOU-99): these must reflect the *actual running project*, never hand-written
+docs — otherwise they drift, and stale guidance is worse than none. This is also
+the answer to version skew: `lib/{name}` must describe the API at the *installed*
+version, not what a doc once said.
+
+Two questions follow: *where does the truth live*, and *how does the server
+reach it*?
+
+* Schema registry, routes, and workflows are only fully known to a *running*
+  system (Malli registry populated, reitit router built, workflows registered).
+* Conventions, the module graph, and kondo rules can be read from project files.
+* The server itself (BOU-96) is an editor-launched stdio process — a fresh JVM
+  with no running system of its own.
+
+== Decision
+
+=== 1. Producers are pure functions of a project *snapshot*
+
+`boundary.mcp.core.resources` holds the resource catalog and a pure
+`read-resource(snapshot, uri)`. A *snapshot* is a plain map
+(`:conventions :module-graph :kondo-rules :schema-registry :routes :workflows
+:libs`). Producers never do I/O; they shape snapshot data into resource content.
+This keeps reflection logic testable and transport-agnostic, and it means
+"reflects reality" is guaranteed by *what fills the snapshot*, not by the
+producers.
+
+=== 2. A `SystemSource` port supplies the snapshot (hybrid: in-process now, nREPL later)
+
+`boundary.mcp.ports/SystemSource` has one method, `snapshot`. The shell provides
+adapters:
+
+* *In-process* (`shell/system-source`, this PR): reflects the project at the
+  current working directory — `resources/agents/knowledge.edn` →
+  conventions, `libs/*/deps.edn` + `ports.clj` presence → module graph,
+  `.clj-kondo/config.edn` → kondo rules. Re-read on every call so resources
+  always reflect current state.
+* *nREPL bridge* (later): connects to the project's running REPL and evaluates
+  introspection forms to populate the live-system views (schema registry,
+  routes, workflows, `lib/{name}` at the installed version). This is the
+  clojure-mcp pattern BOU-96 pointed at, and the proper home for the truths that
+  only a running system holds.
+
+A snapshot that lacks a key surfaces to the client as an explicit
+`{:status :unavailable :note ...}` rather than a silent empty result — honest
+about what this context can and cannot reflect.
+
+=== 3. `resources/read` is gated and audited
+
+Reading a resource is a Tier 0 (`:read`) capability. The shell dispatch
+(`shell/dispatch`) authorizes every read against the security context
+(ADR-031); a denial returns the structured guardrail payload (ADR-032), and both
+reads and denials are recorded via the audit log. `resources/read` lives in the
+shell (not the pure core handler) because it needs the snapshot (I/O), JSON
+serialization, and the guardrail lookup; pure protocol methods still delegate to
+`core/handlers`.
+
+== Consequences
+
+=== Positive
+
+* Resources can't drift: content is derived from the project, not authored.
+* The pure-producer + port split means adding the nREPL bridge is a pure shell
+  change — no new producer logic, no core changes.
+* `:unavailable` placeholders make the in-process/bridge capability gap explicit
+  to agents instead of masking it.
+
+=== Negative / trade-offs
+
+* In this PR only the file-derived resources (conventions, module-graph,
+  kondo-rules) are populated; schema-registry, routes, workflows, and
+  `lib/{name}` return `:unavailable` until the nREPL bridge lands. The wiring,
+  catalog, gating, and tests are complete, so that is purely additive.
+* The in-process adapter reflects the *current working directory*. Run from a
+  Boundary project root it reflects that project; run elsewhere it reports what
+  it can. The nREPL adapter removes this ambiguity by targeting a specific REPL.
+
+=== Follow-ups
+
+* nREPL `SystemSource` adapter populating schema-registry / routes / workflows /
+  `lib/{name}` from a running project.
+* `resources/templates/list` for the `boundary://lib/{name}` template (currently
+  advertised as a single templated catalog entry).

@@ -1,0 +1,113 @@
+= ADR-032: MCP Guardrail Error Payload — "Guardrail, Not Straitjacket"
+:status: Proposed
+:date: 2026-06-16
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+ADR-031 established *that* the MCP server denies dangerous operations
+(capability/context gating) and audits them. This ADR defines *how a denial is
+communicated back to the agent* so the agent can self-correct — and where a
+denial may be deliberately bypassed.
+
+The guiding principle: Boundary's enforcement is a *guardrail*, not a
+*straitjacket*. A straitjacket says "no" with no recourse. A guardrail says
+"no, *because* of this principle, *here* is the fix — and if you really mean it,
+*here* is the audited override." An agent that receives the rule, the principle,
+and a concrete fix can re-plan; a bare error code makes it guess.
+
+Boundary already has a single source of truth for this kind of guidance: the
+`devtools` *BND error catalog* (`BND-1xx`..`BND-7xx`), each entry carrying a
+`:title`, `:description` (the principle), and `:fix`. Reusing it keeps MCP
+errors consistent with REPL/HTTP errors and avoids a second catalog.
+
+== Decision
+
+=== 1. One structured payload from every enforcing tool
+
+[source,clojure]
+----
+{:code         "BND-803"                  ; BND error code (the rule that fired)
+ :rule         "Capability Tier Exceeded" ; catalog :title
+ :principle    "...exceeds the ceiling..." ; catalog :description — the *why*
+ :fix          "Run in local dev, ..."     ; catalog :fix — the *how*
+ :overridable? false
+ :reason       "Capability execute exceeds the read ceiling (mode read-only)"
+ :details      {:tool "eval" :capability :execute :mode :no-execute}
+ ;; present only when :overridable? is true:
+ :override     {:flag :allow :how "Re-invoke with :allow true ... (audited)."}}
+----
+
+Carried over JSON-RPC as an application error (`:forbidden`, `-32001`) with the
+payload in `:data`. Built purely in `boundary.mcp.core.guardrail`; the BND
+catalog lookup (I/O) is done in `boundary.mcp.shell.guardrail`, so the core
+stays decoupled from the catalog's resource loading.
+
+=== 2. New BND range: `BND-8xx` — MCP guardrails
+
+Added to the shared `devtools` catalog (single source of truth):
+
+[cols="1,3,1"]
+|===
+| Code | Guardrail | Overridable?
+
+| BND-801 | MCP capabilities disabled        | no
+| BND-802 | Unknown capability tier          | no
+| BND-803 | Capability tier exceeded         | no
+| BND-804 | Read-only context                | no
+| BND-805 | Tool not in allowlist            | no
+| BND-806 | FC/IS boundary guardrail (codegen) | *yes*
+| BND-807 | Convention guardrail (codegen)     | *yes*
+|===
+
+=== 3. Two classes of denial — hard vs soft
+
+* *Security/capability gates* (BND-801..805, from ADR-031): *hard*. They are
+  not bypassable per call. The audited "override" for these is changing the
+  environment/context itself (e.g. `MCP_CAPABILITY_MODE=full`), which ADR-031
+  already logs on server start. A per-call bypass would defeat the posture.
+* *Codegen guardrails* (BND-806..807, raised by Tier 1 generate tools in
+  BOU-101): *soft*. Generated code that breaks FC/IS or a naming convention is
+  a strong default-deny, but the developer may have a legitimate reason. These
+  are bypassable per call.
+
+=== 4. The auditable override (`--allow`)
+
+A soft guardrail's payload includes an `:override` descriptor. The caller bypasses
+by re-invoking the tool with the argument `:allow true`
+(`guardrail/override-requested?`). When that happens the tool MUST record a
+`:guardrail-override` audit event (`guardrail/override-event`) capturing the
+code, rule, principle, and tool *before* proceeding. Override with friction and
+a trail — never silently.
+
+== Consequences
+
+=== Positive
+
+* Agents get rule + principle + fix, so they self-correct instead of guessing;
+  MCP errors read the same as REPL/HTTP errors (one catalog).
+* The hard/soft split encodes the guardrail philosophy precisely: safety gates
+  can't be talked around, but FC/IS opinions can — with an audit trail.
+
+=== Negative / trade-offs
+
+* `boundary-mcp` now depends on `boundary/devtools` (a heavy transitive
+  footprint) to reach the catalog. Accepted because (a) the ticket mandates
+  reusing the catalog as the single source of truth and (b) BOU-99/100
+  introspection tooling will pull much of the framework anyway. Coupling is
+  confined to `shell/guardrail`; if footprint becomes a problem the catalog can
+  be extracted to a lower-level lib without touching the pure core.
+* BND-804 (read-only) is only produced by a context that is read-only-clamped
+  *above* the `:read` tier; in the standard read-only mode the tier ceiling
+  (BND-803) fires first. Both are accurate; the distinction is intentional.
+
+=== Follow-ups
+
+* BOU-101 — Tier 1 generate tools raise BND-806/807 and honor the `:allow`
+  override + audit event.
+* Revisit whether the BND catalog should live below `devtools` to slim the MCP
+  server's dependency footprint.

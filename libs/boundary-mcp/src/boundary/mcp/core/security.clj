@@ -117,28 +117,31 @@
   [context tool]
   (let [{tool-name :name capability :capability} tool
         {:keys [mode max-tier read-only? allowlist disabled?]} context
-        deny (fn [reason]
+        deny (fn [violation reason]
                {:allow?     false
+                :violation  violation
                 :tool       tool-name
                 :capability capability
                 :mode       mode
                 :reason     reason})]
     (cond
       disabled?
-      (deny "MCP server capabilities are disabled in this context")
+      (deny :disabled "MCP server capabilities are disabled in this context")
 
       (nil? (tier-rank capability))
-      (deny (str "Unknown capability tier: " (pr-str capability)))
+      (deny :unknown-capability (str "Unknown capability tier: " (pr-str capability)))
 
       (not (tier-allowed? max-tier capability))
-      (deny (format "Capability %s exceeds the %s ceiling (mode %s)"
+      (deny :tier-exceeded
+            (format "Capability %s exceeds the %s ceiling (mode %s)"
                     capability max-tier mode))
 
       (and read-only? (not= capability :read))
-      (deny (format "Context is read-only; tool %s requires %s" tool-name capability))
+      (deny :read-only
+            (format "Context is read-only; tool %s requires %s" tool-name capability))
 
       (and (set? allowlist) (not (contains? allowlist tool-name)))
-      (deny (format "Tool %s is not in the allowlist" tool-name))
+      (deny :allowlist (format "Tool %s is not in the allowlist" tool-name))
 
       :else
       {:allow? true :tool tool-name :capability capability :mode mode})))

@@ -30,6 +30,12 @@
       (is (pos? (count results)))
       (is (every? #(= :tooling (:category %)) results))))
 
+  (testing "returns all MCP guardrail errors"
+    (let [results (codes/by-category :mcp)]
+      (is (pos? (count results)))
+      (is (every? #(= :mcp (:category %)) results))
+      (is (some #(= "BND-803" (:code %)) results))))
+
   (testing "returns empty for unknown category"
     (is (empty? (codes/by-category :unknown)))))
 

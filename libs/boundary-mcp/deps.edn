@@ -6,9 +6,14 @@
         ;; SLF4J binding so server logs actually reach stderr (stdout is
         ;; reserved for the protocol stream). Without it logging is a no-op.
         ch.qos.logback/logback-classic {:mvn/version "1.5.34"}
-        ;; Reused by core (report formatting / context) once Tier 0 tools land (BOU-100).
-        ;; Declared now so the dependency seam is established in the skeleton.
-        boundary/ai               {:local/root "../ai"}}
+        ;; Reused by the Tier 0 tools (ai.core.context / ai.core.parsing) and the
+        ;; sql-preview IAIProvider seam.
+        boundary/ai               {:local/root "../ai"}
+        ;; Shared BND error catalog (single source of truth) for guardrail
+        ;; payloads + explain-error code lookup. Used only from shell.
+        boundary/devtools         {:local/root "../devtools"}
+        ;; Runtime clj-kondo for the `lint` tool (structured findings).
+        clj-kondo/clj-kondo       {:mvn/version "2026.04.15"}}
 
  :aliases
  {;; Launch the stdio MCP server (editor integration).
