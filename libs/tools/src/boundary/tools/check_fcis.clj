@@ -277,10 +277,12 @@
                   all-patterns)))
          (mapcat identity))))
 
-(defn- check-file
+(defn check-file
   "Check a single core/ .clj file for forbidden requires, imports,
    fully-qualified forbidden calls, and bare I/O calls in the body.
-   Returns a seq of violation maps, or empty seq if clean."
+   Returns a seq of violation maps {:file :ns :req :kind [:line]}, or empty seq
+   if clean. Public so callers (e.g. the boundary-mcp verify loop) can check an
+   arbitrary core file outside the monorepo's `core-source-paths` discovery."
   [file]
   (let [content  (slurp file)
         ns-form  (parsing/read-ns-form file)

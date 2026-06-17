@@ -43,11 +43,15 @@
             entity-kebab (:entity-kebab entity)
             dry-run? (:dry-run request false)
 
+            ;; Next migration number from resources/migrations (not a hardcoded
+            ;; "005"), so generated migrations don't collide across modules.
+            migration-number (get-next-migration-number)
+
             ;; Generate source file contents
             schema-content (generators/generate-schema-file ctx)
             ports-content (generators/generate-ports-file ctx)
             core-content (generators/generate-core-file ctx)
-            migration-content (generators/generate-migration-file ctx "005")
+            migration-content (generators/generate-migration-file ctx migration-number)
             service-content (generators/generate-service-file ctx)
             persistence-content (generators/generate-persistence-file ctx)
             http-content (generators/generate-http-file ctx)
@@ -84,7 +88,7 @@
                    {:path (format "src/boundary/%s/shell/web_handlers.clj" module-name)
                     :content web-handlers-content
                     :action :create}
-                   {:path (format "migrations/005_create_%s.sql" (:entity-plural-snake entity))
+                   {:path (format "migrations/%s_create_%s.sql" migration-number (:entity-plural-snake entity))
                     :content migration-content
                     :action :create}
                    {:path (format "test/boundary/%s/core/%s_test.clj" module-name entity-kebab)

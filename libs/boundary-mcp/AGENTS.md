@@ -39,7 +39,8 @@ src/boundary/mcp/
 │   ├── security.clj   # pure capability/context gating (tiers, modes, authorize)
 │   ├── guardrail.clj  # pure guardrail error payloads (BOU-98)
 │   ├── resources.clj  # pure reflective-resource catalog + producers (BOU-99)
-│   ├── tools.clj      # pure Tier 0 tool catalog + inputSchemas (BOU-100)
+│   ├── tools.clj      # pure tool catalog + inputSchemas (Tier 0 BOU-100, Tier 1 BOU-101)
+│   ├── verify.clj     # pure verify-loop report builder (BOU-101)
 │   └── handlers.clj   # pure dispatch: initialize, ping, tools/list, resources/list
 ├── ports.clj          # Transport + AuditLog + SystemSource protocols
 └── shell/
@@ -48,7 +49,9 @@ src/boundary/mcp/
     ├── audit.clj      # AuditLog sinks: logging (stderr JSON) + in-memory
     ├── guardrail.clj  # guardrail payloads from the devtools BND catalog (I/O)
     ├── system_source.clj # SystemSource adapters: in-process (now), nREPL (later)
-    ├── tools.clj      # Tier 0 tool executors (kondo, Malli, ai, reflection)
+    ├── tools.clj      # tool executors (Tier 0: kondo/Malli/ai/reflection; Tier 1: scaffold + verify)
+    ├── verify.clj     # verify-loop steps: kondo + FC/IS + tests over written files (BOU-101)
+    ├── test_runner.clj # default injected test-runner: shell out to the project's Kaocha (BOU-101)
     ├── dispatch.clj   # shell dispatch: resources/read + tools/call (gate+encode)
     ├── stdio.clj      # newline-delimited stdin/stdout loop; logs to stderr
     └── server.clj     # -main: resolve context, audit start, boot serve loop
@@ -160,7 +163,51 @@ error (`-32001`); unknown tool → `-32602`.
 `sql-preview` needs an AI provider (`deps :ai-provider`); when none is wired it
 returns `{:status :unavailable}`. The provider is config-driven (future).
 
-## Adding tools / resources (BOU-99 / BOU-100)
+## Tier 1 generate tools + closed verify loop (BOU-101, ADR-034)
+
+Tier 1 tools **write to disk** (capability `:generate`, reversible via git) and
+are the moat: every generate runs the **closed verify loop** so the agent gets
+structured failures and self-corrects without a human.
+
+```
+generate (scaffolder) → write → kondo → FC/IS → run affected tests → structured report
+```
+
+| Tool | Does | Reuses |
+|------|------|--------|
+| `scaffold-module` | scaffold a full FC/IS module from a structured spec | scaffolder `generate-module` |
+| `add-field` | migration + schema-update instructions for a new field | scaffolder `add-field` |
+| `gen-tests` | AI-generate a test ns for a source file (needs provider) | `boundary.ai` `generate-tests` |
+| `gen-migration` | SQL migration for an entity's table | scaffolder migration generator |
+
+- **In-process codegen.** `boundary/scaffolder` + `boundary/tools` are deps
+  (dev tooling, like the server). The scaffolder writes app-layout files
+  (`src/boundary/<module>/…`); the server runs **inside the target project**.
+- **Verify loop** (`shell/verify` → pure `core/verify`):
+  - **kondo** — in-process over the written `.clj` files.
+  - **FC/IS** — `boundary.tools.check-fcis/check-file` per written `core/` file →
+    **BND-806**. (Per-file, not the monorepo's `core-source-paths`, so it works
+    in any project layout.)
+  - **Malli** — the scaffolder validates the request before writing; its errors
+    flow through as generate `:errors`.
+  - **tests** — injected `:test-runner` (a fn of the module). The default
+    (`shell/test_runner`) shells out to the project's Kaocha (no stable
+    programmatic API; tests need the *project's* classpath, not the server's).
+    No runner → an honest `:tests :unavailable` step, never a silent pass.
+- **Report** (`core/verify/build-report`): `{:status :pass|:fail|:overridden
+  :issues [{:step :severity :file :line :code :message [:expected] [:actual]}]
+  :counts :steps}`.
+- **Hard vs soft.** kondo errors and failing tests are **hard** — never
+  overridable (the code does not compile / does not pass). FC/IS (BND-806) and
+  convention (BND-807) are **soft**: an audited `{:allow true}` turns a `:fail`
+  whose blocking issues are *all* soft into `:overridden`, recording a
+  `:guardrail-override` audit event. A mixed hard+soft run stays `:fail`.
+- **Capability gate first.** `:generate` is denied in `:read-only`/CI/`:disabled`
+  contexts (BND-803/804/801) at dispatch, before any codegen runs.
+- `scaffold-module` accepts `preview: true` (dry-run) → returns the file `:plan`
+  without writing or verifying.
+
+## Adding tools / resources (BOU-99 / BOU-100 / BOU-101)
 
 Register definitions into the registry data and add a dispatch case (or a
 `tools/call` / `resources/read` handler) in `core/handlers.clj`. Gate it per
