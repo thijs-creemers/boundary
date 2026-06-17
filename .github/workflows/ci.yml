@@ -34,6 +34,9 @@ jobs:
       - name: Clear clj-kondo cache
         run: rm -rf .clj-kondo/.cache/* 2>/dev/null || true
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:clj-kondo
+
       - name: Lint with clj-kondo
         run: |
           clojure -M:clj-kondo --lint \
@@ -115,6 +118,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:docs-lint
 
       - name: Run docs-lint
         run: clojure -M:docs-lint
@@ -307,6 +313,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -333,6 +342,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -361,6 +373,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -387,6 +402,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -415,6 +433,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -441,6 +462,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -469,6 +493,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -495,6 +522,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -523,6 +553,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -549,6 +582,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -577,6 +613,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -603,6 +642,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -631,6 +673,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -657,6 +702,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -685,6 +733,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -711,6 +762,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -739,6 +793,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -766,6 +823,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -792,6 +852,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -823,6 +886,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         working-directory: libs/boundary-mcp
         run: clojure -M:test
@@ -851,6 +917,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
@@ -882,6 +951,9 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
 
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
+
       - name: Run tests
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
@@ -911,6 +983,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test:db/h2
 
       - name: Run tests
         env:
@@ -969,6 +1044,9 @@ jobs:
             ~/.gitlibs
           key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
           restore-keys: ${{ runner.os }}-clojure-
+
+      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+        run: clojure -Sthreads 1 -P -M:test
 
       - name: Run tests
         env:
