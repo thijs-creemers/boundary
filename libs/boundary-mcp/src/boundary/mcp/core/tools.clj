@@ -12,7 +12,14 @@
    verify loop (generate → write → kondo → FC/IS → run affected tests →
    structured report) so the agent self-corrects. The `allow` flag requests an
    audited override of the *soft* guardrails (FC/IS BND-806, convention
-   BND-807); kondo errors and test failures are never overridable.")
+   BND-807); kondo errors and test failures are never overridable.
+
+   Tier 2 (BOU-102): :execute — the RCE surface, off by default (run-tests,
+   eval, run-migration, query-db). The security gate denies :execute in every
+   context except :full (local dev), so these refuse in prod/CI; the dispatch
+   audits every call, and each executor additionally audits its payload. The
+   real work is injected (test-runner / evaluator / migrator / db-query) so it
+   targets the project, not the server, and is stubbable in tests.")
 
 (def catalog
   [{:name        "explain-error"
@@ -112,7 +119,42 @@
                                                    :properties {"name" {:type "string"} "type" {:type "string"}}
                                                    :required   ["name" "type"]}}
                                "allow"    {:type "boolean" :description "Audited override of soft guardrails."}}
-                  :required   ["module" "entity" "fields"]}}])
+                  :required   ["module" "entity" "fields"]}}
+
+   ;; --- Tier 2 (:execute) — RCE surface, off by default --------------------
+   ;; Denied in every context except :full (local dev). Every invocation is
+   ;; audited (dispatch :tool-call + executor :execute payload).
+   {:name        "run-tests"
+    :description "Run the project's test suite for a module via the injected test-runner and return a structured pass/fail report. Tier 2 (:execute) — local dev only; denied in prod/CI."
+    :capability  :execute
+    :inputSchema {:type       "object"
+                  :properties {"module" {:type        "string"
+                                         :description "Kaocha suite / module id to run (e.g. \"user\")."}}
+                  :required   ["module"]}}
+   {:name        "eval"
+    :description "Evaluate Clojure code via the injected evaluator and return the value and captured stdout. RCE surface — Tier 2 (:execute), local dev only; denied in prod/CI."
+    :capability  :execute
+    :inputSchema {:type       "object"
+                  :properties {"code" {:type        "string"
+                                       :description "Clojure source to evaluate (one or more forms; the last value is returned)."}}
+                  :required   ["code"]}}
+   {:name        "run-migration"
+    :description "Run database migrations for the project via the injected migrator. Tier 2 (:execute), local dev only; denied in prod/CI."
+    :capability  :execute
+    :inputSchema {:type       "object"
+                  :properties {"direction" {:type        "string"
+                                            :enum        ["up" "status"]
+                                            :description "Migration action: \"up\" applies pending migrations, \"status\" reports state. Defaults to \"up\"."}}
+                  :required   []}}
+   {:name        "query-db"
+    :description "Run a single read-only SQL query (SELECT/WITH/EXPLAIN/SHOW/VALUES/TABLE/PRAGMA only) against the project's database via a read-only role, with an enforced row limit. Writes/DDL are refused. Tier 2 (:execute), local dev only; denied in prod/CI."
+    :capability  :execute
+    :inputSchema {:type       "object"
+                  :properties {"sql"   {:type        "string"
+                                        :description "A single read-only SQL statement."}
+                               "limit" {:type        "integer"
+                                        :description "Max rows to return (default 100, capped at 1000)."}}
+                  :required   ["sql"]}}])
 
 (def tool-names
   (into #{} (map :name) catalog))

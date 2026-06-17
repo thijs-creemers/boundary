@@ -39,7 +39,8 @@ src/boundary/mcp/
 │   ├── security.clj   # pure capability/context gating (tiers, modes, authorize)
 │   ├── guardrail.clj  # pure guardrail error payloads (BOU-98)
 │   ├── resources.clj  # pure reflective-resource catalog + producers (BOU-99)
-│   ├── tools.clj      # pure tool catalog + inputSchemas (Tier 0 BOU-100, Tier 1 BOU-101)
+│   ├── tools.clj      # pure tool catalog + inputSchemas (Tier 0 BOU-100, Tier 1 BOU-101, Tier 2 BOU-102)
+│   ├── execute.clj    # pure Tier 2 policy: read-only SQL classify, row-limit clamp, migration dirs (BOU-102)
 │   ├── verify.clj     # pure verify-loop report builder (BOU-101)
 │   └── handlers.clj   # pure dispatch: initialize, ping, tools/list, resources/list
 ├── ports.clj          # Transport + AuditLog + SystemSource protocols
@@ -49,9 +50,11 @@ src/boundary/mcp/
     ├── audit.clj      # AuditLog sinks: logging (stderr JSON) + in-memory
     ├── guardrail.clj  # guardrail payloads from the devtools BND catalog (I/O)
     ├── system_source.clj # SystemSource adapters: in-process (now), nREPL (later)
-    ├── tools.clj      # tool executors (Tier 0: kondo/Malli/ai/reflection; Tier 1: scaffold + verify)
+    ├── tools.clj      # tool executors (Tier 0: kondo/Malli/ai/reflection; Tier 1: scaffold + verify; Tier 2: execute)
     ├── verify.clj     # verify-loop steps: kondo + FC/IS + tests over written files (BOU-101)
     ├── test_runner.clj # default injected test-runner: shell out to the project's Kaocha (BOU-101)
+    ├── evaluator.clj  # default injected evaluator for the `eval` tool: in-process load-string (BOU-102)
+    ├── migrator.clj   # default injected migrator for `run-migration`: shell out to :migrate (BOU-102)
     ├── dispatch.clj   # shell dispatch: resources/read + tools/call (gate+encode)
     ├── stdio.clj      # newline-delimited stdin/stdout loop; logs to stderr
     └── server.clj     # -main: resolve context, audit start, boot serve loop
@@ -207,7 +210,41 @@ generate (scaffolder) → write → kondo → FC/IS → run affected tests → s
 - `scaffold-module` accepts `preview: true` (dry-run) → returns the file `:plan`
   without writing or verifying.
 
-## Adding tools / resources (BOU-99 / BOU-100 / BOU-101)
+## Tier 2 execute tools (BOU-102)
+
+The **RCE surface, off by default.** Capability `:execute` — the security gate
+denies it in every context except `:full` (local dev), so these refuse in prod
+(`:no-execute` → BND-803) and CI (`:read-only` → BND-803) **before** any work
+runs. Every call is audited twice: the generic `:tool-call` event in the
+dispatch, plus an `:execute` event from the executor carrying the payload (the
+code run, the SQL, the migration direction) so the trail names what executed.
+
+| Tool | Does | Injected dep (default) |
+|------|------|------------------------|
+| `run-tests`     | run a module's test suite, structured pass/fail report | `:test-runner` (shell out to Kaocha — shared with the Tier 1 verify loop) |
+| `eval`          | evaluate Clojure code, return value + captured stdout | `:evaluator` (`shell/evaluator` in-process `load-string`) |
+| `run-migration` | apply (`up`) or report (`status`) migrations | `:migrator` (`shell/migrator` shell out to `:migrate`) |
+| `query-db`      | run one read-only SQL query, row-limited | `:db-query` (**nil** — needs a read-only datasource, not yet wired → `:unavailable`) |
+
+- **Injected, not hardcoded** (like the Tier 1 test-runner): the real work
+  targets the *project*, not the server JVM, and is stubbable. A missing dep
+  yields an honest `{:status :unavailable :note ...}`, never a silent no-op.
+- **Pure policy in `core/execute`** (no I/O, no throwing — the shell enforces):
+  - `query-db` — `sql-violation` rejects anything that isn't a single read-only
+    statement (`:empty` | `:multiple-statements` | `:not-read-only`); `clamp-limit`
+    bounds rows to `[1, 1000]` (default 100). This is **defense-in-depth, not the
+    primary control** — the classifier is a keyword denylist, not a parser, and
+    can be fooled (e.g. `SELECT writing_fn()`). **Requirement:** when `:db-query`
+    is wired, the datasource MUST connect with a **read-only DB role**; the
+    classifier must never be the only guard.
+  - `run-migration` — `valid-direction?` allowlists `#{"up" "status"}` (no
+    destructive rollback over the MCP surface); an unknown direction throws a
+    `:validation-error`.
+- **`eval` default is in-process** in the server JVM (only the server's
+  classpath); an nREPL-bridge evaluator targeting the project's live REPL is the
+  planned swap (mirrors the SystemSource nREPL plan).
+
+## Adding tools / resources (BOU-99 / BOU-100 / BOU-101 / BOU-102)
 
 Register definitions into the registry data and add a dispatch case (or a
 `tools/call` / `resources/read` handler) in `core/handlers.clj`. Gate it per
