@@ -9,6 +9,7 @@
   (:require [boundary.mcp.core.registry :as registry]
             [boundary.mcp.core.resources :as resources]
             [boundary.mcp.core.security :as security]
+            [boundary.mcp.core.tools :as tools]
             [boundary.mcp.ports :as ports]
             [boundary.mcp.shell.audit :as audit]
             [boundary.mcp.shell.context :as context]
@@ -18,9 +19,11 @@
             [clojure.tools.logging :as log]))
 
 (defn- seed-registry
-  "Register the reflective resources (BOU-99) into the registry."
+  "Register the reflective resources (BOU-99) and Tier 0 tools (BOU-100)."
   []
-  (reduce registry/register-resource registry/empty-registry resources/catalog))
+  (as-> registry/empty-registry r
+    (reduce registry/register-resource r resources/catalog)
+    (reduce registry/register-tool r tools/catalog)))
 
 (defn -main
   "Start the blocking stdio server. Returns when stdin reaches EOF."
@@ -30,7 +33,10 @@
         deps      {:registry      (seed-registry)
                    :security      ctx
                    :audit         audit-log
-                   :system-source (system-source/in-process-system-source)}]
+                   :system-source (system-source/in-process-system-source)
+                   ;; sql-preview AI provider is config-driven; nil yields a
+                   ;; graceful :unavailable result until one is wired.
+                   :ai-provider   nil}]
     (doseq [w (:warnings ctx)]
       (log/warn w))
     (ports/record! audit-log {:event    :server-start

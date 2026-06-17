@@ -2,6 +2,7 @@
   (:require [boundary.mcp.core.registry :as registry]
             [boundary.mcp.core.resources :as resources]
             [boundary.mcp.core.security :as security]
+            [boundary.mcp.core.tools :as tools]
             [boundary.mcp.shell.audit :as audit]
             [boundary.mcp.shell.codec :as codec]
             [boundary.mcp.shell.dispatch :as dispatch]
@@ -14,10 +15,13 @@
 (defn- deps
   ([] (deps (security/resolve-context {"BND_ENV" "dev"})))
   ([ctx]
-   {:registry      (reduce registry/register-resource registry/empty-registry resources/catalog)
+   {:registry      (as-> registry/empty-registry r
+                     (reduce registry/register-resource r resources/catalog)
+                     (reduce registry/register-tool r tools/catalog))
     :security      ctx
     :audit         (audit/in-memory-audit-log)
-    :system-source (system-source/static-system-source snapshot)}))
+    :system-source (system-source/static-system-source snapshot)
+    :ai-provider   nil}))
 
 (deftest ^:unit resources-list-advertises-catalog
   (let [resp (dispatch/dispatch (deps) {:jsonrpc "2.0" :id 1 :method "resources/list"})]
@@ -53,3 +57,43 @@
 (deftest ^:unit dispatch-delegates-pure-methods-to-core
   (let [resp (dispatch/dispatch (deps) {:jsonrpc "2.0" :id 5 :method "ping"})]
     (is (= {} (:result resp)))))
+
+(deftest ^:unit tools-list-advertises-catalog
+  (let [resp (dispatch/dispatch (deps) {:jsonrpc "2.0" :id 1 :method "tools/list"})]
+    (is (= 5 (count (get-in resp [:result :tools]))))
+    (is (some #(= "validate-schema" (:name %)) (get-in resp [:result :tools])))))
+
+(deftest ^:unit tools-call-returns-tool-result
+  (let [d    (deps)
+        resp (dispatch/dispatch d {:jsonrpc "2.0" :id 2 :method "tools/call"
+                                   :params {:name "validate-schema"
+                                            :arguments {:schema "[:map [:name :string]]"
+                                                        :value {:name "Ada"}}}})
+        content (first (get-in resp [:result :content]))]
+    (is (false? (get-in resp [:result :isError])))
+    (is (= "text" (:type content)))
+    (is (= {:valid? true} (codec/decode (:text content))))
+    (testing "the call is audited"
+      (is (some #(= :tool-call (:event %)) (audit/events (:audit d)))))))
+
+(deftest ^:unit tools-call-unknown-tool-is-invalid-params
+  (let [resp (dispatch/dispatch (deps) {:jsonrpc "2.0" :id 3 :method "tools/call"
+                                        :params {:name "nope" :arguments {}}})]
+    (is (= -32602 (get-in resp [:error :code])))))
+
+(deftest ^:unit tools-call-denied-in-disabled-context-yields-guardrail
+  (let [d    (deps (security/resolve-context {"MCP_CAPABILITY_MODE" "disabled"}))
+        resp (dispatch/dispatch d {:jsonrpc "2.0" :id 4 :method "tools/call"
+                                   :params {:name "validate-schema" :arguments {}}})]
+    (is (= -32001 (get-in resp [:error :code])))
+    (is (= "BND-801" (get-in resp [:error :data :code])))
+    (is (some #(= :tool-call-denied (:event %)) (audit/events (:audit d))))))
+
+(deftest ^:unit tools-call-executor-error-is-iserror-result
+  (let [d    (deps)
+        resp (dispatch/dispatch d {:jsonrpc "2.0" :id 6 :method "tools/call"
+                                   :params {:name "validate-schema"
+                                            :arguments {:schema "this is not edn [[[" :value 1}}})]
+    (is (true? (get-in resp [:result :isError])))
+    (is (contains? (codec/decode (get-in resp [:result :content 0 :text])) :error))
+    (is (some #(= :tool-call-error (:event %)) (audit/events (:audit d))))))

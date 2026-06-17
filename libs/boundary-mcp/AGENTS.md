@@ -39,6 +39,7 @@ src/boundary/mcp/
 │   ├── security.clj   # pure capability/context gating (tiers, modes, authorize)
 │   ├── guardrail.clj  # pure guardrail error payloads (BOU-98)
 │   ├── resources.clj  # pure reflective-resource catalog + producers (BOU-99)
+│   ├── tools.clj      # pure Tier 0 tool catalog + inputSchemas (BOU-100)
 │   └── handlers.clj   # pure dispatch: initialize, ping, tools/list, resources/list
 ├── ports.clj          # Transport + AuditLog + SystemSource protocols
 └── shell/
@@ -47,7 +48,8 @@ src/boundary/mcp/
     ├── audit.clj      # AuditLog sinks: logging (stderr JSON) + in-memory
     ├── guardrail.clj  # guardrail payloads from the devtools BND catalog (I/O)
     ├── system_source.clj # SystemSource adapters: in-process (now), nREPL (later)
-    ├── dispatch.clj   # shell dispatch: resources/read (gate+snapshot+encode)
+    ├── tools.clj      # Tier 0 tool executors (kondo, Malli, ai, reflection)
+    ├── dispatch.clj   # shell dispatch: resources/read + tools/call (gate+encode)
     ├── stdio.clj      # newline-delimited stdin/stdout loop; logs to stderr
     └── server.clj     # -main: resolve context, audit start, boot serve loop
 ```
@@ -138,6 +140,25 @@ reflection now; nREPL bridge later for live-system views).
   `{:status :unavailable :note ...}` (honest, not silent-empty).
 - The in-process adapter reflects the **current working directory** — run from a
   Boundary project root.
+
+## Tier 0 tools (BOU-100)
+
+Zero-mutation read/analyze tools, callable over `tools/call`. Pure catalog +
+inputSchemas in `core/tools`; executors in `shell/tools`. Every tool is
+capability `:read` — `tools/call` authorizes, audits, and (on a `tools/call`
+failure) returns an `isError` result; capability denial returns the guardrail
+error (`-32001`); unknown tool → `-32602`.
+
+| Tool | Does | Reuses |
+|------|------|--------|
+| `explain-error` | summarise a stacktrace + enrich any `BND-xxx` code | `ai.core.context`, devtools `error-codes` |
+| `lint` | clj-kondo structured findings for paths | `clj-kondo.core` |
+| `validate-schema` | Malli validate + humanized errors | `malli` |
+| `describe-module` | module deps / ports / libs from the live snapshot | BOU-99 `SystemSource` |
+| `sql-preview` | NL → HoneySQL (generated, never executed) | `ai` IAIProvider, `ai.core.parsing` |
+
+`sql-preview` needs an AI provider (`deps :ai-provider`); when none is wired it
+returns `{:status :unavailable}`. The provider is config-driven (future).
 
 ## Adding tools / resources (BOU-99 / BOU-100)
 
