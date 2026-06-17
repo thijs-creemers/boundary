@@ -1,4 +1,9 @@
-(ns boundary.mcp.shell.server
+(ns ^:boundary/allow-direct boundary.mcp.shell.server
+  ;; Composition root: -main wires concrete adapters (audit, system-source, the
+  ;; scaffolder service) the way an Integrant config would. Constructing another
+  ;; module's adapter here is the canonical hexagonal exception, so this ns is
+  ;; exempt from check:ports' cross-module rule (it still calls the scaffolder
+  ;; only through boundary.scaffolder.ports thereafter).
   "Entry point. Resolves the security context from the environment, seeds the
    registry with the reflective resources, boots the stdio MCP server, and
    audits startup. Run with: clojure -M:run
@@ -16,6 +21,8 @@
             [boundary.mcp.shell.dispatch :as dispatch]
             [boundary.mcp.shell.stdio :as stdio]
             [boundary.mcp.shell.system-source :as system-source]
+            [boundary.mcp.shell.test-runner :as test-runner]
+            [boundary.scaffolder.shell.service :as scaffolder]
             [clojure.tools.logging :as log]))
 
 (defn- seed-registry
@@ -34,8 +41,13 @@
                    :security      ctx
                    :audit         audit-log
                    :system-source (system-source/in-process-system-source)
-                   ;; sql-preview AI provider is config-driven; nil yields a
-                   ;; graceful :unavailable result until one is wired.
+                   ;; Tier 1 generate tools (BOU-101): the scaffolder writes the
+                   ;; code; the test-runner runs the project's affected tests in
+                   ;; the closed verify loop.
+                   :scaffolder    (scaffolder/create-scaffolder-service)
+                   :test-runner   test-runner/default-test-runner
+                   ;; sql-preview / gen-tests AI provider is config-driven; nil
+                   ;; yields a graceful :unavailable result until one is wired.
                    :ai-provider   nil}]
     (doseq [w (:warnings ctx)]
       (log/warn w))

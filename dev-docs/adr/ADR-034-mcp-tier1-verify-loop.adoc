@@ -1,0 +1,103 @@
+= ADR-034: Tier 1 Generate Tools + Closed Verify Loop — the Moat
+:status: Proposed
+:date: 2026-06-17
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+== Context
+
+Tier 0 (BOU-100) gave agents read/analyze tools. Tier 1 (BOU-101) adds tools that
+*write code*: `scaffold-module`, `add-field`, `gen-tests`, `gen-migration`. These
+are capability `:generate` — they mutate the working tree (reversible via git),
+which a generic Clojure MCP + an editor agent can already do badly.
+
+The differentiator is not the generation; it is the *closed verify loop*. After
+writing, the tool runs the project's own gates and tests and returns a structured
+report so the agent self-corrects and re-invokes — converging to passing code
+without a human. Boundary's pure functional core makes the test step fast and
+infra-free, which is what makes this loop practical as a per-call contract.
+
+Two forces shaped the design:
+
+* The scaffolder writes *app-layout* files (`src/boundary/<module>/…`) and is a
+  monorepo dev lib. The MCP server runs *inside the target project*.
+* There is no stable programmatic Kaocha API, and affected tests must run in the
+  *project's* classpath (H2, fixtures, the module under test), not the MCP
+  server's fresh JVM.
+
+== Decision
+
+=== 1. In-process codegen, pure report, injected test step
+
+`boundary/scaffolder` and `boundary/tools` are server deps (both dev tooling, as
+is the server). Tools call the scaffolder service directly — deterministic, and
+the file plan comes back as data (`:dry-run` powers `preview`).
+
+The loop splits along the FC/IS boundary:
+
+* `boundary.mcp.shell.verify` runs the side-effecting steps over the written
+  files and hands raw per-step results to…
+* `boundary.mcp.core.verify/build-report`, a *pure* function that assembles the
+  single structured report (`:status`, flat `:issues` with file/line/BND
+  code/expected/actual, `:counts`, `:steps`).
+
+=== 2. The four steps
+
+* *kondo* — `clj-kondo.core/run!` in-process over the written `.clj` files.
+* *FC/IS* — `boundary.tools.check-fcis/check-file` per written `core/` file →
+  **BND-806**. Per-file (not the monorepo's `core-source-paths` discovery), so it
+  works regardless of project layout. `check-file` was made public for this.
+* *Malli* — the scaffolder validates the generate request before writing; its
+  failures arrive as generate `:errors` and are surfaced by the report. No
+  separate step.
+* *tests* — an injected `:test-runner` (a fn of the module). The default
+  (`shell/test_runner`) shells out to the project's Kaocha and parses the result,
+  always including the raw output tail. Injection keeps it swappable and lets unit
+  tests stub it. A missing runner yields an honest `:tests :unavailable` step —
+  never a silent pass.
+
+=== 3. Hard vs soft failures, and the audited override
+
+The report's verdict follows issue severity:
+
+* *Hard* — kondo errors and failing tests. The generated code does not compile or
+  does not pass; these are never overridable.
+* *Soft* — FC/IS (BND-806) and convention (BND-807) guardrails. "Guardrail, not
+  straitjacket" (ADR-032): an audited `{:allow true}` turns a `:fail` whose
+  blocking issues are *all* soft into `:overridden`, recording a
+  `:guardrail-override` audit event. A mixed hard+soft run stays `:fail`.
+
+The capability gate (ADR-031) runs first: `:generate` is denied in
+`:read-only`/CI/`:disabled` contexts (BND-803/804/801) before any codegen.
+
+== Consequences
+
+=== Positive
+
+* The agent gets machine-readable failures (file, line, BND code, expected/actual)
+  and the raw test tail — enough to fix and re-invoke unattended.
+* Pure report builder is exhaustively unit-testable without touching disk; the
+  shell steps are tested with temp files + a stubbed runner.
+* Reusing the scaffolder + existing checkers means the tools enforce the *same*
+  FC/IS rules as the repo's quality gates — no second source of truth.
+
+=== Negative / trade-offs
+
+* The test step shells out and parses textual Kaocha output (no stable API). The
+  structured-failure parse is best-effort; the raw tail is the always-correct
+  fallback. A future machine-readable reporter would harden this.
+* A freshly scaffolded, unintegrated module is not yet a Kaocha suite, so the
+  default runner reports `:tests :error/:unavailable` until it is wired. The loop
+  is honest about this rather than masking it.
+* The server now depends on the scaffolder + tools libs; acceptable since the MCP
+  server is itself dev-only and not wired into application deps.
+
+=== Follow-ups
+
+* Machine-readable test reporter (EDN/JUnit) for precise per-failure
+  expected/actual instead of text parsing.
+* Auto-derive the affected Kaocha suite for `gen-tests` so the generated test runs
+  without manual wiring.
