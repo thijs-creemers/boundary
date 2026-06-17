@@ -71,9 +71,10 @@
 
 (deftest ^:unit tools-list-advertises-catalog
   (let [resp (dispatch/dispatch (deps) {:jsonrpc "2.0" :id 1 :method "tools/list"})]
-    (is (= 9 (count (get-in resp [:result :tools]))))
+    (is (= 13 (count (get-in resp [:result :tools]))))
     (is (some #(= "validate-schema" (:name %)) (get-in resp [:result :tools])))
-    (is (some #(= "scaffold-module" (:name %)) (get-in resp [:result :tools])))))
+    (is (some #(= "scaffold-module" (:name %)) (get-in resp [:result :tools])))
+    (is (some #(= "query-db" (:name %)) (get-in resp [:result :tools])))))
 
 (deftest ^:unit tools-call-returns-tool-result
   (let [d    (deps)

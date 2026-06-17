@@ -13,6 +13,7 @@
             [boundary.ai.core.prompts :as prompts]
             [boundary.ai.ports :as ai]
             [boundary.devtools.error-codes :as codes]
+            [boundary.mcp.core.execute :as execute]
             [boundary.mcp.core.resources :as resources]
             [boundary.mcp.ports :as ports]
             [boundary.mcp.shell.verify :as verify]
@@ -241,6 +242,62 @@
     {:status :unavailable
      :note   "gen-tests requires an AI provider; none configured for this server."}))
 
+;; --- Tier 2 (:execute) — RCE surface, off by default ------------------------
+;; The dispatch gate denies :execute outside the :full (local-dev) context, so
+;; these never run in prod/CI. The real work is injected (so it targets the
+;; project, not the server, and is stubbable); a missing dep yields an honest
+;; :unavailable rather than a silent no-op. Beyond the generic :tool-call event
+;; the dispatch records, each executor audits its own payload (the code run, the
+;; SQL, the migration direction) so the audit trail names exactly what executed.
+
+(defn- record-execute!
+  "Audit the payload of a Tier 2 execution (in addition to the generic
+   :tool-call event the dispatch records)."
+  [deps tool detail]
+  (when-let [audit (:audit deps)]
+    (ports/record! audit (merge {:event :execute :tool tool} detail))))
+
+(defn- run-tests [{:keys [module]} deps]
+  (record-execute! deps "run-tests" {:module module})
+  (if-let [runner (:test-runner deps)]
+    (assoc (runner module) :module module)
+    {:status :unavailable
+     :note   "run-tests requires a test-runner; none configured for this server."}))
+
+(defn- eval-code [{:keys [code]} deps]
+  (record-execute! deps "eval" {:code code})
+  (if-let [evaluator (:evaluator deps)]
+    (evaluator code)
+    {:status :unavailable
+     :note   "eval requires an evaluator; none configured for this server."}))
+
+(defn- run-migration [{:keys [direction]} deps]
+  (let [dir (or direction "up")]
+    (when-not (execute/valid-direction? dir)
+      (throw (ex-info (str "Unsupported migration direction: " (pr-str dir))
+                      {:type    :validation-error
+                       :field   :direction
+                       :value   dir
+                       :allowed (vec (sort execute/migration-directions))})))
+    (record-execute! deps "run-migration" {:direction dir})
+    (if-let [migrator (:migrator deps)]
+      (assoc (migrator dir) :direction dir)
+      {:status :unavailable
+       :note   "run-migration requires a migrator; none configured for this server."})))
+
+(defn- query-db [{:keys [sql limit]} deps]
+  (record-execute! deps "query-db" {:sql sql :limit limit})
+  (when-let [violation (execute/sql-violation sql)]
+    (throw (ex-info (str "Refused query (" (name violation) "): query-db only runs a single read-only statement")
+                    {:type :validation-error :field :sql :violation violation})))
+  (let [n (execute/clamp-limit limit)]
+    (if-let [q (:db-query deps)]
+      (let [rows (vec (take n (q sql n)))]
+        {:status :ok :limit n :row-count (count rows) :rows rows})
+      {:status :unavailable
+       :limit  n
+       :note   "query-db requires a read-only datasource; none configured for this server."})))
+
 ;; --- registry ---------------------------------------------------------------
 
 (def ^:private executors
@@ -252,12 +309,16 @@
    "scaffold-module" scaffold-module
    "add-field"       add-field
    "gen-tests"       gen-tests
-   "gen-migration"   gen-migration})
+   "gen-migration"   gen-migration
+   "run-tests"       run-tests
+   "eval"            eval-code
+   "run-migration"   run-migration
+   "query-db"        query-db})
 
 (defn run
-  "Execute tool `name` with `args` (a map) and `deps`
-   ({:system-source :ai-provider}). Returns result data, or nil if `name` is
-   not a known tool."
+  "Execute tool `name` with `args` (a map) and `deps` ({:system-source
+   :ai-provider :scaffolder :test-runner :audit :evaluator :migrator
+   :db-query}). Returns result data, or nil if `name` is not a known tool."
   [deps name args]
   (when-let [f (get executors name)]
     (f args deps)))

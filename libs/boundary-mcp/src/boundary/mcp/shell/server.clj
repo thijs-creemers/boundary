@@ -19,6 +19,8 @@
             [boundary.mcp.shell.audit :as audit]
             [boundary.mcp.shell.context :as context]
             [boundary.mcp.shell.dispatch :as dispatch]
+            [boundary.mcp.shell.evaluator :as evaluator]
+            [boundary.mcp.shell.migrator :as migrator]
             [boundary.mcp.shell.stdio :as stdio]
             [boundary.mcp.shell.system-source :as system-source]
             [boundary.mcp.shell.test-runner :as test-runner]
@@ -46,6 +48,13 @@
                    ;; the closed verify loop.
                    :scaffolder    (scaffolder/create-scaffolder-service)
                    :test-runner   test-runner/default-test-runner
+                   ;; Tier 2 execute tools (BOU-102): all RCE-class, gated to the
+                   ;; :full context. The evaluator/migrator shell into (or run
+                   ;; in) the project; query-db needs a read-only datasource not
+                   ;; yet wired, so it returns :unavailable until one is.
+                   :evaluator     evaluator/default-evaluator
+                   :migrator      migrator/default-migrator
+                   :db-query      nil
                    ;; sql-preview / gen-tests AI provider is config-driven; nil
                    ;; yields a graceful :unavailable result until one is wired.
                    :ai-provider   nil}]
