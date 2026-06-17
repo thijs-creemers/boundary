@@ -69,7 +69,7 @@
   "Reading any reflective resource is a Tier 0 (:read) operation."
   :read)
 
-(defn- force-val
+(defn force-val
   "A snapshot view may be a `delay` (the in-process adapter builds views lazily
    so reading one resource never pays to build the others). Force it; plain
    values pass through unchanged."

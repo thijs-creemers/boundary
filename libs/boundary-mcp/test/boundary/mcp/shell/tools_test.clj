@@ -62,7 +62,10 @@
       (is (re-find #":users" (:honeysql r))))))
 
 (deftest ^:unit lint-returns-structured-findings
-  (let [f (java.io.File/createTempFile "mcp-lint" ".clj")]
+  ;; The file must live under the project root — lint confines agent-supplied
+  ;; paths to the cwd, so a system-temp path would be rejected.
+  (let [root (java.io.File. (System/getProperty "user.dir"))
+        f    (java.io.File/createTempFile "mcp-lint" ".clj" root)]
     (try
       (spit f "(ns t) (defn f [] (let [x 1] 2))")
       (let [r (tools/run (deps) "lint" {:paths [(.getAbsolutePath f)]})]
@@ -71,6 +74,14 @@
         ;; unused binding x is an expected finding
         (is (some #(re-find #"unused" (str (:message %))) (:findings r))))
       (finally (.delete f)))))
+
+(deftest ^:unit lint-rejects-paths-outside-project-root
+  (testing "absolute path outside the project root is rejected"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"escapes the project root"
+                          (tools/run (deps) "lint" {:paths ["/etc/hosts"]}))))
+  (testing "relative traversal escaping the root is rejected"
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"escapes the project root"
+                          (tools/run (deps) "lint" {:paths ["../../../../etc/hosts"]})))))
 
 (deftest ^:unit unknown-tool-is-nil
   (is (nil? (tools/run (deps) "nope" {}))))

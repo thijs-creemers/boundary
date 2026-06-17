@@ -7,13 +7,15 @@
             [boundary.ai.core.parsing :as parsing]
             [boundary.ai.ports :as ai]
             [boundary.devtools.error-codes :as codes]
+            [boundary.mcp.core.resources :as resources]
             [boundary.mcp.ports :as ports]
             [clj-kondo.core :as kondo]
             [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [malli.core :as m]
-            [malli.error :as me]))
-
-(defn- forced [v] (if (delay? v) (force v) v))
+            [malli.error :as me])
+  (:import (java.io File)))
 
 ;; --- explain-error ----------------------------------------------------------
 ;; Deterministic: summarise the stacktrace (ai.core.context) and, if the text
@@ -29,9 +31,31 @@
                    :fix       (:fix entry)))))
 
 ;; --- lint -------------------------------------------------------------------
+;; Paths are agent-supplied, so they are confined to the project root (the
+;; current working directory the in-process adapter reflects). Relative paths
+;; resolve against the root; anything that escapes it — via `..` or an absolute
+;; path elsewhere — is rejected before clj-kondo touches the filesystem.
+
+(defn- project-root ^File []
+  (.getCanonicalFile (io/file (System/getProperty "user.dir"))))
+
+(defn- confine-path
+  "Resolve `p` against `root` (absolute paths are honored as-is) and return its
+   canonical path, or throw if it escapes the root."
+  [^File root p]
+  (let [in (io/file (str p))
+        f  (.getCanonicalFile (if (.isAbsolute in) in (io/file root (str p))))
+        rp (.getPath root)]
+    (if (or (= (.getPath f) rp)
+            (str/starts-with? (.getPath f) (str rp File/separator)))
+      (.getPath f)
+      (throw (ex-info (str "Path escapes the project root: " (pr-str p))
+                      {:type :validation-error :path p})))))
 
 (defn- lint [{:keys [paths]} _deps]
-  (let [{:keys [findings summary]} (kondo/run! {:lint (vec paths)})]
+  (let [root  (project-root)
+        safe  (mapv #(confine-path root %) paths)
+        {:keys [findings summary]} (kondo/run! {:lint safe})]
     {:summary  summary
      :findings (mapv #(select-keys % [:filename :row :col :level :type :message])
                      findings)}))
@@ -48,7 +72,7 @@
 ;; --- describe-module --------------------------------------------------------
 
 (defn- describe-module [{:keys [module]} deps]
-  (let [mg    (forced (:module-graph (ports/snapshot (:system-source deps))))
+  (let [mg    (resources/force-val (:module-graph (ports/snapshot (:system-source deps))))
         entry (first (filter #(= module (:name %)) (:modules mg)))]
     (or entry
         {:status    :not-found
