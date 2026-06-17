@@ -232,8 +232,11 @@ code run, the SQL, the migration direction) so the trail names what executed.
 - **Pure policy in `core/execute`** (no I/O, no throwing — the shell enforces):
   - `query-db` — `sql-violation` rejects anything that isn't a single read-only
     statement (`:empty` | `:multiple-statements` | `:not-read-only`); `clamp-limit`
-    bounds rows to `[1, 1000]` (default 100). This is defense-in-depth on top of
-    the read-only DB *role* — the classifier is a keyword check, not a parser.
+    bounds rows to `[1, 1000]` (default 100). This is **defense-in-depth, not the
+    primary control** — the classifier is a keyword denylist, not a parser, and
+    can be fooled (e.g. `SELECT writing_fn()`). **Requirement:** when `:db-query`
+    is wired, the datasource MUST connect with a **read-only DB role**; the
+    classifier must never be the only guard.
   - `run-migration` — `valid-direction?` allowlists `#{"up" "status"}` (no
     destructive rollback over the MCP surface); an unknown direction throws a
     `:validation-error`.

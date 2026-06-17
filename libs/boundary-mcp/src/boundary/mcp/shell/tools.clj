@@ -250,17 +250,30 @@
 ;; the dispatch records, each executor audits its own payload (the code run, the
 ;; SQL, the migration direction) so the audit trail names exactly what executed.
 
+(def ^:private audit-payload-limit
+  "Cap on the length of a string value carried in an :execute audit event, so a
+   large eval blob or query can't bloat the audit stream."
+  2000)
+
+(defn- truncate-audit-val [v]
+  (if (and (string? v) (> (count v) audit-payload-limit))
+    (str (subs v 0 audit-payload-limit) " …[truncated]")
+    v))
+
 (defn- record-execute!
-  "Audit the payload of a Tier 2 execution (in addition to the generic
-   :tool-call event the dispatch records)."
+  "Audit the *attempt* of a Tier 2 execution (in addition to the generic
+   :tool-call event the dispatch records). Called before validation so a refused
+   call still names what was attempted; string payloads are length-capped."
   [deps tool detail]
   (when-let [audit (:audit deps)]
-    (ports/record! audit (merge {:event :execute :tool tool} detail))))
+    (ports/record! audit (merge {:event :execute :tool tool}
+                                (update-vals detail truncate-audit-val)))))
 
 (defn- run-tests [{:keys [module]} deps]
   (record-execute! deps "run-tests" {:module module})
   (if-let [runner (:test-runner deps)]
-    (assoc (runner module) :module module)
+    (-> (or (runner module) {:status :error :note "test-runner returned no result"})
+        (assoc :module module))
     {:status :unavailable
      :note   "run-tests requires a test-runner; none configured for this server."}))
 
@@ -273,19 +286,21 @@
 
 (defn- run-migration [{:keys [direction]} deps]
   (let [dir (or direction "up")]
+    ;; Audit the attempt first (consistent with query-db), then validate.
+    (record-execute! deps "run-migration" {:direction dir})
     (when-not (execute/valid-direction? dir)
       (throw (ex-info (str "Unsupported migration direction: " (pr-str dir))
                       {:type    :validation-error
                        :field   :direction
                        :value   dir
                        :allowed (vec (sort execute/migration-directions))})))
-    (record-execute! deps "run-migration" {:direction dir})
     (if-let [migrator (:migrator deps)]
       (assoc (migrator dir) :direction dir)
       {:status :unavailable
        :note   "run-migration requires a migrator; none configured for this server."})))
 
 (defn- query-db [{:keys [sql limit]} deps]
+  ;; Audit the attempt first, then validate, so a refused query is still named.
   (record-execute! deps "query-db" {:sql sql :limit limit})
   (when-let [violation (execute/sql-violation sql)]
     (throw (ex-info (str "Refused query (" (name violation) "): query-db only runs a single read-only statement")

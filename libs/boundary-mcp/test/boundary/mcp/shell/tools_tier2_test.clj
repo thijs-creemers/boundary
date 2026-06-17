@@ -65,9 +65,12 @@
   (let [r (tools/run (deps {:migrator (fn [dir] {:status :ok :ran dir})}) "run-migration" {:direction "status"})]
     (is (= "status" (:direction r)))))
 
-(deftest ^:unit run-migration-rejects-unknown-direction
-  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unsupported migration direction"
-                        (tools/run (deps {:migrator (fn [_] {:status :ok})}) "run-migration" {:direction "down"}))))
+(deftest ^:unit run-migration-rejects-unknown-direction-without-running-it
+  (let [called (atom false)
+        d      (deps {:migrator (fn [_] (reset! called true) {:status :ok})})]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unsupported migration direction"
+                          (tools/run d "run-migration" {:direction "down"})))
+    (is (false? @called) "an unknown direction is rejected before the migrator runs")))
 
 (deftest ^:unit run-migration-without-migrator-is-unavailable
   (is (= :unavailable (:status (tools/run (deps {}) "run-migration" {:direction "up"})))))
@@ -97,7 +100,10 @@
                             (tools/run d "query-db" {:sql "DELETE FROM users"}))))
     (testing "multiple statements are refused"
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Refused query"
-                            (tools/run d "query-db" {:sql "SELECT 1; DROP TABLE users"}))))))
+                            (tools/run d "query-db" {:sql "SELECT 1; DROP TABLE users"}))))
+    (testing "a data-modifying CTE is refused even though it leads with WITH"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Refused query"
+                            (tools/run d "query-db" {:sql "WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x"}))))))
 
 (deftest ^:unit query-db-without-datasource-is-unavailable
   (let [r (tools/run (deps {}) "query-db" {:sql "SELECT 1"})]

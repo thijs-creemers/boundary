@@ -27,7 +27,10 @@
     (is (= :not-read-only (execute/sql-violation "UPDATE users SET name = 'x'")))
     (is (= :not-read-only (execute/sql-violation "INSERT INTO users VALUES (1)")))
     (is (= :not-read-only (execute/sql-violation "DROP TABLE users")))
-    (is (= :not-read-only (execute/sql-violation "TRUNCATE users")))))
+    (is (= :not-read-only (execute/sql-violation "TRUNCATE users")))
+    (is (= :not-read-only
+           (execute/sql-violation "WITH x AS (DELETE FROM users RETURNING *) SELECT * FROM x"))
+        "a data-modifying CTE is caught despite leading with WITH")))
 
 (deftest ^:unit read-only-sql?-mirrors-violation
   (is (true? (execute/read-only-sql? "SELECT 1")))
