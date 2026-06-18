@@ -79,19 +79,25 @@ uses for `boundary/platform`, which publishes fine via `tools.build`'s
 coordinate in the generated pom). All four of mcp's sibling deps are already in
 `all-libs` and published, so nothing blocks publishing mcp.
 
-- **Add `libs/boundary-mcp/build.clj`** mirroring `libs/user/build.clj`:
-  `(def lib 'org.boundary-app/boundary-mcp)`, `clean`/`jar`/`install`/`deploy`
-  using `b/write-pom` from the deps.edn basis + `deps-deploy`. (boundary-mcp's
-  deps.edn already has the `:build` alias wired to `:ns-default build`; this adds
-  the missing `build.clj` it points at — confirm whether one exists.)
+- **`libs/boundary-mcp/build.clj` already exists** and already mirrors
+  `libs/user/build.clj` (coord `org.boundary-app/boundary-mcp`, version
+  `1.0.1-alpha-32`, `clean`/`jar`/`install`/`deploy` via `b/write-pom` +
+  `deps-deploy`); the `:build` alias is wired. This sub-step is **verify-only** —
+  do not recreate it. Confirm `clojure -T:build jar` emits a pom with maven
+  coords for the sibling deps.
 - **Add `"boundary-mcp"` to `all-libs`** in
-  `libs/tools/src/boundary/tools/deploy.clj`. Order it after its deps
-  (`ai`, `devtools`, `scaffolder`, `tools` all precede it) so a full
-  `bb deploy` sequence publishes dependencies first.
-- **Version sourcing for the template:** add a `boundary-mcp` version to
-  whatever catalogue/version source `new.clj` substitutes from (the same place
-  the other `{{*-version}}` tokens are filled), so `deps.edn.tmpl`'s `:mcp`
-  alias renders a concrete version matching the suite.
+  `libs/tools/src/boundary/tools/deploy.clj`. `devtools` is currently the **last**
+  entry; mcp's deps (`tools`, `scaffolder`, `ai`, `devtools`) must all precede it,
+  so **append `"boundary-mcp"` at the very end of the vector** (after `devtools`).
+- **Version sourcing for the template — mirror `boundary-tools-version`, NOT the
+  catalogue.** boundary-mcp is dev tooling, not an addable app module; it must
+  **not** go in `modules-catalogue.edn` (that would list it under
+  `boundary add`/`boundary list modules` and fail `catalogue/validate-catalogue!`
+  required-field checks). Instead, in `libs/boundary-cli/src/boundary/cli/new.clj`,
+  add a private const next to the existing one
+  (`(def ^:private boundary-mcp-version "1.0.1-alpha-32")`, new.clj:7) and a
+  `:boundary-mcp-version boundary-mcp-version` entry in the `subs` map (new.clj:56).
+  Bump it at release alongside `boundary-tools-version`.
 - No code change to the server itself; it is launched via `clojure -M:mcp`
   (Unit 2), inheriting the editor's cwd (the project root) — exactly what the
   reflective resources need.
@@ -215,8 +221,9 @@ independently of the CLI's cached clone. Nothing to do here.
 - **Release ordering:** boundary-mcp must publish *after* its deps
   (`ai`/`devtools`/`scaffolder`/`tools`) and a project's pinned
   `{{boundary-mcp-version}}` must exist on Clojars before `-M:mcp` will resolve.
-  Mitigation: order in `all-libs` (Unit 1); the template version is filled from
-  the same suite-version source as the other libs, so it tracks releases.
+  Mitigation: append-at-end ordering in `all-libs` (Unit 1); the
+  `boundary-mcp-version` const is release-bumped alongside `boundary-tools-version`
+  so the template pins a published version.
 - **cwd contract:** if an editor launched the server with cwd ≠ project root, the
   reflective resources return `:unavailable`. `.mcp.json` omits `cwd`, so the
   client uses the workspace root — correct. Documented in the template note.
