@@ -88,7 +88,11 @@ present and resolvable from there.
     -M -m boundary.mcp.shell.server
   ```
   Uses the real `clojure` CLI + JVM (the MCP server is JVM Clojure: clj-kondo,
-  scaffolder, etc.), not bb.
+  scaffolder, etc.), not bb. Uses direct `-M -m boundary.mcp.shell.server`
+  rather than boundary-mcp's `:run` alias deliberately: `-Sdeps` supplies the
+  dep, and the launch must not depend on an alias being present in whatever
+  `deps.edn` sits in the cwd (the project root). The arbitrary `boundary/mcp`
+  coordinate name is irrelevant — only the `:local/root` path matters.
 - cwd is inherited from the launching editor; the MCP client sets it to the
   workspace (project) root, which is exactly what the reflective resources need.
 
@@ -125,7 +129,13 @@ generation map in `libs/boundary-cli/src/boundary/cli/new.clj`:
   Quick gate only — not `check:ports` / `check:deps` (noisier on a fresh
   project; the full suite belongs in CI).
 - Confirm `gitignore.tmpl` ignores `.env` while leaving `.mcp.json`,
-  `.vscode/`, and `.githooks/` committed.
+  `.vscode/`, and `.githooks/` committed. (Current `gitignore.tmpl` ignores only
+  `.env`/`target/`/`.cpcache/` — no functional change needed, just confirmation.)
+- **Executable bit:** `.githooks/pre-commit` must be written with `+x`. The
+  current `new.clj` file writer uses plain `spit`, which does not set the
+  executable bit; without it `git config core.hooksPath` silently no-ops the
+  hook. The generator must `chmod +x` the rendered hook (or the bootstrap step
+  in Unit 3 must set it after writing).
 
 No change to `deps.edn.tmpl` — the MCP server is launched out-of-process, never
 added as an application dependency.
