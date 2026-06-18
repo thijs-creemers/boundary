@@ -1,5 +1,6 @@
 (ns boundary.cli.new
   (:require [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
             [clojure.string :as str]
             [boundary.cli.catalogue :as cat]))
 
@@ -95,11 +96,41 @@
       (write-file! dir target (render (read-template tmpl) subs)))
     (.setExecutable (io/file dir ".githooks/pre-commit") true false)))
 
+(defn- run-git
+  "Default git runner: shells out via clojure.java.shell. Returns the sh result map."
+  [dir & args]
+  (apply shell/sh (concat ["git" "-C" dir] args)))
+
+(defn git-bootstrap!
+  "Initialise a git repo in dir, point hooks at .githooks, and make an initial
+   commit. Every step is non-fatal: on any failure, collect a warning and keep
+   going. `run` is the git runner (injected for testing); defaults to run-git.
+   Returns {:ok? bool :warnings [str]}."
+  ([dir] (git-bootstrap! dir run-git))
+  ([dir run]
+   (let [steps [["init"]
+                ["config" "core.hooksPath" ".githooks"]
+                ["add" "-A"]
+                ["commit" "-m" "Initial commit (boundary new)"]]
+         warnings (reduce
+                   (fn [warns args]
+                     (let [{:keys [exit err] :as r}
+                           (try (apply run dir args)
+                                (catch Exception e {:exit 1 :err (.getMessage e)}))]
+                       (if (and (map? r) (zero? (or exit 1)))
+                         warns
+                         (conj warns (str "git " (str/join " " args) " failed: "
+                                          (or (not-empty err) "non-zero exit"))))))
+                   []
+                   steps)]
+     {:ok? (empty? warnings) :warnings warnings})))
+
 (defn -main [args]
   (let [[project-name & flags] args
-        force? (boolean (some #{"--force"} flags))]
+        force?     (boolean (some #{"--force"} flags))
+        skip-git?  (boolean (some #{"--skip-git"} flags))]
     (when-not project-name
-      (println "Usage: boundary new <project-name> [--force]")
+      (println "Usage: boundary new <project-name> [--force] [--skip-git]")
       (System/exit 1))
     (let [err (validate-name project-name)]
       (when err
@@ -119,6 +150,9 @@
         :ok nil)
       (println (str "Creating " project-name "/..."))
       (generate! dir project-name {})
+      (when-not skip-git?
+        (let [{:keys [warnings]} (git-bootstrap! dir)]
+          (doseq [w warnings] (println (str "  ⚠ " w)))))
       (println (str "\n✓ Project created: " project-name "/"))
       (println "\nCore modules installed: core, observability, platform, user")
       (println "\nOptional modules available — add any with:\n")

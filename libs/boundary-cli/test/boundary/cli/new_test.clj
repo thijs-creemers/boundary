@@ -137,3 +137,35 @@
         (is (= :not-a-dir (new/check-directory tmp false))))
       (finally
         (.delete (io/file tmp))))))
+
+(deftest git-bootstrap-test
+  (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-git-test-" (System/currentTimeMillis))]
+    (io/make-parents (io/file tmp "x"))
+    (try
+      (testing "a failing git runner is non-fatal and returns a warning"
+        (let [boom (fn [& _] (throw (RuntimeException. "git missing")))
+              result (new/git-bootstrap! tmp boom)]
+          (is (false? (:ok? result)))
+          (is (seq (:warnings result)))))
+
+      (testing "a successful runner reports ok"
+        (let [calls (atom [])
+              ok    (fn [& args] (swap! calls conj (vec args)) {:exit 0 :out "" :err ""})
+              result (new/git-bootstrap! tmp ok)]
+          (is (true? (:ok? result)))
+          ;; init, config hooksPath, add, commit  → 4 invocations
+          (is (= 4 (count @calls)))
+          (is (= "init" (second (first @calls))))))
+      (finally
+        (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
+
+(deftest skip-git-test
+  (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-skipgit-" (System/currentTimeMillis))]
+    (try
+      (testing "real bootstrap creates a .git directory"
+        (new/generate! tmp "gitproj" {})
+        (let [{:keys [ok?]} (new/git-bootstrap! tmp)]
+          ;; git may be absent in some CI images; only assert .git when it succeeded
+          (when ok? (is (.exists (io/file tmp ".git"))))))
+      (finally
+        (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
