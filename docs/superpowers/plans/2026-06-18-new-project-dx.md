@@ -139,10 +139,25 @@ In `libs/boundary-cli/resources/boundary/cli/templates/deps.edn.tmpl`, inside `:
 ```clojure
   ;; Boundary MCP server for editor agents (Claude Code / Cursor). Kept in an
   ;; alias — NOT in :deps — so the app runtime never pulls the MCP server.
-  ;; Launched by .mcp.json via `clojure -M:mcp`.
-  :mcp      {:extra-deps {org.boundary-app/boundary-mcp {:mvn/version "{{boundary-mcp-version}}"}}
+  ;; Launched by .mcp.json via `clojure -M:mcp`. Published Boundary poms omit
+  ;; their boundary deps (write-pom skips :local/root), and :extra-deps composes
+  ;; with :deps above (which already provides core/observability/platform/user/
+  ;; ui-style/external/payments), so this lists only mcp's remaining boundary
+  ;; closure: ai, devtools, scaffolder, tools, jobs.
+  :mcp      {:extra-deps {org.boundary-app/boundary-mcp        {:mvn/version "{{boundary-mcp-version}}"}
+                          org.boundary-app/boundary-ai         {:mvn/version "{{boundary-mcp-version}}"}
+                          org.boundary-app/boundary-devtools   {:mvn/version "{{boundary-mcp-version}}"}
+                          org.boundary-app/boundary-scaffolder {:mvn/version "{{boundary-mcp-version}}"}
+                          org.boundary-app/boundary-tools      {:mvn/version "{{boundary-mcp-version}}"}
+                          org.boundary-app/boundary-jobs       {:mvn/version "{{boundary-mcp-version}}"}}
              :main-opts  ["-m" "boundary.mcp.shell.server"]}
 ```
+
+NOTE (closure rationale, for the implementer): boundary-mcp → ai, devtools,
+scaffolder, tools. `devtools` → platform, core, ui-style, jobs, user, scaffolder.
+Everything except `ai, devtools, scaffolder, tools, jobs` is already in the
+project's default `:deps`. If you change this list, re-derive the closure from the
+relevant `deps.edn` files.
 
 - [ ] **Step 5: Commit**
 

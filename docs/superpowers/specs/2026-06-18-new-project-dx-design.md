@@ -47,11 +47,23 @@ Clojars** and launched from a dedicated `deps.edn` alias.
 
 - boundary-mcp is added to the publish pipeline as
   `org.boundary-app/boundary-mcp` (see Unit 1).
-- The project's `deps.edn` gains an **`:mcp` alias** (not a `:deps` entry):
+- The project's `deps.edn` gains an **`:mcp` alias** (not a `:deps` entry). It must
+  enumerate boundary-mcp's boundary closure that is NOT already in the project's
+  default `:deps`, because published Boundary poms omit their boundary deps (see
+  "Pom caveat" below). The default `:deps` already covers `core, observability,
+  platform, user, ui-style, external, payments`; the closure additions are
+  `ai, devtools, scaffolder, tools, jobs`:
   ```clojure
-  :mcp {:extra-deps {org.boundary-app/boundary-mcp {:mvn/version "<suite-version>"}}
+  :mcp {:extra-deps {org.boundary-app/boundary-mcp        {:mvn/version "<suite-version>"}
+                     org.boundary-app/boundary-ai         {:mvn/version "<suite-version>"}
+                     org.boundary-app/boundary-devtools   {:mvn/version "<suite-version>"}
+                     org.boundary-app/boundary-scaffolder {:mvn/version "<suite-version>"}
+                     org.boundary-app/boundary-tools      {:mvn/version "<suite-version>"}
+                     org.boundary-app/boundary-jobs       {:mvn/version "<suite-version>"}}
         :main-opts  ["-m" "boundary.mcp.shell.server"]}
   ```
+  `:extra-deps` composes with the project's `:deps`, so the libs already there
+  satisfy the rest of the closure. All additions share the suite version.
 - `.mcp.json` (committed, portable) runs `clojure -M:mcp` with cwd inherited
   from the editor (the project root).
 
@@ -62,6 +74,17 @@ the explicit `clojure -M:mcp` (i.e. the editor launching the server) resolves it
 The version is pinned in `deps.edn` alongside the other Boundary libs and fetched
 from Clojars into `~/.m2` exactly like them — no clone dependency, no
 machine-specific path.
+
+**Pom caveat (discovered during implementation):** `tools.build/write-pom`
+skips `:local/root` coordinates, so every published Boundary lib's pom omits its
+boundary dependencies. The framework already relies on each project's `deps.edn`
+listing all app libs explicitly; transitive boundary-dep resolution via poms does
+**not** work. Consequently the `:mcp` alias must enumerate mcp's boundary closure
+itself (above), and this list is brittle — it must be re-derived if mcp's or its
+deps' boundary dependencies change. A post-publish smoke test (run `clojure
+-M:mcp` against a published artifact and confirm the server boots) is the guard
+against drift. Fixing poms framework-wide was considered and rejected as
+out-of-scope.
 
 Trade-off accepted: boundary-mcp (an RCE-surface server, though env-gated to
 `:read-only` outside local dev) becomes a public Clojars artifact and joins the
