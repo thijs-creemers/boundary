@@ -225,13 +225,22 @@ In the `files` map (lines 73-86), add:
 
 - [ ] **Step 5: Make the hook executable after writing**
 
-`write-file!` uses `spit`, which does not set the executable bit; without it `git config core.hooksPath` silently no-ops the hook. After the `doseq` in `generate!` (after line 88), add:
+`write-file!` uses `spit`, which does not set the executable bit; without it `git config core.hooksPath` silently no-ops the hook. The current `generate!` tail is:
 
 ```clojure
+    (doseq [[target tmpl] files]
+      (write-file! dir target (render (read-template tmpl) subs)))))
+```
+
+Replace that tail with this exact form (note the `doseq` line drops ONE trailing paren — from `subs)))))` to `subs)))` — and the new `.setExecutable` line carries the final two parens that close `let` and `defn`):
+
+```clojure
+    (doseq [[target tmpl] files]
+      (write-file! dir target (render (read-template tmpl) subs)))
     (.setExecutable (io/file dir ".githooks/pre-commit") true false)))
 ```
 
-(The `false` second arg = not owner-only, so the bit is set for all — harmless and robust.) Ensure the closing parens match: the `let` body now ends with the `doseq` and the `.setExecutable` call.
+(The `false` second arg = not owner-only, so the executable bit is set for all — harmless and robust.) If the parens get tangled, run `clj-paren-repair libs/boundary-cli/src/boundary/cli/new.clj`.
 
 - [ ] **Step 6: Run the test to verify it passes**
 
