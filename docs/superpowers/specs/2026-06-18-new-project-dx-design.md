@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-18
 **Status:** Approved (design), pending implementation plan
-**Area:** `libs/boundary-cli` (project generator + CLI), `scripts/install.sh`, `libs/boundary-mcp` (launch path)
+**Area:** `libs/boundary-cli` (project generator + templates), `libs/boundary-mcp` (Clojars publish), `libs/tools/.../deploy.clj` (release pipeline)
 
 ## Goal
 
@@ -39,62 +39,62 @@ Rejected alternatives:
 
 ## MCP delivery decision
 
-boundary-mcp is **not** published to Clojars (it is dev tooling, like
-`libs/tools`) and a committed `.mcp.json` must not contain a machine-specific
-absolute path. Chosen mechanism: a **`boundary mcp` subcommand**.
+A new project must consume boundary-mcp the same way it consumes every other
+Boundary library: as a **Clojars artifact resolved through `deps.edn`**. A
+project must not reach into the install-time monorepo clone — that would couple
+the project to CLI install internals. boundary-mcp is therefore **published to
+Clojars** and launched from a dedicated `deps.edn` alias.
 
-- `.mcp.json` (committed, portable) runs `boundary mcp`.
-- `boundary mcp` resolves the cached-clone root and execs the JVM Clojure MCP
-  server out-of-process, inheriting the editor-provided cwd (the project root).
-- No Clojars publish; no app-level dependency on the MCP server (the monorepo
-  rule "applications never pull an MCP server transitively" is preserved — the
-  server is launched as a separate process by the `boundary` wrapper, not added
-  to the project's `deps.edn`).
+- boundary-mcp is added to the publish pipeline as
+  `org.boundary-app/boundary-mcp` (see Unit 1).
+- The project's `deps.edn` gains an **`:mcp` alias** (not a `:deps` entry):
+  ```clojure
+  :mcp {:extra-deps {org.boundary-app/boundary-mcp {:mvn/version "<suite-version>"}}
+        :main-opts  ["-m" "boundary.mcp.shell.server"]}
+  ```
+- `.mcp.json` (committed, portable) runs `clojure -M:mcp` with cwd inherited
+  from the editor (the project root).
 
-Trade-off accepted: the MCP version tracks the installed CLI (cached clone),
-not the project's declared boundary version. Acceptable now; a Clojars publish
-with per-project version pinning is the future option if that gap matters.
+Why an alias, not a `:deps` entry: the monorepo rule "applications never pull an
+MCP server transitively" is preserved. The MCP server is absent from the default
+classpath — `clojure -M:repl`, `-M:test`, and the app runtime never see it. Only
+the explicit `clojure -M:mcp` (i.e. the editor launching the server) resolves it.
+The version is pinned in `deps.edn` alongside the other Boundary libs and fetched
+from Clojars into `~/.m2` exactly like them — no clone dependency, no
+machine-specific path.
 
-## Install topology (context)
-
-`scripts/install.sh` clones the monorepo at the latest release tag to
-`$HOME/.boundary/releases/<tag>` (`BOUNDARY_CACHE`) and writes a wrapper at
-`$HOME/.babashka/bbin/bin/boundary`:
-
-```bash
-exec bb --classpath "$BOUNDARY_CACHE/libs/boundary-cli/src:$BOUNDARY_CACHE/libs/boundary-cli/resources" -m boundary.cli.main "$@"
-```
-
-The cached clone contains every `libs/*`, so `libs/boundary-mcp` and its sibling
-`:local/root` deps (`../ai`, `../devtools`, `../scaffolder`, `../tools`) are all
-present and resolvable from there.
+Trade-off accepted: boundary-mcp (an RCE-surface server, though env-gated to
+`:read-only` outside local dev) becomes a public Clojars artifact and joins the
+release pipeline. This is the deliberate cost of consuming it the framework's
+standard way.
 
 ## Units of work
 
-### Unit 1 — `boundary mcp` subcommand
+### Unit 1 — publish boundary-mcp to Clojars
 
-- **New file** `libs/boundary-cli/src/boundary/cli/mcp.clj` with a `-main`.
-- Wire a `"mcp"` case into `libs/boundary-cli/src/boundary/cli/main.clj`'s
-  dispatch and add it to the `usage` text.
-- Home resolution, in order:
-  1. `BOUNDARY_HOME` env var (set by the install.sh wrapper — see Unit 5).
-  2. Fallback: derive the clone root from the CLI's own loaded resource location
-     (`io/resource "boundary/cli/templates/…"` → walk up to the clone root).
-  3. If neither resolves → print a clear error to **stderr** and exit non-zero.
-     (stdout is the MCP protocol stream and must never carry diagnostics.)
-- Exec (replacing the process, inheriting cwd + env):
-  ```
-  clojure -Sdeps '{:deps {boundary/mcp {:local/root "<home>/libs/boundary-mcp"}}}' \
-    -M -m boundary.mcp.shell.server
-  ```
-  Uses the real `clojure` CLI + JVM (the MCP server is JVM Clojure: clj-kondo,
-  scaffolder, etc.), not bb. Uses direct `-M -m boundary.mcp.shell.server`
-  rather than boundary-mcp's `:run` alias deliberately: `-Sdeps` supplies the
-  dep, and the launch must not depend on an alias being present in whatever
-  `deps.edn` sits in the cwd (the project root). The arbitrary `boundary/mcp`
-  coordinate name is irrelevant — only the `:local/root` path matters.
-- cwd is inherited from the launching editor; the MCP client sets it to the
-  workspace (project) root, which is exactly what the reflective resources need.
+boundary-mcp currently uses `:local/root` sibling deps (`../ai`, `../devtools`,
+`../scaffolder`, `../tools`) — exactly the pattern `libs/user/deps.edn` already
+uses for `boundary/platform`, which publishes fine via `tools.build`'s
+`write-pom` (it resolves each `:local/root` dep to its published maven
+coordinate in the generated pom). All four of mcp's sibling deps are already in
+`all-libs` and published, so nothing blocks publishing mcp.
+
+- **Add `libs/boundary-mcp/build.clj`** mirroring `libs/user/build.clj`:
+  `(def lib 'org.boundary-app/boundary-mcp)`, `clean`/`jar`/`install`/`deploy`
+  using `b/write-pom` from the deps.edn basis + `deps-deploy`. (boundary-mcp's
+  deps.edn already has the `:build` alias wired to `:ns-default build`; this adds
+  the missing `build.clj` it points at — confirm whether one exists.)
+- **Add `"boundary-mcp"` to `all-libs`** in
+  `libs/tools/src/boundary/tools/deploy.clj`. Order it after its deps
+  (`ai`, `devtools`, `scaffolder`, `tools` all precede it) so a full
+  `bb deploy` sequence publishes dependencies first.
+- **Version sourcing for the template:** add a `boundary-mcp` version to
+  whatever catalogue/version source `new.clj` substitutes from (the same place
+  the other `{{*-version}}` tokens are filled), so `deps.edn.tmpl`'s `:mcp`
+  alias renders a concrete version matching the suite.
+- No code change to the server itself; it is launched via `clojure -M:mcp`
+  (Unit 2), inheriting the editor's cwd (the project root) — exactly what the
+  reflective resources need.
 
 ### Unit 2 — new project templates
 
@@ -107,8 +107,8 @@ generation map in `libs/boundary-cli/src/boundary/cli/new.clj`:
   {
     "mcpServers": {
       "boundary": {
-        "command": "boundary",
-        "args": ["mcp"],
+        "command": "clojure",
+        "args": ["-M:mcp"],
         "env": { "BND_ENV": "dev" }
       }
     }
@@ -117,6 +117,13 @@ generation map in `libs/boundary-cli/src/boundary/cli/new.clj`:
   Read natively by both Claude Code and Cursor. No `cwd` key → the client uses
   the workspace root (correct for reflection). Single root file, no
   `.cursor/mcp.json` duplicate.
+- **`deps.edn.tmpl` — add the `:mcp` alias** (this is the one `deps.edn` change;
+  the alias keeps mcp out of the default `:deps`, preserving "no transitive
+  MCP"):
+  ```clojure
+  :mcp {:extra-deps {org.boundary-app/boundary-mcp {:mvn/version "{{boundary-mcp-version}}"}}
+        :main-opts  ["-m" "boundary.mcp.shell.server"]}
+  ```
 - **`.vscode/extensions.json`** — recommends the relevant agent extension; a
   nudge, not configuration. No secrets, no settings.
 - **`.githooks/pre-commit`** — project-local, runs the project's own tasks:
@@ -137,8 +144,8 @@ generation map in `libs/boundary-cli/src/boundary/cli/new.clj`:
   hook. The generator must `chmod +x` the rendered hook (or the bootstrap step
   in Unit 3 must set it after writing).
 
-No change to `deps.edn.tmpl` — the MCP server is launched out-of-process, never
-added as an application dependency.
+The MCP server stays out of the application runtime: it lives only in the `:mcp`
+alias, so `clojure -M:repl` / `-M:test` and the built app never resolve it.
 
 ### Unit 3 — create-time bootstrap in `new.clj`
 
@@ -171,21 +178,11 @@ Open Claude Code or Cursor here — the Boundary MCP server is already wired
 
 Keep the existing "optional modules" and "AI-ready" lines.
 
-### Unit 5 — install.sh wrapper exports `BOUNDARY_HOME`
+### Unit 5 — (removed)
 
-In `scripts/install.sh`, the generated `boundary` wrapper gains an export so
-Unit 1's primary resolution path works:
-
-```bash
-cat > "$BBIN_BIN/boundary" << EOF
-#!/usr/bin/env bash
-export BOUNDARY_HOME="$BOUNDARY_CACHE"
-exec bb --classpath "$BOUNDARY_CACHE/libs/boundary-cli/src:$BOUNDARY_CACHE/libs/boundary-cli/resources" -m boundary.cli.main "\$@"
-EOF
-```
-
-Because `install.sh` is also synced to boundary-app.org (per the
-`boundary-website-release` flow), that sync must pick up this change.
+The Clojars-alias delivery (Units 1–2) needs no change to `install.sh` or the
+`boundary` wrapper. `clojure -M:mcp` resolves boundary-mcp from Clojars/`~/.m2`
+independently of the CLI's cached clone. Nothing to do here.
 
 ### Unit 6 — docs
 
@@ -197,32 +194,39 @@ Because `install.sh` is also synced to boundary-app.org (per the
 
 ## Testing
 
-- **`boundary.cli.mcp`** (new unit tests): home resolution for env-present,
-  env-absent-with-derivable-resource, and fully-unresolvable cases; the
-  constructed command vector; exec stubbed.
-- **`new.clj`** (extend existing generation tests): assert `.mcp.json`,
+- **Publish (Unit 1):** `clojure -T:build jar` in `libs/boundary-mcp` produces a
+  pom whose dependencies list the published `org.boundary-app/boundary-*`
+  coordinates (not `:local/root`) — confirm by inspecting the generated pom.
+  Verify `bb deploy --missing` (or a dry-run) includes `boundary-mcp` after its
+  deps.
+- **`new.clj`** (extend existing generation tests): assert `.mcp.json` (with the
+  `clojure -M:mcp` command), the `:mcp` alias in the rendered `deps.edn`,
   `.githooks/pre-commit`, and `.vscode/extensions.json` are rendered with
-  substitutions applied; assert `--skip-git` skips git; assert a git failure is
-  non-fatal (stub/force-fail git, expect project still created + warning).
-- **Manual acceptance:** `boundary new demo && cd demo`; open Claude Code;
-  confirm a `tools/list` round-trip against the auto-wired server returns the
-  Boundary tool catalogue, and that `boundary://conventions` resolves concretely
-  (proving cwd = project root).
+  substitutions applied (`{{boundary-mcp-version}}` resolved); assert
+  `--skip-git` skips git; assert a git failure is non-fatal (stub/force-fail
+  git, expect project still created + warning).
+- **Manual acceptance:** `boundary new demo && cd demo`; `clojure -M:mcp` boots
+  the server (resolving mcp from `~/.m2`); open Claude Code; confirm a
+  `tools/list` round-trip returns the Boundary tool catalogue and
+  `boundary://conventions` resolves concretely (proving cwd = project root).
 
 ## Risks & mitigations
 
-- **`BOUNDARY_HOME` unset** for users who installed before this change → Unit 1's
-  classpath-derivation fallback covers them; document re-running `install.sh` to
-  refresh the wrapper.
+- **Release ordering:** boundary-mcp must publish *after* its deps
+  (`ai`/`devtools`/`scaffolder`/`tools`) and a project's pinned
+  `{{boundary-mcp-version}}` must exist on Clojars before `-M:mcp` will resolve.
+  Mitigation: order in `all-libs` (Unit 1); the template version is filled from
+  the same suite-version source as the other libs, so it tracks releases.
 - **cwd contract:** if an editor launched the server with cwd ≠ project root, the
   reflective resources return `:unavailable`. `.mcp.json` omits `cwd`, so the
   client uses the workspace root — correct. Documented in the template note.
-- **`bb quickstart` first run is slow** (maven resolve): acceptable and expected;
-  it is the one promoted command and clearly labelled.
+- **`-M:mcp` / `bb quickstart` first run is slow** (maven resolve): acceptable
+  and expected; documented.
 
 ## Out of scope (YAGNI)
 
-- Publishing boundary-mcp to Clojars / per-project MCP version pinning.
+- Per-project MCP version pinning beyond the suite version (mcp tracks the
+  suite release like the other libs).
 - Auto-migrate or auto-start at `boundary new` time.
 - Interactive prompts in `boundary new`.
 - `.vscode/settings.json` with project settings or secrets.
