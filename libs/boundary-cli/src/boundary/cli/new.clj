@@ -6,6 +6,9 @@
 ;; Keep in sync with libs/tools/build.clj version
 (def ^:private boundary-tools-version "1.0.1-alpha-32")
 
+;; Keep in sync with libs/boundary-mcp/build.clj version (release-bumped with boundary-tools-version)
+(def ^:private boundary-mcp-version "1.0.1-alpha-32")
+
 (defn validate-name [n]
   (cond
     (str/blank? n)                            "Project name cannot be empty"
@@ -57,6 +60,7 @@
                      :project-ns               project-ns
                      :jwt-secret               jwt-secret
                      :boundary-tools-version   boundary-tools-version
+                     :boundary-mcp-version     boundary-mcp-version
                      :core-version             (:version (cat/find-module "core"))
                      :observability-version (:version (cat/find-module "observability"))
                      :platform-version      (:version (cat/find-module "platform"))
@@ -83,9 +87,13 @@
                      "resources/conf/test/config.edn"      "test-config.edn.tmpl"
                      "src/boundary/config.clj"             "config.clj.tmpl"
                      "dev/user.clj"                        "user.clj.tmpl"
-                     (str "src/" project-ns "/system.clj") "system.clj.tmpl"}]
+                     (str "src/" project-ns "/system.clj") "system.clj.tmpl"
+                     ".mcp.json"                           "mcp.json.tmpl"
+                     ".vscode/extensions.json"             "vscode-extensions.json.tmpl"
+                     ".githooks/pre-commit"                "githook-pre-commit.tmpl"}]
     (doseq [[target tmpl] files]
-      (write-file! dir target (render (read-template tmpl) subs)))))
+      (write-file! dir target (render (read-template tmpl) subs)))
+    (.setExecutable (io/file dir ".githooks/pre-commit") true false)))
 
 (defn -main [args]
   (let [[project-name & flags] args

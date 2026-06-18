@@ -40,7 +40,10 @@
                    "resources/conf/test/config.edn"
                    "src/boundary/config.clj"
                    "dev/user.clj"
-                   "src/test_proj/system.clj"]]
+                   "src/test_proj/system.clj"
+                   ".mcp.json"
+                   ".vscode/extensions.json"
+                   ".githooks/pre-commit"]]
           (is (.exists (io/file tmp f)) (str "Missing: " f))))
 
       (testing ".env has a generated JWT_SECRET (no unreplaced placeholder)"
@@ -65,6 +68,21 @@
           (is (str/includes? content "<!-- /boundary:available-modules -->"))
           (is (str/includes? content "<!-- boundary:installed-modules -->"))
           (is (str/includes? content "<!-- /boundary:installed-modules -->"))))
+
+      (testing ".mcp.json wires the boundary MCP server via clojure -M:mcp"
+        (let [content (slurp (io/file tmp ".mcp.json"))]
+          (is (str/includes? content "\"-M:mcp\""))
+          (is (str/includes? content "boundary"))
+          (is (not (str/includes? content "{{")))))
+
+      (testing "deps.edn has an :mcp alias with a resolved version"
+        (let [content (slurp (io/file tmp "deps.edn"))]
+          (is (str/includes? content ":mcp"))
+          (is (str/includes? content "org.boundary-app/boundary-mcp"))
+          (is (not (str/includes? content "{{boundary-mcp-version}}")))))
+
+      (testing "pre-commit hook is executable"
+        (is (.canExecute (io/file tmp ".githooks/pre-commit"))))
       (finally
         ;; cleanup
         (doseq [f (reverse (file-seq (io/file tmp)))]
