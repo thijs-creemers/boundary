@@ -1,0 +1,40 @@
+name: Clojure deps
+description: >-
+  Set up the Clojure CLI, restore the shared dependency cache, and serially
+  prefetch deps to avoid the Maven concurrent-resolution crash.
+
+inputs:
+  aliases:
+    description: >-
+      Space-separated -M alias strings to prefetch serially
+      (e.g. "-M:test" or "-M:migrate -M:test").
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Clojure
+      uses: DeLaGuardo/setup-clojure@13.6.1
+      with:
+        cli: 1.12.5.1654
+
+    - name: Cache dependencies
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.gitlibs
+        key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
+        restore-keys: ${{ runner.os }}-clojure-
+
+    # Resolve deps single-threaded BEFORE any concurrent resolution. On a cold
+    # ~/.m2, tools.deps parses many JDBC-driver POMs in parallel and intermittently
+    # trips a Maven DefaultModelValidator concurrency bug (HashMap$Node cannot be
+    # cast to TreeNode). -Sthreads 1 serialises resolution; -P prepares without
+    # running, warming .cpcache/.m2 deterministically.
+    - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
+      shell: bash
+      run: |
+        for alias in ${{ inputs.aliases }}; do
+          clojure -Sthreads 1 -P "$alias"
+        done
