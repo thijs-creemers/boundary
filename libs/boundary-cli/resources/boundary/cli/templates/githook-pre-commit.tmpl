@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Quick local gate. The full check suite (ports, deps) runs in CI.
+bb check:fcis
+clojure -M:clj-kondo --lint src test 2>/dev/null || true
