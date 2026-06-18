@@ -58,7 +58,8 @@
    "ui-style"
    "admin"
    "boundary-cli"
-   "devtools"])
+   "devtools"
+   "boundary-mcp"])
 
 (def valid-libs (set all-libs))
 (def root-dir (System/getProperty "user.dir"))
