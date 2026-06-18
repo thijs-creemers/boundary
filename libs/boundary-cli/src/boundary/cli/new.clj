@@ -159,6 +159,7 @@
       (doseq [{:keys [description add-command]} (take 6 (cat/optional-modules))]
         (println (format "  %-25s %s" add-command description)))
       (println "  ... (boundary list modules for full list)")
-      (println "\nAI-ready: CLAUDE.md, AGENTS.md and a Claude Code skill (.claude/skills/boundary/) are included.")
-      (println "Open an agentic CLI (e.g. Claude Code) and ask: \"add a product module with name and price\".")
-      (println (str "\nNext:\n  cd " project-name "\n  boundary add <module>    (optional)\n  clojure -M:repl")))))
+      (println "\nAI-ready: CLAUDE.md, AGENTS.md, a Claude Code skill, and a wired MCP server (.mcp.json) are included.")
+      (println "Open Claude Code or Cursor here — the Boundary MCP server is live, so the agent has Boundary's tools immediately.")
+      (println (str "\nNext:\n  cd " project-name
+                    "\n  bb quickstart        # download deps, migrate, optional first module, start")))))
