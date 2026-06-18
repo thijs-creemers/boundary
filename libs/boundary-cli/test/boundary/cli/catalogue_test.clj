@@ -62,10 +62,14 @@
       (is (contains? core-names "user")))))
 
 (defn- parse-all-libs
-  "Extracts and parses the all-libs vector from scripts/deploy.clj as EDN.
-  Returns nil if file absent or vector not found."
+  "Extracts and parses the all-libs vector from the canonical deploy registry as
+  EDN. The canonical registry is libs/tools/src/boundary/tools/deploy.clj — the
+  one `bb deploy` (boundary.tools.deploy) actually publishes from. Returns nil if
+  the file is absent (e.g. run outside the monorepo root) or the vector isn't
+  found."
   []
-  (let [f (io/file (System/getProperty "user.dir") "scripts/deploy.clj")]
+  (let [f (io/file (System/getProperty "user.dir")
+                   "libs/tools/src/boundary/tools/deploy.clj")]
     (when (.exists f)
       (let [content (slurp f)
             m       (re-find #"(?s)\(def all-libs\s+(\[.*?\])\)" content)]
@@ -76,18 +80,22 @@
   (let [all-libs (parse-all-libs)]
     (if-not all-libs
       ;; Run outside the monorepo root (e.g. `clojure -M:test` from libs/boundary-cli):
-      ;; scripts/deploy.clj is not on this cwd. Record the skip as a passing
+      ;; the deploy registry is not on this cwd. Record the skip as a passing
       ;; assertion so kaocha doesn't flag a zero-assertion test.
       (is (nil? all-libs)
-          "Drift check skipped: scripts/deploy.clj not found from this working directory")
+          "Drift check skipped: deploy registry not found from this working directory")
       (do
         (testing "all-libs vector is parseable and non-empty"
           (is (vector? all-libs))
           (is (seq all-libs)))
 
+        (testing "boundary-mcp is present in the publish registry"
+          (is (some #{"boundary-mcp"} all-libs)
+              "boundary-mcp missing from boundary.tools.deploy all-libs"))
+
         (testing "i18n and payments are present in all-libs"
-          (is (some #{"i18n"}    all-libs) "i18n missing from scripts/deploy.clj all-libs")
-          (is (some #{"payments"} all-libs) "payments missing from scripts/deploy.clj all-libs"))
+          (is (some #{"i18n"}    all-libs) "i18n missing from deploy all-libs")
+          (is (some #{"payments"} all-libs) "payments missing from deploy all-libs"))
 
         (testing "i18n appears after platform and before user (dependency order)"
           (let [idx #(.indexOf ^java.util.List (vec all-libs) %)]
