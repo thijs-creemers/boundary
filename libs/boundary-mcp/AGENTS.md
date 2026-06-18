@@ -6,9 +6,10 @@ the root `deps.edn` paths** so applications never pull an MCP server
 transitively. Depends on `boundary/ai` for the core context/parsing helpers that
 later tools reuse.
 
-> Status: **skeleton (BOU-96)** — stdio transport, JSON-RPC handshake, empty
-> tool/resource registry. Tier 0 tools land in BOU-100, reflective resources in
-> BOU-99.
+> Status: **active** — stdio transport + JSON-RPC handshake, Tier 0 (read),
+> Tier 1 (generate + closed verify loop), and Tier 2 (execute) tools all
+> implemented. Some live-introspection resources and the read-only DB datasource
+> are `:unavailable` pending an nREPL bridge.
 
 ## Run
 
