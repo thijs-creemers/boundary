@@ -74,8 +74,10 @@
                 :timestamp - Optional timestamp (auto-added if missing)
     
     Returns:
-      Number of connections message was sent to (integer >= 0)
-    
+      Number of connections message was sent to (integer >= 0) under the
+      :in-memory provider. Returns nil under the :redis provider (async
+      fan-out; count not known synchronously).
+
     Side Effects:
       - Sends message over WebSocket to matching connections
       - Logs send event (debug level)")
@@ -92,8 +94,10 @@
       message - Message map (same structure as send-to-user)
     
     Returns:
-      Number of connections message was sent to (integer >= 0)
-    
+      Number of connections message was sent to (integer >= 0) under the
+      :in-memory provider. Returns nil under the :redis provider (async
+      fan-out; count not known synchronously).
+
     Side Effects:
       - Sends message over WebSocket to matching connections
       - Logs send event (debug level)")
@@ -108,8 +112,10 @@
       message - Message map (same structure as send-to-user)
     
     Returns:
-      Number of connections message was sent to (integer >= 0)
-    
+      Number of connections message was sent to (integer >= 0) under the
+      :in-memory provider. Returns nil under the :redis provider (async
+      fan-out; count not known synchronously).
+
     Side Effects:
       - Sends message over WebSocket to all connections
       - Logs broadcast event (info level)")
@@ -125,8 +131,10 @@
       message - Message map (same structure as send-to-user)
     
     Returns:
-      true if sent, false if connection not found
-    
+      true if sent, false if connection not found (under :in-memory provider).
+      Returns nil under the :redis provider (async fan-out; result not known
+      synchronously).
+
     Side Effects:
       - Sends message over WebSocket to specific connection
       - Logs send event (debug level)")
@@ -148,8 +156,10 @@
                 :timestamp - Optional timestamp (auto-added if missing)
     
     Returns:
-      Number of connections message was sent to (integer >= 0)
-    
+      Number of connections message was sent to (integer >= 0) under the
+      :in-memory provider. Returns nil under the :redis provider (async
+      fan-out; count not known synchronously).
+
     Side Effects:
       - Sends message over WebSocket to all topic subscribers
       - Logs publish event (debug level)
@@ -255,15 +265,25 @@
 
   (find-connection [this connection-id]
     "Find Connection record by ID.
-    
+
     Returns the pure Connection record (not ws-adapter) for inspection.
     Used for debugging and monitoring.
-    
+
     Args:
       connection-id - Connection UUID
-    
+
     Returns:
-      Connection record or nil if not found"))
+      Connection record or nil if not found")
+
+  (find-adapters-by-ids [this connection-ids]
+    "Return a vector of IWebSocketConnection adapters for the given connection
+     ids that are present in THIS node's registry. Missing ids are skipped.
+
+     Args:
+       connection-ids - seq of connection UUIDs
+
+     Returns:
+       Vector of IWebSocketConnection adapters (may be empty)"))
 
 ;; =============================================================================
 ;; WebSocket Connection Ports
@@ -494,10 +514,42 @@
 
   (subscription-count [this]
     "Count total number of subscriptions.
-    
+
      Note: Same connection can be subscribed to multiple topics, so this
      may be greater than connection count.
-     
+
      Returns:
        Integer count of total subscriptions"))
 
+;; =============================================================================
+;; Message Bus Port (cross-instance routing transport)
+;; =============================================================================
+
+(defprotocol IMessageBus
+  "Cross-instance routing transport for realtime messages.
+
+   Publishes routing envelopes to all nodes; each node delivers to its local
+   sockets via a registered delivery-fn. In-memory = synchronous loopback;
+   Redis = asynchronous PUB/SUB fan-out. Delivery happens exclusively through
+   the registered delivery-fn (never inline on the origin), so each connection
+   — living on exactly one node — is delivered to exactly once.
+
+   Envelope shape (pure data):
+     {:route   :user | :role | :broadcast | :connection | :topic
+      :target  <user-uuid | role-kw | conn-uuid | topic-str | nil>
+      :message {:type ... :payload ... :timestamp <Instant>}}"
+
+  (publish [this envelope]
+    "Publish a routing envelope to all nodes.
+
+     Returns the local recipient count (in-memory, synchronous) or nil
+     (redis, asynchronous fire-and-forget).")
+
+  (start-subscriber! [this delivery-fn]
+    "Register the node-local delivery-fn and begin receiving envelopes.
+     delivery-fn is (fn [envelope] -> int) performing local delivery and
+     returning the number of local sockets it sent to. Blocks until the
+     subscription is live. Idempotent: a second call is a no-op.")
+
+  (stop-subscriber! [this]
+    "Stop receiving envelopes and release resources. Idempotent."))
