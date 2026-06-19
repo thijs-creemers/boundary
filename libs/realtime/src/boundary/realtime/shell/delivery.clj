@@ -3,7 +3,8 @@
    adapters and send. Built as a closure over the local registry + pubsub
    manager; registered with a message bus via start-subscriber!. Never calls
    service send methods (no re-publish recursion)."
-  (:require [boundary.realtime.ports :as ports]))
+  (:require [boundary.realtime.ports :as ports]
+            [clojure.tools.logging :as log]))
 
 (defn- adapters-for
   [registry pubsub-manager {:keys [route target]}]
@@ -27,8 +28,16 @@
     (let [adapters (adapters-for registry pubsub-manager envelope)]
       (reduce
        (fn [n a]
+         ;; Guard each send so one bad/closing socket can't abort the rest of
+         ;; the fan-out (critical for broadcast). send-message adapters already
+         ;; swallow internally, but a registry holding a faulty adapter must not
+         ;; break delivery to healthy ones.
          (if (ports/open? a)
-           (do (ports/send-message a message) (inc n))
+           (do (try
+                 (ports/send-message a message)
+                 (catch Exception e
+                   (log/warn e "realtime delivery to a socket failed")))
+               (inc n))
            n))
        0
        adapters))))

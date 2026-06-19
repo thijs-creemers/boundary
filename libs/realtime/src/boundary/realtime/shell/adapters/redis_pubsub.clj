@@ -11,8 +11,10 @@
    member is removed, so empty topics disappear and the check-then-act DEL race
    cannot occur."
   (:require [boundary.realtime.ports :as ports]
-            [boundary.realtime.schema :as schema])
+            [boundary.realtime.schema :as schema]
+            [clojure.tools.logging :as log])
   (:import [redis.clients.jedis JedisPool Jedis]
+           [redis.clients.jedis.params ScanParams]
            [java.util UUID]))
 
 (defn- topic-key [prefix t]
@@ -21,8 +23,33 @@
 (defn- conn-key [prefix id]
   (str (when prefix (str prefix ":")) "conn:" id))
 
+(defn- topic-key-pattern [prefix]
+  (str (when prefix (str prefix ":")) "topic:*"))
+
 (defn- with-redis [^JedisPool pool f]
   (with-open [^Jedis j (.getResource pool)] (f j)))
+
+(defn- ->uuid
+  "Parse a Redis set member back to a UUID, skipping (and logging) any stray
+   non-UUID member instead of throwing the whole lookup."
+  [s]
+  (try
+    (UUID/fromString s)
+    (catch IllegalArgumentException _
+      (log/warn "Skipping non-UUID topic subscriber member" {:member s})
+      nil)))
+
+(defn- scan-keys
+  "SCAN all keys matching pattern (non-blocking, unlike KEYS)."
+  [^Jedis j ^String pattern]
+  (let [params (doto (ScanParams.) (.match pattern) (.count (int 100)))]
+    (loop [cursor "0" acc []]
+      (let [result (.scan j cursor params)
+            acc    (into acc (.getResult result))
+            cursor (.getCursor result)]
+        (if (= cursor "0")
+          acc
+          (recur cursor acc))))))
 
 (defrecord RedisPubSubManager [^JedisPool pool prefix]
   ports/IPubSubManager
@@ -65,7 +92,7 @@
   (get-topic-subscribers [_ topic]
     (with-redis pool
       (fn [^Jedis j]
-        (into #{} (map #(UUID/fromString %)) (.smembers j (topic-key prefix topic))))))
+        (into #{} (keep ->uuid) (.smembers j (topic-key prefix topic))))))
 
   (get-connection-subscriptions [_ connection-id]
     (with-redis pool
@@ -75,13 +102,12 @@
   (topic-count [_]
     (with-redis pool
       (fn [^Jedis j]
-        (count (.keys j (str (when prefix (str prefix ":")) "topic:*"))))))
+        (count (scan-keys j (topic-key-pattern prefix))))))
 
   (subscription-count [_]
     (with-redis pool
       (fn [^Jedis j]
-        (reduce + 0 (map #(.scard j %)
-                         (.keys j (str (when prefix (str prefix ":")) "topic:*"))))))))
+        (reduce + 0 (map #(.scard j %) (scan-keys j (topic-key-pattern prefix))))))))
 
 (defn create-redis-pubsub-manager
   "Create a Redis-backed IPubSubManager.

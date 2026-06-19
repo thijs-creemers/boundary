@@ -74,3 +74,16 @@
      (ports/unsubscribe-from-all-topics *mgr* c)
      (is (= #{} (ports/get-connection-subscriptions *mgr* c)))
      (is (= #{} (ports/get-topic-subscribers *mgr* "a"))))))
+
+(deftest topic-and-subscription-counts-test
+  ;; Exercises the SCAN-based counters (replacing the old blocking KEYS).
+  (when-redis
+   (let [c1 (java.util.UUID/randomUUID)
+         c2 (java.util.UUID/randomUUID)]
+     (ports/subscribe-to-topic *mgr* c1 "room:1")
+     (ports/subscribe-to-topic *mgr* c2 "room:1")
+     (ports/subscribe-to-topic *mgr* c1 "room:2")
+     (testing "topic-count counts distinct topics with subscribers"
+       (is (= 2 (ports/topic-count *mgr*))))
+     (testing "subscription-count sums members across topics"
+       (is (= 3 (ports/subscription-count *mgr*)))))))

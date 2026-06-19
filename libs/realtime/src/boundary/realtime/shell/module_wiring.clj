@@ -5,12 +5,18 @@
      {:provider :in-memory | :redis
       ;; redis only:
       :host \"localhost\" :port 6379
+      :password \"...\" :database 0        ; auth + db selection (production)
+      :timeout 2000                        ; socket timeout ms
+      :max-total 8 :max-idle 8 :min-idle 0 ; publish-pool sizing
       :channel \"boundary:realtime:bus\"
       :key-prefix \"realtime\"
+      :subscribe-timeout-ms 5000           ; await window for subscription to go live
       :jwt-verifier <IJWTVerifier ref>}
 
    The local connection registry is in-memory under BOTH providers (sockets are
-   node-local). Only the pub/sub manager and the bus differ.
+   node-local). Only the pub/sub manager and the bus differ. Under :redis the
+   component opens two Jedis pools — one for topic subscriptions (pub/sub
+   manager) and one inside the bus for publish — both closed on halt.
 
    IMPORTANT: the web/WS server component MUST depend on :boundary/realtime so
    that start-subscriber! has completed (subscription live) before any WebSocket
@@ -23,8 +29,7 @@
             [boundary.realtime.shell.bus.in-memory :as in-memory-bus]
             [boundary.realtime.shell.bus.redis :as redis-bus]
             [clojure.tools.logging :as log]
-            [integrant.core :as ig])
-  (:import [redis.clients.jedis JedisPool JedisPoolConfig]))
+            [integrant.core :as ig]))
 
 (defmethod ig/init-key :boundary/realtime
   [_ {:keys [provider jwt-verifier] :as config}]
@@ -33,9 +38,10 @@
         [pubsub-manager bus pool]
         (case provider
           :redis
-          (let [pool (JedisPool. (JedisPoolConfig.)
-                                 ^String (or (:host config) "localhost")
-                                 (int (or (:port config) 6379)))]
+          ;; Shared pool builder (redis-bus/create-pool) honours auth, db,
+          ;; timeout, and sizing from config, so the pub/sub manager pool is
+          ;; configured identically to the bus's publish pool.
+          (let [pool (redis-bus/create-pool config)]
             [(redis-pubsub/create-redis-pubsub-manager pool {:prefix (or (:key-prefix config) "realtime")})
              (redis-bus/create-redis-bus config)
              pool])

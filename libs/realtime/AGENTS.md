@@ -89,10 +89,26 @@ Every replica keeps its own in-memory connection registry (live WebSocket socket
 :boundary/realtime {:provider    :redis
                     :host        "localhost"   ; Redis host
                     :port        6379          ; Redis port
+                    :password    "..."         ; AUTH password (production; optional)
+                    :database    0             ; Redis db index (optional)
+                    :timeout     2000          ; socket timeout ms (optional)
+                    :max-total   8             ; publish-pool sizing (optional)
+                    :max-idle    8             ; (optional)
+                    :min-idle    0             ; (optional)
                     :channel     "boundary:realtime:bus" ; pub/sub channel (default if omitted)
                     :key-prefix  "realtime"    ; prefix for Redis set keys (default if omitted)
+                    :subscribe-timeout-ms 5000 ; await window for the subscription to go live;
+                                               ; if Redis is down at startup, init does NOT fail —
+                                               ; the subscriber retries in the background and the
+                                               ; node becomes live once Redis is reachable (default 5000)
                     :jwt-verifier <ref>}       ; IJWTVerifier component ref
 ```
+
+Under `:redis` the component opens **two** Jedis pools — one for topic
+subscriptions (pub/sub manager) and one inside the bus for publish — both
+configured from the same keys above and both closed on halt. The subscriber
+uses its own dedicated connection (not the publish pool), so a blocking
+`SUBSCRIBE` never starves publishers.
 
 ### Return-value caveat
 

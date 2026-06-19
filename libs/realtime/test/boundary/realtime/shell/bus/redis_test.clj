@@ -47,6 +47,39 @@
          (ports/stop-subscriber! sub)
          (ports/stop-subscriber! pub))))))
 
+(deftest create-redis-bus-accepts-full-config-test
+  ;; Config plumbing: auth/db/timeout/sizing/channel/subscribe-timeout-ms must be
+  ;; accepted. Construction is lazy (no connection), so this needs no Redis.
+  (testing "create-redis-bus builds from a full production config without connecting"
+    (let [bus (rbus/create-redis-bus {:host "localhost" :port 6379
+                                      :password "secret" :database 3 :timeout 1000
+                                      :max-total 4 :max-idle 4 :min-idle 1
+                                      :channel "c" :subscribe-timeout-ms 100})]
+      (is (some? bus))
+      (is (instance? java.io.Closeable bus))
+      (.close ^java.io.Closeable bus))))
+
+(deftest subscriber-survives-redis-unavailable-test
+  ;; Regression for the startup bug where .getResource threw OUTSIDE the loop's
+  ;; try, killing the daemon and leaving the node permanently deaf even after
+  ;; Redis recovered. Runs WITHOUT Redis (points at a dead port on purpose).
+  (testing "subscriber keeps retrying (thread stays alive) when Redis is unreachable"
+    (let [bus (rbus/create-redis-bus {:host "localhost" :port 6399 ; nothing listening
+                                      :channel "rt-test:down"
+                                      :subscribe-timeout-ms 300})]
+      (try
+        (ports/start-subscriber! bus (fn [_] 0))
+        (let [st @(:state bus)]
+          (is (true? (:running? st)) "still marked running after a failed connect")
+          (is (.isAlive ^Thread (:thread st)) "daemon thread alive, not dead"))
+        ;; Let at least one backoff/retry cycle elapse; thread must survive it.
+        (Thread/sleep 300)
+        (is (.isAlive ^Thread (:thread @(:state bus)))
+            "daemon thread still alive after a retry cycle (did not die on connect failure)")
+        (finally
+          (ports/stop-subscriber! bus)))
+      (is (false? (:running? @(:state bus))) "stop-subscriber! clears running?"))))
+
 (deftest idempotent-subscriber-test
   (when-redis
    (let [chan "rt-test:bus2"
