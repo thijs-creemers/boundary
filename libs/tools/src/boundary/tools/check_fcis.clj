@@ -133,33 +133,48 @@
   (->> (file-seq root)
        (filter #(and (.isDirectory %) (= "core" (.getName %))))))
 
+(defn- core-clj-files-under
+  "All .clj files under any core/ directory beneath `dir` (nil if dir absent)."
+  [dir]
+  (when (and dir (.exists dir))
+    (->> (find-core-dirs dir)
+         (mapcat file-seq)
+         (filter #(and (.isFile %)
+                       (str/ends-with? (.getName %) ".clj"))))))
+
 (defn core-source-paths
   "Find all .clj files under any core/ directory that must be subject to
    FC/IS enforcement. Covers:
-   - libs/*/src/boundary/<lib>/core/ (and non-standard libs like
-     boundary/shared/ui/core/)
-   - src/boundary/test_support/core/ (monorepo-level shared test helpers)
+   - libs/*/src/boundary/<lib>/core/ (monorepo lib layout, and non-standard libs
+     like boundary/shared/ui/core/)
+   - src/**/core/ (the application layout — a project scaffolded with
+     `boundary new` puts modules at src/boundary/<module>/core/, with no libs/)
+   - src/boundary/test_support/core.clj (monorepo-level shared test helpers)
 
-   Public so it can be exercised from tests."
-  []
-  (let [root          (io/file (System/getProperty "user.dir"))
-        libs          (io/file root "libs")
-        libs-files    (when (.exists libs)
-                        (->> (.listFiles libs)
-                             (filter #(.isDirectory %))
-                             (mapcat (fn [lib-dir]
-                                       (let [src-dir (io/file lib-dir "src")]
-                                         (when (.exists src-dir)
-                                           (find-core-dirs src-dir)))))
-                             (mapcat file-seq)
-                             (filter #(and (.isFile %)
-                                           (str/ends-with? (.getName %) ".clj")))))
-        ;; src/boundary/test_support/core.clj is the monorepo-level shared
-        ;; test helper namespace. It is a single file (boundary.test-support.core),
-        ;; not a directory of core sources — include it explicitly.
-        test-support-file (io/file root "src" "boundary" "test_support" "core.clj")
-        test-support  (when (.exists test-support-file) [test-support-file])]
-    (concat libs-files test-support)))
+   Public so it can be exercised from tests. The 1-arity takes an explicit
+   project root (a File or path string) for testing against fixtures."
+  ([] (core-source-paths (System/getProperty "user.dir")))
+  ([root-path]
+   (let [root          (io/file root-path)
+         libs          (io/file root "libs")
+         libs-files    (when (.exists libs)
+                         (->> (.listFiles libs)
+                              (filter #(.isDirectory %))
+                              (mapcat (fn [lib-dir]
+                                        (core-clj-files-under (io/file lib-dir "src"))))))
+         ;; Application layout: a generated project has its modules under
+         ;; src/boundary/<module>/core/ and no libs/ tree. Scan the project's own
+         ;; src/ so `bb check:fcis` (e.g. the generated pre-commit hook) actually
+         ;; inspects scaffolded core namespaces. Harmless in the monorepo, whose
+         ;; root src/ has no core/ directories.
+         app-files     (core-clj-files-under (io/file root "src"))
+         ;; src/boundary/test_support/core.clj is the monorepo-level shared
+         ;; test helper namespace. It is a single file (boundary.test-support.core),
+         ;; not a directory of core sources — include it explicitly.
+         test-support-file (io/file root "src" "boundary" "test_support" "core.clj")
+         test-support  (when (.exists test-support-file) [test-support-file])]
+     (->> (concat libs-files app-files test-support)
+          (distinct)))))
 
 (defn- core-clj-files
   "Backwards-compatible alias for core-source-paths."

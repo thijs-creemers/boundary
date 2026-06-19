@@ -2,5 +2,15 @@
 set -euo pipefail
 
 # Quick local gate. The full check suite (ports, deps) runs in CI.
+
+# FC/IS enforcement — blocks the commit on a violation. Scans src/**/core/.
 bb check:fcis
-clojure -M:clj-kondo --lint src test 2>/dev/null || true
+
+# clj-kondo static analysis — advisory (warnings don't block the commit), but
+# its output is shown. Lint only the source roots that exist in a fresh project.
+lint_paths=()
+[ -d src ]  && lint_paths+=(src)
+[ -d test ] && lint_paths+=(test)
+if [ ${#lint_paths[@]} -gt 0 ]; then
+  clojure -M:clj-kondo --lint "${lint_paths[@]}" || true
+fi
