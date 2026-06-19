@@ -1,24 +1,27 @@
 (ns boundary.realtime.shell.service
   "Realtime service implementation (Shell layer).
-  
+
   Orchestrates WebSocket messaging between core logic and adapters.
   Implements the imperative shell in the FC/IS architecture pattern.
-  
+
   Responsibilities (Shell/I/O):
   - WebSocket connection lifecycle (open, close)
   - JWT authentication (delegates to user module)
-  - Message routing (uses core routing logic)
+  - Message routing (publishes envelopes onto the message bus)
   - Connection registry management
   - Pub/sub topic management
   - Logging and error handling
-  
+
   Does NOT contain:
   - Business logic (lives in core.*)
   - Database operations (no persistence needed for WebSockets)
   - Message validation logic (lives in core.message)"
   (:require [boundary.realtime.ports :as ports]
+            [boundary.realtime.core.bus :as bus]
             [boundary.realtime.core.connection :as conn]
             [boundary.realtime.core.auth :as auth]
+            [boundary.realtime.shell.bus.in-memory :as in-memory-bus]
+            [boundary.realtime.shell.delivery :as delivery]
             [clojure.tools.logging :as log])
   (:import (java.time Instant)))
 
@@ -31,11 +34,18 @@
   []
   (Instant/now))
 
+(defn- stamp
+  "Add :timestamp if absent (shell owns the clock)."
+  [message]
+  (if (:timestamp message)
+    message
+    (assoc message :timestamp (current-timestamp))))
+
 ;; =============================================================================
 ;; Realtime Service (Shell Layer)
 ;; =============================================================================
 
-(defrecord RealtimeService [connection-registry jwt-verifier pubsub-manager logger error-reporter]
+(defrecord RealtimeService [connection-registry jwt-verifier pubsub-manager logger error-reporter bus]
   ports/IRealtimeService
 
   (connect [_this ws-connection query-params]
@@ -114,175 +124,20 @@
                   {:connection-id connection-id}))))
 
   (send-to-user [_this user-id message]
-    ;; Shell: Route message to user's connections
-    (try
-      ;; 1. Add timestamp if missing (shell responsibility)
-      (let [message-with-timestamp (if (:timestamp message)
-                                     message
-                                     (assoc message :timestamp (current-timestamp)))
-
-            ;; 2. Find connections for user (registry lookup)
-            ws-adapters (ports/find-by-user connection-registry user-id)
-
-            ;; 3. Send to each connection (I/O)
-            send-count (atom 0)]
-
-        (doseq [ws-adapter ws-adapters]
-          (when (ports/open? ws-adapter)
-            (ports/send-message ws-adapter message-with-timestamp)
-            (swap! send-count inc)))
-
-        ;; 4. Log send event
-        (log/debug "Sent message to user"
-                   {:user-id user-id
-                    :message-type (:type message)
-                    :connection-count @send-count})
-
-        @send-count)
-      (catch Exception e
-        (log/error e "Error sending message to user"
-                   {:user-id user-id
-                    :message-type (:type message)})
-        0)))
+    (ports/publish bus (bus/user-envelope user-id (stamp message))))
 
   (send-to-role [_this role message]
-    ;; Shell: Route message to connections with role
-    (try
-      ;; 1. Add timestamp if missing
-      (let [message-with-timestamp (if (:timestamp message)
-                                     message
-                                     (assoc message :timestamp (current-timestamp)))
-
-            ;; 2. Find connections with role (registry lookup)
-            ws-adapters (ports/find-by-role connection-registry role)
-
-            ;; 3. Send to each connection (I/O)
-            send-count (atom 0)]
-
-        (doseq [ws-adapter ws-adapters]
-          (when (ports/open? ws-adapter)
-            (ports/send-message ws-adapter message-with-timestamp)
-            (swap! send-count inc)))
-
-        ;; 4. Log send event
-        (log/debug "Sent message to role"
-                   {:role role
-                    :message-type (:type message)
-                    :connection-count @send-count})
-
-        @send-count)
-      (catch Exception e
-        (log/error e "Error sending message to role"
-                   {:role role
-                    :message-type (:type message)})
-        0)))
+    (ports/publish bus (bus/role-envelope role (stamp message))))
 
   (broadcast [_this message]
-    ;; Shell: Broadcast to all connections
-    (try
-      ;; 1. Add timestamp if missing
-      (let [message-with-timestamp (if (:timestamp message)
-                                     message
-                                     (assoc message :timestamp (current-timestamp)))
-
-            ;; 2. Get all connections (registry lookup)
-            ws-adapters (ports/all-connections connection-registry)
-
-            ;; 3. Send to each connection (I/O)
-            send-count (atom 0)]
-
-        (doseq [ws-adapter ws-adapters]
-          (when (ports/open? ws-adapter)
-            (ports/send-message ws-adapter message-with-timestamp)
-            (swap! send-count inc)))
-
-        ;; 4. Log broadcast event
-        (log/info "Broadcast message"
-                  {:message-type (:type message)
-                   :connection-count @send-count})
-
-        @send-count)
-      (catch Exception e
-        (log/error e "Error broadcasting message"
-                   {:message-type (:type message)})
-        0)))
+    (ports/publish bus (bus/broadcast-envelope (stamp message))))
 
   (send-to-connection [_this connection-id message]
-    ;; Shell: Send to specific connection
-    (try
-      ;; 1. Add timestamp if missing
-      (let [message-with-timestamp (if (:timestamp message)
-                                     message
-                                     (assoc message :timestamp (current-timestamp)))
+    (let [n (ports/publish bus (bus/connection-envelope connection-id (stamp message)))]
+      (when (some? n) (pos? n))))
 
-            ;; 2. Find connection
-            connection (ports/find-connection connection-registry connection-id)]
-
-        (if connection
-          ;; 3. Get ws-adapter from registry
-          (let [ws-adapter (-> @(:state connection-registry)
-                               (get connection-id)
-                               :ws-adapter)]
-            (if (and ws-adapter (ports/open? ws-adapter))
-              ;; 4. Send message
-              (do (ports/send-message ws-adapter message-with-timestamp)
-
-                  ;; 5. Log send event
-                  (log/debug "Sent message to connection"
-                             {:connection-id connection-id
-                              :message-type (:type message)})
-
-                  true)
-              (do
-                (log/warn "Connection not open"
-                          {:connection-id connection-id})
-                false)))
-          (do
-            (log/warn "Connection not found"
-                      {:connection-id connection-id})
-            false)))
-      (catch Exception e
-        (log/error e "Error sending message to connection"
-                   {:connection-id connection-id
-                    :message-type (:type message)})
-        false)))
-
-  (publish-to-topic [this topic message]
-    ;; Shell: Publish message to all topic subscribers
-    (try
-      ;; 1. Add timestamp if missing
-      (let [message-with-timestamp (if (:timestamp message)
-                                     message
-                                     (assoc message :timestamp (current-timestamp)))
-
-            ;; 2. Get topic subscribers (from pubsub-manager)
-            subscriber-ids (if pubsub-manager
-                             (ports/get-topic-subscribers pubsub-manager topic)
-                             #{})
-
-            ;; 3. Send to each subscriber (I/O)
-            send-count (atom 0)]
-
-        (doseq [connection-id subscriber-ids]
-          ;; Get connection from registry to access ws-adapter
-          (when-let [_connection (ports/find-connection connection-registry connection-id)]
-            ;; Note: need to add find-ws-adapter method to registry protocol
-            ;; For now, use send-to-connection which already handles this
-            (when (ports/send-to-connection this connection-id message-with-timestamp)
-              (swap! send-count inc))))
-
-        ;; 4. Log publish event
-        (log/debug "Published message to topic"
-                   {:topic topic
-                    :message-type (:type message)
-                    :subscriber-count @send-count})
-
-        @send-count)
-      (catch Exception e
-        (log/error e "Error publishing message to topic"
-                   {:topic topic
-                    :message-type (:type message)})
-        0))))
+  (publish-to-topic [_this topic message]
+    (ports/publish bus (bus/topic-envelope topic (stamp message)))))
 
 ;; =============================================================================
 ;; Factory Functions
@@ -290,15 +145,20 @@
 
 (defn create-realtime-service
   "Create realtime service for WebSocket messaging.
-  
-  Args:
-    connection-registry - IConnectionRegistry implementation
-    jwt-verifier - IJWTVerifier implementation
-    pubsub-manager - IPubSubManager implementation (optional, for topic support)
-    logger - Logger instance (optional, uses clojure.tools.logging)
-    error-reporter - Error reporter instance (optional)
-  
-  Returns:
-    RealtimeService instance implementing IRealtimeService"
-  [connection-registry jwt-verifier & {:keys [pubsub-manager logger error-reporter]}]
-  (->RealtimeService connection-registry jwt-verifier pubsub-manager logger error-reporter))
+
+   Options:
+     :pubsub-manager  IPubSubManager (optional, for topic support)
+     :logger          logger instance (optional)
+     :error-reporter  error reporter (optional)
+     :bus             IMessageBus (optional; defaults to a fresh
+                      InMemoryMessageBus for single-node use)
+
+   On construction the service registers a node-local delivery-fn with the bus
+   (start-subscriber!). Pass a shared bus to two services to relay between them."
+  [connection-registry jwt-verifier
+   & {:keys [pubsub-manager logger error-reporter bus]}]
+  (let [bus (or bus (in-memory-bus/create-in-memory-bus))
+        svc (->RealtimeService connection-registry jwt-verifier
+                               pubsub-manager logger error-reporter bus)]
+    (ports/start-subscriber! bus (delivery/make-delivery-fn connection-registry pubsub-manager))
+    svc))
