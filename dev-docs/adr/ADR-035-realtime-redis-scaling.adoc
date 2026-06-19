@@ -1,0 +1,260 @@
+= ADR-035: Realtime Redis-backed Pub/Sub and Multi-Replica Scaling
+:status: Proposed
+:date: 2026-06-19
+:deciders: boundary-team
+
+== Status
+
+Proposed
+
+Implements the "Redis Pub/Sub (v0.2.0)" enhancement deferred by
+xref:ADR-003-websocket-architecture.adoc[ADR-003] and the realtime axis of the
+BOU-84 scaling spike (BOU-85). Design detail lives in
+`docs/superpowers/specs/2026-06-19-bou-85-realtime-redis-adapter-design.md`.
+
+== Context
+
+=== Background
+
+`libs/realtime` (ADR-003) ships only an in-memory `InMemoryConnectionRegistry`
+(atom) and an atom-based `AtomPubSubManager`. Both are explicitly single-server:
+ADR-003 listed "No Redis Pub/Sub" as a Phase-5 non-goal and deferred multi-server
+coordination to v0.2.0 with a sticky-session load-balancer workaround.
+
+The BOU-84 scaling spike identified realtime as the **one hard blocker** for
+running the framework across multiple replicas. Cache, jobs, auth, and tenancy
+are already replica-safe via Redis/DB; WebSocket is not. A broadcast published on
+one instance reaches only the clients connected to *that* JVM — clients on other
+replicas are silently missed.
+
+=== The physical constraint
+
+A WebSocket `ws-adapter` (`IWebSocketConnection`) wraps a **live socket handle**
+that exists only in the JVM that accepted the connection. It cannot be serialized
+into Redis. Therefore a literal "Redis-backed connection registry that stores
+ws-adapters" is impossible. Any cross-replica solution must keep sockets
+node-local and move only *routing intent* between nodes.
+
+=== Requirements (BOU-85)
+
+* Redis-backed adapters behind the existing realtime ports.
+* Config switch `:provider :in-memory | :redis`, mirroring cache/jobs.
+* A message published on one instance reaches WebSocket clients on any instance.
+* Cross-instance broadcast verified with two nodes.
+* In-memory remains the default; single-node behaviour unchanged.
+
+== Decision
+
+Adopt a **relay / message-bus** architecture (the Socket.io Redis-adapter and
+Phoenix.PubSub model): keep live sockets in a node-local registry on every
+replica, and propagate routing envelopes between replicas over a shared bus. Each
+replica delivers only to its own local sockets.
+
+=== 1. New `IMessageBus` port
+
+Cross-node transport is a *third* concern, distinct from the existing storage/
+lookup ports (`IConnectionRegistry`, `IPubSubManager`), so it gets its own port:
+
+[source,clojure]
+----
+(defprotocol IMessageBus
+  (publish [this envelope])               ; → local count (in-memory) | nil (redis)
+  (start-subscriber! [this delivery-fn])  ; register node-local delivery; block until live
+  (stop-subscriber! [this]))              ; idempotent teardown
+----
+
+Envelope (pure data): `{:route :user|:role|:broadcast|:connection|:topic,
+:target <uuid|kw|str|nil>, :message <map>}`. `:route` is named distinctly from the
+message's own `:type` (the `MessageType` enum has no `:topic`).
+
+=== 2. Single delivery seam — exactly-once without dedup
+
+Delivery happens **exclusively through one registered `delivery-fn`** — never
+inline on the origin. The origin *publishes*; every replica (including the origin,
+which Redis pub/sub also delivers to) runs the same `delivery-fn`, resolving the
+envelope against its **local** registry. Because each connection lives on exactly
+one replica, each socket is delivered to exactly once. No dedup logic is required.
+
+The in-memory bus invokes `delivery-fn` synchronously inside `publish` (so a
+recipient count is available); the Redis bus invokes the *same* `delivery-fn` from
+its subscriber thread when the envelope arrives. Both providers share one delivery
+path, so the in-memory test exercises the real relay callback.
+
+=== 3. Provider selection
+
+`:provider :in-memory | :redis` on the `:boundary/realtime` Integrant key, via a
+new `shell/module_wiring.clj` that mirrors `boundary.cache.shell.module-wiring`:
+
+[cols="1,2,2"]
+|===
+| Concern | `:in-memory` (default) | `:redis`
+
+| Connection registry
+| `InMemoryConnectionRegistry` (always — sockets are node-local in both providers)
+| `InMemoryConnectionRegistry` (same; only the bus + pub/sub manager change)
+
+| Topic subscriptions
+| `AtomPubSubManager`
+| `RedisPubSubManager` (Redis sets — globally visible)
+
+| Cross-node bus
+| `InMemoryMessageBus` (synchronous loopback; single node)
+| `RedisMessageBus` (binary pub/sub channel)
+|===
+
+=== 4. Wire format — Nippy
+
+Routing envelopes are serialized with `taoensso.nippy` (the same library and
+version as the cache Redis adapter), which round-trips UUIDs, keywords, sets, and
+`java.time/Instant` with full fidelity — so `user-id` stays a UUID and `:type`
+stays a keyword on the receiving replica. JSON was rejected: it stringifies those
+types, forcing lossy re-parsing on every hop.
+
+=== 5. Global topic subscriptions in Redis
+
+`RedisPubSubManager` stores subscriptions in two Redis sets — `topic:{t}` → conn-id
+strings and `conn:{id}` → topic strings (reverse index) — so `get-topic-subscribers`
+is cluster-wide. `publish-to-topic` resolves the global subscriber set, then each
+replica intersects it with its local registry (`find-adapters-by-ids`) and sends to
+its local subset.
+
+=== 6. Return-value semantics
+
+Under `:redis`, fan-out is asynchronous, so `send-to-user` / `send-to-role` /
+`broadcast` / `publish-to-topic` return `nil` (and `send-to-connection` returns
+`nil`). Under `:in-memory` they keep returning the synchronous recipient count
+(and `send-to-connection` a boolean). The port docstrings and AGENTS.md document
+this difference.
+
+== Concurrency and multi-replica race safety
+
+With N replicas of one deployment, the only shared state is the Redis
+subscription **sets** and the pub/sub **channel** — local registries are
+node-local atoms. The shared state is made race-safe as follows:
+
+[cols="1,3,3"]
+|===
+| # | Race | Resolution
+
+| 1
+| Torn two-set write (subscribe = two SADDs, unsubscribe = two SREMs)
+| Apply each pair atomically in a single `MULTI/EXEC` (pure writes, no WATCH).
+
+| 2
+| Check-then-act DEL on empty sets loses a concurrent SADD
+| No explicit DEL — Redis auto-removes a set key when its last member is SREM'd;
+  `SMEMBERS` of a missing key is empty. Race eliminated by construction.
+
+| 3
+| Per-(conn,topic) contention
+| None in practice — a connection lives on one node, so its subscribe/unsubscribe
+  originate there and serialize; same-(c,t) subscribe-vs-unsubscribe is
+  last-writer-wins, the intended outcome.
+
+| 4
+| Double-subscribe → double-delivery (exactly-once depends on one channel
+  subscription per node)
+| Subscriber is a singleton per bus component (Integrant inits once);
+  `start-subscriber!` is idempotent (`running?` guard); reconnect tears down before
+  re-subscribing.
+
+| 5
+| Subscriber connection drop leaves the node deaf
+| Daemon reconnect loop with backoff, fully tearing down the old `BinaryJedisPubSub`
+  before re-subscribing. Gap messages are missed (at-most-once, accepted).
+
+| 6
+| Startup ordering — a node accepting WebSocket before its subscriber is live drops
+  broadcasts
+| `onSubscribe` latch blocks `start-subscriber!` until live; the web/WS component
+  depends on `:boundary/realtime` so Integrant orders the subscriber before traffic.
+|===
+
+With #1, #2, #4, #5, #6 enforced there are **no correctness races** — delivery is
+exactly-once.
+
+=== Accepted distributed-systems limits (non-goals)
+
+* **No global message ordering.** Messages to the same target from *different*
+  nodes may arrive in either order (Redis preserves order only per-publisher per
+  channel). A sequencer is out of scope.
+* **At-most-once delivery.** No replay; a node deaf during reconnect misses
+  messages. Acceptable for realtime push.
+* **Orphan subscriptions on node crash.** A crashed node leaves dead
+  `conn:{id}`/`topic` entries (no TTL). Harmless to correctness —
+  `find-adapters-by-ids` returns nothing for dead ids on every node, so no wrong or
+  double delivery, only a leak. Presence/TTL sweep is out of scope.
+* **No full Redis registry mirror** / globally-accurate `connection-count`. Counts
+  stay node-local. Acceptance does not require a global count.
+* **Redis Streams / guaranteed delivery** and per-node backpressure are out of
+  scope.
+
+== Considered options
+
+=== Option A: Redis pub/sub message bus (relay) — SELECTED
+
+Local registry for sockets + Redis pub/sub channel for routing + Redis sets for
+global topic subscriptions.
+
+* Pros: the only model that actually achieves cross-node delivery; matches the
+  established cache/jobs provider pattern; in-memory default unchanged; testable
+  without Redis via a shared in-memory bus.
+* Cons: introduces a new port and a service refactor; async return semantics under
+  Redis.
+
+=== Option B: Redis as shared registry only (no bus) — REJECTED
+
+Mirror connection metadata and subscriptions into Redis for global lookup, but
+deliver via the existing inline registry path.
+
+* Fatal flaw: `find-by-user` on node A can only return node-A adapters; without a
+  bus there is no way to reach a socket on node B. Fails the core acceptance
+  criterion.
+
+=== Option C: Full Redis registry mirror + bus — REJECTED (for now)
+
+Option A plus mirroring conn→node / user→conns / role→conns into Redis for
+globally-accurate find/count.
+
+* Pros: global counts and routing.
+* Cons: most moving parts; requires presence/TTL crash cleanup; more consistency
+  to maintain. Heavier than acceptance requires; deferred.
+
+== Consequences
+
+=== Positive
+
+* `libs/realtime` becomes replica-safe via `:provider :redis`; horizontal
+  WebSocket scaling no longer needs sticky sessions.
+* The existing realtime ports are preserved; the bus is additive. Core business
+  logic and FC/IS boundaries are unchanged.
+* In-memory remains the zero-dependency default; single-node deployments and the
+  existing test suite are unaffected.
+* The same `IMessageBus` seam can later back an alternative transport (NATS,
+  Postgres `LISTEN/NOTIFY`) without touching the service.
+
+=== Negative
+
+* New runtime dependencies for the Redis provider (`jedis`, `nippy`).
+* `send-*` return values differ between providers (`nil` under Redis) — a
+  documented behavioural caveat.
+* Inherits Redis pub/sub's at-most-once and unordered-across-publishers semantics.
+* Orphan subscription entries accumulate on hard node crashes until a future
+  presence/TTL sweep is added.
+
+=== Neutral
+
+* `scaling.adoc` flips realtime from "not yet replica-safe" to "replica-safe via
+  `:provider :redis`", keeping the single-node/sticky-session note as the
+  in-memory fallback.
+
+== References
+
+* xref:ADR-003-websocket-architecture.adoc[ADR-003: WebSocket Architecture] —
+  original realtime design; this ADR implements its deferred v0.2.0 Redis pub/sub.
+* xref:ADR-021-fcis-boundary-rules.adoc[ADR-021: FC/IS Boundary Rules]
+* Design spec: `docs/superpowers/specs/2026-06-19-bou-85-realtime-redis-adapter-design.md`
+* Scaling reference: `docs/modules/architecture/pages/scaling.adoc`
+* Linear: BOU-85 (from the BOU-84 scaling spike)
+* Pattern precedent: `libs/cache` (`shell/module_wiring.clj`, `shell/adapters/redis.clj`)
+* Phoenix.PubSub / Socket.io Redis adapter (relay model inspiration)
