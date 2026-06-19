@@ -1,0 +1,58 @@
+(ns boundary.realtime.shell.module-wiring
+  "Integrant wiring for the realtime module.
+
+   Config key: :boundary/realtime
+     {:provider :in-memory | :redis
+      ;; redis only:
+      :host \"localhost\" :port 6379
+      :channel \"boundary:realtime:bus\"
+      :key-prefix \"realtime\"
+      :jwt-verifier <IJWTVerifier ref>}
+
+   The local connection registry is in-memory under BOTH providers (sockets are
+   node-local). Only the pub/sub manager and the bus differ.
+
+   IMPORTANT: the web/WS server component MUST depend on :boundary/realtime so
+   that start-subscriber! has completed (subscription live) before any WebSocket
+   connection is accepted."
+  (:require [boundary.realtime.ports :as ports]
+            [boundary.realtime.shell.service :as service]
+            [boundary.realtime.shell.connection-registry :as registry]
+            [boundary.realtime.shell.pubsub-manager :as atom-pubsub]
+            [boundary.realtime.shell.adapters.redis-pubsub :as redis-pubsub]
+            [boundary.realtime.shell.bus.in-memory :as in-memory-bus]
+            [boundary.realtime.shell.bus.redis :as redis-bus]
+            [clojure.tools.logging :as log]
+            [integrant.core :as ig])
+  (:import [redis.clients.jedis JedisPool JedisPoolConfig]))
+
+(defmethod ig/init-key :boundary/realtime
+  [_ {:keys [provider jwt-verifier] :as config}]
+  (log/info "Initializing realtime component" {:provider provider})
+  (let [conn-registry (registry/create-in-memory-registry)
+        [pubsub-manager bus pool]
+        (case provider
+          :redis
+          (let [pool (JedisPool. (JedisPoolConfig.)
+                                 ^String (or (:host config) "localhost")
+                                 (int (or (:port config) 6379)))]
+            [(redis-pubsub/create-redis-pubsub-manager pool {:prefix (or (:key-prefix config) "realtime")})
+             (redis-bus/create-redis-bus config)
+             pool])
+
+          ;; default :in-memory
+          [(atom-pubsub/create-pubsub-manager)
+           (in-memory-bus/create-in-memory-bus)
+           nil])
+        svc (service/create-realtime-service conn-registry jwt-verifier
+                                             :pubsub-manager pubsub-manager
+                                             :bus bus)]
+    (log/info "Realtime component initialized" {:provider provider})
+    {:service svc :registry conn-registry :pubsub-manager pubsub-manager
+     :bus bus :pool pool}))
+
+(defmethod ig/halt-key! :boundary/realtime
+  [_ {:keys [bus pool]}]
+  (log/info "Halting realtime component")
+  (when bus (try (ports/stop-subscriber! bus) (catch Exception e (log/warn e "stop-subscriber! failed"))))
+  (when pool (try (.close pool) (catch Exception e (log/warn e "pool close failed")))))
