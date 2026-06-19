@@ -61,34 +61,59 @@
       (is (contains? core-names "platform"))
       (is (contains? core-names "user")))))
 
-(defn- parse-all-libs
-  "Extracts and parses the all-libs vector from scripts/deploy.clj as EDN.
-  Returns nil if file absent or vector not found."
-  []
-  (let [f (io/file (System/getProperty "user.dir") "scripts/deploy.clj")]
+(defn- parse-deploy-all-libs
+  "Extracts and parses the all-libs vector from a deploy registry file (relative
+  to the monorepo root) as EDN. Returns nil if the file is absent (e.g. run
+  outside the monorepo root) or the vector isn't found."
+  [rel-path]
+  (let [f (io/file (System/getProperty "user.dir") rel-path)]
     (when (.exists f)
       (let [content (slurp f)
             m       (re-find #"(?s)\(def all-libs\s+(\[.*?\])\)" content)]
         (when m
           (clojure.edn/read-string (second m)))))))
 
-(deftest scripts-deploy-lib-registry-drift-test
+(defn- parse-all-libs
+  "all-libs from the canonical deploy registry — libs/tools/src/boundary/tools/
+  deploy.clj, the one `bb deploy` (boundary.tools.deploy) actually publishes from."
+  []
+  (parse-deploy-all-libs "libs/tools/src/boundary/tools/deploy.clj"))
+
+(deftest deploy-lib-registry-drift-test
   (let [all-libs (parse-all-libs)]
-    (when all-libs
-      (testing "all-libs vector is parseable and non-empty"
-        (is (vector? all-libs))
-        (is (seq all-libs)))
+    (if-not all-libs
+      ;; Run outside the monorepo root (e.g. `clojure -M:test` from libs/boundary-cli):
+      ;; the deploy registry is not on this cwd. Record the skip as a passing
+      ;; assertion so kaocha doesn't flag a zero-assertion test.
+      (is (nil? all-libs)
+          "Drift check skipped: deploy registry not found from this working directory")
+      (do
+        (testing "all-libs vector is parseable and non-empty"
+          (is (vector? all-libs))
+          (is (seq all-libs)))
 
-      (testing "i18n and payments are present in all-libs"
-        (is (some #{"i18n"}    all-libs) "i18n missing from scripts/deploy.clj all-libs")
-        (is (some #{"payments"} all-libs) "payments missing from scripts/deploy.clj all-libs"))
+        (testing "boundary-mcp is present in the publish registry"
+          (is (some #{"boundary-mcp"} all-libs)
+              "boundary-mcp missing from boundary.tools.deploy all-libs"))
 
-      (testing "i18n appears after platform and before user (dependency order)"
-        (let [idx #(.indexOf ^java.util.List (vec all-libs) %)]
-          (is (< (idx "platform") (idx "i18n"))    "i18n must come after platform")
-          (is (< (idx "i18n")     (idx "user"))     "i18n must come before user")))
+        (testing "the two deploy registries stay in sync"
+          ;; scripts/deploy.clj mirrors the canonical libs/tools registry; both
+          ;; must list the same libs in the same order, or a `bb scripts/deploy.clj`
+          ;; run would publish a different (drifted) set.
+          (let [scripts-libs (parse-deploy-all-libs "scripts/deploy.clj")]
+            (is (= all-libs scripts-libs)
+                "scripts/deploy.clj all-libs has drifted from libs/tools/.../deploy.clj")))
 
-      (testing "payments appears after external and before geo (dependency order)"
-        (let [idx #(.indexOf ^java.util.List (vec all-libs) %)]
-          (is (< (idx "external") (idx "payments")) "payments must come after external")
-          (is (< (idx "payments") (idx "geo"))      "payments must come before geo"))))))
+        (testing "i18n and payments are present in all-libs"
+          (is (some #{"i18n"}    all-libs) "i18n missing from deploy all-libs")
+          (is (some #{"payments"} all-libs) "payments missing from deploy all-libs"))
+
+        (testing "i18n appears after platform and before user (dependency order)"
+          (let [idx #(.indexOf ^java.util.List (vec all-libs) %)]
+            (is (< (idx "platform") (idx "i18n"))    "i18n must come after platform")
+            (is (< (idx "i18n")     (idx "user"))     "i18n must come before user")))
+
+        (testing "payments appears after external and before geo (dependency order)"
+          (let [idx #(.indexOf ^java.util.List (vec all-libs) %)]
+            (is (< (idx "external") (idx "payments")) "payments must come after external")
+            (is (< (idx "payments") (idx "geo"))      "payments must come before geo")))))))

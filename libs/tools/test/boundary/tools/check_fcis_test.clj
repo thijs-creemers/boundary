@@ -1,5 +1,6 @@
 (ns boundary.tools.check-fcis-test
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.java.io :as io]
             [boundary.tools.check-fcis :as fcis]))
 
 (deftest ^:unit core-source-paths-includes-libs
@@ -13,6 +14,23 @@
     (let [scanned (map str (fcis/core-source-paths))]
       (is (some #(re-find #"test_support/core" %) scanned)
           "expected src/boundary/test_support/core.clj to be scanned"))))
+
+(deftest ^:unit core-source-paths-includes-app-layout
+  (testing "FC/IS scanner includes src/boundary/<module>/core in an app layout (no libs/)"
+    ;; A project scaffolded with `boundary new` has no libs/ tree — its modules
+    ;; live under src/boundary/<module>/core/. Build a fixture and scan it via the
+    ;; explicit-root arity (the default arity reads user.dir = monorepo root).
+    (let [tmp      (io/file (System/getProperty "java.io.tmpdir")
+                            (str "fcis-app-" (System/currentTimeMillis)))
+          core-clj (io/file tmp "src" "boundary" "invoice" "core" "invoice.clj")]
+      (try
+        (io/make-parents core-clj)
+        (spit core-clj "(ns boundary.invoice.core.invoice)\n(defn total [xs] (reduce + xs))\n")
+        (let [scanned (map str (fcis/core-source-paths tmp))]
+          (is (some #(re-find #"src/boundary/invoice/core/invoice\.clj" %) scanned)
+              "expected the scaffolded app module's core file to be scanned"))
+        (finally
+          (doseq [f (reverse (file-seq tmp))] (.delete f)))))))
 
 (deftest ^:unit scan-fq-calls-detects-runtime-nondeterminism
   (testing "FC/IS scanner flags runtime-dependent identity, time, environment, and timezone access in core"

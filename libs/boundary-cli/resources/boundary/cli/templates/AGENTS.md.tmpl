@@ -284,6 +284,14 @@ clj-nrepl-eval -p 7888 "(+ 1 2)"     # evaluate an expression
 clj-paren-repair src/my_ns/core.clj  # repair after edits
 ```
 
+### MCP server
+
+This project ships a wired Boundary MCP server (`.mcp.json`). Open Claude Code or
+Cursor in the project root and the agent gains Boundary's tools (lint, scaffold,
+run-tests, …) with no setup. The server is launched via the `:mcp` deps alias
+(`clojure -M:mcp`) and is absent from the app runtime classpath, so it never ships
+with your application.
+
 ---
 
 ## Common Pitfalls

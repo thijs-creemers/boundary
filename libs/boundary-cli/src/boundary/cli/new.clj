@@ -1,10 +1,14 @@
 (ns boundary.cli.new
   (:require [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
             [clojure.string :as str]
             [boundary.cli.catalogue :as cat]))
 
 ;; Keep in sync with libs/tools/build.clj version
 (def ^:private boundary-tools-version "1.0.1-alpha-32")
+
+;; Keep in sync with libs/boundary-mcp/build.clj version (release-bumped with boundary-tools-version)
+(def ^:private boundary-mcp-version "1.0.1-alpha-32")
 
 (defn validate-name [n]
   (cond
@@ -57,6 +61,7 @@
                      :project-ns               project-ns
                      :jwt-secret               jwt-secret
                      :boundary-tools-version   boundary-tools-version
+                     :boundary-mcp-version     boundary-mcp-version
                      :core-version             (:version (cat/find-module "core"))
                      :observability-version (:version (cat/find-module "observability"))
                      :platform-version      (:version (cat/find-module "platform"))
@@ -83,22 +88,65 @@
                      "resources/conf/test/config.edn"      "test-config.edn.tmpl"
                      "src/boundary/config.clj"             "config.clj.tmpl"
                      "dev/user.clj"                        "user.clj.tmpl"
-                     (str "src/" project-ns "/system.clj") "system.clj.tmpl"}]
+                     (str "src/" project-ns "/system.clj") "system.clj.tmpl"
+                     ".mcp.json"                           "mcp.json.tmpl"
+                     ".vscode/extensions.json"             "vscode-extensions.json.tmpl"
+                     ".githooks/pre-commit"                "githook-pre-commit.tmpl"}]
     (doseq [[target tmpl] files]
-      (write-file! dir target (render (read-template tmpl) subs)))))
+      (write-file! dir target (render (read-template tmpl) subs)))
+    (.setExecutable (io/file dir ".githooks/pre-commit") true false)))
+
+(defn- run-git
+  "Default git runner: shells out via clojure.java.shell. Returns the sh result map."
+  [dir & args]
+  (apply shell/sh (concat ["git" "-C" dir] args)))
+
+(defn git-bootstrap!
+  "Initialise a git repo in dir, point hooks at .githooks, and make an initial
+   commit. Every step is non-fatal: on any failure, collect a warning and keep
+   going. `run` is the git runner (injected for testing); defaults to run-git.
+   Returns {:ok? bool :warnings [str]}.
+
+   The initial commit uses --no-verify so the freshly-written .githooks/pre-commit
+   (bb check:fcis + lint) does NOT fire here — that hook needs the project's deps
+   resolved, which would force a network/maven download and defeat the
+   fast/offline `boundary new`. The gate is for subsequent human commits."
+  ([dir] (git-bootstrap! dir run-git))
+  ([dir run]
+   (let [steps [["init"]
+                ["config" "core.hooksPath" ".githooks"]
+                ["add" "-A"]
+                ["commit" "--no-verify" "-m" "Initial commit (boundary new)"]]
+         warnings (reduce
+                   (fn [warns args]
+                     (let [{:keys [exit err] :as r}
+                           (try (apply run dir args)
+                                (catch Exception e {:exit 1 :err (.getMessage e)}))]
+                       (if (and (map? r) (zero? (or exit 1)))
+                         warns
+                         (conj warns (str "git " (str/join " " args) " failed: "
+                                          (or (not-empty err) "non-zero exit"))))))
+                   []
+                   steps)]
+     {:ok? (empty? warnings) :warnings warnings})))
 
 (defn -main [args]
   (let [[project-name & flags] args
-        force? (boolean (some #{"--force"} flags))]
+        force?     (boolean (some #{"--force"} flags))
+        skip-git?  (boolean (some #{"--skip-git"} flags))]
     (when-not project-name
-      (println "Usage: boundary new <project-name> [--force]")
+      (println "Usage: boundary new <project-name> [--force] [--skip-git]")
       (System/exit 1))
     (let [err (validate-name project-name)]
       (when err
         (println (str "Error: " err))
         (System/exit 1)))
-    (let [dir    (str (System/getProperty "user.dir") "/" project-name)
-          status (check-directory dir force?)]
+    (let [dir            (str (System/getProperty "user.dir") "/" project-name)
+          ;; True (unforced) state of the target, captured before we write. Used
+          ;; to decide whether git bootstrap is safe: --force into a non-empty dir
+          ;; must NOT git-init / `git add -A` over pre-existing, unrelated files.
+          pre-existing?  (= :non-empty (check-directory dir false))
+          status         (check-directory dir force?)]
       (case status
         :not-a-dir
         (do (println (str "Error: " project-name " already exists and is not a directory."))
@@ -111,12 +159,26 @@
         :ok nil)
       (println (str "Creating " project-name "/..."))
       (generate! dir project-name {})
+      (cond
+        skip-git?     nil
+        pre-existing? (println (str "  ⚠ Skipped git init: " project-name
+                                    "/ already had files (--force). Initialise git yourself "
+                                    "so unrelated files aren't committed."))
+        :else
+        (let [{:keys [ok? warnings]} (git-bootstrap! dir)]
+          (doseq [w warnings] (println (str "  ⚠ " w)))
+          (when-not ok?
+            (println (str "  ⚠ git setup was incomplete (the files are written either way). "
+                          "If git identity is unset, run: git -C " project-name
+                          " config user.email you@example.com && git -C " project-name
+                          " commit -m \"Initial commit\"")))))
       (println (str "\n✓ Project created: " project-name "/"))
       (println "\nCore modules installed: core, observability, platform, user")
       (println "\nOptional modules available — add any with:\n")
       (doseq [{:keys [description add-command]} (take 6 (cat/optional-modules))]
         (println (format "  %-25s %s" add-command description)))
       (println "  ... (boundary list modules for full list)")
-      (println "\nAI-ready: CLAUDE.md, AGENTS.md and a Claude Code skill (.claude/skills/boundary/) are included.")
-      (println "Open an agentic CLI (e.g. Claude Code) and ask: \"add a product module with name and price\".")
-      (println (str "\nNext:\n  cd " project-name "\n  boundary add <module>    (optional)\n  clojure -M:repl")))))
+      (println "\nAI-ready: CLAUDE.md, AGENTS.md, a Claude Code skill, and a wired MCP server (.mcp.json) are included.")
+      (println "Open Claude Code or Cursor here — the Boundary MCP server is live, so the agent has Boundary's tools immediately.")
+      (println (str "\nNext:\n  cd " project-name
+                    "\n  bb quickstart        # download deps, migrate, optional first module, start")))))

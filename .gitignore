@@ -61,3 +61,7 @@ re# Claude Code local settings
 # Generated lint reports
 build/docs-lint/
 
+# Local AI-agent / session harness tooling (not part of the repo)
+.agents/
+skills-lock.json
+

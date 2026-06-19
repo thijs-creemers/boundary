@@ -40,7 +40,10 @@
                    "resources/conf/test/config.edn"
                    "src/boundary/config.clj"
                    "dev/user.clj"
-                   "src/test_proj/system.clj"]]
+                   "src/test_proj/system.clj"
+                   ".mcp.json"
+                   ".vscode/extensions.json"
+                   ".githooks/pre-commit"]]
           (is (.exists (io/file tmp f)) (str "Missing: " f))))
 
       (testing ".env has a generated JWT_SECRET (no unreplaced placeholder)"
@@ -65,6 +68,32 @@
           (is (str/includes? content "<!-- /boundary:available-modules -->"))
           (is (str/includes? content "<!-- boundary:installed-modules -->"))
           (is (str/includes? content "<!-- /boundary:installed-modules -->"))))
+
+      (testing ".mcp.json wires the boundary MCP server via clojure -M:mcp"
+        (let [content (slurp (io/file tmp ".mcp.json"))]
+          (is (str/includes? content "\"-M:mcp\""))
+          (is (str/includes? content "boundary"))
+          (is (not (str/includes? content "{{")))))
+
+      (testing "deps.edn has an :mcp alias with a resolved version"
+        (let [content (slurp (io/file tmp "deps.edn"))]
+          (is (str/includes? content ":mcp"))
+          (is (str/includes? content "org.boundary-app/boundary-mcp"))
+          (is (not (str/includes? content "{{boundary-mcp-version}}")))))
+
+      (testing ":mcp alias lists mcp's full boundary closure"
+        ;; Published Boundary poms omit boundary deps (write-pom skips :local/root),
+        ;; so the alias must enumerate mcp's closure not already in the default
+        ;; :deps. If a closure lib silently disappears from the template, -M:mcp
+        ;; would fail to resolve at runtime — guard it here.
+        (let [content (slurp (io/file tmp "deps.edn"))]
+          (doseq [lib ["boundary-ai" "boundary-devtools" "boundary-scaffolder"
+                       "boundary-tools" "boundary-jobs"]]
+            (is (str/includes? content (str "org.boundary-app/" lib))
+                (str "Missing from :mcp closure: " lib)))))
+
+      (testing "pre-commit hook is executable"
+        (is (.canExecute (io/file tmp ".githooks/pre-commit"))))
       (finally
         ;; cleanup
         (doseq [f (reverse (file-seq (io/file tmp)))]
@@ -119,3 +148,35 @@
         (is (= :not-a-dir (new/check-directory tmp false))))
       (finally
         (.delete (io/file tmp))))))
+
+(deftest git-bootstrap-test
+  (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-git-test-" (System/currentTimeMillis))]
+    (io/make-parents (io/file tmp "x"))
+    (try
+      (testing "a failing git runner is non-fatal and returns a warning"
+        (let [boom (fn [& _] (throw (RuntimeException. "git missing")))
+              result (new/git-bootstrap! tmp boom)]
+          (is (false? (:ok? result)))
+          (is (seq (:warnings result)))))
+
+      (testing "a successful runner reports ok"
+        (let [calls (atom [])
+              ok    (fn [& args] (swap! calls conj (vec args)) {:exit 0 :out "" :err ""})
+              result (new/git-bootstrap! tmp ok)]
+          (is (true? (:ok? result)))
+          ;; init, config hooksPath, add, commit  → 4 invocations
+          (is (= 4 (count @calls)))
+          (is (= "init" (second (first @calls))))))
+      (finally
+        (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
+
+(deftest skip-git-test
+  (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-skipgit-" (System/currentTimeMillis))]
+    (try
+      (testing "real bootstrap creates a .git directory"
+        (new/generate! tmp "gitproj" {})
+        (let [{:keys [ok?]} (new/git-bootstrap! tmp)]
+          ;; git may be absent in some CI images; only assert .git when it succeeded
+          (when ok? (is (.exists (io/file tmp ".git"))))))
+      (finally
+        (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
