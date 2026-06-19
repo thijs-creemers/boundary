@@ -18,19 +18,11 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
+          aliases: -M:clj-kondo
 
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
       - name: Clear clj-kondo cache
         run: rm -rf .clj-kondo/.cache/* 2>/dev/null || true
 
@@ -102,19 +94,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:docs-lint
 
       - name: Run docs-lint
         run: clojure -M:docs-lint
@@ -155,36 +138,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      # Prefetch every alias set smoke-check invokes (:migrate and :test) so each
+      # reuses a warm .cpcache and performs no concurrent resolution.
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:migrate -M:test
 
       - name: Setup Babashka
         uses: DeLaGuardo/setup-clojure@13.6.1
         with:
           bb: latest
-
-      # Resolve deps single-threaded BEFORE the smoke check. On a cold ~/.m2,
-      # tools.deps parses many JDBC-driver POMs in parallel and intermittently
-      # trips a Maven DefaultModelValidator concurrency bug (HashMap$Node cannot
-      # be cast to TreeNode). -Sthreads 1 serialises resolution so the race can't
-      # occur; -P downloads/prepares without running. Prefetch every alias set
-      # smoke-check invokes (:migrate and :test) so each reuses a warm .cpcache
-      # and performs no concurrent resolution.
-      - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
-        run: |
-          clojure -Sthreads 1 -P -M:migrate
-          clojure -Sthreads 1 -P -M:test
 
       - name: Run command smoke check
         run: bb smoke-check
@@ -293,19 +257,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -320,19 +275,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -347,19 +293,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -374,19 +311,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -401,19 +329,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -428,19 +347,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -455,19 +365,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -482,19 +383,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -509,19 +401,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -536,19 +419,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -563,19 +437,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -590,19 +455,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -617,19 +473,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -644,19 +491,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -671,19 +509,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -698,19 +527,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -725,19 +545,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -752,19 +563,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -779,19 +581,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -809,19 +602,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         working-directory: libs/boundary-mcp
@@ -838,19 +622,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -868,19 +643,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
@@ -898,19 +664,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test:db/h2
 
       - name: Run tests
         env:
@@ -956,19 +713,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.6.1
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
         with:
-          cli: 1.12.5.1654
-
-      - name: Cache dependencies
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.m2/repository
-            ~/.gitlibs
-          key: ${{ runner.os }}-clojure-${{ hashFiles('**/deps.edn') }}
-          restore-keys: ${{ runner.os }}-clojure-
+          aliases: -M:test
 
       - name: Run tests
         env:
