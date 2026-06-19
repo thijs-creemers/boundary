@@ -54,5 +54,13 @@
 (defmethod ig/halt-key! :boundary/realtime
   [_ {:keys [bus pool]}]
   (log/info "Halting realtime component")
-  (when bus (try (ports/stop-subscriber! bus) (catch Exception e (log/warn e "stop-subscriber! failed"))))
+  ;; Closeable buses (RedisMessageBus) own an internal pool that .close releases
+  ;; after stopping the subscriber; the in-memory bus is not Closeable, so just
+  ;; stop its subscriber. Closing the bus this way avoids leaking its pool.
+  (when bus
+    (try
+      (if (instance? java.io.Closeable bus)
+        (.close ^java.io.Closeable bus)
+        (ports/stop-subscriber! bus))
+      (catch Exception e (log/warn e "realtime bus shutdown failed"))))
   (when pool (try (.close pool) (catch Exception e (log/warn e "pool close failed")))))
