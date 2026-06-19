@@ -40,10 +40,12 @@
       nil)))
 
 (defn- scan-keys
-  "SCAN all keys matching pattern (non-blocking, unlike KEYS)."
+  "SCAN all keys matching pattern (non-blocking, unlike KEYS). Accumulates into a
+   set — SCAN may return the same key more than once across cursor iterations
+   during a rehash, so dedup keeps the counts accurate."
   [^Jedis j ^String pattern]
   (let [params (doto (ScanParams.) (.match pattern) (.count (int 100)))]
-    (loop [cursor "0" acc []]
+    (loop [cursor "0" acc #{}]
       (let [result (.scan j cursor params)
             acc    (into acc (.getResult result))
             cursor (.getCursor result)]

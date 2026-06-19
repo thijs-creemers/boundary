@@ -19,7 +19,7 @@
   (:require [boundary.realtime.ports :as ports]
             [clojure.tools.logging :as log]
             [taoensso.nippy :as nippy])
-  (:import [redis.clients.jedis JedisPool JedisPoolConfig Jedis BinaryJedisPubSub]
+  (:import [redis.clients.jedis JedisPool JedisPoolConfig Jedis BinaryJedisPubSub HostAndPort]
            [java.util.concurrent CountDownLatch TimeUnit]
            [java.nio.charset StandardCharsets]))
 
@@ -47,9 +47,12 @@
       (JedisPool. cfg ^String host port timeout))))
 
 (defn- make-subscriber-conn
-  "Create the dedicated (non-pooled) connection the subscriber blocks on."
-  ^Jedis [{:keys [host port password database timeout]}]
-  (let [j (Jedis. ^String (or host "localhost") (int (or port 6379)) (int (or timeout 2000)))]
+  "Create the dedicated (non-pooled) connection the subscriber blocks on.
+   Uses the HostAndPort ctor (unambiguous, reflection-free); auth/db are applied
+   explicitly. The subscriber connects once then blocks indefinitely, so the
+   default connect timeout is fine — :timeout still tunes the publish pool."
+  ^Jedis [{:keys [host port password database]}]
+  (let [j (Jedis. (HostAndPort. ^String (or host "localhost") (int (or port 6379))))]
     (when password (.auth j ^String password))
     (when (and database (pos? (int database))) (.select j (int database)))
     j))
@@ -87,12 +90,12 @@
                           ;; Redis is unreachable (e.g. at startup), this throws
                           ;; — catch it so the daemon keeps retrying instead of
                           ;; dying and leaving the node permanently deaf.
-                          (let [conn (try
-                                       (make-subscriber-conn conn-config)
-                                       (catch Exception e
-                                         (when (:running? @state)
-                                           (log/warn e "Redis subscriber connect failed; retrying"))
-                                         nil))]
+                          (let [^Jedis conn (try
+                                              (make-subscriber-conn conn-config)
+                                              (catch Exception e
+                                                (when (:running? @state)
+                                                  (log/warn e "Redis subscriber connect failed; retrying"))
+                                                nil))]
                             (when conn
                               (swap! state assoc :sub-conn conn)
                               (try
