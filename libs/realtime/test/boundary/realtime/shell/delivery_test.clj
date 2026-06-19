@@ -22,7 +22,7 @@
         id-1 (java.util.UUID/randomUUID)
         id-2 (java.util.UUID/randomUUID)
         a1 (register! reg id-1 #{:user :admin})
-        a2 (register! reg id-2 #{:user})
+        _a2 (register! reg id-2 #{:user})
         f  (delivery/make-delivery-fn reg pubsub)
         msg {:type :x :payload {}}]
     (testing "broadcast hits all, returns count"
