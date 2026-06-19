@@ -89,8 +89,8 @@ Every replica keeps its own in-memory connection registry (live WebSocket socket
 :boundary/realtime {:provider    :redis
                     :host        "localhost"   ; Redis host
                     :port        6379          ; Redis port
-                    :channel     "realtime"    ; pub/sub channel name
-                    :key-prefix  "rt:"         ; prefix for Redis set keys (topic subscriptions)
+                    :channel     "boundary:realtime:bus" ; pub/sub channel (default if omitted)
+                    :key-prefix  "realtime"    ; prefix for Redis set keys (default if omitted)
                     :jwt-verifier <ref>}       ; IJWTVerifier component ref
 ```
 
