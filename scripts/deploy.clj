@@ -36,8 +36,12 @@
 ;; Library registry (in dependency order)
 ;; =============================================================================
 
+;; Keep in sync with libs/tools/src/boundary/tools/deploy.clj all-libs
+;; (the canonical registry `bb deploy` publishes from). Dependency order:
+;; a lib appears after every boundary lib it depends on.
 (def all-libs
-  ["core"
+  ["tools"
+   "core"
    "observability"
    "platform"
    "i18n"
@@ -59,7 +63,9 @@
    "ai"
    "ui-style"
    "admin"
-   "boundary-cli"])
+   "boundary-cli"
+   "devtools"
+   "boundary-mcp"])
 
 (def valid-libs (set all-libs))
 (def root-dir (System/getProperty "user.dir"))

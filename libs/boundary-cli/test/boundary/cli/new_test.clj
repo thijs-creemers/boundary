@@ -81,6 +81,17 @@
           (is (str/includes? content "org.boundary-app/boundary-mcp"))
           (is (not (str/includes? content "{{boundary-mcp-version}}")))))
 
+      (testing ":mcp alias lists mcp's full boundary closure"
+        ;; Published Boundary poms omit boundary deps (write-pom skips :local/root),
+        ;; so the alias must enumerate mcp's closure not already in the default
+        ;; :deps. If a closure lib silently disappears from the template, -M:mcp
+        ;; would fail to resolve at runtime — guard it here.
+        (let [content (slurp (io/file tmp "deps.edn"))]
+          (doseq [lib ["boundary-ai" "boundary-devtools" "boundary-scaffolder"
+                       "boundary-tools" "boundary-jobs"]]
+            (is (str/includes? content (str "org.boundary-app/" lib))
+                (str "Missing from :mcp closure: " lib)))))
+
       (testing "pre-commit hook is executable"
         (is (.canExecute (io/file tmp ".githooks/pre-commit"))))
       (finally

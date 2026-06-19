@@ -105,13 +105,18 @@
   "Initialise a git repo in dir, point hooks at .githooks, and make an initial
    commit. Every step is non-fatal: on any failure, collect a warning and keep
    going. `run` is the git runner (injected for testing); defaults to run-git.
-   Returns {:ok? bool :warnings [str]}."
+   Returns {:ok? bool :warnings [str]}.
+
+   The initial commit uses --no-verify so the freshly-written .githooks/pre-commit
+   (bb check:fcis + lint) does NOT fire here — that hook needs the project's deps
+   resolved, which would force a network/maven download and defeat the
+   fast/offline `boundary new`. The gate is for subsequent human commits."
   ([dir] (git-bootstrap! dir run-git))
   ([dir run]
    (let [steps [["init"]
                 ["config" "core.hooksPath" ".githooks"]
                 ["add" "-A"]
-                ["commit" "-m" "Initial commit (boundary new)"]]
+                ["commit" "--no-verify" "-m" "Initial commit (boundary new)"]]
          warnings (reduce
                    (fn [warns args]
                      (let [{:keys [exit err] :as r}
@@ -151,8 +156,13 @@
       (println (str "Creating " project-name "/..."))
       (generate! dir project-name {})
       (when-not skip-git?
-        (let [{:keys [warnings]} (git-bootstrap! dir)]
-          (doseq [w warnings] (println (str "  ⚠ " w)))))
+        (let [{:keys [ok? warnings]} (git-bootstrap! dir)]
+          (doseq [w warnings] (println (str "  ⚠ " w)))
+          (when-not ok?
+            (println (str "  ⚠ git setup was incomplete (the files are written either way). "
+                          "If git identity is unset, run: git -C " project-name
+                          " config user.email you@example.com && git -C " project-name
+                          " commit -m \"Initial commit\"")))))
       (println (str "\n✓ Project created: " project-name "/"))
       (println "\nCore modules installed: core, observability, platform, user")
       (println "\nOptional modules available — add any with:\n")

@@ -61,22 +61,25 @@
       (is (contains? core-names "platform"))
       (is (contains? core-names "user")))))
 
-(defn- parse-all-libs
-  "Extracts and parses the all-libs vector from the canonical deploy registry as
-  EDN. The canonical registry is libs/tools/src/boundary/tools/deploy.clj — the
-  one `bb deploy` (boundary.tools.deploy) actually publishes from. Returns nil if
-  the file is absent (e.g. run outside the monorepo root) or the vector isn't
-  found."
-  []
-  (let [f (io/file (System/getProperty "user.dir")
-                   "libs/tools/src/boundary/tools/deploy.clj")]
+(defn- parse-deploy-all-libs
+  "Extracts and parses the all-libs vector from a deploy registry file (relative
+  to the monorepo root) as EDN. Returns nil if the file is absent (e.g. run
+  outside the monorepo root) or the vector isn't found."
+  [rel-path]
+  (let [f (io/file (System/getProperty "user.dir") rel-path)]
     (when (.exists f)
       (let [content (slurp f)
             m       (re-find #"(?s)\(def all-libs\s+(\[.*?\])\)" content)]
         (when m
           (clojure.edn/read-string (second m)))))))
 
-(deftest scripts-deploy-lib-registry-drift-test
+(defn- parse-all-libs
+  "all-libs from the canonical deploy registry — libs/tools/src/boundary/tools/
+  deploy.clj, the one `bb deploy` (boundary.tools.deploy) actually publishes from."
+  []
+  (parse-deploy-all-libs "libs/tools/src/boundary/tools/deploy.clj"))
+
+(deftest deploy-lib-registry-drift-test
   (let [all-libs (parse-all-libs)]
     (if-not all-libs
       ;; Run outside the monorepo root (e.g. `clojure -M:test` from libs/boundary-cli):
@@ -92,6 +95,14 @@
         (testing "boundary-mcp is present in the publish registry"
           (is (some #{"boundary-mcp"} all-libs)
               "boundary-mcp missing from boundary.tools.deploy all-libs"))
+
+        (testing "the two deploy registries stay in sync"
+          ;; scripts/deploy.clj mirrors the canonical libs/tools registry; both
+          ;; must list the same libs in the same order, or a `bb scripts/deploy.clj`
+          ;; run would publish a different (drifted) set.
+          (let [scripts-libs (parse-deploy-all-libs "scripts/deploy.clj")]
+            (is (= all-libs scripts-libs)
+                "scripts/deploy.clj all-libs has drifted from libs/tools/.../deploy.clj")))
 
         (testing "i18n and payments are present in all-libs"
           (is (some #{"i18n"}    all-libs) "i18n missing from deploy all-libs")
