@@ -115,8 +115,8 @@ the distributed adapter is "just configuration" once it exists.
 | Integrant `halt!` runs on a JVM shutdown hook (`src/boundary/main.clj`), closing pools and stopping Jetty — but there is *no connection draining*; in-flight requests can be cut. Fine for restarts, rough for zero-downtime rollouts.
 
 | Realtime / WebSocket
-| ❌
-| Connection registry and pub/sub are in-memory atoms only (`connection_registry.clj`, `pubsub_manager.clj` — Redis is mentioned in comments but not implemented). A broadcast reaches only clients on the *same* instance. Needs either a single instance, sticky sessions with no cross-instance fan-out, or a Redis-backed adapter.
+| ✅ *
+| Replica-safe via `:provider :redis` (BOU-85, xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). Live sockets remain node-local; routing envelopes fan out over a Redis pub/sub channel so a broadcast reaches clients on any replica. Topic subscriptions are stored in Redis sets and are cluster-wide. *The default `:in-memory` provider is single-node only — use `:redis` for multi-replica deployments.
 |===
 
 == Topologies
@@ -129,7 +129,7 @@ the distributed adapter is "just configuration" once it exists.
 | Vertical only. One process, large heap and pools. Everything works, including realtime and in-memory rate limiting. Simplest; capped by one machine.
 
 | *N stateless web replicas*
-| The main horizontal mode. N copies of the uberjar behind a load balancer, sharing Postgres + Redis. Cache, jobs, auth, tenancy all scale. Caveats: wire Redis rate limiting; WebSocket needs sticky sessions or a single realtime node until the Redis adapter lands.
+| The main horizontal mode. N copies of the uberjar behind a load balancer, sharing Postgres + Redis. Cache, jobs, auth, tenancy all scale. Caveats: wire Redis rate limiting; WebSocket scales horizontally via `:provider :redis` (sticky sessions are only required when running the `:in-memory` provider).
 
 | *Web / worker split* (future)
 | Run dedicated job-worker processes separate from web. The jobs Redis queue already supports it, but there is currently no `worker` launch mode — `boundary.main` exposes only `server` and `cli`. Adding a worker entrypoint is the enabling step.
@@ -142,7 +142,7 @@ the distributed adapter is "just configuration" once it exists.
 * Wire `http-rate-limit` with the Redis cache if you need a global limit.
 * Keep `replicas × maximum-pool-size` under Postgres `max_connections`.
 * Confirm your load balancer points health probes at `/health/ready` (503-aware), not `/health/live`.
-* For WebSocket today: pin realtime to one instance or use sticky sessions until the Redis pub/sub adapter exists.
+* For WebSocket: use `:provider :redis` on `:boundary/realtime` to scale across replicas (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). Sticky sessions / single-node are only required with the default `:in-memory` provider.
 * Add Redis (and, for testing N replicas, a load balancer) to your deployment — `docker-compose.yml` currently defines a single app service only.
 
 == Functional decomposition (slicing services out)
@@ -221,7 +221,7 @@ extracting *payments* as a standalone service, then tackle `user`. Don't attempt
 The architecture delivers the promise; these are the concrete pieces that make
 "scale by configuration" fully true. Tracked under the BOU-84 spike:
 
-. *Realtime Redis pub/sub + connection registry adapter* — the one hard blocker for WebSocket across replicas.
+. ✅ *Realtime Redis pub/sub adapter* — shipped in BOU-85 (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). WebSocket is now replica-safe via `:provider :redis` on `:boundary/realtime`.
 . *Graceful connection draining* — configurable shutdown grace so rollouts finish in-flight requests.
 . *Default rate-limit wiring* — apply `http-rate-limit` with the Redis cache in the standard pipeline.
 . *Jobs hardening* — fail-fast on missing handler registration; verify scheduled-job atomic claim across workers.
