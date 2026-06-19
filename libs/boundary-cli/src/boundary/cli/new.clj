@@ -141,8 +141,12 @@
       (when err
         (println (str "Error: " err))
         (System/exit 1)))
-    (let [dir    (str (System/getProperty "user.dir") "/" project-name)
-          status (check-directory dir force?)]
+    (let [dir            (str (System/getProperty "user.dir") "/" project-name)
+          ;; True (unforced) state of the target, captured before we write. Used
+          ;; to decide whether git bootstrap is safe: --force into a non-empty dir
+          ;; must NOT git-init / `git add -A` over pre-existing, unrelated files.
+          pre-existing?  (= :non-empty (check-directory dir false))
+          status         (check-directory dir force?)]
       (case status
         :not-a-dir
         (do (println (str "Error: " project-name " already exists and is not a directory."))
@@ -155,7 +159,12 @@
         :ok nil)
       (println (str "Creating " project-name "/..."))
       (generate! dir project-name {})
-      (when-not skip-git?
+      (cond
+        skip-git?     nil
+        pre-existing? (println (str "  ⚠ Skipped git init: " project-name
+                                    "/ already had files (--force). Initialise git yourself "
+                                    "so unrelated files aren't committed."))
+        :else
         (let [{:keys [ok? warnings]} (git-bootstrap! dir)]
           (doseq [w warnings] (println (str "  ⚠ " w)))
           (when-not ok?

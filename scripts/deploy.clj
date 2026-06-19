@@ -82,9 +82,21 @@
     (when (.exists build-file)
       (second (re-find #"\(def version \"([^\"]+)\"" (slurp build-file))))))
 
+(defn artifact-name
+  "Clojars artifact id for a lib, read from its build.clj coordinate
+   `(def lib 'org.boundary-app/<artifact>)`. Reading the coordinate (rather than
+   string-prefixing) avoids a double `boundary-` for libs whose dir already starts
+   with it (e.g. boundary-cli → boundary-cli, not boundary-boundary-cli). Falls
+   back to `boundary-<lib>` when build.clj is unreadable."
+  [lib]
+  (let [build-file (io/file (lib-dir lib) "build.clj")]
+    (or (when (.exists build-file)
+          (second (re-find #"\(def lib '[^/]+/([^\)\s]+)" (slurp build-file))))
+        (str "boundary-" lib))))
+
 (defn published? [lib]
   (let [version  (read-version lib)
-        artifact (str "boundary-" lib)
+        artifact (artifact-name lib)
         url      (format "https://clojars.org/repo/org/boundary-app/%s/%s/%s-%s.pom"
                          artifact version artifact version)
         response (http/get url {:throw false})]
@@ -128,7 +140,7 @@
    version, which must match the pushed git tag) and renders API docs + source
    links. Non-fatal on failure — the release already succeeded."
   [lib version]
-  (let [artifact (str "org.boundary-app/boundary-" lib)
+  (let [artifact (str "org.boundary-app/" (artifact-name lib))
         resp     (http/post "https://cljdoc.org/api/request-build2"
                             {:form-params {:project artifact :version version}
                              :throw       false})]
@@ -147,10 +159,10 @@
     (when-not version
       (println (red (str "Error: could not read version from libs/" lib "/build.clj")))
       (System/exit 1))
-    (println (bold (str "\nDeploying boundary-" lib " " version "...")))
+    (println (bold (str "\nDeploying " (artifact-name lib) " " version "...")))
     (p/shell {:dir dir} "clojure" "-T:build" "clean")
     (p/shell {:dir dir} "clojure" "-T:build" "deploy")
-    (println (green (str "✓ boundary-" lib " " version " deployed")))
+    (println (green (str "✓ " (artifact-name lib) " " version " deployed")))
     (patch-catalogue-version! lib version)
     (request-cljdoc-build! lib version)))
 
@@ -176,8 +188,8 @@
   (let [missing (filterv (fn [lib]
                            (let [exists? (published? lib)]
                              (if exists?
-                               (println (dim (str "  ⏭  boundary-" lib " " (read-version lib) " already published")))
-                               (println (yellow (str "  •  boundary-" lib " " (read-version lib) " not yet published"))))
+                               (println (dim (str "  ⏭  " (artifact-name lib) " " (read-version lib) " already published")))
+                               (println (yellow (str "  •  " (artifact-name lib) " " (read-version lib) " not yet published"))))
                              (not exists?)))
                          all-libs)]
     (if (empty? missing)
