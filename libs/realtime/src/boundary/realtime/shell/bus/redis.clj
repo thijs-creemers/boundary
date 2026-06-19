@@ -51,24 +51,39 @@
                     (fn []
                       (loop [backoff 100]
                         (when (:running? @state)
-                          (let [conn (.getResource pool)]
-                            (swap! state assoc :sub-conn conn)
-                            (try
-                              (.subscribe conn
-                                          ^BinaryJedisPubSub pubsub
-                                          ^"[[B" (into-array (Class/forName "[B") [channel-bytes]))
-                              (catch Exception e
-                                (when (:running? @state)
-                                  (log/warn e "Redis subscriber dropped; reconnecting")))
-                              (finally
-                                (try (.close conn) (catch Exception _ nil))))
+                          ;; Acquire the dedicated connection INSIDE the loop's
+                          ;; try: if Redis is unreachable (e.g. at startup),
+                          ;; .getResource throws — catch it so the daemon keeps
+                          ;; retrying instead of dying and leaving the node deaf.
+                          (let [conn (try
+                                       (.getResource pool)
+                                       (catch Exception e
+                                         (when (:running? @state)
+                                           (log/warn e "Redis subscriber connection failed; retrying"))
+                                         nil))]
+                            (when conn
+                              (swap! state assoc :sub-conn conn)
+                              (try
+                                (.subscribe conn
+                                            ^BinaryJedisPubSub pubsub
+                                            ^"[[B" (into-array (Class/forName "[B") [channel-bytes]))
+                                (catch Exception e
+                                  (when (:running? @state)
+                                    (log/warn e "Redis subscriber dropped; reconnecting")))
+                                (finally
+                                  (try (.close conn) (catch Exception _ nil)))))
                             (when (:running? @state)
                               (Thread/sleep backoff)
                               (recur (min 5000 (* 2 backoff)))))))))]
         (swap! state assoc :running? true :pubsub pubsub :thread thread :delivery-fn delivery-fn)
         (.setDaemon thread true)
         (.start thread)
-        (.await latch 5 TimeUnit/SECONDS)))
+        ;; Wait for the subscription to go live. If Redis is down at startup the
+        ;; latch won't count down within the window — don't fail init; the
+        ;; background loop keeps retrying and the node becomes live once Redis is
+        ;; reachable. Log so the not-yet-live state is observable.
+        (when-not (.await latch 5 TimeUnit/SECONDS)
+          (log/warn "Realtime Redis subscriber not live after 5s; retrying in background"))))
     nil)
 
   (stop-subscriber! [_this]
