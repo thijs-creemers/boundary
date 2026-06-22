@@ -70,9 +70,59 @@ The `:on-open` callback runs after a successful `realtime-ports/connect`. Use it
 (ports/unsubscribe-from-topic pubsub-mgr conn-id "order:123")
 ```
 
+## Scaling & providers
+
+`:boundary/realtime` accepts a `:provider` key that selects the pub/sub backend:
+
+| Provider | Default | Replica-safe |
+|----------|---------|--------------|
+| `:in-memory` | yes | No — single process only; use sticky sessions |
+| `:redis` | no | Yes — scales across replicas via Redis pub/sub |
+
+### Relay model (`:redis` provider)
+
+Every replica keeps its own in-memory connection registry (live WebSocket sockets are always node-local). When a message is sent, the node publishes a routing envelope onto a shared Redis pub/sub channel. Every replica subscribes to that channel and delivers the message to any matching local sockets. Topic subscriptions are stored in Redis sets, making them visible cluster-wide so `publish-to-topic` fans out correctly regardless of which replica holds a given socket.
+
+### Redis config keys
+
+```clojure
+:boundary/realtime {:provider    :redis
+                    :host        "localhost"   ; Redis host
+                    :port        6379          ; Redis port
+                    :password    "..."         ; AUTH password (production; optional)
+                    :database    0             ; Redis db index (optional)
+                    :timeout     2000          ; socket timeout ms (optional)
+                    :max-total   8             ; publish-pool sizing (optional)
+                    :max-idle    8             ; (optional)
+                    :min-idle    0             ; (optional)
+                    :channel     "boundary:realtime:bus" ; pub/sub channel (default if omitted)
+                    :key-prefix  "realtime"    ; prefix for Redis set keys (default if omitted)
+                    :subscribe-timeout-ms 5000 ; await window for the subscription to go live;
+                                               ; if Redis is down at startup, init does NOT fail —
+                                               ; the subscriber retries in the background and the
+                                               ; node becomes live once Redis is reachable (default 5000)
+                    :jwt-verifier <ref>}       ; IJWTVerifier component ref
+```
+
+Under `:redis` the component opens **two** Jedis pools — one for topic
+subscriptions (pub/sub manager) and one inside the bus for publish — both
+configured from the same keys above and both closed on halt. The subscriber
+uses its own dedicated connection (not the publish pool), so a blocking
+`SUBSCRIBE` never starves publishers.
+
+### Return-value caveat
+
+Under `:redis`, `send-to-user`, `send-to-role`, `broadcast`, `publish-to-topic`, and `send-to-connection` all return `nil` — delivery is async (fire-and-forget via the pub/sub relay). Under `:in-memory` these functions return recipient counts or booleans. Do not branch on the return value in application code.
+
+### Wiring note
+
+The web / WS server component **must declare `:boundary/realtime` as a dependency** so the Redis subscriber is active before the first WebSocket connection is accepted. Without this ordering, messages published during startup may be missed.
+
+See [ADR-035](../../dev-docs/adr/ADR-035-realtime-redis-scaling.adoc) for the full design rationale.
+
 ## Gotchas
 
-1. **Single-server only** - current in-memory registry doesn't work across servers. Use sticky sessions for load balancing. Redis-backed registry planned for v0.2.0
+1. **Provider determines replica-safety** — the default `:in-memory` provider stores the connection registry and pub/sub state in process-local atoms; it is single-server only and requires sticky sessions when load-balanced. The `:redis` provider (shipped in BOU-85) scales across replicas — use it for any multi-instance deployment.
 2. **JWT adapter uses optional dependency** on boundary/user - `requiring-resolve` at load time. Throws `:type :internal-error` if user module unavailable
 3. **Messages get JSON-encoded** via Cheshire before sending over WebSocket
 4. **Topic subscriptions are server-side only** - no client-side subscribe/unsubscribe protocol messages

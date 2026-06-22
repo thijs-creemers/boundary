@@ -3,6 +3,7 @@
  :deps  {org.clojure/clojure               {:mvn/version "1.12.5"}
          boundary/observability            {:local/root "../observability"}
          boundary/payments                 {:local/root "../payments"}
+         boundary/realtime                 {:local/root "../realtime"}
 
          ;; Database
          com.github.seancorfield/next.jdbc {:mvn/version "1.3.1108"}
