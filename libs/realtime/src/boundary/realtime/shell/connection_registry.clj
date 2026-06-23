@@ -64,7 +64,13 @@
 
   (find-connection [_this connection-id]
     ;; Return Connection record (not ws-adapter) for inspection
-    (get-in @state [connection-id :connection])))
+    (get-in @state [connection-id :connection]))
+
+  (find-adapters-by-ids [_this connection-ids]
+    (let [snapshot @state]
+      (into []
+            (keep (fn [cid] (get-in snapshot [cid :ws-adapter])))
+            connection-ids))))
 
 ;; =============================================================================
 ;; Factory Functions
