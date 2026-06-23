@@ -342,9 +342,13 @@
       namespace
       (:access-counter state))))
 
-  (clear-namespace! [this namespace]
-    (let [pattern (str namespace ":*")]
-      (ports/delete-matching! this pattern)))
+  (clear-namespace! [_this namespace]
+    ;; Clear the given namespace absolutely, through a namespace-free view, so a
+    ;; cache that itself has a namespace doesn't double-prefix the match pattern.
+    (let [bare (->InMemoryCache
+                (->InMemoryState (:entries state) (:stats state) (:config state)
+                                 nil (:access-counter state)))]
+      (ports/delete-matching! bare (str namespace ":*"))))
 
   ;; =============================================================================
   ;; Cache Statistics

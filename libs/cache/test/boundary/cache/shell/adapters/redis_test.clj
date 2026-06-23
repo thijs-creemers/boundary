@@ -198,6 +198,19 @@
      (is (false? (ports/set-if-absent! *cache* "new-key" "second")))
      (is (= "first" (ports/get-value *cache* "new-key"))))
 
+   (testing "increment! on a missing key starts at zero"
+     (is (= 5 (ports/increment! *cache* "fresh-counter" 5))))
+
+   (testing "set-if-absent! seeds an integer counter that increment! advances (rate-limiter pattern)"
+     ;; Regression for the nippy/INCR mismatch: set-if-absent! stored the seed
+     ;; Nippy-encoded while increment! issued a raw INCR, so the second hit threw
+     ;; "ERR value is not an integer or out of range".
+     (is (true? (ports/set-if-absent! *cache* "rl-counter" 1 60)))
+     (is (= 2 (ports/increment! *cache* "rl-counter")))
+     (is (= 3 (ports/increment! *cache* "rl-counter")))
+     (is (= 3 (ports/get-value *cache* "rl-counter")) "counter round-trips as a number")
+     (is (some? (ports/ttl *cache* "rl-counter")) "increment! preserves the seeded TTL"))
+
    (testing "compare-and-swap! updates only when expected value matches"
      (ports/set-value! *cache* "cas-key" {:state :old})
      (is (true? (ports/compare-and-swap! *cache* "cas-key" {:state :old} {:state :new})))

@@ -63,29 +63,59 @@
   ^bytes [^String s]
   (.getBytes s StandardCharsets/UTF_8))
 
-(defn- serialize-value
-  "Serialize a value to a Nippy-encoded byte array.
+(defn- integer-value?
+  "True for integer types Redis can store as a native decimal string and operate
+   on with the atomic INCR/DECR commands."
+  [v]
+  (or (instance? Long v)
+      (instance? Integer v)
+      (instance? Short v)
+      (instance? Byte v)
+      (instance? clojure.lang.BigInt v)
+      (instance? java.math.BigInteger v)))
 
-   Unlike JSON, Nippy preserves Clojure types (keywords, sets, ratios) and
-   java.time/Temporal values, so cached values round-trip with full fidelity
-   matching the in-memory adapter."
+(defn- serialize-value
+  "Serialize a value for storage in Redis.
+
+   Integers are stored in Redis' native decimal-string form so the atomic
+   INCR/DECR commands operate on them directly and the key's TTL is preserved
+   across increments. (A value seeded with set-if-absent! and then advanced with
+   increment! must share one representation — Nippy-freezing the seed made INCR
+   fail with \"ERR value is not an integer or out of range\".)
+
+   All other values are Nippy-encoded. Unlike JSON, Nippy preserves Clojure
+   types (keywords, sets, ratios) and java.time/Temporal values, so cached
+   values round-trip with full fidelity matching the in-memory adapter."
   ^bytes [value]
-  (nippy/freeze value))
+  (if (integer-value? value)
+    (.getBytes (str value) StandardCharsets/UTF_8)
+    (nippy/freeze value)))
+
+(defn- parse-native-long
+  "Parse Redis' native decimal-integer form (written by serialize-value or
+   produced by INCR/DECR). Returns nil when the bytes are not such an integer."
+  [^bytes ba]
+  (try
+    (Long/parseLong (String. ba StandardCharsets/UTF_8))
+    (catch Exception _ nil)))
 
 (defn- deserialize-value
-  "Deserialize a value from a Nippy-encoded byte array.
+  "Deserialize a value read from Redis.
 
-   Returns nil (treated as a cache miss) when the bytes are not valid Nippy
-   data — e.g. entries written by the previous JSON format before the
-   serialization change, or otherwise corrupt. This lets the cache self-heal
-   on rollout instead of throwing on every stale read."
+   Tries the native integer form first (INCR/DECR counters and integer values),
+   then Nippy. Returns nil (treated as a cache miss) when the bytes are neither
+   — e.g. entries written by the previous JSON format before the serialization
+   change, or otherwise corrupt. This lets the cache self-heal on rollout
+   instead of throwing on every stale read."
   [^bytes ba]
   (when ba
-    (try
-      (nippy/thaw ba)
-      (catch Exception e
-        (log/warn e "Unreadable cache entry; treating as a cache miss")
-        nil))))
+    (if-let [n (parse-native-long ba)]
+      n
+      (try
+        (nippy/thaw ba)
+        (catch Exception e
+          (log/warn e "Unreadable cache entry; treating as a cache miss")
+          nil)))))
 
 ;; =============================================================================
 ;; Cache Operations
@@ -126,7 +156,9 @@
     (with-redis pool
       (fn [^Jedis redis]
         (let [namespaced-key (add-namespace namespace key)]
-          (.exists redis (into-array String [namespaced-key]))))))
+          ;; Jedis' varargs EXISTS returns the Long count of present keys;
+          ;; the protocol contract is a boolean (matching the in-memory adapter).
+          (pos? (.exists redis (into-array String [namespaced-key])))))))
 
   (ttl [_ key]
     (with-redis pool
@@ -287,9 +319,13 @@
   (with-namespace [_ new-namespace]
     (->RedisCache pool config new-namespace))
 
-  (clear-namespace! [this ns]
-    (let [pattern (str ns ":*")]
-      (ports/delete-matching! this pattern)))
+  (clear-namespace! [_ ns]
+    ;; Clear the given namespace absolutely. delete-matching! prefixes the
+    ;; pattern with the cache's own namespace, so on a cache that itself has a
+    ;; namespace the naive (delete-matching! this "ns:*") would look for
+    ;; "<own>:ns:*" and clear nothing. Run it through a namespace-free view so
+    ;; "ns:*" is matched as written.
+    (ports/delete-matching! (->RedisCache pool config nil) (str ns ":*")))
 
   ;; =============================================================================
   ;; Cache Statistics
