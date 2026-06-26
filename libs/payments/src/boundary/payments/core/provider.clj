@@ -160,8 +160,12 @@
              "line_items[0][quantity]"                       "1"
              "payment_method_types[0]"                       "card"
              "mode"                                          "payment"
-             "success_url"                                   (or success-url redirect-url)
-             "cancel_url"                                    (or cancel-url redirect-url)}
+             ;; Blank-safe: an empty/whitespace override (e.g. an unset
+             ;; PUBLIC_BASE_URL upstream) must NOT win over redirect-url — Stripe
+             ;; rejects an empty success_url with a 400 (BOU-127). `or` alone
+             ;; treats "" as truthy, so defer blank overrides to redirect-url.
+             "success_url"                                   (if (str/blank? success-url) redirect-url success-url)
+             "cancel_url"                                    (if (str/blank? cancel-url) redirect-url cancel-url)}
       setup-future-usage-param
       (assoc "payment_intent_data[setup_future_usage]" setup-future-usage-param)
 

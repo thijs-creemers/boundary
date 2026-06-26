@@ -322,6 +322,23 @@
         (is (some? ex))
         (is (= :internal-error (:type (ex-data ex))))))))
 
+(deftest ^:unit checkout-error-fields-test
+  (testing "pulls Stripe's error reason (message/param/code/type) from a 400 body"
+    (is (= {:status 400
+            :type "invalid_request_error"
+            :code "url_invalid"
+            :param "success_url"
+            :message "Not a valid URL"}
+           (#'stripe/checkout-error-fields
+            400
+            {:error {:type "invalid_request_error"
+                     :code "url_invalid"
+                     :param "success_url"
+                     :message "Not a valid URL"}}))))
+  (testing "missing :error fields degrade to nil, status always present"
+    (is (= {:status 500 :type nil :code nil :param nil :message nil}
+           (#'stripe/checkout-error-fields 500 {})))))
+
 ;; =============================================================================
 ;; create-off-session-payment
 ;; =============================================================================

@@ -244,6 +244,15 @@
         (is (= "https://app.example.com/ok"   (get params "success_url")))
         (is (= "https://app.example.com/nope" (get params "cancel_url")))))
 
+    (testing "blank success/cancel URLs fall back to redirect-url (empty string must not win)"
+      ;; An empty PUBLIC_BASE_URL once produced an empty success_url that Stripe
+      ;; rejected with a 400 (BOU-127). `or` treats "" as truthy, so guard with
+      ;; blank-awareness: a blank override must defer to redirect-url.
+      (let [params (provider/stripe-checkout-params
+                    (assoc base-opts :success-url "" :cancel-url "   "))]
+        (is (= "https://app.example.com/return" (get params "success_url")))
+        (is (= "https://app.example.com/return" (get params "cancel_url")))))
+
     (testing "setup-future-usage :off-session adds payment_intent_data[setup_future_usage]"
       (let [params (provider/stripe-checkout-params
                     (assoc base-opts :setup-future-usage :off-session))]
