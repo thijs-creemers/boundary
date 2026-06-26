@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`boundary-payments`**: Stripe Checkout Session creation is now diagnosable and blank-safe (BOU-127, #216). `create-checkout-session` logs the Stripe error reason (type/code/param/message) on any non-2xx response instead of only `status=%d id=%s`, so a 400 is no longer opaque. `stripe-checkout-params` builds `success_url`/`cancel_url` blank-safely — an empty/whitespace override (e.g. an unset `PUBLIC_BASE_URL` upstream) no longer wins over `redirect-url` via `(or "" redirect-url)` and produces an empty `success_url` that Stripe rejects with a 400.
+
 ## [1.0.1-alpha-28] - 2026-06-09
 
 ### Added
