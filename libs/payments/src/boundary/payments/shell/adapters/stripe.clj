@@ -88,6 +88,17 @@
                    provider-id status)
         {:status :pending})))
 
+(defn- checkout-error-fields
+  "Diagnostic fields pulled from a non-2xx Stripe response body. Stripe returns
+   the reason under :error (message / param / code / type); surfacing them turns
+   an opaque \"status=400 id=null\" line into an actionable one (BOU-127)."
+  [status body]
+  {:status  status
+   :type    (get-in body [:error :type])
+   :code    (get-in body [:error :code])
+   :param   (get-in body [:error :param])
+   :message (get-in body [:error :message])})
+
 (defrecord StripePaymentProvider [api-key webhook-secret]
   ports/IPaymentProvider
 
@@ -99,6 +110,10 @@
           {:keys [status body]} (post-form api-key "/checkout/sessions" params)]
       (log/infof "Stripe create-checkout: status=%d id=%s" status (:id body))
       (when-not (#{200 201} status)
+        ;; Log the Stripe error reason (message/param/code) so the 400 is not
+        ;; opaque in the logs; the full body still travels on the ex-info.
+        (log/errorf "Stripe checkout creation failed: %s"
+                    (pr-str (checkout-error-fields status body)))
         (throw (ex-info "Stripe checkout creation failed"
                         {:type   :internal-error
                          :status status
