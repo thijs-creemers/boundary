@@ -87,8 +87,8 @@ the distributed adapter is "just configuration" once it exists.
 | Redis adapter (`libs/cache/.../adapters/redis.clj`) — Nippy serialization, atomic ops. In-memory adapter is dev/test only.
 
 | Jobs
-| ✅ *
-| Redis queue (`libs/jobs/.../adapters/redis.clj`) — priority lists, worker heartbeat, retry/backoff, dead-letter. *Every instance must register the same job handlers (the handler registry is per-process).
+| ✅
+| Redis queue (`libs/jobs/.../adapters/redis.clj`) — priority lists, worker heartbeat, retry/backoff, dead-letter. Scheduled-job promotion is an *atomic claim* (Redis `ZREM` / in-memory `swap-vals!`), so a due job is moved to an execution queue exactly once across concurrent workers. The handler registry is per-process, but a dequeued job with no local handler is *re-enqueued* for another worker (bounded by `:max-requeues`, default 5) and only dead-lettered once no instance handles it — no silent DLQ drop. A worker started with an empty registry warns loudly at startup (BOU-88).
 
 | Auth / sessions
 | ✅
@@ -138,7 +138,7 @@ the distributed adapter is "just configuration" once it exists.
 == Production checklist
 
 * Use the *Redis* cache and jobs adapters, never `:in-memory`, for more than one replica.
-* Register all job handlers on *every* instance (a dequeued job with no local handler fails to the dead-letter queue).
+* Register all job handlers on *every* instance. A dequeued job with no local handler is re-enqueued (bounded by `:max-requeues`) so another instance can run it, and is dead-lettered only if no instance handles it — but a job-type that *no* worker registers still burns its requeue budget before failing, so keep handler sets consistent.
 * Enable rate limiting (`:boundary/http :rate-limit :enabled? true`) with an *active Redis cache* for a global limit across replicas; without a cache each instance counts independently (limit × N).
 * Keep `replicas × maximum-pool-size` under Postgres `max_connections`.
 * Confirm your load balancer points health probes at `/health/ready` (503-aware), not `/health/live`.
@@ -224,7 +224,7 @@ The architecture delivers the promise; these are the concrete pieces that make
 . ✅ *Realtime Redis pub/sub adapter* — shipped in BOU-85 (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). WebSocket is now replica-safe via `:provider :redis` on `:boundary/realtime`.
 . ✅ *Graceful connection draining* — shipped in BOU-86. Configurable shutdown grace (`:boundary/http :drain-timeout-ms`) lets rollouts finish in-flight requests; Jetty `GracefulHandler` + `setStopTimeout` wired in `wiring.clj`.
 . ✅ *Default rate-limit wiring* — shipped in BOU-87. Config-driven `http-rate-limit-protection` is in the default pipeline; enable via `:boundary/http :rate-limit` and it uses the Redis cache for a cross-replica limit (per-process fallback documented).
-. *Jobs hardening* — fail-fast on missing handler registration; verify scheduled-job atomic claim across workers.
+. ✅ *Jobs hardening* — shipped in BOU-88. Missing-handler jobs are re-enqueued (bounded) instead of silently dead-lettered, an empty-registry worker warns at startup, and scheduled-job promotion is an atomic claim (`ZREM` / `swap-vals!`) so a due job runs exactly once across workers.
 . *Deploy topology reference* — compose + k8s example with N replicas, Redis, a load balancer, instance-id, and a web/worker split.
 
 For *functional decomposition* (the bigger bet):

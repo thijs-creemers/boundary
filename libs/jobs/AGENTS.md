@@ -76,6 +76,26 @@ running → retrying → pending → running → ...
 - Capped at 60 seconds with random jitter (±10%)
 - Dead letter queue after max retries exhausted
 
+## Missing Handlers (multi-instance)
+
+The handler registry is per-process. When a worker dequeues a job whose type it
+has no handler for, it does **not** silently dead-letter it — the job is
+**re-enqueued** (bounded by `:max-requeues`, default 5, tracked in
+`[:metadata :requeue-count]`) so another instance that registered the handler can
+pick it up. Only once the budget is exhausted — i.e. no instance handles it — is
+the job failed terminally to the dead-letter queue with a `NoHandlerError`. A
+worker created with an **empty** registry logs a loud warning at startup.
+
+Keep handler sets consistent across instances: a job-type that *no* worker
+registers still burns its full requeue budget before dead-lettering.
+
+## Scheduled-job Atomic Claim
+
+Promotion of a due scheduled job to an execution queue is an **atomic claim**, so
+concurrent workers can't both move (and thus run) the same job:
+- **Redis**: `ZREM` on `jobs:scheduled` — only the worker whose `ZREM` returns 1 enqueues.
+- **In-memory**: `swap-vals!` on the scheduled set — only the caller that removed the entry enqueues.
+
 ## Priority Queue Order
 
 Jobs dequeued by priority: critical > high > normal > low.
