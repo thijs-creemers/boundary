@@ -130,3 +130,21 @@
         (is (:allowed? res))
         (is (<= (count @@#'itc/rate-limit-state) 1)
             "stale clients swept; only the fresh client remains")))))
+
+(deftest in-memory-limiter-hard-caps-when-all-clients-in-window
+  (testing "a stream of fresh clients can't grow the map past the cap even when every client is in-window"
+    (let [window-ms 60000
+          cap       @#'itc/max-tracked-clients
+          now       (System/currentTimeMillis)
+          ;; Fill to exactly the cap with clients that are ALL in-window (recent),
+          ;; so pruning can drop nothing — eviction is the only way to make room.
+          seeded    (into {} (for [i (range cap)] [(str "live-" i) [now]]))]
+      (reset! @#'itc/rate-limit-state seeded)
+      (is (= cap (count @@#'itc/rate-limit-state)))
+      ;; Several brand-new clients arrive; the map must stay at the cap.
+      (doseq [i (range 5)]
+        (check-rate-limit-memory (str "newcomer-" i) 100 window-ms))
+      (is (= cap (count @@#'itc/rate-limit-state))
+          "map held at the cap — least-recently-active clients evicted, no unbounded growth")
+      (is (contains? @@#'itc/rate-limit-state "newcomer-4")
+          "the newest client is tracked"))))

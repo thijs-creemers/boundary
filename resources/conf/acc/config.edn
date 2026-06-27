@@ -53,8 +53,8 @@
    ;; replicas. Without an active cache the limiter falls back to a bounded
    ;; per-process counter — each instance counts independently (effective limit =
    ;; limit x N), so do NOT rely on it as a global limit in a multi-replica
-   ;; deployment. Flip :enabled? true once Redis is active.
-   :rate-limit {:enabled?  false
+   ;; deployment. Enable via HTTP_RATE_LIMIT_ENABLED=true once Redis is active.
+   :rate-limit {:enabled?  #boolean #or [#env HTTP_RATE_LIMIT_ENABLED "false"]
                 :limit     #long #or [#env HTTP_RATE_LIMIT 300]
                 :window-ms #long #or [#env HTTP_RATE_LIMIT_WINDOW_MS 60000]}
    :security {:csrf {:enabled? true
