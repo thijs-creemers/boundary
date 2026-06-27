@@ -27,32 +27,29 @@
 ;; =============================================================================
 
 (deftest missing-handler-requeues-then-dead-letters
-  (testing "no local handler: delayed re-enqueue up to the budget, then terminal DLQ"
+  (testing "no local handler: delayed re-enqueue, then terminal DLQ once aged out"
     (let [{:keys [queue store]} (in-memory/create-in-memory-jobs-system)
           registry (worker/create-job-registry)        ; empty — no handlers
           ws       (create-worker-state :default)
-          config   {:max-requeues 2 :requeue-delay-ms 0}
+          config   {:max-requeue-age-ms 0 :requeue-delay-ms 0}   ; age out immediately
           the-job  (mk-job {:job-type :unhandled})]
       (ports/enqueue-job! queue :default the-job)
 
-      ;; 1st pass: parked in the scheduled set (NOT the ready queue), budget +1
+      ;; 1st pass: parked in the scheduled set (NOT the ready queue); the unhandled
+      ;; clock starts now (:first-missing-at), so it is not dead-lettered yet.
       (is (true? (process-single-job! config queue store registry ws)))
       (is (zero? (ports/queue-size queue :default))
           "removed from the ready queue — no tight-loop reacquire")
       (let [j (ports/find-job store (:id the-job))]
-        (is (not= :failed (:status j)) "not dead-lettered yet")
-        (is (= 1 (get-in j [:metadata :requeue-count]))))
+        (is (not= :failed (:status j)) "not dead-lettered on first miss")
+        (is (= 1 (get-in j [:metadata :requeue-count])))
+        (is (some? (get-in j [:metadata :first-missing-at])) "unhandled clock started"))
 
-      ;; promote the delayed job back to the ready queue, then 2nd pass: requeued again
+      ;; promote the delayed job back to the ready queue, then 2nd pass: now aged
+      ;; out (max-age 0) → terminal failure to the dead-letter queue.
       (Thread/sleep 5)
       (is (= 1 (ports/process-scheduled-jobs! queue)))
       (is (= 1 (ports/queue-size queue :default)))
-      (is (true? (process-single-job! config queue store registry ws)))
-      (is (= 2 (get-in (ports/find-job store (:id the-job)) [:metadata :requeue-count])))
-
-      ;; 3rd pass: budget exhausted → terminal failure to the dead-letter queue
-      (Thread/sleep 5)
-      (is (= 1 (ports/process-scheduled-jobs! queue)))
       (is (true? (process-single-job! config queue store registry ws)))
       (let [j (ports/find-job store (:id the-job))]
         (is (= :failed (:status j)))
@@ -62,26 +59,49 @@
           "job landed in the dead-letter queue, not silently dropped")
       (is (zero? (ports/queue-size queue :default)) "not left on the queue"))))
 
-(deftest handlerless-worker-does-not-burn-budget-on-idle-polls
+(deftest handlerless-worker-does-not-dead-letter-within-age-window
+  (testing "repeated wrong-worker misses don't dead-letter a job while inside the age window"
+    (let [{:keys [queue store]} (in-memory/create-in-memory-jobs-system)
+          registry (worker/create-job-registry)        ; empty — no handlers
+          ws       (create-worker-state :default)
+          ;; Generous age window + delay: many misses must NOT drop the job.
+          config   {:max-requeue-age-ms 60000 :requeue-delay-ms 0}
+          the-job  (mk-job {:job-type :unhandled})]
+      (ports/enqueue-job! queue :default the-job)
+
+      ;; Simulate many handlerless poll/promote cycles (as a loaded fleet of
+      ;; wrong workers would produce). None should dead-letter the job, because
+      ;; give-up is age-based, not attempt-based.
+      (dotimes [_ 20]
+        (process-single-job! config queue store registry ws)   ; miss → parks (delayed)
+        (Thread/sleep 2)
+        (ports/process-scheduled-jobs! queue))                 ; promote back to ready
+
+      (let [j (ports/find-job store (:id the-job))]
+        (is (not= :failed (:status j)) "still alive — not dropped by wrong-worker misses")
+        (is (not (some #(= (:id the-job) (:id %)) (ports/failed-jobs store 10)))
+            "not in the dead-letter queue")
+        (is (>= (get-in j [:metadata :requeue-count]) 20) "kept being re-enqueued, never DLQ'd")))))
+
+(deftest handlerless-worker-does-not-reacquire-parked-job-on-idle-polls
   (testing "a parked re-enqueue is not reacquired by the same worker's subsequent polls"
     (let [{:keys [queue store]} (in-memory/create-in-memory-jobs-system)
           registry (worker/create-job-registry)        ; empty — no handlers
           ws       (create-worker-state :default)
           ;; Long delay so the job stays parked across the idle polls below.
-          config   {:max-requeues 3 :requeue-delay-ms 60000}
+          config   {:max-requeue-age-ms 60000 :requeue-delay-ms 60000}
           the-job  (mk-job {:job-type :unhandled})]
       (ports/enqueue-job! queue :default the-job)
 
       ;; First poll parks the job (delayed). Further polls must find the ready
-      ;; queue empty and NOT reacquire it — so the budget is not burned in a loop
-      ;; before a worker that owns the handler gets a chance to poll.
+      ;; queue empty and NOT reacquire it.
       (is (true? (process-single-job! config queue store registry ws)))
       (dotimes [_ 5]
         (is (nil? (process-single-job! config queue store registry ws))
             "idle poll finds no ready job, does not reacquire the parked one"))
 
       (let [j (ports/find-job store (:id the-job))]
-        (is (= 1 (get-in j [:metadata :requeue-count])) "requeue budget untouched by idle polls")
+        (is (= 1 (get-in j [:metadata :requeue-count])) "not reacquired by idle polls")
         (is (not= :failed (:status j)) "job not prematurely dead-lettered")))))
 
 (deftest handler-present-still-processes

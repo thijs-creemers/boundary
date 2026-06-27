@@ -106,23 +106,33 @@
    With N instances each registering only the handlers they own, an instance can
    legitimately dequeue a job-type it cannot run. Rather than failing it straight
    to the dead-letter queue (a silent drop — another instance may own the
-   handler), re-enqueue it for another worker, bounded by a requeue budget tracked
-   in the job metadata. Only once the budget is exhausted — meaning no instance
-   handled it — is the job failed loudly and terminally to the dead-letter queue.
+   handler), the job is re-enqueued for another worker and dead-lettered only
+   after it has gone unhandled for too long.
 
-   The re-enqueue is *delayed* (scheduled :requeue-delay-ms into the future, not
-   pushed back onto the ready queue) for a critical reason: a handlerless worker
-   whose poll loop treats a re-enqueue as 'processed' would otherwise re-dequeue
-   the very same job on its next (immediate) poll and burn the whole requeue
-   budget in a tight loop, dead-lettering the job before a worker that DOES have
-   the handler ever polls. Parking the job in the scheduled set removes it from
-   the ready queue during the delay — the requeuing worker's next poll finds the
-   queue empty and backs off — so the budget decrements at most once per
-   promotion cycle, giving handler-owning workers a fair chance to claim it.
+   Two safeguards make this correct across a heterogeneous, loaded fleet:
+
+   1. Delayed re-enqueue. The job is parked in the scheduled set
+      :requeue-delay-ms into the future, NOT pushed back onto the ready queue. A
+      handlerless worker treats a re-enqueue as 'processed' and would otherwise
+      re-dequeue the same job on its next immediate poll, spinning. Parking it
+      removes it from the ready queue during the delay so the requeuing worker
+      backs off and other workers get a fair poll.
+
+   2. Age-based (not attempt-based) give-up. The job is dead-lettered only once it
+      has been continuously unhandled for :max-requeue-age-ms (default 5 min),
+      tracked via :first-missing-at in metadata. Counting re-enqueue *attempts*
+      would be wrong: under load, or with more handlerless workers than the
+      attempt budget, wrong-worker misses would exhaust the budget and drop a job
+      a slow handler-owning worker simply hadn't polled yet. A wall-clock window
+      is independent of fleet size and load — every handler-owning worker gets the
+      full window to claim the job. A high :max-requeues acts only as a runaway
+      backstop (e.g. against a broken clock), not the primary policy.
 
    Args:
-     config       - Worker config; :max-requeues caps re-enqueue attempts (default 5),
-                    :requeue-delay-ms delays each re-enqueue (default 1000)
+     config       - Worker config:
+                    :requeue-delay-ms    delay before a re-enqueue is pollable (default 1000)
+                    :max-requeue-age-ms  age after which an unhandled job is dead-lettered (default 300000)
+                    :max-requeues        hard backstop on re-enqueue attempts (default 10000)
      queue        - IJobQueue
      store        - IJobStore
      registry     - IJobRegistry (this instance's handlers)
@@ -131,26 +141,37 @@
   [config queue store registry worker-state job]
   (let [job-id       (:id job)
         job-type     (:job-type job)
-        max-requeues (or (:max-requeues config) 5)
         delay-ms     (or (:requeue-delay-ms config) 1000)
-        requeues     (get-in job [:metadata :requeue-count] 0)]
-    (if (< requeues max-requeues)
+        max-age-ms   (or (:max-requeue-age-ms config) 300000)
+        max-requeues (or (:max-requeues config) 10000)
+        now-ms       (.toEpochMilli (Instant/now))
+        first-seen   (get-in job [:metadata :first-missing-at])
+        requeues     (get-in job [:metadata :requeue-count] 0)
+        aged-out?    (and first-seen (>= (- now-ms first-seen) max-age-ms))
+        over-cap?    (>= requeues max-requeues)]
+    (if-not (or aged-out? over-cap?)
       (do
         (log/warn "No handler for job type on this instance — re-enqueuing (delayed) for another worker"
                   {:job-id job-id :job-type job-type
-                   :requeue-count requeues :max-requeues max-requeues :delay-ms delay-ms
+                   :requeue-count requeues :delay-ms delay-ms
+                   :unhandled-for-ms (when first-seen (- now-ms first-seen)) :max-age-ms max-age-ms
                    :local-handlers (ports/list-handlers registry)})
         ;; Delayed re-enqueue via the scheduled set (see docstring): leaves the
         ;; ready queue so this worker can't immediately reacquire and tight-loop.
         (ports/enqueue-job! queue (:queue-name worker-state)
                             (-> job
-                                (assoc-in [:metadata :requeue-count] (inc requeues))
+                                (update :metadata assoc
+                                        :first-missing-at (or first-seen now-ms)
+                                        :requeue-count (inc requeues))
                                 (assoc :execute-at (.plusMillis (Instant/now) (long delay-ms))))))
-      (let [error {:message (str "No handler registered for job type " job-type
-                                 " on any worker after " max-requeues " re-enqueue attempts")
-                   :type    "NoHandlerError"}]
-        (log/error "No handler for job type after exhausting re-enqueue budget — dead-lettering"
-                   {:job-id job-id :job-type job-type :max-requeues max-requeues})
+      (let [reason (if aged-out?
+                     (str "no worker handled it within " max-age-ms " ms")
+                     (str "re-enqueue backstop of " max-requeues " attempts reached"))
+            error  {:message (str "No handler registered for job type " job-type " on any worker: " reason)
+                    :type    "NoHandlerError"}]
+        (log/error "No handler for job type — dead-lettering"
+                   {:job-id job-id :job-type job-type :reason reason
+                    :unhandled-for-ms (when first-seen (- now-ms first-seen)) :requeue-count requeues})
         ;; A missing handler is a configuration error, not a transient failure:
         ;; exhaust the retry budget so update-job-status! routes it terminally to
         ;; the dead-letter queue instead of scheduling pointless retries.
