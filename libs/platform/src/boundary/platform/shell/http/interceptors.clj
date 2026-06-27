@@ -587,8 +587,36 @@
 ;; Not suitable for multi-instance deployments.
 (defonce ^:private rate-limit-state (atom {}))
 
+(def ^:private max-tracked-clients
+  "Soft cap on the number of distinct clients the in-memory limiter tracks.
+   Beyond this, a check sweeps out clients with no requests inside the current
+   window before recording the new one. This bounds heap under high-cardinality
+   client identifiers (rotating API keys, many remote addresses) on a
+   long-running node — without it the state map would grow without limit, since a
+   client's stale timestamps are only pruned if that same client returns."
+  10000)
+
+(defn- prune-stale-clients
+  "Drop clients whose timestamps all fall outside the window (older than cutoff).
+   Such clients cannot affect any future limit decision, so retaining them only
+   leaks heap."
+  [state cutoff-ms]
+  (persistent!
+   (reduce-kv (fn [acc client-id timestamps]
+                (let [recent (filterv #(> % cutoff-ms) timestamps)]
+                  (if (seq recent)
+                    (assoc! acc client-id recent)
+                    acc)))
+              (transient {})
+              state)))
+
 (defn- check-rate-limit-memory
-  "Check rate limit using an in-process sliding window atom.
+  "Check rate limit using an in-process fixed-window atom.
+
+   Bounded: when the tracked-client count exceeds `max-tracked-clients`, stale
+   clients (no requests in the window) are swept before recording the request, so
+   the state map cannot grow unbounded. The read-modify-write happens inside a
+   single `swap!` so concurrent requests for the same client count correctly.
 
    Args:
      client-id: Client identifier string
@@ -598,17 +626,26 @@
    Returns:
      {:allowed? boolean :current-count int :limit int :retry-after-seconds int}"
   [client-id limit window-ms]
-  (let [now-ms            (System/currentTimeMillis)
-        current-timestamps (get @rate-limit-state client-id [])
-        recent-timestamps  (vec (filter #(> % (- now-ms window-ms)) current-timestamps))
-        current-count      (count recent-timestamps)
-        allowed?           (< current-count limit)]
-    (when allowed?
-      (swap! rate-limit-state assoc client-id (conj recent-timestamps now-ms)))
-    {:allowed?            allowed?
-     :current-count       current-count
-     :limit               limit
-     :retry-after-seconds (if allowed? 0 (int (/ window-ms 1000)))}))
+  (let [now-ms (System/currentTimeMillis)
+        cutoff (- now-ms window-ms)
+        result (volatile! nil)]
+    (swap! rate-limit-state
+           (fn [state]
+             (let [state    (if (> (count state) max-tracked-clients)
+                              (prune-stale-clients state cutoff)
+                              state)
+                   recent   (filterv #(> % cutoff) (get state client-id []))
+                   cnt      (count recent)
+                   allowed? (< cnt limit)]
+               (vreset! result {:allowed?            allowed?
+                                :current-count       cnt
+                                :limit               limit
+                                :retry-after-seconds (if allowed? 0 (int (/ window-ms 1000)))})
+               (cond
+                 allowed?     (assoc state client-id (conj recent now-ms))
+                 (seq recent) (assoc state client-id recent)   ; at limit: keep trimmed window
+                 :else        (dissoc state client-id)))))     ; nothing in-window to retain
+    @result))
 
 (defn- rate-limit-enter
   "Run a single rate-limit check and either annotate the context or short-circuit

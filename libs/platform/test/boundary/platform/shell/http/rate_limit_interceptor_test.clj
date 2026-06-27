@@ -95,3 +95,38 @@
 (deftest wired-into-default-stack
   (testing "the config-driven limiter is part of the default HTTP interceptor stack"
     (is (some #(= % itc/http-rate-limit-protection) itc/default-http-interceptors))))
+
+;; =============================================================================
+;; In-memory fallback is bounded (heap-leak guard)
+;; =============================================================================
+
+(def ^:private prune-stale-clients #'itc/prune-stale-clients)
+(def ^:private check-rate-limit-memory #'itc/check-rate-limit-memory)
+
+(deftest prune-stale-clients-drops-out-of-window-and-empty
+  (testing "prune keeps only clients with at least one in-window timestamp"
+    (let [now    1000000
+          cutoff (- now 60000)
+          state  {"recent" [(- now 100) (- now 200)]
+                  "stale"  [(- now 999999)]
+                  "empty"  []
+                  "mixed"  [(- now 999999) (- now 50)]}
+          pruned (prune-stale-clients state cutoff)]
+      (is (= #{"recent" "mixed"} (set (keys pruned))) "stale and empty clients removed")
+      (is (= [(- now 50)] (get pruned "mixed")) "mixed client trimmed to in-window timestamps"))))
+
+(deftest in-memory-limiter-bounds-tracked-clients
+  (testing "exceeding the client cap sweeps out stale clients instead of growing unbounded"
+    (let [window-ms 60000
+          ;; Seed the global state with more than the cap of clients whose only
+          ;; timestamps are far outside the window (i.e. dead clients).
+          stale-ts  (- (System/currentTimeMillis) (* 10 window-ms))
+          seeded    (into {} (for [i (range (+ @#'itc/max-tracked-clients 50))]
+                               [(str "dead-" i) [stale-ts]]))]
+      (reset! @#'itc/rate-limit-state seeded)
+      (is (> (count @@#'itc/rate-limit-state) @#'itc/max-tracked-clients))
+      ;; One check for a fresh client triggers the sweep; dead clients are dropped.
+      (let [res (check-rate-limit-memory "fresh-client" 100 window-ms)]
+        (is (:allowed? res))
+        (is (<= (count @@#'itc/rate-limit-state) 1)
+            "stale clients swept; only the fresh client remains")))))
