@@ -326,7 +326,18 @@ The wiring injects the policy and the `:boundary/cache` into the interceptor
 across replicas** (fixed-window counter keyed in Redis). **With no cache it
 falls back to a per-process counter — correct on a single node only; across N
 replicas the effective global limit is `limit × N`.** The wiring logs a warning
-at startup when rate limiting is enabled without a cache.
+at startup when rate limiting is enabled without a cache. The bundled prod/acc
+configs ship rate limiting **disabled**; enable it only together with an active
+Redis cache by setting `HTTP_RATE_LIMIT_ENABLED=true` (the config wires that env
+var via `#boolean`), so production never silently runs the per-process fallback.
+
+The in-process fallback is **heap-bounded by a hard cap**: the tracked-client map
+can never exceed `max-tracked-clients` (10000). Before a *new* client is recorded
+at the cap, stale clients (no requests in the window) are swept; if the map is
+still full — i.e. every tracked client is in-window — the least-recently-active
+client is evicted to make room. So even a sustained stream of fresh client ids
+(rotating API keys, many remote addresses) cannot grow the state map past the cap
+on a long-running node.
 
 Client identity is resolved as user id → `x-api-key` header → remote address.
 
