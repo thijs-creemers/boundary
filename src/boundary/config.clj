@@ -169,7 +169,8 @@
      :host (or (:host http-cfg) "0.0.0.0")
      :join? (or (:join? http-cfg) false)
      :port-range (:port-range http-cfg)
-     :drain-timeout-ms (or (:drain-timeout-ms http-cfg) 30000)}))
+     ;; default only when the key is absent — an explicit nil disables draining
+     :drain-timeout-ms (get http-cfg :drain-timeout-ms 30000)}))
 
 (defn app-config
   "Extract application-level configuration.
