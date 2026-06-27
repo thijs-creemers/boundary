@@ -44,7 +44,11 @@
   ;; at startup if enabled with a blank secret, so the app refuses to boot rather than
   ;; fail open (run unvalidated). Set JWT_SECRET in the environment.
   :boundary/http
-  {:security {:csrf {:enabled? true
+  {;; Graceful shutdown drain window (ms): stop accepting new connections, let
+   ;; in-flight requests finish (up to this bound), then halt. Tune to exceed
+   ;; the load balancer's deregistration delay for zero-downtime rollouts.
+   :drain-timeout-ms #long #or [#env HTTP_DRAIN_TIMEOUT_MS 30000]
+   :security {:csrf {:enabled? true
                      :secret   #env "JWT_SECRET"}}}
 
   ;; Acceptance error reporting configuration (Sentry)

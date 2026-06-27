@@ -522,8 +522,23 @@
 ;; HTTP Server (Jetty)
 ;; =============================================================================
 
+(defn- configure-graceful-shutdown!
+  "Enable Jetty graceful shutdown on the given server.
+
+   Wraps the configured handler in a GracefulHandler and sets the server's
+   stop timeout. On (.stop server) Jetty then stops accepting new connections,
+   rejects new requests with 503, and waits up to drain-timeout-ms for in-flight
+   requests to complete before forcing the shutdown. A nil/0 timeout is a no-op."
+  [^org.eclipse.jetty.server.Server s drain-timeout-ms]
+  (when (and drain-timeout-ms (pos? drain-timeout-ms))
+    (.setStopTimeout s (long drain-timeout-ms))
+    (let [existing (.getHandler s)
+          graceful (org.eclipse.jetty.server.handler.GracefulHandler.)]
+      (.setHandler graceful existing)
+      (.setHandler s graceful))))
+
 (defmethod ig/init-key :boundary/http-server
-  [_ {:keys [handler port host join? config]}]
+  [_ {:keys [handler port host join? config drain-timeout-ms]}]
   (let [http-config (or config {})
         port-allocation (port-manager/allocate-port port http-config)
         allocated-port (:port port-allocation)]
@@ -537,12 +552,16 @@
                                    :host host
                                    :join? (or join? false)
                                    ;; Store the handler atom on the server so
-                                   ;; halt-key! can clear the right one.
-                                   :configurator (fn [s] (.setAttribute s "handler-atom" ha))})]
+                                   ;; halt-key! can clear the right one, and
+                                   ;; enable graceful connection draining.
+                                   :configurator (fn [s]
+                                                   (.setAttribute s "handler-atom" ha)
+                                                   (configure-graceful-shutdown! s drain-timeout-ms))})]
       (log/info "HTTP server started successfully"
                 {:port allocated-port
                  :host host
                  :url (str "http://" host ":" allocated-port)
+                 :drain-timeout-ms drain-timeout-ms
                  :allocation-message (:message port-allocation)})
       server)))
 
