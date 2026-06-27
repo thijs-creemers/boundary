@@ -60,7 +60,8 @@ From `boundary.platform.shell.http.interceptors`:
 | `http-error-handler` | error | Converts `:type` in ex-data to HTTP status codes |
 | `http-security-headers` | leave | Adds CSP, HSTS, X-Frame-Options, etc. |
 | `http-csrf-protection` | enter + leave | Validates CSRF tokens, issues tokens, mints pre-session cookie (see [CSRF Protection](#csrf-protection)) |
-| `http-rate-limit(limit, window-ms, cache?)` | enter | Fixed-window rate limiting (Redis or in-process) |
+| `http-rate-limit-protection` | enter + leave | Config-driven fixed-window rate limiting in the default stack; reads `(:rate-limit system)` + `(:cache system)`. Opt-in (default off). See [Rate Limiting](#rate-limiting) |
+| `http-rate-limit(limit, window-ms, cache?)` | enter + leave | Fixed-limit form for explicit per-route use / standalone wiring (Redis or in-process) |
 
 ### Universal Cross-Cutting Interceptors
 
@@ -305,6 +306,32 @@ Exceptions thrown with `:type` in `ex-data` are automatically converted:
 
 ## Rate Limiting
 
+### Default pipeline (config-driven)
+
+`http-rate-limit-protection` runs in the default interceptor stack for every
+route. It is **opt-in** — disabled unless configured, so a framework upgrade
+cannot start 429-ing existing consumers. Configure per env under
+`:boundary/http`:
+
+```clojure
+:boundary/http
+{:rate-limit {:enabled?  true
+              :limit     300       ; max requests per window per client
+              :window-ms 60000}}   ; window length
+;; env overrides: HTTP_RATE_LIMIT, HTTP_RATE_LIMIT_WINDOW_MS
+```
+
+The wiring injects the policy and the `:boundary/cache` into the interceptor
+`system` map automatically. **With an active Redis cache the limit is shared
+across replicas** (fixed-window counter keyed in Redis). **With no cache it
+falls back to a per-process counter — correct on a single node only; across N
+replicas the effective global limit is `limit × N`.** The wiring logs a warning
+at startup when rate limiting is enabled without a cache.
+
+Client identity is resolved as user id → `x-api-key` header → remote address.
+
+### Explicit / per-route form
+
 ```clojure
 ;; With Redis cache (distributed, recommended for production)
 (http-rate-limit 100 60000 cache-service)   ; 100 req/min per IP
@@ -312,8 +339,8 @@ Exceptions thrown with `:type` in `ex-data` are automatically converted:
 ;; Without cache (in-process fallback, single-node only)
 (http-rate-limit 100 60000)
 
-;; Returns 429 Too Many Requests when limit exceeded
-;; Response includes Retry-After header
+;; Returns 429 Too Many Requests when limit exceeded.
+;; Response includes Retry-After + X-RateLimit-* headers.
 ```
 
 ---

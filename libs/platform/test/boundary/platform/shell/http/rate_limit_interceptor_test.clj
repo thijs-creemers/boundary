@@ -1,0 +1,97 @@
+(ns boundary.platform.shell.http.rate-limit-interceptor-test
+  "Tests for BOU-87: the config-driven rate-limit interceptor wired into the
+   default HTTP pipeline. Verifies opt-in enforcement, the 429 response, the
+   in-memory fallback, and a limit shared across replicas via a single cache."
+  (:require [boundary.cache.ports :as cache-ports]
+            [boundary.platform.shell.http.interceptors :as itc]
+            [clojure.test :refer [deftest testing is use-fixtures]]))
+
+;; The in-memory fallback counter is a process-global atom; reset it before each
+;; test so cases (and kaocha's repeated suite runs) don't see each other's counts.
+(use-fixtures :each
+  (fn [t]
+    (reset! @#'itc/rate-limit-state {})
+    (t)))
+
+(defn- shared-counter-cache
+  "Minimal IAtomicCache/ICache backed by one atom — stands in for a Redis
+   counter shared by every replica. Two pipelines using the same instance see
+   the same counts, exactly like Redis across processes."
+  []
+  (let [state (atom {})]
+    (reify
+      cache-ports/IAtomicCache
+      (increment! [_ key delta] (get (swap! state update key (fnil + 0) delta) key))
+      cache-ports/ICache
+      (expire! [_ _key _ttl] true))))
+
+(defn- run
+  "Drive a request through only the rate-limit interceptor and return the response."
+  [system client-ip]
+  (itc/run-http-interceptors
+   (fn [_req] {:status 200 :headers {} :body "ok"})
+   [itc/http-rate-limit-protection]
+   {:request-method :get :uri "/api/v1/thing" :remote-addr client-ip}
+   system))
+
+(deftest disabled-is-a-noop
+  (testing "with :enabled? false the interceptor never limits and adds no headers"
+    (let [system {:rate-limit {:enabled? false :limit 1 :window-ms 60000}}]
+      (dotimes [_ 5]
+        (let [resp (run system "10.0.0.1")]
+          (is (= 200 (:status resp)))
+          (is (nil? (get-in resp [:headers "X-RateLimit-Limit"]))))))))
+
+(deftest absent-config-is-a-noop
+  (testing "no :rate-limit in system → opt-in default off, never limits"
+    (is (= 200 (:status (run {} "10.0.0.2"))))))
+
+(deftest in-memory-fallback-enforces-limit
+  (testing "enabled with no cache: allow up to limit, then 429 (single-node)"
+    (let [system {:rate-limit {:enabled? true :limit 3 :window-ms 60000}}
+          ip     "10.0.0.99"
+          codes  (vec (for [_ (range 5)] (:status (run system ip))))]
+      (is (= [200 200 200 429 429] codes)
+          "first 3 allowed, rest rejected"))))
+
+(deftest exceeding-limit-returns-429-shape
+  (testing "429 carries Retry-After + rate-limit headers and typed body"
+    (let [system {:rate-limit {:enabled? true :limit 1 :window-ms 60000}}
+          ip     "10.0.0.50"]
+      (is (= 200 (:status (run system ip))))
+      (let [resp (run system ip)]
+        (is (= 429 (:status resp)))
+        (is (= "60" (get-in resp [:headers "Retry-After"])))
+        (is (= "1" (get-in resp [:headers "X-RateLimit-Limit"])))
+        (is (= :rate-limit-exceeded (get-in resp [:body :type])))))))
+
+(deftest allowed-response-carries-remaining-header
+  (testing "allowed requests expose X-RateLimit-Remaining on the way out (Redis path)"
+    (let [system {:rate-limit {:enabled? true :limit 5 :window-ms 60000}
+                  :cache      (shared-counter-cache)}
+          resp   (run system "10.0.0.7")]
+      (is (= 200 (:status resp)))
+      (is (= "5" (get-in resp [:headers "X-RateLimit-Limit"])))
+      ;; fixed-window counter includes this request → 5 - 1 = 4 remaining
+      (is (= "4" (get-in resp [:headers "X-RateLimit-Remaining"]))))))
+
+(deftest shared-cache-enforces-limit-across-replicas
+  (testing "two pipelines sharing one cache enforce a single combined limit"
+    (let [cache  (shared-counter-cache)
+          policy {:enabled? true :limit 4 :window-ms 60000}
+          ;; same client hitting two different replicas (same shared cache)
+          replica-a {:rate-limit policy :cache cache}
+          replica-b {:rate-limit policy :cache cache}
+          ip        "203.0.113.5"
+          codes     [(:status (run replica-a ip))   ; 1
+                     (:status (run replica-b ip))   ; 2
+                     (:status (run replica-a ip))   ; 3
+                     (:status (run replica-b ip))   ; 4
+                     (:status (run replica-a ip))   ; 5 -> over
+                     (:status (run replica-b ip))]] ; 6 -> over
+      (is (= [200 200 200 200 429 429] codes)
+          "combined limit of 4 enforced regardless of which replica served the request"))))
+
+(deftest wired-into-default-stack
+  (testing "the config-driven limiter is part of the default HTTP interceptor stack"
+    (is (some #(= % itc/http-rate-limit-protection) itc/default-http-interceptors))))

@@ -107,8 +107,8 @@ the distributed adapter is "just configuration" once it exists.
 | `/health/ready` (`readiness-handler`, wired in `wiring.clj`) probes DB + cache and returns *503* when any is down — correct for load balancers and k8s.
 
 | Rate limiting
-| ⚠️
-| A Redis fixed-window limiter exists (`http-rate-limit` 3-arity with a cache arg) and is multi-instance safe. It is *not wired into the default route pipeline*, and the no-arg form falls back to a per-process atom. To rate-limit across replicas you must wire it explicitly and pass the Redis cache.
+| ✅
+| The config-driven `http-rate-limit-protection` interceptor is wired into the default route pipeline (`wiring.clj` injects `:rate-limit` config + the `:boundary/cache` into the interceptor `system` map). Configure under `:boundary/http :rate-limit {:enabled? :limit :window-ms}` (per-env; `HTTP_RATE_LIMIT`/`HTTP_RATE_LIMIT_WINDOW_MS`). Enforcement is *opt-in* (default off) so an upgrade cannot start 429-ing existing consumers. With an active Redis cache the fixed-window limit is shared across replicas; *with no cache it falls back to a per-process counter — single-node only, effective global limit = limit × N* (the wiring logs a warning at startup in that case). BOU-87.
 
 | Graceful shutdown
 | ✅
@@ -139,7 +139,7 @@ the distributed adapter is "just configuration" once it exists.
 
 * Use the *Redis* cache and jobs adapters, never `:in-memory`, for more than one replica.
 * Register all job handlers on *every* instance (a dequeued job with no local handler fails to the dead-letter queue).
-* Wire `http-rate-limit` with the Redis cache if you need a global limit.
+* Enable rate limiting (`:boundary/http :rate-limit :enabled? true`) with an *active Redis cache* for a global limit across replicas; without a cache each instance counts independently (limit × N).
 * Keep `replicas × maximum-pool-size` under Postgres `max_connections`.
 * Confirm your load balancer points health probes at `/health/ready` (503-aware), not `/health/live`.
 * For WebSocket: use `:provider :redis` on `:boundary/realtime` to scale across replicas (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). Sticky sessions / single-node are only required with the default `:in-memory` provider.
@@ -223,7 +223,7 @@ The architecture delivers the promise; these are the concrete pieces that make
 
 . ✅ *Realtime Redis pub/sub adapter* — shipped in BOU-85 (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). WebSocket is now replica-safe via `:provider :redis` on `:boundary/realtime`.
 . ✅ *Graceful connection draining* — shipped in BOU-86. Configurable shutdown grace (`:boundary/http :drain-timeout-ms`) lets rollouts finish in-flight requests; Jetty `GracefulHandler` + `setStopTimeout` wired in `wiring.clj`.
-. *Default rate-limit wiring* — apply `http-rate-limit` with the Redis cache in the standard pipeline.
+. ✅ *Default rate-limit wiring* — shipped in BOU-87. Config-driven `http-rate-limit-protection` is in the default pipeline; enable via `:boundary/http :rate-limit` and it uses the Redis cache for a cross-replica limit (per-process fallback documented).
 . *Jobs hardening* — fail-fast on missing handler registration; verify scheduled-job atomic claim across workers.
 . *Deploy topology reference* — compose + k8s example with N replicas, Redis, a load balancer, instance-id, and a web/worker split.
 

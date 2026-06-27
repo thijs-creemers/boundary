@@ -610,12 +610,53 @@
      :limit               limit
      :retry-after-seconds (if allowed? 0 (int (/ window-ms 1000)))}))
 
+(defn- rate-limit-enter
+  "Run a single rate-limit check and either annotate the context or short-circuit
+   with a 429. Uses the Redis fixed-window counter when a cache is supplied (safe
+   across replicas), otherwise the in-process fallback (single-node only)."
+  [{:keys [request] :as ctx} limit window-ms cache]
+  (let [window-seconds (max 1 (int (/ window-ms 1000)))
+        client-id      (get-client-id request)
+        rate-check     (if cache
+                         (check-rate-limit-redis cache client-id limit window-seconds)
+                         (check-rate-limit-memory client-id limit window-ms))]
+    (if (:allowed? rate-check)
+      (assoc-in ctx [:attrs :rate-limit] rate-check)
+      ;; :halt? is required — run-pipeline does not short-circuit on :response
+      ;; alone, so without it the downstream ring-handler would overwrite the 429.
+      (-> ctx
+          (assoc :halt? true)
+          (set-response {:status  429
+                         :headers {"Content-Type"          "application/json"
+                                   "Retry-After"           (str (:retry-after-seconds rate-check))
+                                   "X-RateLimit-Limit"     (str limit)
+                                   "X-RateLimit-Remaining" "0"}
+                         :body    {:error               "Rate limit exceeded"
+                                   :message             (format "Too many requests. Limit: %d requests per %d seconds"
+                                                                limit window-seconds)
+                                   :retry-after-seconds (:retry-after-seconds rate-check)
+                                   :type                :rate-limit-exceeded}})))))
+
+(defn- rate-limit-leave
+  "Attach informational X-RateLimit headers when a check ran on :enter."
+  [{:keys [attrs] :as ctx}]
+  (if-let [rate-limit (:rate-limit attrs)]
+    (merge-response-headers ctx
+                            {"X-RateLimit-Limit"     (str (:limit rate-limit))
+                             "X-RateLimit-Remaining" (str (max 0 (- (:limit rate-limit)
+                                                                    (:current-count rate-limit))))})
+    ctx))
+
 (defn http-rate-limit
-  "Creates a rate limiting interceptor.
+  "Creates a rate limiting interceptor with fixed limit/window/cache.
 
    With a cache argument, uses Redis fixed-window counting — safe for
    multi-instance deployments and survives process restarts.
    Without a cache argument, falls back to an in-process sliding window.
+
+   For the framework default pipeline use the config-driven
+   `http-rate-limit-protection` instead; this fixed-arg form is for explicit
+   per-route limits and standalone wiring (e.g. the devtools dashboard).
 
    Args:
      limit:        Maximum requests per time window (default: 100)
@@ -634,32 +675,30 @@
   ([limit window-ms]
    (http-rate-limit limit window-ms nil))
   ([limit window-ms cache]
-   (let [window-seconds (int (/ window-ms 1000))]
-     {:name :http-rate-limit
-      :enter (fn [{:keys [request] :as ctx}]
-               (let [client-id  (get-client-id request)
-                     rate-check (if cache
-                                  (check-rate-limit-redis cache client-id limit window-seconds)
-                                  (check-rate-limit-memory client-id limit window-ms))]
-                 (if (:allowed? rate-check)
-                   (assoc-in ctx [:attrs :rate-limit] rate-check)
-                   (set-response ctx {:status  429
-                                      :headers {"Content-Type"       "application/json"
-                                                "Retry-After"        (str (:retry-after-seconds rate-check))
-                                                "X-RateLimit-Limit"  (str limit)
-                                                "X-RateLimit-Remaining" "0"}
-                                      :body    {:error               "Rate limit exceeded"
-                                                :message             (format "Too many requests. Limit: %d requests per %d seconds"
-                                                                             limit window-seconds)
-                                                :retry-after-seconds (:retry-after-seconds rate-check)
-                                                :type                :rate-limit-exceeded}}))))
-      :leave (fn [{:keys [attrs] :as ctx}]
-               (if-let [rate-limit (:rate-limit attrs)]
-                 (merge-response-headers ctx
-                                         {"X-RateLimit-Limit"     (str (:limit rate-limit))
-                                          "X-RateLimit-Remaining" (str (- (:limit rate-limit)
-                                                                          (:current-count rate-limit)))})
-                 ctx))})))
+   {:name  :http-rate-limit
+    :enter (fn [ctx] (rate-limit-enter ctx limit window-ms cache))
+    :leave rate-limit-leave}))
+
+(def http-rate-limit-protection
+  "Config-driven rate limiter applied in the default HTTP interceptor stack.
+
+   Reads its policy from the system map injected by the HTTP handler wiring:
+     (:rate-limit system) => {:enabled? bool, :limit int, :window-ms int}
+     (:cache system)      => IAtomicCache (Redis) for cross-replica limiting
+
+   Enforcement is opt-in: when :enabled? is absent or false the interceptor is a
+   no-op, so a framework upgrade cannot start 429-ing consumers that have not
+   configured limits. When enabled it uses the Redis cache for a limit shared
+   across all replicas; with no cache it falls back to a per-process counter —
+   correct on a single node only, NOT a global limit across replicas."
+  {:name  :http-rate-limit
+   :enter (fn [{:keys [system] :as ctx}]
+            (let [{:keys [enabled? limit window-ms]
+                   :or   {enabled? false limit 100 window-ms 60000}} (:rate-limit system)]
+              (if enabled?
+                (rate-limit-enter ctx limit window-ms (:cache system))
+                ctx)))
+   :leave rate-limit-leave})
 
 ;; ==============================================================================
 ;; Security Headers Interceptor
@@ -795,6 +834,7 @@
    http-request-metrics
    http-error-reporting
    http-correlation-header
+   http-rate-limit-protection ; Reject over-limit clients early (opt-in via config)
    http-csrf-protection
    (http-security-headers)   ; Add security headers to all responses
    http-error-handler])
