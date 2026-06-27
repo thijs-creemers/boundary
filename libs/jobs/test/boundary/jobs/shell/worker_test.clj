@@ -179,10 +179,12 @@
 
         (ports/enqueue-job! queue :default test-job)
 
-        ;; Start worker (no handler registered) with a small requeue budget so the
-        ;; bounded re-enqueue → dead-letter path completes quickly.
+        ;; Start worker (no handler registered) with a small requeue budget, no
+        ;; requeue delay, and a fast scheduled sweep so the delayed re-enqueue →
+        ;; promote → dead-letter path completes quickly.
         (let [worker-instance (worker/create-worker
-                               {:queue-name :default :poll-interval-ms 50 :max-requeues 2}
+                               {:queue-name :default :poll-interval-ms 50
+                                :scheduled-interval-ms 50 :max-requeues 2 :requeue-delay-ms 0}
                                queue store *registry*)]
           (try
             (is (wait-for #(= :failed (:status (ports/find-job store (:id test-job)))) 2000)

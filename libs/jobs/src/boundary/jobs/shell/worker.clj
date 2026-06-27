@@ -110,8 +110,19 @@
    in the job metadata. Only once the budget is exhausted — meaning no instance
    handled it — is the job failed loudly and terminally to the dead-letter queue.
 
+   The re-enqueue is *delayed* (scheduled :requeue-delay-ms into the future, not
+   pushed back onto the ready queue) for a critical reason: a handlerless worker
+   whose poll loop treats a re-enqueue as 'processed' would otherwise re-dequeue
+   the very same job on its next (immediate) poll and burn the whole requeue
+   budget in a tight loop, dead-lettering the job before a worker that DOES have
+   the handler ever polls. Parking the job in the scheduled set removes it from
+   the ready queue during the delay — the requeuing worker's next poll finds the
+   queue empty and backs off — so the budget decrements at most once per
+   promotion cycle, giving handler-owning workers a fair chance to claim it.
+
    Args:
-     config       - Worker config; :max-requeues caps re-enqueue attempts (default 5)
+     config       - Worker config; :max-requeues caps re-enqueue attempts (default 5),
+                    :requeue-delay-ms delays each re-enqueue (default 1000)
      queue        - IJobQueue
      store        - IJobStore
      registry     - IJobRegistry (this instance's handlers)
@@ -121,15 +132,20 @@
   (let [job-id       (:id job)
         job-type     (:job-type job)
         max-requeues (or (:max-requeues config) 5)
+        delay-ms     (or (:requeue-delay-ms config) 1000)
         requeues     (get-in job [:metadata :requeue-count] 0)]
     (if (< requeues max-requeues)
       (do
-        (log/warn "No handler for job type on this instance — re-enqueuing for another worker"
+        (log/warn "No handler for job type on this instance — re-enqueuing (delayed) for another worker"
                   {:job-id job-id :job-type job-type
-                   :requeue-count requeues :max-requeues max-requeues
+                   :requeue-count requeues :max-requeues max-requeues :delay-ms delay-ms
                    :local-handlers (ports/list-handlers registry)})
+        ;; Delayed re-enqueue via the scheduled set (see docstring): leaves the
+        ;; ready queue so this worker can't immediately reacquire and tight-loop.
         (ports/enqueue-job! queue (:queue-name worker-state)
-                            (assoc-in job [:metadata :requeue-count] (inc requeues))))
+                            (-> job
+                                (assoc-in [:metadata :requeue-count] (inc requeues))
+                                (assoc :execute-at (.plusMillis (Instant/now) (long delay-ms))))))
       (let [error {:message (str "No handler registered for job type " job-type
                                  " on any worker after " max-requeues " re-enqueue attempts")
                    :type    "NoHandlerError"}]

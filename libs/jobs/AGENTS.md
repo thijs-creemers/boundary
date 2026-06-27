@@ -86,6 +86,15 @@ pick it up. Only once the budget is exhausted — i.e. no instance handles it �
 the job failed terminally to the dead-letter queue with a `NoHandlerError`. A
 worker created with an **empty** registry logs a loud warning at startup.
 
+The re-enqueue is **delayed** — the job is parked in the scheduled set
+`:requeue-delay-ms` into the future (default 1000), not pushed back onto the ready
+queue. This is essential: a handlerless worker treats a re-enqueue as
+"processed", so without the delay it would re-dequeue the same job on its very
+next poll and burn the entire requeue budget in a tight loop, dead-lettering the
+job before a handler-owning worker ever polls. Parking it removes it from the
+ready queue during the delay, so the budget decrements at most once per promotion
+cycle.
+
 Keep handler sets consistent across instances: a job-type that *no* worker
 registers still burns its full requeue budget before dead-lettering.
 
