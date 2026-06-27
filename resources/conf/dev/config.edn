@@ -57,6 +57,9 @@
    :join?      false
    ;; Port conflict resolution - if default port is busy, system will try higher ports
    :port-range {:start 3000 :end 3099}
+   ;; Graceful shutdown drain window (ms): stop accepting new connections, let
+   ;; in-flight requests finish (up to this bound), then halt. 0 disables.
+   :drain-timeout-ms #long #or [#env HTTP_DRAIN_TIMEOUT_MS 5000]
    ;; CSRF protection for session-authenticated, state-changing requests.
    ;; Protects all POST/PUT/DELETE/PATCH carrying a session cookie (incl. /web/admin).
    ;; Enforcement is OPT-IN (lib default off); dev/prod/acc each set :enabled? true

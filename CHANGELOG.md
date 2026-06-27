@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`boundary-platform`**: Graceful connection draining on shutdown (BOU-86). The `:boundary/http-server` component configures Jetty's `GracefulHandler` and `setStopTimeout` so that on stop the server stops accepting new connections, rejects new requests with `503`, and lets in-flight requests finish before halting — eliminating cut requests during rolling restarts. New config knob `:boundary/http :drain-timeout-ms` (env `HTTP_DRAIN_TIMEOUT_MS`): default 30000 ms in prod/acc, 5000 in dev, 1000 in test; `0` or `nil` disables draining. Set the window above the load balancer's deregistration delay for zero-downtime rollouts.
+
 ### Fixed
 
 - **`boundary-payments`**: Stripe Checkout Session creation is now diagnosable and blank-safe (BOU-127, #216). `create-checkout-session` logs the Stripe error reason (type/code/param/message) on any non-2xx response instead of only `status=%d id=%s`, so a 400 is no longer opaque. `stripe-checkout-params` builds `success_url`/`cancel_url` blank-safely — an empty/whitespace override (e.g. an unset `PUBLIC_BASE_URL` upstream) no longer wins over `redirect-url` via `(or "" redirect-url)` and produces an empty `success_url` that Stripe rejects with a 400.

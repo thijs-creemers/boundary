@@ -111,8 +111,8 @@ the distributed adapter is "just configuration" once it exists.
 | A Redis fixed-window limiter exists (`http-rate-limit` 3-arity with a cache arg) and is multi-instance safe. It is *not wired into the default route pipeline*, and the no-arg form falls back to a per-process atom. To rate-limit across replicas you must wire it explicitly and pass the Redis cache.
 
 | Graceful shutdown
-| ⚠️
-| Integrant `halt!` runs on a JVM shutdown hook (`src/boundary/main.clj`), closing pools and stopping Jetty — but there is *no connection draining*; in-flight requests can be cut. Fine for restarts, rough for zero-downtime rollouts.
+| ✅
+| Integrant `halt!` runs on a JVM shutdown hook (`src/boundary/main.clj`), closing pools and stopping Jetty. Jetty is configured for *graceful connection draining* (`configure-graceful-shutdown!` in `wiring.clj`): on stop it stops accepting new connections, rejects new requests with *503*, and lets in-flight requests finish within `:boundary/http :drain-timeout-ms` (default 30000 ms in prod/acc, env `HTTP_DRAIN_TIMEOUT_MS`; `0` disables). Set the window above the load balancer's deregistration delay for zero-downtime rollouts (BOU-86).
 
 | Realtime / WebSocket
 | ✅ *
@@ -222,7 +222,7 @@ The architecture delivers the promise; these are the concrete pieces that make
 "scale by configuration" fully true. Tracked under the BOU-84 spike:
 
 . ✅ *Realtime Redis pub/sub adapter* — shipped in BOU-85 (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). WebSocket is now replica-safe via `:provider :redis` on `:boundary/realtime`.
-. *Graceful connection draining* — configurable shutdown grace so rollouts finish in-flight requests.
+. ✅ *Graceful connection draining* — shipped in BOU-86. Configurable shutdown grace (`:boundary/http :drain-timeout-ms`) lets rollouts finish in-flight requests; Jetty `GracefulHandler` + `setStopTimeout` wired in `wiring.clj`.
 . *Default rate-limit wiring* — apply `http-rate-limit` with the Redis cache in the standard pipeline.
 . *Jobs hardening* — fail-fast on missing handler registration; verify scheduled-job atomic claim across workers.
 . *Deploy topology reference* — compose + k8s example with N replicas, Redis, a load balancer, instance-id, and a web/worker split.

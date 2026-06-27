@@ -158,13 +158,19 @@
      config: Configuration map from load-config
    
    Returns:
-     Map with :port, :host, :join?, and :port-range keys"
+     Map with :port, :host, :join?, :port-range, and :drain-timeout-ms keys
+
+   :drain-timeout-ms controls graceful shutdown: on stop the server stops
+   accepting new connections, lets in-flight requests finish (bounded by this
+   timeout, in milliseconds), then halts. 0 or nil disables graceful draining."
   [config]
   (let [http-cfg (get-in config [:active :boundary/http])]
     {:port (or (:port http-cfg) 3000)
      :host (or (:host http-cfg) "0.0.0.0")
      :join? (or (:join? http-cfg) false)
-     :port-range (:port-range http-cfg)}))
+     :port-range (:port-range http-cfg)
+     ;; default only when the key is absent — an explicit nil disables draining
+     :drain-timeout-ms (get http-cfg :drain-timeout-ms 30000)}))
 
 (defn app-config
   "Extract application-level configuration.
