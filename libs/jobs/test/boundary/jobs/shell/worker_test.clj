@@ -172,26 +172,31 @@
 
 (deftest worker-handles-missing-handler-test
   (with-silent-logging
-    (testing "Worker handles jobs with no registered handler"
+    (testing "A job with no handler is re-enqueued (bounded) then dead-lettered, never silently dropped"
       (let [queue (:queue *system*)
             store (:store *system*)
-            test-job (create-test-job {:job-type :unregistered-job
-                                       :max-retries 0})]  ; No retries so it goes to :failed
+            test-job (create-test-job {:job-type :unregistered-job})]
 
         (ports/enqueue-job! queue :default test-job)
 
-        ;; Start worker (no handler registered)
+        ;; Start worker (no handler registered) with immediate age-out, no requeue
+        ;; delay, and a fast scheduled sweep so the delayed re-enqueue → promote →
+        ;; dead-letter path completes quickly.
         (let [worker-instance (worker/create-worker
-                               {:queue-name :default :poll-interval-ms 100}
+                               {:queue-name :default :poll-interval-ms 50
+                                :scheduled-interval-ms 50 :max-requeue-age-ms 0 :requeue-delay-ms 0}
                                queue store *registry*)]
           (try
-            ;; Wait for job to be processed
-            (Thread/sleep 500)
+            (is (wait-for #(= :failed (:status (ports/find-job store (:id test-job)))) 2000)
+                "job ends up failed after the requeue budget is exhausted")
 
-            ;; Verify job failed with appropriate error
+            ;; Verify it was dead-lettered with a clear NoHandlerError, not dropped.
             (let [failed-job (ports/find-job store (:id test-job))]
               (is (= :failed (:status failed-job)))
-              (is (re-find #"No handler registered" (get-in failed-job [:error :message]))))
+              (is (= "NoHandlerError" (get-in failed-job [:error :type])))
+              (is (re-find #"No handler registered" (get-in failed-job [:error :message])))
+              (is (some #(= (:id test-job) (:id %)) (ports/failed-jobs store 10))
+                  "job is present in the dead-letter queue"))
 
             (finally
               (ports/stop-worker! worker-instance (:id (:state worker-instance))))))))))

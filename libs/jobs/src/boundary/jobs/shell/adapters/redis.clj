@@ -298,32 +298,36 @@
       (let [now (Instant/now)
             now-ms (.toEpochMilli now)
             ;; Get all jobs with score <= now
-            due-job-ids (.zrangeByScore redis (scheduled-key) 0.0 (double now-ms))]
+            due-job-ids (.zrangeByScore redis (scheduled-key) 0.0 (double now-ms))
+            moved (atom 0)]
 
         (doseq [job-id-str due-job-ids]
-          (let [job-id (java.util.UUID/fromString job-id-str)
-                job-key (job-key job-id)
-                job-data (.get redis job-key)]
+          ;; Atomic claim: ZREM removes the member and returns the number removed.
+          ;; With multiple workers polling concurrently, only the one whose ZREM
+          ;; returns 1 owns this job; the others get 0 and skip it — so a scheduled
+          ;; job is promoted to an execution queue exactly once across all workers.
+          (when (pos? (.zrem redis (scheduled-key) job-id-str))
+            (let [job-id (java.util.UUID/fromString job-id-str)
+                  job-key (job-key job-id)
+                  job-data (.get redis job-key)]
+              (if job-data
+                (let [job (deserialize-job job-data)
+                      queue-name (:queue job)
+                      queue-key (queue-key queue-name)]
+                  ;; Add to execution queue based on priority
+                  (case (:priority job :normal)
+                    :critical (.lpush redis (str queue-key ":critical") (into-array String [job-id-str]))
+                    :high (.lpush redis (str queue-key ":high") (into-array String [job-id-str]))
+                    :normal (.lpush redis queue-key (into-array String [job-id-str]))
+                    :low (.rpush redis (str queue-key ":low") (into-array String [job-id-str])))
+                  (swap! moved inc)
+                  (log/debug "Moved scheduled job to execution queue"
+                             {:job-id job-id :queue queue-name}))
+                ;; Claimed the slot but the job data is gone — nothing to enqueue.
+                (log/warn "Claimed due scheduled job has no stored data; skipping"
+                          {:job-id job-id-str})))))
 
-            (when job-data
-              (let [job (deserialize-job job-data)
-                    queue-name (:queue job)
-                    queue-key (queue-key queue-name)]
-
-                ;; Remove from scheduled set
-                (.zrem redis (scheduled-key) job-id-str)
-
-                ;; Add to execution queue based on priority
-                (case (:priority job :normal)
-                  :critical (.lpush redis (str queue-key ":critical") (into-array String [job-id-str]))
-                  :high (.lpush redis (str queue-key ":high") (into-array String [job-id-str]))
-                  :normal (.lpush redis queue-key (into-array String [job-id-str]))
-                  :low (.rpush redis (str queue-key ":low") (into-array String [job-id-str])))
-
-                (log/debug "Moved scheduled job to execution queue"
-                           {:job-id job-id :queue queue-name})))))
-
-        (count due-job-ids)))))
+        @moved))))
 
 ;; =============================================================================
 ;; Job Store Implementation
@@ -429,7 +433,7 @@
         (let [job-key (job-key job-id)
               job-data (.get redis job-key)]
           (when job-data
-              (let [job (deserialize-job job-data)
+            (let [job (deserialize-job job-data)
                   retry-config {:backoff-strategy :exponential
                                 :initial-delay-ms 1000
                                 :max-delay-ms 60000}

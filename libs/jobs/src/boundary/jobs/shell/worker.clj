@@ -100,10 +100,90 @@
                :type (-> e class .getName)
                :stacktrace (with-out-str (.printStackTrace e))}})))
 
+(defn- handle-missing-handler!
+  "Handle a dequeued job whose type has no handler registered on THIS instance.
+
+   With N instances each registering only the handlers they own, an instance can
+   legitimately dequeue a job-type it cannot run. Rather than failing it straight
+   to the dead-letter queue (a silent drop — another instance may own the
+   handler), the job is re-enqueued for another worker and dead-lettered only
+   after it has gone unhandled for too long.
+
+   Two safeguards make this correct across a heterogeneous, loaded fleet:
+
+   1. Delayed re-enqueue. The job is parked in the scheduled set
+      :requeue-delay-ms into the future, NOT pushed back onto the ready queue. A
+      handlerless worker treats a re-enqueue as 'processed' and would otherwise
+      re-dequeue the same job on its next immediate poll, spinning. Parking it
+      removes it from the ready queue during the delay so the requeuing worker
+      backs off and other workers get a fair poll.
+
+   2. Age-based (not attempt-based) give-up. The job is dead-lettered only once it
+      has been continuously unhandled for :max-requeue-age-ms (default 5 min),
+      tracked via :first-missing-at in metadata. Counting re-enqueue *attempts*
+      would be wrong: under load, or with more handlerless workers than the
+      attempt budget, wrong-worker misses would exhaust the budget and drop a job
+      a slow handler-owning worker simply hadn't polled yet. A wall-clock window
+      is independent of fleet size and load — every handler-owning worker gets the
+      full window to claim the job. A high :max-requeues acts only as a runaway
+      backstop (e.g. against a broken clock), not the primary policy.
+
+   Args:
+     config       - Worker config:
+                    :requeue-delay-ms    delay before a re-enqueue is pollable (default 1000)
+                    :max-requeue-age-ms  age after which an unhandled job is dead-lettered (default 300000)
+                    :max-requeues        hard backstop on re-enqueue attempts (default 10000)
+     queue        - IJobQueue
+     store        - IJobStore
+     registry     - IJobRegistry (this instance's handlers)
+     worker-state - WorkerState
+     job          - The dequeued job map"
+  [config queue store registry worker-state job]
+  (let [job-id       (:id job)
+        job-type     (:job-type job)
+        delay-ms     (or (:requeue-delay-ms config) 1000)
+        max-age-ms   (or (:max-requeue-age-ms config) 300000)
+        max-requeues (or (:max-requeues config) 10000)
+        now-ms       (.toEpochMilli (Instant/now))
+        first-seen   (get-in job [:metadata :first-missing-at])
+        requeues     (get-in job [:metadata :requeue-count] 0)
+        aged-out?    (and first-seen (>= (- now-ms first-seen) max-age-ms))
+        over-cap?    (>= requeues max-requeues)]
+    (if-not (or aged-out? over-cap?)
+      (do
+        (log/warn "No handler for job type on this instance — re-enqueuing (delayed) for another worker"
+                  {:job-id job-id :job-type job-type
+                   :requeue-count requeues :delay-ms delay-ms
+                   :unhandled-for-ms (when first-seen (- now-ms first-seen)) :max-age-ms max-age-ms
+                   :local-handlers (ports/list-handlers registry)})
+        ;; Delayed re-enqueue via the scheduled set (see docstring): leaves the
+        ;; ready queue so this worker can't immediately reacquire and tight-loop.
+        (ports/enqueue-job! queue (:queue-name worker-state)
+                            (-> job
+                                (update :metadata assoc
+                                        :first-missing-at (or first-seen now-ms)
+                                        :requeue-count (inc requeues))
+                                (assoc :execute-at (.plusMillis (Instant/now) (long delay-ms))))))
+      (let [reason (if aged-out?
+                     (str "no worker handled it within " max-age-ms " ms")
+                     (str "re-enqueue backstop of " max-requeues " attempts reached"))
+            error  {:message (str "No handler registered for job type " job-type " on any worker: " reason)
+                    :type    "NoHandlerError"}]
+        (log/error "No handler for job type — dead-lettering"
+                   {:job-id job-id :job-type job-type :reason reason
+                    :unhandled-for-ms (when first-seen (- now-ms first-seen)) :requeue-count requeues})
+        ;; A missing handler is a configuration error, not a transient failure:
+        ;; exhaust the retry budget so update-job-status! routes it terminally to
+        ;; the dead-letter queue instead of scheduling pointless retries.
+        (ports/save-job! store (assoc job :retry-count (:max-retries job 3)))
+        (ports/update-job-status! store job-id :failed error)
+        (swap! (:failed-count worker-state) inc)))))
+
 (defn- process-single-job!
   "Process a single job from queue.
 
    Args:
+     config - Worker configuration map (:max-requeues for missing-handler budget)
      queue - IJobQueue implementation
      store - IJobStore implementation
      registry - IJobRegistry implementation
@@ -111,38 +191,32 @@
 
    Returns:
      true if job was processed, false if queue was empty"
-  [queue store registry worker-state]
+  [config queue store registry worker-state]
   (when-let [job (ports/dequeue-job! queue (:queue-name worker-state))]
     (let [job-id (:id job)
           job-type (:job-type job)]
       (reset! (:current-job worker-state) job)
-      (log/info "Processing job" {:job-id job-id :job-type job-type})
 
       (try
-        ;; Mark job as running
-        (ports/update-job-status! store job-id :running nil)
-
-        ;; Get handler
+        ;; Resolve the handler BEFORE marking the job running, so a missing
+        ;; handler can be re-routed without leaving the job stuck in :running.
         (if-let [handler-fn (ports/get-handler registry job-type)]
-          (let [result (execute-job-handler handler-fn (:args job))]
-            (if (:success? result)
-              (do
-                ;; Success
-                (ports/update-job-status! store job-id :completed (:result result))
-                (swap! (:processed-count worker-state) inc)
-                (log/info "Job completed successfully" {:job-id job-id}))
-              (do
-                ;; Handler returned failure
-                (ports/update-job-status! store job-id :failed (:error result))
-                (swap! (:failed-count worker-state) inc)
-                (log/warn "Job failed" {:job-id job-id :error (:error result)}))))
+          (do
+            (log/info "Processing job" {:job-id job-id :job-type job-type})
+            (ports/update-job-status! store job-id :running nil)
+            (let [result (execute-job-handler handler-fn (:args job))]
+              (if (:success? result)
+                (do
+                  (ports/update-job-status! store job-id :completed (:result result))
+                  (swap! (:processed-count worker-state) inc)
+                  (log/info "Job completed successfully" {:job-id job-id}))
+                (do
+                  (ports/update-job-status! store job-id :failed (:error result))
+                  (swap! (:failed-count worker-state) inc)
+                  (log/warn "Job failed" {:job-id job-id :error (:error result)})))))
 
-          ;; No handler registered
-          (let [error {:message (str "No handler registered for job type: " job-type)
-                       :type "NoHandlerError"}]
-            (ports/update-job-status! store job-id :failed error)
-            (swap! (:failed-count worker-state) inc)
-            (log/error "No handler for job type" {:job-id job-id :job-type job-type})))
+          ;; No handler on this instance — re-enqueue (bounded), never silent DLQ.
+          (handle-missing-handler! config queue store registry worker-state job))
 
         (catch Exception e
           ;; Unexpected error during processing
@@ -217,7 +291,7 @@
             (reset! last-scheduled-check now)))
 
         ;; Process next job from queue; apply exponential backoff on empty queue
-        (let [processed? (process-single-job! queue store registry worker-state)]
+        (let [processed? (process-single-job! config queue store registry worker-state)]
           (if processed?
             ;; Job found — reset backoff so next pickup is immediate
             (reset! current-poll-ms min-poll-ms)
@@ -306,6 +380,13 @@
         worker (->Worker worker-state nil queue store registry config)
         thread (Thread. #(worker-loop config queue store registry worker-state)
                         (str "job-worker-" (:id worker-state)))]
+
+    ;; Fail-loud guard: a worker with no handlers cannot run any job type — every
+    ;; job it dequeues is re-enqueued and ultimately dead-lettered. Warn at startup
+    ;; so a misconfigured (or differing) handler set surfaces immediately.
+    (when (empty? (ports/list-handlers registry))
+      (log/warn "Job worker started with NO registered handlers — it cannot process any job type. Register handlers before starting workers."
+                {:worker-id (:id worker-state) :queue-name queue-name}))
 
     (.setDaemon thread true)
     (.start thread)
