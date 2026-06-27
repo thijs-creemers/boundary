@@ -5,10 +5,10 @@
             [boundary.cli.catalogue :as cat]))
 
 ;; Keep in sync with libs/tools/build.clj version
-(def ^:private boundary-tools-version "1.0.1-alpha-33")
+(def ^:private boundary-tools-version "1.0.1-alpha-34")
 
 ;; Keep in sync with libs/boundary-mcp/build.clj version (release-bumped with boundary-tools-version)
-(def ^:private boundary-mcp-version "1.0.1-alpha-33")
+(def ^:private boundary-mcp-version "1.0.1-alpha-34")
 
 (defn validate-name [n]
   (cond
