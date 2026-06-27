@@ -330,11 +330,29 @@
                                  "Set CSRF_SECRET or JWT_SECRET, or :boundary/http :security :csrf :secret.")
                             {:csrf/enabled? true :csrf/secret-present? false})))
 
+        ;; Rate-limit config consumed by the http-rate-limit-protection interceptor.
+        ;; Opt-in like CSRF: disabled by default so a framework upgrade cannot start
+        ;; 429-ing consumers. When enabled with a cache present, limiting is shared
+        ;; across replicas via Redis; without a cache it falls back to a per-process
+        ;; counter (single-node only — NOT a global limit). Config keys override.
+        rate-limit-config (merge {:enabled?  false
+                                  :limit     100
+                                  :window-ms 60000}
+                                 (get-in config [:active :boundary/http :rate-limit]))
+        _ (when (and (:enabled? rate-limit-config) (nil? cache))
+            (log/warn (str "Rate limiting is enabled but no cache is configured — "
+                           "falling back to a per-process counter. This is correct on a "
+                           "single node only; across replicas each instance counts "
+                           "independently, so the effective global limit is limit x N. "
+                           "Configure :boundary/cache (Redis) for a shared limit.")))
+
         ;; Build system services map for HTTP interceptors
         system {:logger logger
                 :metrics-emitter metrics-emitter
                 :error-reporter error-reporter
-                :csrf csrf-config}
+                :csrf csrf-config
+                :rate-limit rate-limit-config
+                :cache cache}
 
         ;; Build i18n middleware (always present — falls back to identity t-fn if not configured)
         i18n-middleware-fn (when i18n

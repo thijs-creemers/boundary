@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`boundary-platform`**: Rate limiting wired into the default route pipeline (BOU-87). New config-driven `http-rate-limit-protection` interceptor runs in the default HTTP stack and reads its policy from `:boundary/http :rate-limit {:enabled? :limit :window-ms}` (env `HTTP_RATE_LIMIT`, `HTTP_RATE_LIMIT_WINDOW_MS`); the wiring injects the `:boundary/cache` so an active Redis cache yields a fixed-window limit **shared across replicas**. Enforcement is **opt-in** (default off) so an upgrade cannot start 429-ing existing consumers — enabled in the bundled dev/acc/prod configs (dev 1000/min, prod/acc 300/min), disabled in test. **Caveat:** with no active cache the limiter falls back to a per-process counter — correct on a single node only; across N replicas the effective global limit is `limit × N`, and the wiring logs a warning at startup. The existing fixed-arg `http-rate-limit` form remains for explicit per-route use.
+
 - **`boundary-platform`**: Graceful connection draining on shutdown (BOU-86). The `:boundary/http-server` component configures Jetty's `GracefulHandler` and `setStopTimeout` so that on stop the server stops accepting new connections, rejects new requests with `503`, and lets in-flight requests finish before halting — eliminating cut requests during rolling restarts. New config knob `:boundary/http :drain-timeout-ms` (env `HTTP_DRAIN_TIMEOUT_MS`): default 30000 ms in prod/acc, 5000 in dev, 1000 in test; `0` or `nil` disables draining. Set the window above the load balancer's deregistration delay for zero-downtime rollouts.
 
 ### Fixed
+
+- **`boundary-platform`**: The `http-rate-limit` interceptor now actually blocks over-limit requests (BOU-87). Its rejection set `:response` but not `:halt?`, so `run-pipeline` continued to the downstream ring-handler, which overwrote the `429` with the handler's `200` — the limit was counted but never enforced. The rejection now sets `:halt? true` (matching `http-csrf-protection`), short-circuiting the pipeline.
 
 - **`boundary-payments`**: Stripe Checkout Session creation is now diagnosable and blank-safe (BOU-127, #216). `create-checkout-session` logs the Stripe error reason (type/code/param/message) on any non-2xx response instead of only `status=%d id=%s`, so a 400 is no longer opaque. `stripe-checkout-params` builds `success_url`/`cancel_url` blank-safely — an empty/whitespace override (e.g. an unset `PUBLIC_BASE_URL` upstream) no longer wins over `redirect-url` via `(or "" redirect-url)` and produces an empty `success_url` that Stripe rejects with a 400.
 

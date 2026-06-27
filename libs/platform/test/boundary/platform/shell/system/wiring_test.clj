@@ -78,9 +78,11 @@
       (is (= {:logger ::logger
               :metrics-emitter ::metrics
               :error-reporter ::error-reporter}
-             (dissoc (:system @captured-config) :csrf)))
+             (dissoc (:system @captured-config) :csrf :rate-limit :cache)))
       ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
-      (is (false? (get-in @captured-config [:system :csrf :enabled?]))))
+      (is (false? (get-in @captured-config [:system :csrf :enabled?])))
+      ;; Rate limiting is opt-in too: with no :rate-limit config block it defaults off.
+      (is (false? (get-in @captured-config [:system :rate-limit :enabled?]))))
 
     (testing "the returned handler is the compiled handler after wrapping"
       (is (= {:status 200 :body {:request-method :get}}
@@ -144,9 +146,11 @@
       (is (= {:logger ::logger
               :metrics-emitter ::metrics
               :error-reporter ::error-reporter}
-             (dissoc (:system @captured-config) :csrf)))
+             (dissoc (:system @captured-config) :csrf :rate-limit :cache)))
       ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
-      (is (false? (get-in @captured-config [:system :csrf :enabled?]))))
+      (is (false? (get-in @captured-config [:system :csrf :enabled?])))
+      ;; Rate limiting is opt-in too: with no :rate-limit config block it defaults off.
+      (is (false? (get-in @captured-config [:system :rate-limit :enabled?]))))
 
     (testing "method override middleware rewrites POST requests to the requested verb"
       (let [wrapped-handler ((first (:middleware @captured-config)) compiled-handler)]

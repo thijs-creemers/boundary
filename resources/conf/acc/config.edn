@@ -48,6 +48,12 @@
    ;; in-flight requests finish (up to this bound), then halt. Tune to exceed
    ;; the load balancer's deregistration delay for zero-downtime rollouts.
    :drain-timeout-ms #long #or [#env HTTP_DRAIN_TIMEOUT_MS 30000]
+   ;; Per-client rate limiting (fixed window). Activate :boundary/cache (Redis) so
+   ;; the limit is shared across replicas; without an active cache each instance
+   ;; counts independently (effective limit = limit x N) and a warning is logged.
+   :rate-limit {:enabled?  true
+                :limit     #long #or [#env HTTP_RATE_LIMIT 300]
+                :window-ms #long #or [#env HTTP_RATE_LIMIT_WINDOW_MS 60000]}
    :security {:csrf {:enabled? true
                      :secret   #env "JWT_SECRET"}}}
 
