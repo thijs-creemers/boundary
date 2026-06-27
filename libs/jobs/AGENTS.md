@@ -76,6 +76,41 @@ running → retrying → pending → running → ...
 - Capped at 60 seconds with random jitter (±10%)
 - Dead letter queue after max retries exhausted
 
+## Missing Handlers (multi-instance)
+
+The handler registry is per-process. When a worker dequeues a job whose type it
+has no handler for, it does **not** silently dead-letter it — the job is
+**re-enqueued** for another instance that registered the handler, and dead-lettered
+(with a `NoHandlerError`) only once it has gone unhandled for too long. A worker
+created with an **empty** registry logs a loud warning at startup.
+
+Two safeguards make this correct on a heterogeneous, loaded fleet:
+
+- **Delayed re-enqueue** — the job is parked in the scheduled set
+  `:requeue-delay-ms` into the future (default 1000), not pushed back onto the
+  ready queue. A handlerless worker treats a re-enqueue as "processed", so without
+  the delay it would re-dequeue the same job on its very next poll and spin.
+  Parking removes it from the ready queue during the delay so the worker backs off
+  and peers get a fair poll.
+- **Age-based give-up** — the job is dead-lettered only after it has been
+  continuously unhandled for `:max-requeue-age-ms` (default 300000 / 5 min),
+  tracked via `[:metadata :first-missing-at]`. Give-up is deliberately **not**
+  attempt-based: counting re-enqueue attempts would let wrong-worker misses (more
+  handlerless workers than the budget, or simply high load) exhaust a budget and
+  drop a job a slow handler-owning worker hadn't polled yet. A wall-clock window
+  is independent of fleet size and load. `:max-requeues` (default 10000) remains
+  only as a runaway backstop, not the primary policy.
+
+Keep handler sets consistent across instances: a job-type that *no* worker
+registers still burns its full requeue budget before dead-lettering.
+
+## Scheduled-job Atomic Claim
+
+Promotion of a due scheduled job to an execution queue is an **atomic claim**, so
+concurrent workers can't both move (and thus run) the same job:
+- **Redis**: `ZREM` on `jobs:scheduled` — only the worker whose `ZREM` returns 1 enqueues.
+- **In-memory**: `swap-vals!` on the scheduled set — only the caller that removed the entry enqueues.
+
 ## Priority Queue Order
 
 Jobs dequeued by priority: critical > high > normal > low.

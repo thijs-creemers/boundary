@@ -131,6 +131,19 @@
            (into (empty scheduled)
                  (remove #(= (:job-id %) job-id) scheduled)))))
 
+(defn- claim-scheduled!
+  "Atomically remove job-id from the scheduled set and report whether THIS call
+   was the one that removed it. Uses swap-vals! so concurrent claims are
+   serialized by the atom's CAS: exactly one caller sees the id in its `old`
+   value and wins. Returns true for the winner, false for losers — the guard
+   that promotes a due scheduled job to an execution queue exactly once."
+  [scheduled-atom job-id]
+  (let [[old _new] (swap-vals! scheduled-atom
+                               (fn [scheduled]
+                                 (into (empty scheduled)
+                                       (remove #(= (:job-id %) job-id) scheduled))))]
+    (boolean (some #(= (:job-id %) job-id) old))))
+
 (defn- get-due-jobs
   "Get jobs that are due for execution."
   [scheduled-atom now]
@@ -216,19 +229,24 @@
   [^InMemoryJobQueue queue]
   (let [state (:state queue)
         now (Instant/now)
-        due-job-ids (get-due-jobs (:scheduled state) now)]
+        due-job-ids (get-due-jobs (:scheduled state) now)
+        moved (atom 0)]
 
     (doseq [job-id due-job-ids]
-      (when-let [job (get @(:jobs state) job-id)]
-        (let [queue-name (:queue job)]
-          ;; Remove from scheduled
-          (remove-from-scheduled! (:scheduled state) job-id)
-          ;; Add to execution queue
-          (add-to-queue! (:queues state) queue-name (:priority job) job-id)
-          (log/debug "Moved scheduled job to execution queue"
-                     {:job-id job-id :queue queue-name}))))
+      ;; Atomic claim before enqueueing: only the caller that removes the job from
+      ;; the scheduled set promotes it, so concurrent workers can't both move the
+      ;; same scheduled job into an execution queue (would run it twice).
+      (when (claim-scheduled! (:scheduled state) job-id)
+        (if-let [job (get @(:jobs state) job-id)]
+          (let [queue-name (:queue job)]
+            (add-to-queue! (:queues state) queue-name (:priority job) job-id)
+            (swap! moved inc)
+            (log/debug "Moved scheduled job to execution queue"
+                       {:job-id job-id :queue queue-name}))
+          (log/warn "Claimed due scheduled job has no stored data; skipping"
+                    {:job-id job-id}))))
 
-    (count due-job-ids)))
+    @moved))
 
 ;; =============================================================================
 ;; Job Store Implementation
