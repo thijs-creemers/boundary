@@ -628,3 +628,14 @@
    
    # All tests
    clojure -M:test:db/h2 --focus boundary.tenant.shell.provisioning-test")
+
+;; =============================================================================
+;; tenant-scoped-tables membership (ZZP-86)
+;; =============================================================================
+
+(deftest tenant-scoped-tables-includes-added-entities
+  (testing "compliance/vbar/import tables are provisioned per-tenant (ZZP-86)"
+    (is (= #{"contractors" "contracts" "assignments" "timesheets" "invoices"
+             "compliance_snapshots" "compliance_changes" "vbar_assessments"
+             "import_batches"}
+           @#'sut/tenant-scoped-tables))))

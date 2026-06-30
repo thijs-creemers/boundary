@@ -66,7 +66,11 @@
     "contracts"
     "assignments"
     "timesheets"
-    "invoices"})
+    "invoices"
+    "compliance_snapshots"
+    "compliance_changes"
+    "vbar_assessments"
+    "import_batches"})
 
 (defn- get-public-tables
   "Get list of all tables in public schema.
