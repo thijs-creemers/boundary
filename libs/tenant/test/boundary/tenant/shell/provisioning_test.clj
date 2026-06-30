@@ -639,3 +639,10 @@
              "compliance_snapshots" "compliance_changes" "vbar_assessments"
              "import_batches"}
            @#'sut/tenant-scoped-tables))))
+
+(deftest sync-tenant-schemas-noop-on-non-postgresql-test
+  (testing "sync-tenant-schemas! is a no-op with empty result on non-PostgreSQL (ZZP-86)"
+    (with-h2-database
+      (fn []
+        (is (= {:schemas-synced [] :tables []}
+               (sut/sync-tenant-schemas! *test-ctx*)))))))

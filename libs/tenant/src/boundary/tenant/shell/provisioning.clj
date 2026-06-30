@@ -375,6 +375,34 @@
            (mapv :schema-name)))
     []))
 
+(defn sync-tenant-schemas!
+  "Backfill every existing tenant_<slug> schema with all tenant-scoped tables.
+
+   `provision-tenant!` only copies the tenant-scoped tables into a schema at
+   creation time and returns early when the schema already exists. So when
+   `tenant-scoped-tables` gains entries in a release, previously-provisioned
+   tenants do NOT get the new tables, and any job or repository using them under
+   the tenant search_path fails with a missing relation. This is the
+   upgrade/sync path: run it on deploy after extending `tenant-scoped-tables`.
+
+   For each existing tenant schema it re-copies the public table structures.
+   `get-table-ddl` emits `CREATE TABLE IF NOT EXISTS`, so existing tables are
+   left untouched and only missing ones are created — fully idempotent. No-op
+   (and empty result) on non-PostgreSQL databases.
+
+   Returns {:schemas-synced [schema-name ...] :tables [table-name ...]}."
+  [ctx]
+  (if (postgresql-context? ctx)
+    (let [schemas (list-tenant-schemas ctx)
+          tables  (get-public-tables ctx)]
+      (doseq [schema schemas]
+        (log/info "Syncing tenant schema tables"
+                  {:schema schema :table-count (count tables)})
+        (doseq [table tables]
+          (copy-table-structure! ctx table schema)))
+      {:schemas-synced schemas :tables tables})
+    {:schemas-synced [] :tables []}))
+
 (defn deprovision-tenant!
   "Deprovision tenant database schema.
    
