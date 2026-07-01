@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-35] - 2026-07-01
+
 ### Added
 
 - **`boundary-platform`**: Rate limiting wired into the default route pipeline (BOU-87). New config-driven `http-rate-limit-protection` interceptor runs in the default HTTP stack and reads its policy from `:boundary/http :rate-limit {:enabled? :limit :window-ms}` (env `HTTP_RATE_LIMIT`, `HTTP_RATE_LIMIT_WINDOW_MS`); the wiring injects the `:boundary/cache` so an active Redis cache yields a fixed-window limit **shared across replicas**. Enforcement is **opt-in** (default off) so an upgrade cannot start 429-ing existing consumers — enabled only in the bundled dev config (single-node, 1000/min); the prod/acc configs ship it **disabled** (enable together with an active Redis cache), and test leaves it off. **Caveat:** with no active cache the limiter falls back to a per-process counter — correct on a single node only; across N replicas the effective global limit is `limit × N`, and the wiring logs a warning at startup. The existing fixed-arg `http-rate-limit` form remains for explicit per-route use.
