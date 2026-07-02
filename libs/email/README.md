@@ -40,7 +40,7 @@ Simple, robust email delivery with:
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.1-alpha-35"}}}
+{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.1-alpha-37"}}}
 ```
 
 ### 2. Create SMTP Sender
@@ -460,8 +460,8 @@ For high-volume email sending with automatic retries and monitoring, integrate w
 
 ```clojure
 ;; deps.edn
-{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.1-alpha-35"}
-        org.boundary-app/boundary-jobs {:mvn/version "1.0.1-alpha-35"}
+{:deps {org.boundary-app/boundary-email {:mvn/version "1.0.1-alpha-37"}
+        org.boundary-app/boundary-jobs {:mvn/version "1.0.1-alpha-37"}
         redis.clients/jedis {:mvn/version "5.2.0"}}}
 ```
 
