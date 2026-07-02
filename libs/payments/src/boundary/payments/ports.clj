@@ -47,7 +47,12 @@
 
   (process-webhook [this raw-body headers])
   ;; Returns {:event-type :payment.paid|:payment.failed|:payment.cancelled
-  ;;                       |:payment.expired|:payment.authorized
+  ;;                       |:payment.expired|:payment.authorized|nil
+  ;;                       ; nil for a signature-verified event with no generic
+  ;;                       ; payment.* outcome (checkout.session.*, disputes, …);
+  ;;                       ; the consumer routes those by :payload type or
+  ;;                       ; acknowledges-and-ignores. Never throws on an
+  ;;                       ; unmapped-but-parseable event (BOU-147).
   ;;          :provider-payment-id "..."
   ;;          :correlation-id "..."          ; matches create-checkout-session's
   ;;                                         ; :correlation-id — correlate on THIS

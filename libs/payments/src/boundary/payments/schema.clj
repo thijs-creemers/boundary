@@ -80,8 +80,14 @@
 
 (def WebhookResult
   [:map
-   [:event-type           [:enum :payment.paid :payment.failed :payment.cancelled
-                           :payment.expired :payment.authorized]]
+   ;; nil for a signature-verified event whose provider type maps to no generic
+   ;; payment.* outcome (e.g. Stripe checkout.session.* / charge.dispute.* and any
+   ;; other type a connected endpoint receives). The adapter surfaces these as
+   ;; :event-type nil + the full :payload rather than throwing (BOU-147), so the
+   ;; consumer can route them by payload type or acknowledge-and-ignore. A
+   ;; non-nil value is always one of the generic payment.* keywords.
+   [:event-type           [:maybe [:enum :payment.paid :payment.failed :payment.cancelled
+                                   :payment.expired :payment.authorized]]]
    [:provider-payment-id  {:optional true} [:maybe :string]]
    ;; Adapter-internal correlation id recovered from the PSP payment metadata —
    ;; matches CheckoutResult/:correlation-id. This is the field consumers should
