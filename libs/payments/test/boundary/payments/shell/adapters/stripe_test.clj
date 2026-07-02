@@ -135,16 +135,27 @@
           result (ports/process-webhook provider body {})]
       (is (= :payment.authorized (:event-type result)))))
 
-  (testing "unknown event type throws ex-info with :internal-error"
-    (let [body (json/generate-string {:type "charge.succeeded"
-                                      :data {:object {}}})]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo #"Unhandled Stripe event type"
-           (ports/process-webhook provider body {})))
-      (try
-        (ports/process-webhook provider body {})
-        (catch clojure.lang.ExceptionInfo e
-          (is (= :internal-error (:type (ex-data e)))))))))
+  ;; BOU-147: an unmapped-but-valid Stripe event must NOT throw. A connected
+  ;; endpoint receives many event types by default; a throw here becomes an
+  ;; HTTP 500 in the billing webhook handler and Stripe retries for days. The
+  ;; event is acknowledged with :event-type nil and the payload preserved so the
+  ;; billing layer's event-action can route/ignore it by payload type.
+  (testing "unmapped event type → :event-type nil, no throw, payload preserved"
+    (let [body   (json/generate-string {:type "charge.succeeded"
+                                        :data {:object {:id "ch_1"}}})
+          result (ports/process-webhook provider body {})]
+      (is (nil? (:event-type result)))
+      (is (= "charge.succeeded" (get-in result [:payload :type])))))
+
+  (testing "checkout.session.completed → :event-type nil (billing routes by payload)"
+    ;; checkout.session.completed is the primary paid-flow event but is not in
+    ;; the generic payment.* map; it must reach the handler (not 500) so
+    ;; event-action can flip it to :paid.
+    (let [body   (json/generate-string {:type "checkout.session.completed"
+                                        :data {:object {:id "cs_1" :payment_status "paid"}}})
+          result (ports/process-webhook provider body {})]
+      (is (nil? (:event-type result)))
+      (is (= "checkout.session.completed" (get-in result [:payload :type]))))))
 
 ;; =============================================================================
 ;; process-webhook — field extraction
