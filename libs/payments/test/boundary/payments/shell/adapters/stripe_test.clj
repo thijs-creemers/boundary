@@ -155,7 +155,17 @@
                                         :data {:object {:id "cs_1" :payment_status "paid"}}})
           result (ports/process-webhook provider body {})]
       (is (nil? (:event-type result)))
-      (is (= "checkout.session.completed" (get-in result [:payload :type]))))))
+      (is (= "checkout.session.completed" (get-in result [:payload :type])))))
+
+  (testing "checkout.session.expired → :event-type nil (the exact BOU-147 reproducer)"
+    ;; evt_…m1yaatdM in the sandbox: every delivery failed with a 500 because the
+    ;; old code threw on this type. It must now come back as a nil-event-type
+    ;; result so the billing handler acknowledges it and event-action → :expired.
+    (let [body   (json/generate-string {:type "checkout.session.expired"
+                                        :data {:object {:id "cs_2"}}})
+          result (ports/process-webhook provider body {})]
+      (is (nil? (:event-type result)))
+      (is (= "checkout.session.expired" (get-in result [:payload :type]))))))
 
 ;; =============================================================================
 ;; process-webhook — field extraction
