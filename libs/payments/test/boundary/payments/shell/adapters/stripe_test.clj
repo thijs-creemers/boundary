@@ -281,6 +281,39 @@
           (is (= "https://app.example.com/ok"        (get params "success_url")))
           (is (= "https://app.example.com/cancelled" (get params "cancel_url")))))))
 
+  ;; BOU-148: an empty success_url reached Stripe (opaque 400
+  ;; parameter_invalid_empty) because :redirect-url resolved blank upstream (unset
+  ;; PUBLIC_BASE_URL). Guard fails fast with a named :config-error and never POSTs.
+  (testing "blank resolved return URL → :config-error, Stripe is never called"
+    (let [posted? (atom false)]
+      (with-redefs [http/post (fn [_ _] (reset! posted? true)
+                                (json-response 200 {:id "cs" :url "u"}))]
+        (try
+          (ports/create-checkout-session
+           provider
+           {:amount-cents 100 :currency "EUR" :description "Test"
+            :redirect-url ""})           ; blank → success_url/cancel_url blank
+          (is false "should have thrown")
+          (catch clojure.lang.ExceptionInfo e
+            (is (= :config-error (:type (ex-data e))))
+            (is (= "success_url" (:param (ex-data e))))))
+        (is (false? @posted?) "must not POST an empty success_url to Stripe"))))
+
+  (testing "a blank success-url override still falls back to a non-blank redirect-url"
+    (let [captured (atom nil)]
+      (with-redefs [http/post (fn [url req]
+                                (reset! captured {:url url :req req})
+                                (json-response 200 {:id "cs_1" :url "https://stripe/pay"}))]
+        (ports/create-checkout-session
+         provider
+         {:amount-cents 100 :currency "EUR" :description "Test"
+          :redirect-url "https://app.example.com/return"
+          :success-url  "   "
+          :cancel-url   nil})
+        (let [params (form-decode (get-in @captured [:req :body]))]
+          (is (= "https://app.example.com/return" (get params "success_url")))
+          (is (= "https://app.example.com/return" (get params "cancel_url")))))))
+
   (testing "existing provider-customer-id is reused as customer"
     (let [captured (atom nil)]
       (with-redefs [http/post (fn [url req]

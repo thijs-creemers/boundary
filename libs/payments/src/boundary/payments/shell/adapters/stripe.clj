@@ -107,6 +107,20 @@
   (create-checkout-session [_ opts]
     (let [checkout-id (str (UUID/randomUUID))
           params      (provider/stripe-checkout-params (assoc opts :checkout-id checkout-id))
+          _           (doseq [k ["success_url" "cancel_url"]]
+                        ;; Fail fast on a blank return URL instead of POSTing ""
+                        ;; to Stripe, which answers with an opaque 400
+                        ;; `parameter_invalid_empty` (BOU-148). Both URLs resolve
+                        ;; from :success-url/:cancel-url with a blank-safe
+                        ;; fallback to :redirect-url; if that fallback is ALSO
+                        ;; blank (e.g. an unset PUBLIC_BASE_URL upstream) the
+                        ;; caller's config is broken — surface it here, named,
+                        ;; rather than as a Stripe error.
+                        (when (str/blank? (get params k))
+                          (throw (ex-info (str "Stripe checkout: " k " is blank")
+                                          {:type  :config-error
+                                           :param k
+                                           :fix   "Provide a non-blank absolute return URL (:success-url/:cancel-url, or :redirect-url as fallback); check PUBLIC_BASE_URL in acc/prod"}))))
           {:keys [status body]} (post-form api-key "/checkout/sessions" params)]
       (log/infof "Stripe create-checkout: status=%d id=%s" status (:id body))
       (when-not (#{200 201} status)

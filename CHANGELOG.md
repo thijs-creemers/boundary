@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`boundary-payments`**: Stripe checkout 400 on an empty `success_url` (BOU-148). `create-checkout-session` POSTed whatever `stripe-checkout-params` produced; when both the `:success-url`/`:cancel-url` override AND the `:redirect-url` fallback resolved blank (e.g. an unset `PUBLIC_BASE_URL` upstream), it sent `success_url=""` and Stripe rejected it with an opaque `400 parameter_invalid_empty`. The adapter now fails fast **before** the Stripe call: a blank resolved `success_url`/`cancel_url` throws a `:config-error` ex-info that names the offending param and the fix (provide a non-blank absolute return URL / check `PUBLIC_BASE_URL`), so the misconfiguration is actionable instead of surfacing as a checkout failure at the provider.
+
 ## [1.0.1-alpha-35] - 2026-07-01
 
 ### Added
