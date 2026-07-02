@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1-alpha-36] - 2026-07-02
+
 ### Fixed
 
 - **`boundary-payments`**: Stripe checkout 400 on an invalid `success_url` (BOU-148, BOU-149). `create-checkout-session` POSTed whatever `stripe-checkout-params` produced. A broken upstream return-URL config (e.g. an unset `PUBLIC_BASE_URL`) reached Stripe two ways: an empty string when the `:redirect-url` fallback was also blank (`400 parameter_invalid_empty`, BOU-148), or a scheme-less relative path like `/web/license/payment/return?…` when the configured URL was left relative (`400 url_invalid`, BOU-149). The adapter now validates the resolved `success_url`/`cancel_url` **before** the Stripe call: anything that is not an absolute `http(s)` URL throws a `:config-error` ex-info naming the offending param, its value, and the fix (provide an absolute return URL / set `PUBLIC_BASE_URL` in acc/prod), so the misconfiguration is actionable instead of surfacing as an opaque provider error.
