@@ -249,11 +249,15 @@
                        (or raw-body {}))
           event-type (provider/stripe-event->event-type (:type event))
           pi-obj     (get-in event [:data :object])]
+      ;; event-type is nil for any Stripe type outside the generic payment.*
+      ;; mapping (checkout.session.*, charge.dispute.*, and everything else a
+      ;; connected endpoint receives by default). Those are NOT errors: the
+      ;; billing layer's event-action routes them by payload type
+      ;; (checkout.session.completed → paid, …) or ignores them. A
+      ;; signature-verified event MUST be acknowledged with HTTP 200 — throwing
+      ;; here surfaces as a 500 and makes Stripe retry for days (BOU-147) — so we
+      ;; return a nil-event-type result carrying the full payload instead.
       (log/infof "Stripe webhook: type=%s → event=%s" (:type event) event-type)
-      (when-not event-type
-        (throw (ex-info "Unhandled Stripe event type"
-                        {:type       :internal-error
-                         :event-type (:type event)})))
       ;; payment_intent.* events carry the PaymentIntent id (pi_…) and the
       ;; internal correlation id from metadata, but NOT the cs_… session id —
       ;; so we surface :correlation-id (round-trips CheckoutResult) and omit the

@@ -167,6 +167,13 @@
                       {:event-type event-type :payload {}})
           (str "should accept event-type " event-type))))
 
+  (testing "accepts a nil event-type (unmapped-but-acknowledged event, BOU-147)"
+    ;; checkout.session.* / disputes / any type with no generic payment.* outcome
+    ;; — the adapter surfaces these as :event-type nil + payload, never a throw.
+    (is (m/validate schema/WebhookResult
+                    {:event-type nil
+                     :payload    {:type "checkout.session.expired"}})))
+
   (testing "accepts optional fields"
     (is (m/validate schema/WebhookResult
                     {:event-type            :payment.paid
