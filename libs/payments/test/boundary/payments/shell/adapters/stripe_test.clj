@@ -302,10 +302,11 @@
           (is (= "https://app.example.com/ok"        (get params "success_url")))
           (is (= "https://app.example.com/cancelled" (get params "cancel_url")))))))
 
-  ;; BOU-148: an empty success_url reached Stripe (opaque 400
-  ;; parameter_invalid_empty) because :redirect-url resolved blank upstream (unset
-  ;; PUBLIC_BASE_URL). Guard fails fast with a named :config-error and never POSTs.
-  (testing "blank resolved return URL → :config-error, Stripe is never called"
+  ;; The resolved success_url/cancel_url must be an ABSOLUTE http(s) URL. A broken
+  ;; upstream config (unset PUBLIC_BASE_URL) reaches Stripe as either an empty
+  ;; string (parameter_invalid_empty, BOU-148) or a scheme-less relative path
+  ;; (url_invalid, BOU-149). The guard rejects both, named, and never POSTs.
+  (testing "blank resolved return URL → :config-error, Stripe is never called (BOU-148)"
     (let [posted? (atom false)]
       (with-redefs [http/post (fn [_ _] (reset! posted? true)
                                 (json-response 200 {:id "cs" :url "u"}))]
@@ -319,6 +320,22 @@
             (is (= :config-error (:type (ex-data e))))
             (is (= "success_url" (:param (ex-data e))))))
         (is (false? @posted?) "must not POST an empty success_url to Stripe"))))
+
+  (testing "relative (scheme-less) return URL → :config-error, Stripe is never called (BOU-149)"
+    (let [posted? (atom false)]
+      (with-redefs [http/post (fn [_ _] (reset! posted? true)
+                                (json-response 200 {:id "cs" :url "u"}))]
+        (try
+          (ports/create-checkout-session
+           provider
+           {:amount-cents 100 :currency "EUR" :description "Test"
+            ;; exactly the acc shape: PUBLIC_BASE_URL empty → config left relative
+            :redirect-url "/web/license/payment/return?session_id={CHECKOUT_SESSION_ID}"})
+          (is false "should have thrown")
+          (catch clojure.lang.ExceptionInfo e
+            (is (= :config-error (:type (ex-data e))))
+            (is (= "success_url" (:param (ex-data e))))))
+        (is (false? @posted?) "must not POST a relative success_url to Stripe"))))
 
   (testing "a blank success-url override still falls back to a non-blank redirect-url"
     (let [captured (atom nil)]
