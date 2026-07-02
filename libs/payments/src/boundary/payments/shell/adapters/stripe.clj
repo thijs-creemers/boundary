@@ -107,6 +107,24 @@
   (create-checkout-session [_ opts]
     (let [checkout-id (str (UUID/randomUUID))
           params      (provider/stripe-checkout-params (assoc opts :checkout-id checkout-id))
+          _           (doseq [k ["success_url" "cancel_url"]]
+                        ;; Fail fast on an invalid return URL instead of POSTing
+                        ;; it to Stripe, which answers with an opaque 400. Both
+                        ;; URLs resolve from :success-url/:cancel-url with a
+                        ;; blank-safe fallback to :redirect-url; a broken upstream
+                        ;; config (e.g. an unset PUBLIC_BASE_URL) yields either an
+                        ;; empty string (`parameter_invalid_empty`, BOU-148) or a
+                        ;; scheme-less relative path like
+                        ;; "/web/license/payment/return?…" (`url_invalid`,
+                        ;; BOU-149). Stripe requires an ABSOLUTE http(s) URL, so
+                        ;; reject anything that is not — surfaced here, named,
+                        ;; rather than as a provider error.
+                        (when-not (re-find #"(?i)^https?://.+" (str (get params k)))
+                          (throw (ex-info (str "Stripe checkout: " k " is not an absolute http(s) URL")
+                                          {:type  :config-error
+                                           :param k
+                                           :value (get params k)
+                                           :fix   "Provide an absolute https:// return URL (:success-url/:cancel-url, or :redirect-url as fallback); set PUBLIC_BASE_URL in acc/prod so the configured URL is not left relative"}))))
           {:keys [status body]} (post-form api-key "/checkout/sessions" params)]
       (log/infof "Stripe create-checkout: status=%d id=%s" status (:id body))
       (when-not (#{200 201} status)
