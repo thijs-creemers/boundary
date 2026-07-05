@@ -17,6 +17,14 @@
    [:ssl? {:optional true} :boolean]
    [:from [:string {:min 3}]]])
 
+(def Attachment
+  "Outbound email attachment. :content is raw bytes or a base64-encoded string."
+  [:map
+   [:filename [:string {:min 1}]]
+   [:content-type [:string {:min 1}]]
+   [:content [:or :bytes [:string {:min 1}]]]
+   [:size {:optional true} [:int {:min 0}]]])
+
 (def OutboundEmail
   "Outbound email message schema."
   [:map
@@ -27,7 +35,11 @@
    [:html-body {:optional true} :string]
    [:reply-to {:optional true} [:string {:min 3}]]
    [:cc {:optional true} [:vector [:string {:min 3}]]]
-   [:bcc {:optional true} [:vector [:string {:min 3}]]]])
+   [:bcc {:optional true} [:vector [:string {:min 3}]]]
+   [:attachments {:optional true} [:vector Attachment]]
+   ;; Caller-supplied deterministic Message-ID (e.g. issuance dedup); when absent
+   ;; javax.mail generates one.
+   [:message-id {:optional true} [:string {:min 1}]]])
 
 (def EmailSendResult
   "Result of an email send operation."

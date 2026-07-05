@@ -19,9 +19,12 @@
   (:require [boundary.external.core.smtp :as smtp-core]
             [boundary.external.ports :as ports]
             [clojure.tools.logging :as log])
-  (:import [javax.mail Session Transport MessagingException Authenticator PasswordAuthentication]
+  (:import [java.util Base64]
+           [javax.activation DataHandler]
+           [javax.mail Session Transport MessagingException Authenticator PasswordAuthentication]
            [javax.mail Message$RecipientType]
-           [javax.mail.internet InternetAddress MimeMessage MimeBodyPart MimeMultipart]))
+           [javax.mail.internet InternetAddress MimeMessage MimeBodyPart MimeMultipart]
+           [javax.mail.util ByteArrayDataSource]))
 
 ;; =============================================================================
 ;; Session Building
@@ -43,15 +46,80 @@
 ;; MimeMessage Builder
 ;; =============================================================================
 
+(defn- attachment-bytes
+  "Coerce an attachment's :content to a byte array. Accepts a raw byte array or a
+   base64-encoded string (the two shapes the email lib's Attachment schema allows)."
+  ^bytes [content]
+  (cond
+    (bytes? content)  content
+    (string? content) (.decode (Base64/getDecoder) ^String content)
+    :else (throw (ex-info "Unsupported attachment :content — expected bytes or base64 string"
+                          {:type :validation-error :content-class (class content)}))))
+
+(defn- attachment->part
+  "Build a MimeBodyPart carrying a single attachment ({:filename :content-type
+   :content}). :content is bytes or a base64 string; :content-type defaults to
+   application/octet-stream."
+  ^MimeBodyPart [{:keys [filename content-type content]}]
+  (let [ds (ByteArrayDataSource. (attachment-bytes content)
+                                 (str (or content-type "application/octet-stream")))]
+    (doto (MimeBodyPart.)
+      (.setDataHandler (DataHandler. ds))
+      (.setFileName (str filename)))))
+
+(defn- body->part
+  "Build the primary body MimeBodyPart used when attachments are present: a nested
+   text/html alternative multipart when :html-body is set, otherwise plain text."
+  ^MimeBodyPart [email]
+  (let [part (MimeBodyPart.)]
+    (if (:html-body email)
+      (let [alt  (MimeMultipart. "alternative")
+            text (doto (MimeBodyPart.)
+                   (.setContent (str (or (:body email) "")) "text/plain; charset=UTF-8"))
+            html (doto (MimeBodyPart.)
+                   (.setContent (str (:html-body email)) "text/html; charset=UTF-8"))]
+        (.addBodyPart alt text)
+        (.addBodyPart alt html)
+        (.setContent part alt))
+      (.setText part (str (or (:body email) "")) "UTF-8"))
+    part))
+
+(defn- make-mime-message
+  "Build the MimeMessage. When the caller supplies a deterministic :message-id
+   (issuance at-most-once dedup), return a subclass whose updateMessageID writes
+   that id as the Message-ID header — saveChanges/Transport-send call
+   updateMessageID and would otherwise overwrite it with a random one. The id is
+   wrapped in angle brackets (RFC 5322) unless already bracketed. Absent a
+   :message-id, javax.mail's default generator applies."
+  ^MimeMessage [session message-id]
+  (if message-id
+    (let [s   (str message-id)
+          mid (if (.startsWith s "<") s (str "<" s ">"))]
+      (proxy [MimeMessage] [session]
+        (updateMessageID []
+          (.setHeader ^MimeMessage this "Message-ID" mid))))
+    (MimeMessage. session)))
+
 (defn- build-mime-message
   [session email from-addr]
-  (let [recipients (smtp-core/normalize-recipients (:to email))
-        msg        (MimeMessage. session)]
+  (let [recipients  (smtp-core/normalize-recipients (:to email))
+        attachments (seq (:attachments email))
+        msg         (make-mime-message session (:message-id email))]
     (.setFrom msg (InternetAddress. (str (or (:from email) from-addr))))
     (doseq [r recipients]
       (.addRecipient msg Message$RecipientType/TO (InternetAddress. r)))
     (.setSubject msg (str (:subject email)))
-    (if (:html-body email)
+    (cond
+      ;; Attachments -> a "mixed" multipart: the body (plain or nested
+      ;; alternative) as the first part, each attachment as a following part.
+      attachments
+      (let [mixed (MimeMultipart. "mixed")]
+        (.addBodyPart mixed (body->part email))
+        (doseq [a attachments]
+          (.addBodyPart mixed (attachment->part a)))
+        (.setContent msg mixed))
+
+      (:html-body email)
       (let [multipart  (MimeMultipart. "alternative")
             text-part  (doto (MimeBodyPart.)
                          (.setContent (str (or (:body email) "")) "text/plain; charset=UTF-8"))
@@ -60,6 +128,8 @@
         (.addBodyPart multipart text-part)
         (.addBodyPart multipart html-part)
         (.setContent msg multipart))
+
+      :else
       (.setText msg (str (:body email)) "UTF-8"))
     (when-let [reply-to (:reply-to email)]
       (.setReplyTo msg (into-array InternetAddress [(InternetAddress. reply-to)])))

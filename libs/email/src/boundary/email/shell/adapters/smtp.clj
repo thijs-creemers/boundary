@@ -37,19 +37,21 @@
 (defn- email->outbound
   "Translate a libs/email Email map to a libs/external OutboundEmail map.
 
-  The Email domain model carries extra fields (:id, :created-at, :attachments,
-  :metadata) that are not part of the transport layer. Headers (reply-to, cc,
-  bcc) are stored in Email's :headers sub-map and translated to top-level keys
-  on OutboundEmail."
+  The Email domain model carries extra fields (:id, :created-at, :metadata) that
+  are not part of the transport layer. :attachments ARE carried through — the
+  external SMTP MIME builder honours them (BOU-150). Headers (reply-to, cc, bcc)
+  are stored in Email's :headers sub-map and translated to top-level keys on
+  OutboundEmail."
   [email]
   (let [headers (:headers email)]
     (cond-> {:to      (:to email)
              :from    (:from email)
              :subject (:subject email)
              :body    (:body email)}
-      (:reply-to headers) (assoc :reply-to (:reply-to headers))
-      (:cc headers)       (assoc :cc (split-comma-addresses (:cc headers)))
-      (:bcc headers)      (assoc :bcc (split-comma-addresses (:bcc headers))))))
+      (:reply-to headers)    (assoc :reply-to (:reply-to headers))
+      (:cc headers)          (assoc :cc (split-comma-addresses (:cc headers)))
+      (:bcc headers)         (assoc :bcc (split-comma-addresses (:bcc headers)))
+      (:attachments email)   (assoc :attachments (:attachments email)))))
 
 ;; =============================================================================
 ;; Adapter Record

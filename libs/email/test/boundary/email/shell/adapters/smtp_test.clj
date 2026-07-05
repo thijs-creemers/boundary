@@ -55,14 +55,36 @@
       (is (not (:tls? sender))))))
 
 ;; =============================================================================
+;; Domain Translation — attachment pass-through (BOU-150)
+;; =============================================================================
+
+(deftest ^:unit email->outbound-preserves-attachments-test
+  (testing "attachments survive translation to the OutboundEmail transport map"
+    (let [pdf-bytes   (.getBytes "%PDF-1.4 fake" "UTF-8")
+          attachments [{:filename "invoice.pdf" :content-type "application/pdf" :content pdf-bytes}]
+          email       {:to ["user@example.com"] :from "sender@example.com"
+                       :subject "Invoice" :body "attached"
+                       :attachments attachments}
+          outbound    (#'smtp/email->outbound email)]
+      (is (= attachments (:attachments outbound))
+          "email->outbound must not drop :attachments"))))
+
+(deftest ^:unit email->outbound-omits-absent-attachments-test
+  (testing "no :attachments key when the email carries none"
+    (let [email    {:to ["user@example.com"] :from "sender@example.com"
+                    :subject "Plain" :body "hi"}
+          outbound (#'smtp/email->outbound email)]
+      (is (not (contains? outbound :attachments))))))
+
+;; =============================================================================
 ;; SMTP Sender Error Handling Tests
 ;; =============================================================================
 
 (deftest ^:integration send-email-with-invalid-host-test
   (testing "Send email with invalid SMTP host returns error"
     (let [sender (smtp/create-smtp-sender {:host "invalid-smtp-host-that-does-not-exist.example.com"
-                                            :port 9999
-                                            :tls? false})
+                                           :port 9999
+                                           :tls? false})
           email-input {:to "user@example.com"
                        :from "sender@example.com"
                        :subject "Test"
@@ -77,8 +99,8 @@
 (deftest ^:integration send-email-with-connection-refused-test
   (testing "Send email with connection refused returns error"
     (let [sender (smtp/create-smtp-sender {:host "localhost"
-                                            :port 9999  ; Port that's not listening
-                                            :tls? false})
+                                           :port 9999  ; Port that's not listening
+                                           :tls? false})
           email-input {:to "user@example.com"
                        :from "sender@example.com"
                        :subject "Test"
@@ -97,8 +119,8 @@
 (deftest ^:integration send-email-with-multiple-recipients-test
   (testing "Send email with multiple recipients (invalid host, test structure only)"
     (let [sender (smtp/create-smtp-sender {:host "invalid-host.example.com"
-                                            :port 9999
-                                            :tls? false})
+                                           :port 9999
+                                           :tls? false})
           email-input {:to ["user1@example.com" "user2@example.com" "user3@example.com"]
                        :from "sender@example.com"
                        :subject "Test Multiple Recipients"
@@ -115,8 +137,8 @@
 (deftest ^:integration send-email-with-headers-test
   (testing "Send email with custom headers (invalid host, test structure only)"
     (let [sender (smtp/create-smtp-sender {:host "invalid-host.example.com"
-                                            :port 9999
-                                            :tls? false})
+                                           :port 9999
+                                           :tls? false})
           email-input {:to "user@example.com"
                        :from "sender@example.com"
                        :subject "Test Headers"
@@ -140,8 +162,8 @@
 (deftest ^:integration send-email-async-test
   (testing "Send email asynchronously returns future"
     (let [sender (smtp/create-smtp-sender {:host "invalid-host.example.com"
-                                            :port 9999
-                                            :tls? false})
+                                           :port 9999
+                                           :tls? false})
           email-input {:to "user@example.com"
                        :from "sender@example.com"
                        :subject "Async Test"
@@ -164,8 +186,8 @@
 (deftest ^:integration send-email-validates-before-sending-test
   (testing "Prepare and validate email before sending"
     (let [sender (smtp/create-smtp-sender {:host "smtp.example.com"
-                                            :port 587
-                                            :tls? true})
+                                           :port 587
+                                           :tls? true})
           email-input {:to "user@example.com"
                        :from "sender@example.com"
                        :subject "Test"
@@ -202,8 +224,8 @@
 (deftest ^:integration complete-email-workflow-test
   (testing "Complete workflow: prepare, validate, and attempt send"
     (let [sender (smtp/create-smtp-sender {:host "invalid-host.example.com"
-                                            :port 9999
-                                            :tls? false})
+                                           :port 9999
+                                           :tls? false})
           ;; Step 1: Prepare email
           email-input {:to "user@example.com"
                        :from "sender@example.com"
@@ -243,8 +265,8 @@
 (deftest ^:integration smtp-sender-implements-protocol-test
   (testing "SmtpEmailSender implements EmailSenderProtocol"
     (let [sender (smtp/create-smtp-sender {:host "localhost"
-                                            :port 1025
-                                            :tls? false})]
+                                           :port 1025
+                                           :tls? false})]
       (is (satisfies? ports/EmailSenderProtocol sender))
       ;; Can call protocol methods
       (is (fn? ports/send-email!))
