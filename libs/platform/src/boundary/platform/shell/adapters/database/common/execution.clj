@@ -7,7 +7,6 @@
             [boundary.platform.shell.database.validation :as core-validation]
             [boundary.core.utils.type-conversion :as type-conversion]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
-            [boundary.core.utils.case-conversion :as case-conv]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.walk :as walk]
@@ -150,10 +149,10 @@
 
     (try
       ;; Side effect: database I/O
-      (let [raw-result (jdbc/execute! (current-datasource ctx) sql-query
-                                      {:builder-fn rs/as-unqualified-lower-maps})
-            ;; Convert result keys from snake_case to kebab-case
-            result (mapv case-conv/snake-case->kebab-case-map raw-result)
+      ;; Kebab-case builder converts column names once per result set —
+      ;; a per-row snake->kebab map rebuild would double result-processing cost.
+      (let [result (jdbc/execute! (current-datasource ctx) sql-query
+                                  {:builder-fn rs/as-unqualified-kebab-maps})
             duration (- (System/currentTimeMillis) start-time)
             success-details (merge operation-details
                                    {:duration-ms duration
