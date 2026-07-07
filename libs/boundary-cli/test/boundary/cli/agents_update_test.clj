@@ -34,10 +34,10 @@
        "- payments (`org.boundary-app/boundary-payments`) — [docs](https://x)\n"
        "<!-- /boundary:installed-modules -->\n"))
 
-(def ^:private subs' {:project-name "shop" :project-ns "shop"})
+(def ^:private substitutions {:project-name "shop" :project-ns "shop"})
 
 (deftest update-refreshes-stale-blocks-test
-  (let [{:keys [content updated missing]} (agents-update/update-agents-content project-agents template subs')]
+  (let [{:keys [content updated missing]} (agents-update/update-agents-content project-agents template substitutions)]
     (testing "stale blocks are refreshed with rendered template content"
       (is (str/includes? content "NEW fc-is rules for shop"))
       (is (str/includes? content "NEW naming"))
@@ -48,7 +48,7 @@
       (is (empty? missing)))))
 
 (deftest update-preserves-user-content-and-project-state-test
-  (let [{:keys [content]} (agents-update/update-agents-content project-agents template subs')]
+  (let [{:keys [content]} (agents-update/update-agents-content project-agents template substitutions)]
     (testing "text outside markers is untouched"
       (is (str/includes? content "## My custom team notes\ndo not lose this")))
     (testing "installed-modules block is project state — never synced from template"
@@ -61,14 +61,14 @@
           "row removal must be scoped to the available-modules block"))))
 
 (deftest update-is-idempotent-test
-  (let [first-pass  (:content (agents-update/update-agents-content project-agents template subs'))
-        second-pass (agents-update/update-agents-content first-pass template subs')]
+  (let [first-pass  (:content (agents-update/update-agents-content project-agents template substitutions))
+        second-pass (agents-update/update-agents-content first-pass template substitutions)]
     (is (= first-pass (:content second-pass)))
     (is (empty? (:updated second-pass)))))
 
 (deftest missing-markers-are-reported-not-fatal-test
   (let [no-markers "# shop — Developer Reference\nhand-rolled file\n"
-        {:keys [content missing]} (agents-update/update-agents-content no-markers template subs')]
+        {:keys [content missing]} (agents-update/update-agents-content no-markers template substitutions)]
     (is (= content no-markers))
     (is (= ["gen:fc-is" "gen:naming" "gen:pitfalls" "boundary:available-modules"] missing))))
 
@@ -76,9 +76,21 @@
   (let [doubled (str project-agents
                      "\n## user copy\n"
                      "<!-- gen:naming -->\nUSER COPY of naming\n<!-- /gen:naming -->\n")
-        {:keys [content]} (agents-update/update-agents-content doubled template subs')]
+        {:keys [content]} (agents-update/update-agents-content doubled template substitutions)]
     (is (str/includes? content "NEW naming") "first pair refreshed")
     (is (str/includes? content "USER COPY of naming") "user-duplicated pair untouched")))
+
+(deftest template-missing-marker-never-empties-project-block-test
+  ;; If the shipped template ever drops a marker pair, the project's block
+  ;; must be skipped (reported missing) — not spliced empty.
+  (let [template-sans-naming (str/replace template
+                                          #"(?s)<!-- gen:naming -->.*?<!-- /gen:naming -->\n"
+                                          "")
+        {:keys [content updated missing]}
+        (agents-update/update-agents-content project-agents template-sans-naming substitutions)]
+    (is (str/includes? content "OLD naming") "project block body preserved")
+    (is (some #{"gen:naming"} missing))
+    (is (not (some #{"gen:naming"} updated)))))
 
 (deftest project-name-parsing-test
   (is (= "shop" (agents-update/project-name-from-agents project-agents)))

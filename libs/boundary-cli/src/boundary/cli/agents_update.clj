@@ -17,9 +17,9 @@
    NOT synced (project state): <!-- boundary:installed-modules -->. Rows for
    already-installed modules are re-removed from the refreshed available
    table, mirroring what `boundary add` did at install time."
-  (:require [boundary.cli.templates :as templates]
-            [clojure.java.io :as io]
-            [clojure.string :as str]))
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [boundary.cli.templates :as templates]))
 
 (def ^:private synced-blocks
   ["gen:fc-is" "gen:naming" "gen:pitfalls" "boundary:available-modules"])
@@ -72,7 +72,8 @@
 (defn remove-available-rows
   "Remove table rows for installed modules from the available-modules block
    ONLY — prose elsewhere mentioning `boundary add <name>` is never touched.
-   Mirrors what `boundary add` does at install time."
+   Keeps the rows removed that `boundary add` removed at install time (it
+   uses the same row pattern, though applied file-wide)."
   [content installed]
   (update-block content "boundary:available-modules"
                 (fn [body]
@@ -88,19 +89,22 @@
 
 (defn update-agents-content
   "Pure core of the update: returns {:content new-content :updated [...] :missing [...]}."
-  [current template subs]
+  [current template substitutions]
   (let [installed (installed-module-names current)
         ;; Strip installed modules from the template's available table up
         ;; front (mirroring `boundary add`), so the block comparison below is
         ;; against what the project file should actually contain — otherwise
         ;; every run would report the available block as stale.
-        rendered  (-> (templates/render template subs)
+        rendered  (-> (templates/render template substitutions)
                       (remove-available-rows installed))]
     (reduce (fn [{:keys [content updated missing]} block]
               (let [new-body (block-content rendered block)
                     old-body (block-content content block)]
                 (cond
-                  (nil? old-body)
+                  ;; Markers absent in the project file — or in the template
+                  ;; itself: splicing a nil body would silently empty the
+                  ;; project's block, so both count as "cannot sync, skip".
+                  (or (nil? old-body) (nil? new-body))
                   {:content content :updated updated :missing (conj missing block)}
 
                   (= old-body new-body)
