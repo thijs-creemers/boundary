@@ -207,17 +207,29 @@
           "Should detect environment from system property")
       (System/clearProperty "env"))
 
-    (testing "Fallback chain when the system property is not set"
-      ;; Environment variables cannot be unset inside a JVM, and the test
-      ;; runner itself sets BND_ENV (see AGENTS.md) — so compute the expected
-      ;; value through the same env-var fallback chain, ending in "dev".
+    ;; Env vars can't be modified inside a JVM (and the documented test
+    ;; invocation exports BND_ENV=test), so exercise the env-var branches
+    ;; through the config/getenv seam instead of the real environment.
+    (testing "System property takes precedence over env vars"
+      (System/setProperty "env" "prop-env")
+      (with-redefs [config/getenv (constantly "env-env")]
+        (is (= "prop-env" (config/detect-environment))))
+      (System/clearProperty "env"))
+
+    (testing "BND_ENV wins over ENV and ENVIRONMENT"
       (System/clearProperty "env")
-      (let [expected (or (System/getenv "BND_ENV")
-                         (System/getenv "ENV")
-                         (System/getenv "ENVIRONMENT")
-                         "dev")]
-        (is (= expected (config/detect-environment))
-            "Should fall back to env vars, then default to 'dev'")))))
+      (with-redefs [config/getenv {"BND_ENV" "from-bnd" "ENV" "from-env"}]
+        (is (= "from-bnd" (config/detect-environment))))
+      (with-redefs [config/getenv {"ENV" "from-env" "ENVIRONMENT" "from-environment"}]
+        (is (= "from-env" (config/detect-environment))))
+      (with-redefs [config/getenv {"ENVIRONMENT" "from-environment"}]
+        (is (= "from-environment" (config/detect-environment)))))
+
+    (testing "Defaults to 'dev' when nothing is set"
+      (System/clearProperty "env")
+      (with-redefs [config/getenv (constantly nil)]
+        (is (= "dev" (config/detect-environment))
+            "Should default to 'dev' when env not set")))))
 
 ;; =============================================================================
 ;; Configuration Merging and Override Tests
