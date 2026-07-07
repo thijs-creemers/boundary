@@ -31,46 +31,51 @@
 ;; =============================================================================
 
 (defn initialize!
-  "Initialize PostgreSQL connection with optimized settings.
-   
+  "Verify PostgreSQL connectivity after pool creation.
+
+   Session settings (application_name, timezone, statement_timeout) are applied
+   per-connection via JDBC URL properties in build-jdbc-url — a SET here would
+   only reach the single pooled connection that happens to execute it.
+
    Args:
      datasource: PostgreSQL datasource
      db-config: Database configuration map
-     
+
    Returns:
      nil - side effects only"
-  [datasource db-config]
-  (log-debug "Initializing PostgreSQL connection settings")
+  [datasource _db-config]
   (try
-    ;; Set application name for connection identification
-    (let [app-name (or (:application-name db-config) default-application-name)]
-      (jdbc/execute! datasource ["SET application_name = ?" app-name]))
-
-    ;; Set timezone to UTC for consistency
-    (jdbc/execute! datasource ["SET TIME ZONE 'UTC'"])
-
-    ;; Set statement timeout (configurable, default 30 seconds)
-    (let [timeout (get db-config :statement-timeout-ms default-statement-timeout-ms)]
-      (when (pos? timeout)
-        (jdbc/execute! datasource ["SET statement_timeout = ?" timeout])))
-
-    (log-debug "PostgreSQL connection initialized successfully")
+    (jdbc/execute! datasource ["SELECT 1"])
+    (log-debug "PostgreSQL connection verified")
     (catch Exception e
-      ;; Log warning but don't fail - these are optional optimization settings
-      (log-warn "Failed to initialize some PostgreSQL settings (connection will still work)"
+      (log-warn "PostgreSQL connectivity check failed"
                 {:error (.getMessage e)
                  :error-type (type e)}))))
 
 (defn build-jdbc-url
   "Build PostgreSQL JDBC URL from configuration.
-   
+
+   Session settings ride on the URL so every physical connection in the pool
+   gets them (unlike SET statements, which only affect one connection):
+   - ApplicationName: connection identification in pg_stat_activity
+   - options: statement_timeout guard + UTC timezone
+   - reWriteBatchedInserts: batches multi-row INSERTs into single statements
+
    Args:
-     db-config: Database configuration map with :host, :port, :name
-     
+     db-config: Database configuration map with :host, :port, :name and
+                optional :application-name, :statement-timeout-ms
+
    Returns:
      String - JDBC URL with PostgreSQL-specific parameters"
-  [{:keys [host port name]}]
-  (str "jdbc:postgresql://" host ":" port "/" name "?stringtype=unspecified"))
+  [{:keys [host port name application-name statement-timeout-ms]}]
+  (let [timeout (or statement-timeout-ms default-statement-timeout-ms)
+        options (cond-> "-c%20TimeZone=UTC"
+                  (pos? timeout) (str "%20-c%20statement_timeout=" timeout))]
+    (str "jdbc:postgresql://" host ":" port "/" name
+         "?stringtype=unspecified"
+         "&ApplicationName=" (or application-name default-application-name)
+         "&reWriteBatchedInserts=true"
+         "&options=" options)))
 
 (defn pool-defaults
   "Get PostgreSQL-optimized connection pool defaults.
