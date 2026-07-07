@@ -9,7 +9,8 @@
    - HTMX Handlers: Return HTML fragments for dynamic updates
 
    All handlers use the shared UI components and user shell services."
-  (:require [boundary.i18n.shell.middleware :as i18n-middleware]
+  (:require [boundary.core.validation :as cv]
+            [boundary.i18n.shell.middleware :as i18n-middleware]
             [boundary.i18n.shell.render :as i18n]
             [boundary.shared.ui.core.components :as ui]
             [boundary.shared.ui.core.layout :as layout]
@@ -26,7 +27,6 @@
             [clojure.edn :as edn]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [malli.core :as m]
             [ring.util.response :as response])
   (:import (java.time Instant)
            (java.util UUID)))
@@ -76,11 +76,11 @@
    Returns:
      [valid? errors transformed-data] tuple where errors is field-keyed map or nil"
   [schema data]
-  (let [transformed (m/decode schema data user-schema/user-request-transformer)
-        valid? (m/validate schema transformed)]
+  (let [transformed ((cv/decoder schema user-schema/user-request-transformer) data)
+        valid? (cv/valid? schema transformed)]
     (if valid?
       [true nil transformed]
-      (let [explain (m/explain schema transformed)
+      (let [explain (cv/explain schema transformed)
             field-errors (validation/explain->field-errors explain)]
         [false field-errors transformed]))))
 

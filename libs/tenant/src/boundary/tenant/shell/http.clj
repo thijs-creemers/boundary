@@ -31,14 +31,14 @@
   "Create error HTTP response."
   [status message & [details]]
   (json-response status
-    (cond-> {:error message}
-      details (assoc :details details))))
+                 (cond-> {:error message}
+                   details (assoc :details details))))
 
 (defn- validation-error-response
   "Create validation error response from Malli errors."
   [errors]
   (error-response 400 "Validation failed"
-    {:validation-errors (me/humanize errors)}))
+                  {:validation-errors (me/humanize errors)}))
 
 (defn- parse-tenant-uuid
   "Parse UUID from string, return nil if invalid."
@@ -47,6 +47,9 @@
     (java.util.UUID/fromString uuid-str)
     (catch IllegalArgumentException _
       nil)))
+
+(def ^:private tenant-input-explainer (m/explainer tenant-schema/TenantInput))
+(def ^:private tenant-update-explainer (m/explainer tenant-schema/TenantUpdate))
 
 ;; =============================================================================
 ;; Handlers
@@ -106,10 +109,10 @@
       (let [body (or (:body-params request)
                      (json/parse-string (slurp (:body request)) true))
             tenant-input {:name (:name body)
-                         :slug (:slug body)
-                         :status (or (some-> (:status body) keyword) :active)}]
+                          :slug (:slug body)
+                          :status (or (some-> (:status body) keyword) :active)}]
         ;; Validate input
-        (if-let [errors (m/explain tenant-schema/TenantInput tenant-input)]
+        (if-let [errors (tenant-input-explainer tenant-input)]
           (validation-error-response errors)
           ;; Create tenant
           (let [result (tenant-ports/create-new-tenant tenant-service tenant-input)]
@@ -141,7 +144,7 @@
                               (:slug body) (assoc :slug (:slug body))
                               (:status body) (assoc :status (keyword (:status body))))]
             ;; Validate update data
-            (if-let [errors (m/explain tenant-schema/TenantUpdate update-data)]
+            (if-let [errors (tenant-update-explainer update-data)]
               (validation-error-response errors)
               ;; Update tenant
               (let [result (tenant-ports/update-existing-tenant tenant-service tenant-id update-data)]
@@ -222,36 +225,36 @@
         (cond
           (not tenant-id)
           (error-response 400 "Invalid tenant ID format")
-          
+
           (not db-context)
           (error-response 500 "Database context not available")
-          
+
           :else
           (let [tenant (tenant-ports/get-tenant tenant-service tenant-id)]
             (if-not tenant
               (error-response 404 "Tenant not found")
               (let [result (provisioning/provision-tenant! db-context tenant)]
                 (json-response 200 result))))))
-      
+
       (catch clojure.lang.ExceptionInfo e
         (let [ex-data (ex-data e)]
           (case (:type ex-data)
             :not-supported
             (error-response 501 (:message ex-data) ex-data)
-            
+
             :not-found
             (error-response 404 "Tenant not found" ex-data)
-            
+
             :provisioning-error
             (do
               (log/error e "Tenant provisioning failed")
               (error-response 500 "Tenant provisioning failed" ex-data))
-            
+
             ;; Default case
             (do
               (log/error e "Unexpected error during provisioning")
               (error-response 500 "Internal server error")))))
-      
+
       (catch Exception e
         (log/error e "Failed to provision tenant")
         (error-response 500 "Internal server error")))))
@@ -284,14 +287,14 @@
                      :description "List tenants with optional filtering and pagination"
                      :tags ["tenants"]
                      :responses {200 {:description "List of tenants"}
-                                400 {:description "Bad request"}}}
+                                 400 {:description "Bad request"}}}
                :post {:handler (create-tenant-handler tenant-service)
                       :summary "Create new tenant"
                       :description "Create a new tenant with name and slug"
                       :tags ["tenants"]
                       :responses {201 {:description "Tenant created successfully"}
-                                 400 {:description "Validation error"}}}}}
-    
+                                  400 {:description "Validation error"}}}}}
+
     ;; Tenant resource endpoints
     {:path "/tenants/:id"
      :methods {:get {:handler (get-tenant-handler tenant-service)
@@ -299,20 +302,20 @@
                      :description "Retrieve tenant details by UUID"
                      :tags ["tenants"]
                      :responses {200 {:description "Tenant details"}
-                                404 {:description "Tenant not found"}}}
+                                 404 {:description "Tenant not found"}}}
                :put {:handler (update-tenant-handler tenant-service)
                      :summary "Update tenant"
                      :description "Update tenant name, slug, or status"
                      :tags ["tenants"]
                      :responses {200 {:description "Tenant updated successfully"}
-                                400 {:description "Validation error"}}}
+                                 400 {:description "Validation error"}}}
                :delete {:handler (delete-tenant-handler tenant-service)
                         :summary "Delete tenant"
                         :description "Soft delete tenant (marks as deleted)"
                         :tags ["tenants"]
                         :responses {200 {:description "Tenant deleted successfully"}
-                                   404 {:description "Tenant not found"}}}}}
-    
+                                    404 {:description "Tenant not found"}}}}}
+
     ;; Tenant action endpoints
     {:path "/tenants/:id/suspend"
      :methods {:post {:handler (suspend-tenant-handler tenant-service)
@@ -320,21 +323,21 @@
                       :description "Suspend tenant access (prevents login)"
                       :tags ["tenants"]
                       :responses {200 {:description "Tenant suspended successfully"}
-                                 404 {:description "Tenant not found"}}}}}
-    
+                                  404 {:description "Tenant not found"}}}}}
+
     {:path "/tenants/:id/activate"
      :methods {:post {:handler (activate-tenant-handler tenant-service)
                       :summary "Activate tenant"
                       :description "Activate suspended tenant"
                       :tags ["tenants"]
                       :responses {200 {:description "Tenant activated successfully"}
-                                 404 {:description "Tenant not found"}}}}}
-    
-     {:path "/tenants/:id/provision"
-      :methods {:post {:handler (provision-tenant-handler tenant-service db-context)
-                       :summary "Provision tenant schema"
-                       :description "Create database schema for tenant (PostgreSQL only). Idempotent operation."
-                       :tags ["tenants"]
-                       :responses {200 {:description "Tenant provisioned successfully"}
+                                  404 {:description "Tenant not found"}}}}}
+
+    {:path "/tenants/:id/provision"
+     :methods {:post {:handler (provision-tenant-handler tenant-service db-context)
+                      :summary "Provision tenant schema"
+                      :description "Create database schema for tenant (PostgreSQL only). Idempotent operation."
+                      :tags ["tenants"]
+                      :responses {200 {:description "Tenant provisioned successfully"}
                                   404 {:description "Tenant not found"}
                                   501 {:description "Not supported (requires PostgreSQL)"}}}}}]})

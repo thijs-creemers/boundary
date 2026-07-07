@@ -7,6 +7,10 @@
             [boundary.realtime.core.connection :as conn]
             [malli.core :as m]))
 
+(def ^:private message-input-validator (m/validator schema/MessageInput))
+(def ^:private message-validator (m/validator schema/Message))
+(def ^:private message-explainer (m/explainer schema/Message))
+
 ;; Message Creation (Pure)
 
 (defn create-message
@@ -21,7 +25,7 @@
   Returns:
     Message map with timestamp"
   [{:keys [type payload target] :as message-input} now]
-  {:pre [(m/validate schema/MessageInput message-input)]}
+  {:pre [(message-input-validator message-input)]}
   (cond-> {:type type
            :payload payload
            :timestamp now}
@@ -113,7 +117,7 @@
   Returns:
     Boolean - true if valid"
   [message]
-  (m/validate schema/Message message))
+  (message-validator message))
 
 (defn explain-message
   "Explain why message is invalid.
@@ -126,7 +130,7 @@
   Returns:
     Malli explanation or nil if valid"
   [message]
-  (m/explain schema/Message message))
+  (message-explainer message))
 
 ;; Message Routing (Pure)
 
@@ -146,25 +150,25 @@
   (case (:type message)
     :broadcast
     (mapv :id connections)
-    
+
     :user
     (let [user-id (:target message)]
       (->> connections
            (filter #(= (:user-id %) user-id))
            (mapv :id)))
-    
+
     :role
     (let [role (:target message)]
       (->> connections
            (filter #(contains? (:roles %) role))
            (mapv :id)))
-    
+
     :connection
     (let [connection-id (:target message)]
       (if (some #(= (:id %) connection-id) connections)
         [connection-id]
         []))
-    
+
     ;; Unknown type - no targets
     []))
 

@@ -56,16 +56,19 @@
 ;; Config Validation
 ;; =============================================================================
 
+(def ^:private smtp-config-validator (m/validator schema/SmtpConfig))
+(def ^:private smtp-config-explainer (m/explainer schema/SmtpConfig))
+
 (defn validate-config
   "Validate SMTP config against schema.
 
   Returns:
     {:valid? true} or {:valid? false :errors [...malli explain...]}"
   [config]
-  (if (m/validate schema/SmtpConfig config)
+  (if (smtp-config-validator config)
     {:valid? true}
     {:valid? false
-     :errors (m/explain schema/SmtpConfig config)}))
+     :errors (smtp-config-explainer config)}))
 
 ;; =============================================================================
 ;; Email Preparation

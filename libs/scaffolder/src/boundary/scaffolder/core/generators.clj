@@ -83,15 +83,18 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private %s-validator (m/validator %s))
+(def ^:private %s-explainer (m/explainer %s))
+
 (defn validate-%s
   \"Validates a %s entity against the %s schema.\"
   [%s-data]
-  (m/validate %s %s-data))
+  (%s-validator %s-data))
 
 (defn explain-%s
   \"Provides detailed validation errors for %s data.\"
   [%s-data]
-  (m/explain %s %s-data))
+  (%s-explainer %s-data))
 "
             module-name
             module-name
@@ -108,15 +111,19 @@
             entity-name
             field-schemas
             (str/lower-case entity-name)
-            (str/lower-case entity-name)
             entity-name
             (str/lower-case entity-name)
             entity-name
             (str/lower-case entity-name)
             (str/lower-case entity-name)
-            (str/lower-case entity-name)
-            (str/lower-case entity-name)
             entity-name
+            (str/lower-case entity-name)
+            (str/lower-case entity-name)
+            (str/lower-case entity-name)
+            (str/lower-case entity-name)
+            (str/lower-case entity-name)
+            (str/lower-case entity-name)
+            (str/lower-case entity-name)
             (str/lower-case entity-name))))
 
 ;; =============================================================================

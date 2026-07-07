@@ -25,16 +25,19 @@
     (catch Exception _
       "006")))
 
+(def ^:private module-generation-request-validator (m/validator schema/ModuleGenerationRequest))
+(def ^:private module-generation-request-explainer (m/explainer schema/ModuleGenerationRequest))
+
 (defrecord ScaffolderService []
   ports/IScaffolderService
 
   (generate-module [_ request]
     (try
       ;; Validate request
-      (when-not (m/validate schema/ModuleGenerationRequest request)
+      (when-not (module-generation-request-validator request)
         (throw (ex-info "Invalid module generation request"
                         {:type :validation-error
-                         :errors (m/explain schema/ModuleGenerationRequest request)})))
+                         :errors (module-generation-request-explainer request)})))
 
       ;; Build template context
       (let [ctx (template/build-module-context request)

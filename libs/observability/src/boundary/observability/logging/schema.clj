@@ -213,25 +213,30 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private logging-config-validator (m/validator LoggingConfig))
+(def ^:private system-logging-config-validator (m/validator SystemLoggingConfig))
+(def ^:private logging-config-explainer (m/explainer LoggingConfig))
+(def ^:private system-logging-config-explainer (m/explainer SystemLoggingConfig))
+
 (defn validate-logging-config
   "Validates a logging configuration map."
   [config]
-  (m/validate LoggingConfig config))
+  (logging-config-validator config))
 
 (defn validate-system-logging-config
   "Validates a complete system logging configuration map."
   [config]
-  (m/validate SystemLoggingConfig config))
+  (system-logging-config-validator config))
 
 (defn explain-logging-config
   "Provides detailed validation errors for logging configuration."
   [config]
-  (m/explain LoggingConfig config))
+  (logging-config-explainer config))
 
 (defn explain-system-logging-config
   "Provides detailed validation errors for system logging configuration."
   [config]
-  (m/explain SystemLoggingConfig config))
+  (system-logging-config-explainer config))
 
 ;; =============================================================================
 ;; Configuration Transformation

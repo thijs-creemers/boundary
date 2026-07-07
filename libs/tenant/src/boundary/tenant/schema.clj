@@ -167,15 +167,18 @@
      :inst {:compile (fn [_schema _options] type-conversion/instant->string)}
      :enum {:compile (fn [_schema _options] type-conversion/keyword->string)}}}))
 
+(def ^:private tenant-validator (m/validator Tenant))
+(def ^:private tenant-explainer (m/explainer Tenant))
+
 (defn validate-tenant
   "Validates a tenant entity against the Tenant schema."
   [tenant-data]
-  (m/validate Tenant tenant-data))
+  (tenant-validator tenant-data))
 
 (defn explain-tenant
   "Provides detailed validation errors for tenant data."
   [tenant-data]
-  (m/explain Tenant tenant-data))
+  (tenant-explainer tenant-data))
 
 ;; =============================================================================
 ;; Membership Schemas

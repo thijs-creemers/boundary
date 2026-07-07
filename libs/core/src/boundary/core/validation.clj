@@ -13,6 +13,32 @@
   (:require [malli.core :as m]
             [boundary.core.validation.result :as vr]))
 
+;; Compiling a Malli validator/explainer/decoder is ~10x the cost of running
+;; it. Schemas are a small fixed set of def'd values, so cache compilation
+;; keyed on the schema value (lookup hits on identity for def'd schemas).
+;; ponytail: unbounded memoize — bounded by the app's schema count by design.
+(def validator
+  "Cached (m/validator schema)."
+  (memoize m/validator))
+
+(def explainer
+  "Cached (m/explainer schema)."
+  (memoize m/explainer))
+
+(def decoder
+  "Cached (m/decoder schema transformer)."
+  (memoize (fn [schema transformer] (m/decoder schema transformer))))
+
+(defn valid?
+  "Validate data against schema using the cached compiled validator."
+  [schema data]
+  ((validator schema) data))
+
+(defn explain
+  "Explain validation errors using the cached compiled explainer."
+  [schema data]
+  ((explainer schema) data))
+
 (defn validate-with-transform
   "Validate data with transformation (legacy interface).
   
@@ -27,13 +53,13 @@
    Returns:
      {:valid? boolean :data map :errors ...} (format depends on feature flag)"
   [schema data transformer]
-  (let [result (m/decode schema data transformer)
-        valid? (m/validate schema result)]
+  (let [result ((decoder schema transformer) data)
+        valid? ((validator schema) result)]
     (if (vr/devex-validation-enabled?)
       ;; Enhanced format with structured errors
       (if valid?
         (vr/success-result result)
-        (let [explanation (m/explain schema result)
+        (let [explanation ((explainer schema) result)
               ;; Convert Malli errors to structured format
               errors (mapv (fn [err]
                              (vr/error-map
@@ -48,7 +74,7 @@
       ;; Legacy format
       (if valid?
         {:valid? true :data result}
-        {:valid? false :errors (m/explain schema result)}))))
+        {:valid? false :errors ((explainer schema) result)}))))
 
 (defn validation-passed?
   "Check if validation passed (works with legacy and new format).
@@ -58,8 +84,8 @@
     
     Returns:
       Boolean indicating if validation passed"
-   [result]
-   (vr/validation-passed? result))
+  [result]
+  (vr/validation-passed? result))
 
 (defn get-validation-errors
   "Get validation errors (works with legacy and new format)."
@@ -106,5 +132,5 @@
    
     Returns:
       Boolean indicating if DevEx validation is enabled"
-   []
-   (vr/devex-validation-enabled?))
+  []
+  (vr/devex-validation-enabled?))

@@ -36,10 +36,10 @@
   (:require
    [boundary.observability.metrics.ports :as ports]
    [boundary.observability.metrics.schema :as schema]
-    [cheshire.core :as json]
-    [clojure.string :as str]
-    [clojure.tools.logging :as log]
-    [malli.core :as m])
+   [cheshire.core :as json]
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [malli.core :as m])
   (:import
    [java.net DatagramSocket DatagramPacket InetAddress]
    [java.nio.charset StandardCharsets]
@@ -48,6 +48,9 @@
 ;; =============================================================================
 ;; DogStatsD Protocol Utilities
 ;; =============================================================================
+
+(def ^:private datadog-statsd-config-validator (m/validator schema/DatadogStatsdConfig))
+(def ^:private datadog-statsd-config-explainer (m/explainer schema/DatadogStatsdConfig))
 
 (def ^:private dogstatsd-type-mapping
   "Mapping from internal metric types to DogStatsD type suffixes."
@@ -583,10 +586,10 @@
    
    This is the recommended way to create Datadog metrics for use with Integrant."
   [config]
-  (when-not (m/validate schema/DatadogStatsdConfig config)
+  (when-not (datadog-statsd-config-validator config)
     (throw (ex-info "Invalid Datadog metrics configuration"
                     {:config config
-                     :errors (m/explain schema/DatadogStatsdConfig config)})))
+                     :errors (datadog-statsd-config-explainer config)})))
   (let [host (:host config)
         port (:port config 8125)
         max-packet-size (:max-packet-size config 1432)
@@ -607,10 +610,10 @@
    - :metrics-exporter - IMetricsExporter implementation
    - :metrics-config - IMetricsConfig implementation"
   [config]
-  (when-not (m/validate schema/DatadogStatsdConfig config)
+  (when-not (datadog-statsd-config-validator config)
     (throw (ex-info "Invalid Datadog metrics configuration"
                     {:config config
-                     :errors (m/explain schema/DatadogStatsdConfig config)})))
+                     :errors (datadog-statsd-config-explainer config)})))
   (let [host (:host config)
         port (:port config 8125)
         max-packet-size (:max-packet-size config 1432)

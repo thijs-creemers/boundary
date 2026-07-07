@@ -222,6 +222,9 @@
    EmbeddedDBConfig
    ServerDBConfig])
 
+(def ^:private db-config-validator (m/validator DBConfig))
+(def ^:private db-config-explainer (m/explainer DBConfig))
+
 (defn validate-db-config
   "Validate database configuration against Malli schema.
 
@@ -238,11 +241,11 @@
      (validate-db-config {:adapter :sqlite :database-path \"db.sqlite\"})
      (validate-db-config {:adapter :postgresql :host \"localhost\" :port 5432 :name \"mydb\"})"
   [db-config]
-  (if (m/validate DBConfig db-config)
+  (if (db-config-validator db-config)
     db-config
     (throw (ex-info "Invalid database configuration"
                     {:config db-config
-                     :errors (m/explain DBConfig db-config)}))))
+                     :errors (db-config-explainer db-config)}))))
 
 ;; =============================================================================
 ;; Utility Functions
@@ -261,7 +264,7 @@
      (valid-db-config? {:adapter :sqlite :database-path \"db.sqlite\"}) ;; => true
      (valid-db-config? {:adapter :postgresql :host \"localhost\" :port 5432 :name \"mydb\"}) ;; => true"
   [db-config]
-  (m/validate DBConfig db-config))
+  (db-config-validator db-config))
 
 (defn explain-db-config
   "Get detailed validation errors for invalid database configuration.
@@ -275,8 +278,8 @@
    Example:
      (explain-db-config {:adapter :invalid})"
   [db-config]
-  (when-not (m/validate DBConfig db-config)
-    (m/explain DBConfig db-config)))
+  (when-not (db-config-validator db-config)
+    (db-config-explainer db-config)))
 
 (defn embedded-db-config?
   "Check if configuration is for an embedded database (SQLite or H2 file/memory).

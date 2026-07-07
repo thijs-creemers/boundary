@@ -357,25 +357,30 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private error-reporting-config-validator (m/validator ErrorReportingConfig))
+(def ^:private system-error-reporting-config-validator (m/validator SystemErrorReportingConfig))
+(def ^:private error-reporting-config-explainer (m/explainer ErrorReportingConfig))
+(def ^:private system-error-reporting-config-explainer (m/explainer SystemErrorReportingConfig))
+
 (defn validate-error-reporting-config
   "Validates an error reporting configuration map."
   [config]
-  (m/validate ErrorReportingConfig config))
+  (error-reporting-config-validator config))
 
 (defn validate-system-error-reporting-config
   "Validates a complete system error reporting configuration map."
   [config]
-  (m/validate SystemErrorReportingConfig config))
+  (system-error-reporting-config-validator config))
 
 (defn explain-error-reporting-config
   "Provides detailed validation errors for error reporting configuration."
   [config]
-  (m/explain ErrorReportingConfig config))
+  (error-reporting-config-explainer config))
 
 (defn explain-system-error-reporting-config
   "Provides detailed validation errors for system error reporting configuration."
   [config]
-  (m/explain SystemErrorReportingConfig config))
+  (system-error-reporting-config-explainer config))
 
 ;; =============================================================================
 ;; Configuration Transformation

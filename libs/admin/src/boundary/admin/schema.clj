@@ -374,6 +374,17 @@
     :any]]) ; Function, validated at runtime
 
 ;; =============================================================================
+;; Compiled Validators (compiled once at load time for performance)
+;; =============================================================================
+
+(def ^:private admin-config-validator (m/validator AdminConfig))
+(def ^:private admin-config-explainer (m/explainer AdminConfig))
+(def ^:private entity-config-validator (m/validator EntityConfig))
+(def ^:private entity-config-explainer (m/explainer EntityConfig))
+(def ^:private list-entities-options-validator (m/validator ListEntitiesOptions))
+(def ^:private list-entities-options-explainer (m/explainer ListEntitiesOptions))
+
+;; =============================================================================
 ;; Validation Helpers
 ;; =============================================================================
 
@@ -390,9 +401,9 @@
    Example:
      (validate-admin-config {:enabled? true :base-path \"/admin\" ...})"
   [config]
-  (if (m/validate AdminConfig config)
+  (if (admin-config-validator config)
     {:valid? true :data config}
-    {:valid? false :errors (m/explain AdminConfig config)}))
+    {:valid? false :errors (admin-config-explainer config)}))
 
 (defn validate-entity-config
   "Validate entity configuration against schema.
@@ -407,9 +418,9 @@
    Example:
      (validate-entity-config {:label \"Users\" :table-name :users ...})"
   [config]
-  (if (m/validate EntityConfig config)
+  (if (entity-config-validator config)
     {:valid? true :data config}
-    {:valid? false :errors (m/explain EntityConfig config)}))
+    {:valid? false :errors (entity-config-explainer config)}))
 
 (defn validate-list-options
   "Validate list entities options against schema.
@@ -424,9 +435,9 @@
    Example:
      (validate-list-options {:limit 50 :offset 0 :sort :email})"
   [options]
-  (if (m/validate ListEntitiesOptions options)
+  (if (list-entities-options-validator options)
     {:valid? true :data options}
-    {:valid? false :errors (m/explain ListEntitiesOptions options)}))
+    {:valid? false :errors (list-entities-options-explainer options)}))
 
 ;; =============================================================================
 ;; Default Configurations

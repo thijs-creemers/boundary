@@ -296,25 +296,30 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private metrics-config-validator (m/validator MetricsConfig))
+(def ^:private system-metrics-config-validator (m/validator SystemMetricsConfig))
+(def ^:private metrics-config-explainer (m/explainer MetricsConfig))
+(def ^:private system-metrics-config-explainer (m/explainer SystemMetricsConfig))
+
 (defn validate-metrics-config
   "Validates a metrics configuration map."
   [config]
-  (m/validate MetricsConfig config))
+  (metrics-config-validator config))
 
 (defn validate-system-metrics-config
   "Validates a complete system metrics configuration map."
   [config]
-  (m/validate SystemMetricsConfig config))
+  (system-metrics-config-validator config))
 
 (defn explain-metrics-config
   "Provides detailed validation errors for metrics configuration."
   [config]
-  (m/explain MetricsConfig config))
+  (metrics-config-explainer config))
 
 (defn explain-system-metrics-config
   "Provides detailed validation errors for system metrics configuration."
   [config]
-  (m/explain SystemMetricsConfig config))
+  (system-metrics-config-explainer config))
 
 ;; =============================================================================
 ;; Configuration Transformation

@@ -13,8 +13,8 @@
    
    Each port is implemented by adapters in the shell layer, enabling dependency
    inversion and supporting multiple implementations (PostgreSQL, H2, in-memory, etc.)."
-  (:require [boundary.user.schema :as schema]
-            [malli.core :as m])
+  (:require [boundary.core.validation :as cv]
+            [boundary.user.schema :as schema])
   (:import (java.util UUID)))
 
 ;; =============================================================================
@@ -1222,10 +1222,10 @@
        Example:
          (validate-user-input schema/CreateUserRequest request-data)"
   [sch data]
-  (let [transformed-data (m/decode sch data schema/user-request-transformer)]
-    (if (m/validate sch transformed-data)
+  (let [transformed-data ((cv/decoder sch schema/user-request-transformer) data)]
+    (if (cv/valid? sch transformed-data)
       {:valid? true :data transformed-data}
-      {:valid? false :errors (m/explain sch transformed-data)})))
+      {:valid? false :errors (cv/explain sch transformed-data)})))
 
 (defn create-correlation-id
   "Generate correlation ID for request tracing.

@@ -136,17 +136,21 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private job-validator (m/validator Job))
+(def ^:private job-input-validator (m/validator JobInput))
+(def ^:private job-explainer (m/explainer Job))
+
 (defn valid-job?
   "Validate job against schema."
   [job]
-  (m/validate Job job))
+  (job-validator job))
 
 (defn valid-job-input?
   "Validate job input against schema."
   [job-input]
-  (m/validate JobInput job-input))
+  (job-input-validator job-input))
 
 (defn explain-job-errors
   "Get human-readable validation errors for job."
   [job]
-  (m/explain Job job))
+  (job-explainer job))

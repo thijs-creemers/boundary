@@ -364,15 +364,18 @@
      :inst {:compile (fn [_schema _options] type-conversion/instant->string)}
      :enum {:compile (fn [_schema _options] type-conversion/keyword->string)}}}))
 
+(def ^:private user-validator (m/validator User))
+(def ^:private user-explainer (m/explainer User))
+
 (defn validate-user
   "Validates a user entity against the User schema."
   [user-data]
-  (m/validate User user-data))
+  (user-validator user-data))
 
 (defn explain-user
   "Provides detailed validation errors for user data."
   [user-data]
-  (m/explain User user-data))
+  (user-explainer user-data))
 
 ;; =============================================================================
 ;; Schema Registry

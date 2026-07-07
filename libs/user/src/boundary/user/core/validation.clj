@@ -62,7 +62,7 @@
 
   Accepts the output of (m/explain ...) and returns a vector of error maps.
   This avoids leaking internal Malli explain keys like :schema/:value/:errors into
-  user-facing validation output." 
+  user-facing validation output."
   [malli-explain]
   (-> malli-explain
       (me/humanize)
@@ -369,6 +369,9 @@
 ;; Comprehensive User Creation Validation
 ;; =============================================================================
 
+(def ^:private create-user-request-validator (m/validator schema/CreateUserRequest))
+(def ^:private create-user-request-explainer (m/explainer schema/CreateUserRequest))
+
 (defn validate-comprehensive-user-creation
   "Pure function: Comprehensive validation combining all business rules.
    
@@ -384,9 +387,9 @@
     Pure - orchestrates all validation functions."
   [user-data validation-config _context]
   (let [;; Schema validation first
-        schema-result (if (m/validate schema/CreateUserRequest user-data)
+        schema-result (if (create-user-request-validator user-data)
                         {:valid? true}
-                        {:valid? false :errors (format-schema-errors (m/explain schema/CreateUserRequest user-data))})
+                        {:valid? false :errors (format-schema-errors (create-user-request-explainer user-data))})
 
         ;; Business constraints validation
         business-result (validate-user-business-constraints user-data validation-config)

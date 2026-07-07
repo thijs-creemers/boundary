@@ -84,27 +84,33 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private cache-config-validator (m/validator CacheConfig))
+(def ^:private cache-config-explainer (m/explainer CacheConfig))
+(def ^:private redis-config-validator (m/validator RedisConfig))
+(def ^:private redis-config-explainer (m/explainer RedisConfig))
+(def ^:private cache-entry-validator (m/validator CacheEntry))
+
 (defn valid-cache-config?
   "Validate cache configuration."
   [config]
-  (m/validate CacheConfig config))
+  (cache-config-validator config))
 
 (defn valid-redis-config?
   "Validate Redis configuration."
   [config]
-  (m/validate RedisConfig config))
+  (redis-config-validator config))
 
 (defn valid-cache-entry?
   "Validate cache entry."
   [entry]
-  (m/validate CacheEntry entry))
+  (cache-entry-validator entry))
 
 (defn explain-cache-config-errors
   "Get human-readable validation errors for cache config."
   [config]
-  (m/explain CacheConfig config))
+  (cache-config-explainer config))
 
 (defn explain-redis-config-errors
   "Get human-readable validation errors for Redis config."
   [config]
-  (m/explain RedisConfig config))
+  (redis-config-explainer config))

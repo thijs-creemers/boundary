@@ -18,7 +18,9 @@
 ;; Validation helpers
 ;; =============================================================================
 
+(def ^:private i18n-config-validator (m/validator I18nConfig))
+
 (defn valid-i18n-config?
   "Returns true if the given map satisfies I18nConfig schema."
   [config]
-  (m/validate I18nConfig config))
+  (i18n-config-validator config))

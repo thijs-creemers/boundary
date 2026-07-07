@@ -107,15 +107,18 @@
    [:halt? {:optional true} :boolean]
    [:breadcrumbs {:optional true} [:vector :map]]])
 
+(def ^:private context-validator (m/validator Context))
+(def ^:private context-explainer (m/explainer Context))
+
 ;; Validation functions
 
 (defn validate-context
   "Validates context map against schema.
    Returns {:valid? true :data context} or {:valid? false :errors [...]}."
   [context]
-  (if (m/validate Context context)
+  (if (context-validator context)
     {:valid? true :data context}
-    (let [errors (-> (m/explain Context context)
+    (let [errors (-> (context-explainer context)
                      (me/humanize))]
       {:valid? false :errors errors})))
 
