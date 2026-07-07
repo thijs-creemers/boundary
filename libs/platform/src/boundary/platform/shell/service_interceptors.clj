@@ -24,10 +24,13 @@
    - Interceptors handle all cross-cutting concerns automatically"
   (:require [boundary.core.interceptor :as interceptor]
             [boundary.observability.logging.core :as logging]
+            [boundary.observability.logging.ports :as log-ports]
             [boundary.observability.metrics.core :as metrics]
             [boundary.observability.errors.core :as error-reporting])
   (:import [java.time Instant]
            [java.util UUID]))
+
+(set! *warn-on-reflection* true)
 
 ;; ==============================================================================
 ;; Service Context Management
@@ -83,17 +86,17 @@
   {:name :service-operation-logging
    :enter (fn [{:keys [operation-name params system context] :as ctx}]
             (when-let [logger (:logger system)]
-              (.info logger (str "Starting service operation: " operation-name)
-                     (merge context params)))
+              (log-ports/info logger (str "Starting service operation: " operation-name)
+                              (merge context params)))
             ctx)
    :leave (fn [{:keys [operation-name result system context] :as ctx}]
             (when-let [logger (:logger system)]
-              (.info logger (str "Service operation completed: " operation-name)
-                     (merge context {:result-type (if result :success :null)})))
+              (log-ports/info logger (str "Service operation completed: " operation-name)
+                              (merge context {:result-type (if result :success :null)})))
             ctx)
    :error (fn [{:keys [operation-name system context] :as ctx}]
             (when-let [logger (:logger system)]
-              (.error logger (str "Service operation failed: " operation-name) context))
+              (log-ports/error logger (str "Service operation failed: " operation-name) context))
             ctx)})
 
 (def service-operation-metrics
@@ -149,7 +152,7 @@
                  (str "Service operation failed: " operation-name)
                  "service.error"
                  :error
-                 (merge context params {:error-message (.getMessage error)}))
+                 (merge context params {:error-message (.getMessage ^Throwable error)}))
 
                 ;; Report application error
                 (error-reporting/report-application-error
