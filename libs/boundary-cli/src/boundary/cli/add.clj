@@ -63,7 +63,9 @@
       (let [content (slurp f)]
         (if-not (str/includes? content "<!-- boundary:available-modules -->")
           (println "  Warning: AGENTS.md sentinel comments not found — skipping AGENTS.md update")
-          (let [without-row  (str/replace content (templates/module-row-pattern name) "")
+          (let [without-row  (templates/update-block
+                              content "boundary:available-modules"
+                              #(str/replace % (templates/module-row-pattern name) ""))
                 install-line (str "- " name " — [docs](" docs-url ")\n")
                 with-install (str/replace without-row
                                           "<!-- /boundary:installed-modules -->"

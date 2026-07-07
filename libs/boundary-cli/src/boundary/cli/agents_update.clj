@@ -24,40 +24,8 @@
 (def ^:private synced-blocks
   ["gen:fc-is" "gen:naming" "gen:pitfalls" "boundary:available-modules"])
 
-(defn- open-marker [block] (str "<!-- " block " -->"))
-(defn- close-marker [block] (str "<!-- /" block " -->"))
-
-(defn- block-bounds
-  "[start-of-body end-of-body] indices of the FIRST marker pair, or nil."
-  [content block]
-  (let [open  (open-marker block)
-        close (close-marker block)
-        start (str/index-of content open)
-        end   (when start (str/index-of content close start))]
-    (when (and start end)
-      [(+ start (count open)) end])))
-
-(defn- block-content
-  "Content between the first marker pair (exclusive), or nil when absent."
-  [content block]
-  (when-let [[start end] (block-bounds content block)]
-    (subs content start end)))
-
-(defn replace-block
-  "Replace the content of the FIRST marker pair in target with new-body via
-   index splicing — a user-duplicated marker elsewhere in the document is
-   left alone. Returns target unchanged when the markers are missing."
-  [target block new-body]
-  (if-let [[start end] (block-bounds target block)]
-    (str (subs target 0 start) new-body (subs target end))
-    target))
-
-(defn- update-block
-  "Apply f to the body of the first marker pair; no-op when markers absent."
-  [content block f]
-  (if-let [body (block-content content block)]
-    (replace-block content block (f body))
-    content))
+(def ^:private block-content templates/block-content)
+(def ^:private replace-block templates/replace-block)
 
 (defn installed-module-names
   "Module names listed in the installed-modules block: lines like
@@ -72,15 +40,14 @@
 (defn remove-available-rows
   "Remove table rows for installed modules from the available-modules block
    ONLY — prose elsewhere mentioning `boundary add <name>` is never touched.
-   Keeps the rows removed that `boundary add` removed at install time (it
-   uses the same row pattern, though applied file-wide)."
+   Keeps the rows removed that `boundary add` removed at install time."
   [content installed]
-  (update-block content "boundary:available-modules"
-                (fn [body]
-                  (reduce (fn [b module-name]
-                            (str/replace b (templates/module-row-pattern module-name) ""))
-                          body
-                          installed))))
+  (templates/update-block content "boundary:available-modules"
+                          (fn [body]
+                            (reduce (fn [b module-name]
+                                      (str/replace b (templates/module-row-pattern module-name) ""))
+                                    body
+                                    installed))))
 
 (defn project-name-from-agents
   "Project name from the AGENTS.md title line, or nil."

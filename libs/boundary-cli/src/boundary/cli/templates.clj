@@ -23,6 +23,45 @@
                        :template tmpl-name})))
     (slurp r)))
 
+;; ─── Marker-delimited blocks ─────────────────────────────────────────────────
+;; AGENTS.md uses <!-- name --> ... <!-- /name --> sentinel pairs to delimit
+;; framework-owned sections. All helpers operate on the FIRST pair only, by
+;; index splicing — a user-duplicated marker elsewhere is never touched.
+
+(defn- open-marker [block] (str "<!-- " block " -->"))
+(defn- close-marker [block] (str "<!-- /" block " -->"))
+
+(defn- block-bounds
+  "[start-of-body end-of-body] indices of the first marker pair, or nil."
+  [content block]
+  (let [open  (open-marker block)
+        close (close-marker block)
+        start (str/index-of content open)
+        end   (when start (str/index-of content close start))]
+    (when (and start end)
+      [(+ start (count open)) end])))
+
+(defn block-content
+  "Content between the first marker pair (exclusive), or nil when absent."
+  [content block]
+  (when-let [[start end] (block-bounds content block)]
+    (subs content start end)))
+
+(defn replace-block
+  "Replace the content of the first marker pair in target with new-body.
+   Returns target unchanged when the markers are missing."
+  [target block new-body]
+  (if-let [[start end] (block-bounds target block)]
+    (str (subs target 0 start) new-body (subs target end))
+    target))
+
+(defn update-block
+  "Apply f to the body of the first marker pair; no-op when markers absent."
+  [content block f]
+  (if-let [body (block-content content block)]
+    (replace-block content block (f body))
+    content))
+
 (defn module-row-pattern
   "Regex matching a module's row in the available-modules table:
    a line naming the module that ends in its `boundary add <name>` command.
