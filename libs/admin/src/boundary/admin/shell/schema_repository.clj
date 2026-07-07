@@ -11,8 +11,11 @@
    - Cache entity configurations for performance
    - Provide entity discovery based on configuration
 
-   Week 1: Direct database queries, no caching
-   Week 2+: Add TTL-based caching for schema metadata"
+   Caching: computed entity configurations are cached in an atom inside the
+   long-lived SchemaRepository component (populated on first access). Table
+   schemas only change at migration/deploy time, so the cache lives as long
+   as the component. Use `reset-cache!` (or recreate the component via
+   (ig-repl/reset)) to invalidate after a migration."
   (:require
    [boundary.admin.ports :as ports]
    [boundary.admin.schema :as admin-schema]
@@ -21,10 +24,88 @@
    [boundary.core.utils.case-conversion :as case-conv]))
 
 ;; =============================================================================
+;; Entity Config Computation (helper — must be defined before the record)
+;; =============================================================================
+
+(defn- compute-entity-config
+  "Compute the complete entity configuration for `entity-name`.
+
+   This is the uncached workhorse behind `get-entity-config`: it issues the
+   database metadata queries and runs the full parse/merge pipeline. Called
+   at most once per entity per SchemaRepository instance — results are cached
+   in the repository's `config-cache` atom.
+
+   Process:
+   1. Fetch table metadata from database
+   2. Parse metadata into auto-detected configuration
+   3. Enrich fields with enum info from registered Malli schemas (if any)
+   4. Get manual config overrides from admin config (if any)
+   5. Merge auto-detected with manual overrides
+   6. Inject effective UI config (admin global + entity override)
+   7. Apply field ordering if :field-order is specified
+   8. Return complete entity configuration"
+  [repo entity-name]
+  (let [{:keys [config malli-schemas]} repo
+        ;; Use :table-name from manual config if provided, otherwise derive from entity-name
+        effective-table-name (or (get-in config [:entities entity-name :table-name])
+                                 entity-name)
+        table-metadata (ports/fetch-table-metadata repo effective-table-name)
+        auto-config (introspection/parse-table-metadata entity-name table-metadata)
+
+        ;; When :split-table-update is configured, also introspect the secondary table
+        ;; so that its fields appear in the entity config (editable in forms, etc.)
+        split-cfg (get-in config [:entities entity-name :split-table-update])
+        auto-config (if split-cfg
+                      (let [secondary-table (:secondary-table split-cfg)
+                            secondary-fields (:secondary-fields split-cfg)
+                            secondary-meta (ports/fetch-table-metadata repo secondary-table)
+                            secondary-parsed (introspection/parse-table-metadata entity-name secondary-meta)
+                            ;; Only merge fields that are declared as secondary-fields
+                            secondary-field-configs (select-keys (:fields secondary-parsed) secondary-fields)
+                            ;; Determine which secondary fields are editable (not readonly)
+                            readonly-set (set (:readonly-fields auto-config))
+                            new-editable (vec (remove readonly-set (keys secondary-field-configs)))]
+                        (-> auto-config
+                            (update :fields merge secondary-field-configs)
+                            (update :editable-fields into new-editable)
+                            (update :detail-fields into new-editable)))
+                      auto-config)
+
+        ;; Enrich auto-detected fields with enum type/widget/options from Malli schema
+        malli-schema (get malli-schemas entity-name)
+        enum-overrides (introspection/extract-enum-fields-from-malli-schema malli-schema)
+        enriched-auto-config (if (seq enum-overrides)
+                               (update auto-config :fields
+                                       (fn [fields]
+                                         (reduce-kv
+                                          (fn [acc field-name enum-cfg]
+                                            (if (contains? acc field-name)
+                                              (update acc field-name merge enum-cfg)
+                                              acc))
+                                          fields
+                                          enum-overrides)))
+                               auto-config)
+        manual-config (get-in config [:entities entity-name])
+        merged-config (introspection/build-entity-config enriched-auto-config manual-config)
+        ;; Compute effective UI config: entity overrides admin global
+        admin-ui (get config :ui {})
+        entity-ui (get merged-config :ui {})
+        ;; Deep merge: entity field-grouping overrides admin field-grouping
+        effective-field-grouping (merge (get admin-ui :field-grouping {})
+                                        (get entity-ui :field-grouping {}))
+        effective-ui (-> (merge admin-ui entity-ui)
+                         (assoc :field-grouping effective-field-grouping))
+        config-with-ui (assoc merged-config :ui effective-ui)
+        ;; Apply field ordering if specified
+        ordered-config (introspection/apply-field-order-to-config config-with-ui)]
+    ;; Add relationship detection (Week 1 stub)
+    (introspection/detect-relationships ordered-config)))
+
+;; =============================================================================
 ;; Schema Repository Implementation
 ;; =============================================================================
 
-(defrecord SchemaRepository [db-ctx config malli-schemas]
+(defrecord SchemaRepository [db-ctx config malli-schemas config-cache]
   ports/ISchemaProvider
 
   (fetch-table-metadata [_ table-name]
@@ -57,69 +138,15 @@
   (get-entity-config [this entity-name]
     "Get complete entity configuration by merging auto-detected with manual config.
 
-     Process:
-     1. Fetch table metadata from database
-     2. Parse metadata into auto-detected configuration
-     3. Enrich fields with enum info from registered Malli schemas (if any)
-     4. Get manual config overrides from admin config (if any)
-     5. Merge auto-detected with manual overrides
-     6. Inject effective UI config (admin global + entity override)
-     7. Apply field ordering if :field-order is specified
-     8. Return complete entity configuration"
-    (let [;; Use :table-name from manual config if provided, otherwise derive from entity-name
-          effective-table-name (or (get-in config [:entities entity-name :table-name])
-                                   entity-name)
-          table-metadata (ports/fetch-table-metadata this effective-table-name)
-          auto-config (introspection/parse-table-metadata entity-name table-metadata)
-
-          ;; When :split-table-update is configured, also introspect the secondary table
-          ;; so that its fields appear in the entity config (editable in forms, etc.)
-          split-cfg (get-in config [:entities entity-name :split-table-update])
-          auto-config (if split-cfg
-                        (let [secondary-table (:secondary-table split-cfg)
-                              secondary-fields (:secondary-fields split-cfg)
-                              secondary-meta (ports/fetch-table-metadata this secondary-table)
-                              secondary-parsed (introspection/parse-table-metadata entity-name secondary-meta)
-                              ;; Only merge fields that are declared as secondary-fields
-                              secondary-field-configs (select-keys (:fields secondary-parsed) secondary-fields)
-                              ;; Determine which secondary fields are editable (not readonly)
-                              readonly-set (set (:readonly-fields auto-config))
-                              new-editable (vec (remove readonly-set (keys secondary-field-configs)))]
-                          (-> auto-config
-                              (update :fields merge secondary-field-configs)
-                              (update :editable-fields into new-editable)
-                              (update :detail-fields into new-editable)))
-                        auto-config)
-
-          ;; Enrich auto-detected fields with enum type/widget/options from Malli schema
-          malli-schema (get malli-schemas entity-name)
-          enum-overrides (introspection/extract-enum-fields-from-malli-schema malli-schema)
-          enriched-auto-config (if (seq enum-overrides)
-                                 (update auto-config :fields
-                                         (fn [fields]
-                                           (reduce-kv
-                                            (fn [acc field-name enum-cfg]
-                                              (if (contains? acc field-name)
-                                                (update acc field-name merge enum-cfg)
-                                                acc))
-                                            fields
-                                            enum-overrides)))
-                                 auto-config)
-          manual-config (get-in config [:entities entity-name])
-          merged-config (introspection/build-entity-config enriched-auto-config manual-config)
-          ;; Compute effective UI config: entity overrides admin global
-          admin-ui (get config :ui {})
-          entity-ui (get merged-config :ui {})
-          ;; Deep merge: entity field-grouping overrides admin field-grouping
-          effective-field-grouping (merge (get admin-ui :field-grouping {})
-                                          (get entity-ui :field-grouping {}))
-          effective-ui (-> (merge admin-ui entity-ui)
-                           (assoc :field-grouping effective-field-grouping))
-          config-with-ui (assoc merged-config :ui effective-ui)
-          ;; Apply field ordering if specified
-          ordered-config (introspection/apply-field-order-to-config config-with-ui)]
-      ;; Add relationship detection (Week 1 stub)
-      (introspection/detect-relationships ordered-config)))
+     Cached: the configuration is computed once per entity (issuing database
+     metadata queries) and stored in the component's config-cache atom.
+     Subsequent calls are a map lookup. Under concurrent first access the
+     computation may run more than once; last write wins, results are
+     identical. See `reset-cache!` to invalidate (e.g. after a migration)."
+    (or (get @config-cache entity-name)
+        (let [entity-config (compute-entity-config this entity-name)]
+          (swap! config-cache assoc entity-name entity-config)
+          entity-config)))
 
   (list-available-entities [_]
     "List all entities available based on discovery configuration.
@@ -164,8 +191,13 @@
   (validate-entity-exists [this entity-name]
     "Check if entity is valid and accessible.
 
-     Returns true if entity is in the list of available entities."
-    (let [available (set (ports/list-available-entities this))]
+     Returns true if entity is in the list of available entities.
+     The entity set is computed once and cached in the config-cache atom
+     (under a namespaced key that cannot collide with entity names)."
+    (let [available (or (get @config-cache ::available-entities)
+                        (let [entity-set (set (ports/list-available-entities this))]
+                          (swap! config-cache assoc ::available-entities entity-set)
+                          entity-set))]
       (contains? available entity-name))))
 
 ;; =============================================================================
@@ -183,7 +215,9 @@
                     and rendered as select widgets without manual config.
 
    Returns:
-     SchemaRepository instance implementing ISchemaProvider
+     SchemaRepository instance implementing ISchemaProvider.
+     Entity configurations are cached per instance (populated on first
+     access); see `reset-cache!` to invalidate.
 
    Example:
      (create-schema-repository db-ctx
@@ -192,9 +226,19 @@
         :entities {:users {:label \"System Users\"}}}
        {:users boundary.user.schema/User})"
   ([db-ctx config]
-   (->SchemaRepository db-ctx config {}))
+   (create-schema-repository db-ctx config {}))
   ([db-ctx config malli-schemas]
-   (->SchemaRepository db-ctx config (or malli-schemas {}))))
+   (->SchemaRepository db-ctx config (or malli-schemas {}) (atom {}))))
+
+(defn reset-cache!
+  "Clear the repository's cached entity configurations.
+
+   Call after a schema migration (or from the REPL) to force fresh database
+   metadata on the next access. Recreating the component — e.g. via
+   (ig-repl/reset) — has the same effect."
+  [schema-repository]
+  (reset! (:config-cache schema-repository) {})
+  nil)
 
 ;; =============================================================================
 ;; Helper Functions for Testing and Development
