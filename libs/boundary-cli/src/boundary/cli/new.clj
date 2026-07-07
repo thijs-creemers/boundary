@@ -2,7 +2,8 @@
   (:require [clojure.java.io :as io]
             [clojure.java.shell :as shell]
             [clojure.string :as str]
-            [boundary.cli.catalogue :as cat]))
+            [boundary.cli.catalogue :as cat]
+            [boundary.cli.templates :as templates]))
 
 ;; Keep in sync with libs/tools/build.clj version
 (def ^:private boundary-tools-version "1.0.1-alpha-38")
@@ -18,17 +19,6 @@
 
 (defn name->ns [n]
   (str/replace n "-" "_"))
-
-(defn- render [template substitutions]
-  (reduce (fn [s [k v]] (str/replace s (str "{{" (name k) "}}") v))
-          template
-          substitutions))
-
-(defn- read-template [tmpl-name]
-  (let [r (io/resource (str "boundary/cli/templates/" tmpl-name))]
-    (when-not r
-      (throw (ex-info (str "Template not found: " tmpl-name) {:name tmpl-name})))
-    (slurp r)))
 
 (defn- write-file! [dir relative-path content]
   (let [f (io/file dir relative-path)]
@@ -93,7 +83,7 @@
                      ".vscode/extensions.json"             "vscode-extensions.json.tmpl"
                      ".githooks/pre-commit"                "githook-pre-commit.tmpl"}]
     (doseq [[target tmpl] files]
-      (write-file! dir target (render (read-template tmpl) subs)))
+      (write-file! dir target (templates/render (templates/read-template tmpl) subs)))
     (.setExecutable (io/file dir ".githooks/pre-commit") true false)))
 
 (defn- run-git
