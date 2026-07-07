@@ -175,8 +175,13 @@
     (try
       (testing "real bootstrap creates a .git directory"
         (new/generate! tmp "gitproj" {})
-        (let [{:keys [ok?]} (new/git-bootstrap! tmp)]
-          ;; git may be absent in some CI images; only assert .git when it succeeded
-          (when ok? (is (.exists (io/file tmp ".git"))))))
+        (let [{:keys [ok? warnings]} (new/git-bootstrap! tmp)]
+          ;; git (or its config, e.g. user.email) may be absent in CI images —
+          ;; then the contract is a non-ok result carrying warnings, never a
+          ;; throw. Assert whichever branch this environment lands in, so the
+          ;; test can't pass with zero assertions.
+          (if ok?
+            (is (.exists (io/file tmp ".git")))
+            (is (seq warnings) "failed bootstrap must report warnings"))))
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
