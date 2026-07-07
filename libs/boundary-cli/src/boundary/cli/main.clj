@@ -8,6 +8,7 @@
   (println "  boundary add <module>             Add a module to the current project")
   (println "  boundary list modules             List available modules")
   (println "  boundary list modules --json      Machine-readable module list")
+  (println "  boundary agents update [--check]  Refresh framework sections of AGENTS.md after an upgrade")
   (println "  boundary version                  Show CLI version"))
 
 (defn -main [& args]
@@ -19,6 +20,11 @@
                     ((resolve 'boundary.cli.add/-main) rest-args))
       "list"    (do (require 'boundary.cli.list-modules)
                     ((resolve 'boundary.cli.list-modules/-main) rest-args))
+      "agents"  (if (= (first rest-args) "update")
+                  (do (require 'boundary.cli.agents-update)
+                      ((resolve 'boundary.cli.agents-update/-main) (rest rest-args)))
+                  (do (println "Usage: boundary agents update [--check]")
+                      (System/exit 1)))
       "version" (println "boundary CLI version 1.0.0-alpha-1")
       (do (when cmd (println (str "Unknown command: " cmd "\n")))
           (usage)

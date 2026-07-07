@@ -89,6 +89,8 @@
                      :task (dev/smoke-check)}
   install-hooks     {:doc "Configure git hooks path to .githooks"
                      :task (dev/install-hooks)}
+  agents:update     {:doc "Refresh framework sections of AGENTS.md after a Boundary upgrade (--check for CI)"
+                     :task (apply shell "boundary" "agents" "update" *command-line-args*)}
 
   ;; i18n tooling
   i18n:find         {:doc "Find a translation key by substring or exact keyword"
