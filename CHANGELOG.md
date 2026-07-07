@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **dev tooling**: Hot-path benchmark harness (`clojure -M:bench hotpaths`, `dev/boundary/bench/hotpaths.clj`) measuring current-vs-proposed implementations for each performance-assessment finding: raw vs compiled Malli validation, reflective vs protocol logger dispatch, DB result-set case-conversion passes, and i18n marker resolution. Notable negative result recorded: memoizing case-conversion keys is *slower* than plain `str/replace` — the DB-layer fix targets pass elimination, not caching (#232).
+- **`boundary-cli`**: The generated `AGENTS.md` template now opens the "Adding new functionality" workflow with **Step -1 — check existing Boundary modules FIRST**: run `boundary list modules` and prefer `boundary add <module>` + its ports before writing custom code. Coding agents working in bootstrapped projects were reimplementing functionality that existing modules (auth, storage, jobs, email, cache, search, payments, …) already provide (#232).
+
+### Changed
+
+- **Performance, tier 1** (#232): framework-wide hot-path fixes, all benchmarked (criterium) before implementation.
+  - **Malli validators compiled once**: `m/validate`/`m/explain` with a raw schema re-parse the schema and rebuild the predicate on every call — measured **8.6–9.9× overhead**. All 121 static-schema call sites across 43 files (login, per-request handlers, per-WebSocket-message `:pre` checks) now use `m/validator`/`m/explainer` defs compiled at namespace load. `boundary.core.validation` memoizes validator/explainer/decoder compilation for schema-as-argument callers, and the scaffolder template emits compiled validators in generated modules.
+  - **`boundary-platform`**: reflective `(.info logger …)` interop in the HTTP/service interceptors (fired on enter+leave of every request) replaced with `ILogger` protocol calls — measured **~90×** per call; `*warn-on-reflection*` enabled in both namespaces.
+- **Performance, tier 2** (#233):
+  - **`boundary-platform`**: DB result keys are converted snake→kebab **in the next.jdbc builder-fn** (`as-unqualified-kebab-maps`, column names converted once per result set) instead of a second full per-row map rebuild — ~1.7× on 100-row results; redundant third conversions removed from user `db->user-entity` and six admin service sites.
+  - **`boundary-admin`**: entity config and table metadata cached in the long-lived `SchemaRepository` component — previously every admin page issued 2×N `information_schema` queries (N = registered entities). `reset-cache!` provided for post-migration invalidation.
+  - **`boundary-platform`**: static-resource middleware no longer does a classloader lookup on every request — gated to GET/HEAD URIs with a file extension; duplicate query/form param parsing removed (global `wrap-params` dropped in favour of reitit's `parameters-middleware`).
+  - **`boundary-i18n`**: `resolve-markers` postwalk replaced with a structural-sharing transform that returns original nodes when no descendant changed — **82.4µs → 25.0µs (3.3×)** on a 50-row table page, full render ~1.9×; `translate/t` no longer re-runs `satisfies?` per locale per key.
+  - **`boundary-audience`** / **`boundary-user`**: N+1 write patterns batched. `save-memberships!`: exists-SELECT + single-row INSERT per user (50k-user audience = 100k statements) → one SELECT + in-memory diff + chunked 500-row multi-row INSERTs (~102 statements, portable H2/PG). `update-users-batch`: per-user UPDATEs → `next.jdbc/execute-batch!` grouped by column shape. Signatures, return values and transaction semantics unchanged.
+
+### Fixed
+
+- **`boundary-platform`**: PostgreSQL session settings (`statement_timeout`, `TimeZone=UTC`, `ApplicationName`) now reach **every** pooled connection via JDBC URL properties — the previous `SET` statements only affected the single pooled connection that happened to execute them, leaving the statement-timeout guard effectively unset on the rest of the pool. `reWriteBatchedInserts=true` enabled while at it (#232).
+- **build**: the uberjar silently omitted 13 libraries (email, tenant, realtime, payments, external, workflow, search, reports, calendar, geo, ai, i18n, ui-style, push, audience) because `build.clj` hardcoded 9 source dirs; the list now derives from deps.edn `:paths`, so new libs are packaged automatically. Also enables `-Dclojure.compiler.direct-linking=true` and resolves a LICENSE file-vs-directory merge conflict between dependency jars (#232).
+- **`boundary-email`** / **`boundary-external`**: `Attachment` schemas used `:bytes`, which is not a schema in Malli's default registry — `valid-email?`, `valid-email-input?` and `explain-email-errors` threw `:malli.core/invalid-schema` on every call (latent: zero callers; surfaced by compiling validators at namespace load). Fixed to `bytes?` with regression tests (#232).
+
 ## [1.0.1-alpha-36] - 2026-07-02
 
 ### Fixed
