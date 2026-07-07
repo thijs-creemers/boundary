@@ -87,6 +87,20 @@
   [secret binding]
   (csrf/generate-token secret binding (nonce/random-bytes 16)))
 
+(defn- reuse-or-issue-csrf-token
+  "Token to expose for rendering: when the request already carries a token
+   (form/header — HTMX sends x-csrf-token on safe requests too) that validates
+   for `binding`, re-issue that same token instead of minting a new one. Tokens
+   carry no expiry and are bound only to (secret, binding), so a still-valid
+   token stays valid for the same binding — re-use is cryptographically
+   equivalent and skips the per-request CSPRNG draw + re-signing. Absent or
+   invalid tokens fall back to a fresh mint."
+  [secret binding request]
+  (let [submitted (csrf/extract-token request)]
+    (if (csrf/valid-token? secret binding submitted)
+      submitted
+      (issue-csrf-token secret binding))))
+
 (def ^:private pre-session-cookie
   "Cookie holding the pre-session CSRF binding for unauthenticated flows (login,
    register, MFA), where no session token exists yet. SameSite=Strict so it is not
@@ -146,8 +160,11 @@
    :query-params (:query-params request)
    :system system
    :attrs {}
+   ;; Internal trace id, not a security token — ThreadLocalRandom avoids the
+   ;; shared SecureRandom that UUID/randomUUID contends on under load.
    :correlation-id (or (get-in request [:headers "x-correlation-id"])
-                       (str (UUID/randomUUID)))
+                       (let [tlr (java.util.concurrent.ThreadLocalRandom/current)]
+                         (str (UUID. (.nextLong tlr) (.nextLong tlr)))))
    :started-at (Instant/now)
    :timing {}})
 
@@ -308,14 +325,11 @@
   {:name :http-request-metrics
    :enter (fn [ctx]
             (assoc-in ctx [:timing :start] (System/nanoTime)))
-   :leave (fn [{:keys [request response system timing] :as ctx}]
+   :leave (fn [{:keys [request response system] :as ctx}]
             (when-let [metrics-emitter (:metrics-emitter system)]
-              ;; Calculate duration but don't use it yet (metrics infrastructure is no-op)
-              ;; Future: emit timing metric when metrics backend is configured
-              (let [_duration-ms (/ (- (System/nanoTime) (:start timing)) 1e6)]
-                (metrics-ports/increment metrics-emitter "http.requests"
-                                         {:method (name (:request-method request))
-                                          :status (str (:status response))})))
+              (metrics-ports/increment metrics-emitter "http.requests"
+                                       {:method (name (:request-method request))
+                                        :status (str (:status response))}))
             ctx)
    :error (fn [{:keys [request system] :as ctx}]
             (when-let [metrics-emitter (:metrics-emitter system)]
@@ -412,6 +426,9 @@
    For rendering, the interceptor exposes a token on the request as
    :anti-forgery-token and binds csrf/*token* around handler execution, so the page
    <meta> tag (HTMX) and form hidden fields emit it without per-handler threading.
+   When the request already carries a token valid for the current binding, that
+   token is re-issued instead of minting a new one (tokens have no expiry, so this
+   is equivalent); a fresh token is minted only when absent or invalid.
 
    Config is read from (:csrf system), injected by the HTTP handler wiring:
      {:enabled? bool, :secret <signing-key>, :exempt-paths [\"/api/v1/...\"]}
@@ -420,46 +437,49 @@
   {:name :http-csrf-protection
    :enter (fn [{:keys [request system] :as ctx}]
             (let [{:keys [enabled? secret exempt-paths]
-                   :or   {enabled? false}} (:csrf system)
-                  method          (:request-method request)
-                  uri             (or (:uri request) "")
-                  state-changing? (contains? #{:post :put :delete :patch} method)
-                  session-binding (request-session-binding request)
-                  pre-cookie      (get-in request [:cookies pre-session-cookie :value])
-                  expose          (fn [ctx binding]
-                                    (assoc-in ctx [:request :anti-forgery-token]
-                                              (issue-csrf-token secret binding)))]
-              (cond
-                ;; Disabled or misconfigured — no validation, no issuance. Wiring aborts
-                ;; startup on enabled-but-secretless config, so the secretless case here is
-                ;; a defensive second layer for direct/test invocation that bypasses wiring.
-                (not (and enabled? secret))
+                   :or   {enabled? false}} (:csrf system)]
+              ;; Disabled or misconfigured — no validation, no issuance. Checked before
+              ;; any per-request work (CSRF is off by default, so this is the hot path).
+              ;; Wiring aborts startup on enabled-but-secretless config, so the
+              ;; secretless case here is a defensive second layer for direct/test
+              ;; invocation that bypasses wiring.
+              (if-not (and enabled? secret)
                 ctx
+                (let [method          (:request-method request)
+                      uri             (or (:uri request) "")
+                      state-changing? (contains? #{:post :put :delete :patch} method)
+                      session-binding (request-session-binding request)
+                      pre-cookie      (get-in request [:cookies pre-session-cookie :value])
+                      expose          (fn [ctx binding]
+                                        (assoc-in ctx [:request :anti-forgery-token]
+                                                  (reuse-or-issue-csrf-token secret binding request)))]
+                  (cond
+                    ;; Protected: state-changing, not exempt, and either session-auth or
+                    ;; a /web route (which uses the pre-session cookie binding).
+                    (and state-changing?
+                         (not (path-exempt? exempt-paths uri))
+                         (or session-binding (web-route? uri)))
+                    (let [binding   (or session-binding pre-cookie)
+                          submitted (csrf/extract-token request)]
+                      (if (and binding (csrf/valid-token? secret binding submitted))
+                        ;; Valid — re-expose the just-validated token (still valid for
+                        ;; this binding) for any form re-rendered in the response.
+                        (assoc-in ctx [:request :anti-forgery-token] submitted)
+                        (csrf-403 ctx)))
 
-                ;; Protected: state-changing, not exempt, and either session-auth or
-                ;; a /web route (which uses the pre-session cookie binding).
-                (and state-changing?
-                     (not (path-exempt? exempt-paths uri))
-                     (or session-binding (web-route? uri)))
-                (let [binding (or session-binding pre-cookie)]
-                  (if (and binding
-                           (csrf/valid-token? secret binding (csrf/extract-token request)))
-                    ;; Valid — expose a token for any form re-rendered in the response.
-                    (expose ctx binding)
-                    (csrf-403 ctx)))
+                    ;; Authenticated safe/exempt request — expose a token for the page
+                    ;; (re-using the request's still-valid one when present).
+                    session-binding
+                    (expose ctx session-binding)
 
-                ;; Authenticated safe/exempt request — issue a token for the page.
-                session-binding
-                (expose ctx session-binding)
+                    ;; Unauthenticated /web page load — mint a pre-session binding + token
+                    ;; so login/register/MFA forms carry one; cookie is set on :leave.
+                    (and (web-route? uri) (not state-changing?))
+                    (let [id (or pre-cookie (mint-pre-session-id))]
+                      (cond-> (expose ctx id)
+                        (not pre-cookie) (assoc ::pre-session-id id)))
 
-                ;; Unauthenticated /web page load — mint a pre-session binding + token
-                ;; so login/register/MFA forms carry one; cookie is set on :leave.
-                (and (web-route? uri) (not state-changing?))
-                (let [id (or pre-cookie (mint-pre-session-id))]
-                  (cond-> (expose ctx id)
-                    (not pre-cookie) (assoc ::pre-session-id id)))
-
-                :else ctx)))
+                    :else ctx)))))
    :leave attach-pre-session-cookie})
 
 (def ^:private csrf-reject-response
@@ -493,47 +513,51 @@
 
    Config: {:enabled? bool :secret <signing-key> :exempt-paths [\"/...\"]}."
   [handler {:keys [enabled? secret exempt-paths] :or {enabled? false}}]
-  (fn [request]
-    (let [method          (:request-method request)
-          uri             (or (:uri request) "")
-          state-changing? (contains? #{:post :put :delete :patch} method)
-          session-binding (request-session-binding request)
-          pre-cookie      (get-in request [:cookies pre-session-cookie :value])
-          ;; Bind *token* (a fresh token for `bind-val`) around the handler so any
-          ;; Hiccup rendered while handling can emit it.
-          render          (fn [bind-val]
-                            (binding [csrf/*token* (issue-csrf-token secret bind-val)]
-                              (handler request)))]
-      (cond
-        ;; Disabled or secretless — no validation, no issuance.
-        (not (and enabled? secret))
-        (handler request)
+  ;; Disabled or secretless — no validation, no issuance; decided once at wrap
+  ;; time (config is fixed here), so disabled deployments pay zero per-request cost.
+  (if-not (and enabled? secret)
+    handler
+    (fn [request]
+      (let [method          (:request-method request)
+            uri             (or (:uri request) "")
+            state-changing? (contains? #{:post :put :delete :patch} method)
+            session-binding (request-session-binding request)
+            pre-cookie      (get-in request [:cookies pre-session-cookie :value])
+            ;; Bind *token* around the handler so any Hiccup rendered while
+            ;; handling can emit it (re-using the request's still-valid token
+            ;; when present, minting fresh otherwise).
+            render          (fn [bind-val]
+                              (binding [csrf/*token* (reuse-or-issue-csrf-token secret bind-val request)]
+                                (handler request)))]
+        (cond
+          ;; Protected: state-changing, not exempt, session-auth or /web route.
+          (and state-changing?
+               (not (path-exempt? exempt-paths uri))
+               (or session-binding (web-route? uri)))
+          (let [bind-val  (or session-binding pre-cookie)
+                submitted (csrf/extract-token request)]
+            (if (and bind-val (csrf/valid-token? secret bind-val submitted))
+              ;; Valid — re-bind the just-validated token (still valid for this
+              ;; binding) for any form re-rendered in the response.
+              (binding [csrf/*token* submitted]
+                (handler request))
+              csrf-reject-response))
 
-        ;; Protected: state-changing, not exempt, session-auth or /web route.
-        (and state-changing?
-             (not (path-exempt? exempt-paths uri))
-             (or session-binding (web-route? uri)))
-        (let [bind-val (or session-binding pre-cookie)]
-          (if (and bind-val
-                   (csrf/valid-token? secret bind-val (csrf/extract-token request)))
-            (render bind-val)
-            csrf-reject-response))
+          ;; Authenticated safe/exempt request — issue a token for the page.
+          session-binding
+          (render session-binding)
 
-        ;; Authenticated safe/exempt request — issue a token for the page.
-        session-binding
-        (render session-binding)
+          ;; Unauthenticated /web page load — mint a pre-session binding + token and
+          ;; set the cookie on the response so the login/register/MFA form carries one.
+          (and (web-route? uri) (not state-changing?))
+          (let [id   (or pre-cookie (mint-pre-session-id))
+                resp (render id)]
+            (if pre-cookie
+              resp
+              (assoc-in resp [:cookies pre-session-cookie]
+                        {:value id :http-only true :path "/" :same-site :strict})))
 
-        ;; Unauthenticated /web page load — mint a pre-session binding + token and
-        ;; set the cookie on the response so the login/register/MFA form carries one.
-        (and (web-route? uri) (not state-changing?))
-        (let [id   (or pre-cookie (mint-pre-session-id))
-              resp (render id)]
-          (if pre-cookie
-            resp
-            (assoc-in resp [:cookies pre-session-cookie]
-                      {:value id :http-only true :path "/" :same-site :strict})))
-
-        :else (handler request)))))
+          :else (handler request))))))
 ;; ==============================================================================
 ;; Rate Limiting
 ;; ==============================================================================
