@@ -273,13 +273,21 @@
   (let [min-poll-ms          (or (:poll-interval-ms config) 100)
         max-poll-ms          (or (:max-poll-interval-ms config) 2000)
         scheduled-interval-ms (or (:scheduled-interval-ms config) 5000)
+        heartbeat-interval-ms (or (:heartbeat-interval-ms config) 5000)
         last-scheduled-check (atom (Instant/now))
+        last-heartbeat       (atom Instant/EPOCH)
         current-poll-ms      (atom min-poll-ms)]
 
     (while @(:running? worker-state)
       (try
         ;; Keep worker heartbeat fresh for distributed stats/monitoring.
-        (redis-adapter/heartbeat-worker! queue (:id worker-state))
+        ;; Throttled: when jobs are flowing the loop spins per job, which
+        ;; would otherwise send a Redis round-trip every iteration.
+        (let [now (Instant/now)]
+          (when (>= (.toMillis (java.time.Duration/between @last-heartbeat now))
+                    heartbeat-interval-ms)
+            (redis-adapter/heartbeat-worker! queue (:id worker-state))
+            (reset! last-heartbeat now)))
 
         ;; Process scheduled jobs periodically
         (let [now (Instant/now)

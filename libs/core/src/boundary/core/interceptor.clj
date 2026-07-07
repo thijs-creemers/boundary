@@ -64,13 +64,14 @@
    interceptors))
 
 (defn run-leave-phase
-  "Executes the :leave phase of interceptors in reverse order."
+  "Executes the :leave phase of interceptors in reverse order.
+   executed-stack must be a vector (as built by run-enter-phase)."
   [ctx executed-stack]
   (reduce (fn [current-ctx interceptor]
             (let [{:keys [name leave]} interceptor]
               (execute-interceptor-fn leave current-ctx name)))
           ctx
-          (reverse executed-stack)))
+          (rseq executed-stack)))
 
 (defn run-error-phase
   "Executes the :error phase of interceptors in reverse order when an exception occurs."
@@ -80,7 +81,7 @@
               (let [{:keys [name error]} interceptor]
                 (execute-interceptor-fn error current-ctx name)))
             error-ctx
-            (reverse executed-stack))))
+            (rseq executed-stack))))
 
 (defn run-pipeline
   "Executes a pipeline of interceptors with proper lifecycle management.

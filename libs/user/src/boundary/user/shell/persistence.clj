@@ -20,6 +20,7 @@
    - Shell handles all I/O and external systems
    - Clean boundary between functional and imperative code"
   (:require [boundary.core.utils.type-conversion :as type-conversion]
+            [boundary.platform.core.database.query :as core-query]
             [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.platform.shell.adapters.database.utils.schema :as db-schema]
@@ -322,6 +323,17 @@
           (throw (ex-info (str "User not found in batch update (" (name table) ")")
                           {:type :user-not-found
                            :user-id (:user-id entry)})))))))
+
+(defn- bounded-pagination
+  "Sanitize :limit/:offset for the business-specific find queries.
+
+   Guards against nil values (a nil LIMIT breaks H2/SQLite) and defaults the
+   limit to the platform max pagination limit so these queries stay bounded
+   even when callers pass no options."
+  [options]
+  (db/build-pagination
+   {:limit (or (:limit options) core-query/max-pagination-limit)
+    :offset (or (:offset options) 0)}))
 
 ;; =============================================================================
 ;; User Repository Implementation
@@ -806,9 +818,13 @@
      {:db-ctx ctx}))
 
   ;; Business-Specific Queries
-  (find-active-users-by-role [_ role]
-    (log/debug "Finding active users by role" {:role role})
+  (find-active-users-by-role [this role]
+    (ports/find-active-users-by-role this role {}))
+
+  (find-active-users-by-role [_ role options]
+    (log/debug "Finding active users by role" {:role role :options options})
     (let [adapter (:adapter ctx)
+          pagination (bounded-pagination options)
           query {:select [:a.id
                           :a.email
                           :a.password_hash
@@ -843,7 +859,9 @@
                          [:= :u.role (type-conversion/keyword->string role)]
                          [:= :a.active (protocols/boolean->db adapter true)]
                          [:is :a.deleted_at nil]]
-                 :order-by [[:a.created_at :desc]]}
+                 :order-by [[:a.created_at :desc]]
+                 :limit (:limit pagination)
+                 :offset (:offset pagination)}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
@@ -859,9 +877,13 @@
           (get result (keyword "COUNT(*)"))
           0)))
 
-  (find-users-created-since [_ since-date]
-    (log/debug "Finding users created since" {:since-date since-date})
-    (let [query {:select [:a.id
+  (find-users-created-since [this since-date]
+    (ports/find-users-created-since this since-date {}))
+
+  (find-users-created-since [_ since-date options]
+    (log/debug "Finding users created since" {:since-date since-date :options options})
+    (let [pagination (bounded-pagination options)
+          query {:select [:a.id
                           :a.email
                           :a.password_hash
                           :a.active
@@ -894,13 +916,19 @@
                  :where [:and
                          [:>= :a.created_at (type-conversion/instant->string since-date)]
                          [:is :a.deleted_at nil]]
-                 :order-by [[:a.created_at :desc]]}
+                 :order-by [[:a.created_at :desc]]
+                 :limit (:limit pagination)
+                 :offset (:offset pagination)}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 
-  (find-users-by-email-domain [_ email-domain]
-    (log/debug "Finding users by email domain" {:email-domain email-domain})
-    (let [query {:select [:a.id
+  (find-users-by-email-domain [this email-domain]
+    (ports/find-users-by-email-domain this email-domain {}))
+
+  (find-users-by-email-domain [_ email-domain options]
+    (log/debug "Finding users by email domain" {:email-domain email-domain :options options})
+    (let [pagination (bounded-pagination options)
+          query {:select [:a.id
                           :a.email
                           :a.password_hash
                           :a.active
@@ -933,7 +961,9 @@
                  :where [:and
                          [:like :a.email (str "%@" email-domain)]
                          [:is :a.deleted_at nil]]
-                 :order-by [[:a.created_at :desc]]}
+                 :order-by [[:a.created_at :desc]]
+                 :limit (:limit pagination)
+                 :offset (:offset pagination)}
           results (db/execute-query! ctx query)]
       (map #(db->user-entity ctx %) results)))
 

@@ -1,6 +1,8 @@
 (ns boundary.user.shell.persistence-test
-  (:require [boundary.platform.shell.adapters.database.common.core :as db-core]
+  (:require [boundary.platform.core.database.query :as core-query]
+            [boundary.platform.shell.adapters.database.common.core :as db-core]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
+            [boundary.user.ports :as ports]
             [boundary.user.shell.persistence :as sut]
             [cheshire.core :as json]
             [clojure.test :refer [deftest is testing]])
@@ -148,6 +150,39 @@
                 "ALTER TABLE users ADD COLUMN language VARCHAR(255)"
                 "ALTER TABLE users ADD COLUMN timezone VARCHAR(255)"]
                @ddl-statements))))))
+
+(deftest business-specific-queries-are-bounded
+  (let [ctx {:adapter (adapter-stub {:dialect :sqlite
+                                     :jdbc-driver "org.sqlite.JDBC"})}
+        repo (sut/->DatabaseUserRepository ctx)
+        captured (atom nil)]
+    (with-redefs [db-core/execute-query! (fn [_ query]
+                                           (reset! captured query)
+                                           [])]
+      (testing "base arity applies the platform max pagination bound"
+        (doseq [[label invoke-query] [["find-active-users-by-role"
+                                       #(ports/find-active-users-by-role repo :admin)]
+                                      ["find-users-created-since"
+                                       #(ports/find-users-created-since
+                                         repo (Instant/parse "2026-01-01T00:00:00Z"))]
+                                      ["find-users-by-email-domain"
+                                       #(ports/find-users-by-email-domain repo "example.com")]]]
+          (reset! captured nil)
+          (doall (invoke-query))
+          (testing label
+            (is (= core-query/max-pagination-limit (:limit @captured)))
+            (is (= 0 (:offset @captured))))))
+
+      (testing "options arity threads :limit and :offset into the query"
+        (doall (ports/find-active-users-by-role repo :admin {:limit 5 :offset 10}))
+        (is (= 5 (:limit @captured)))
+        (is (= 10 (:offset @captured))))
+
+      (testing "explicit nil :limit/:offset fall back to safe bounds"
+        (doall (ports/find-users-by-email-domain repo "example.com"
+                                                 {:limit nil :offset nil}))
+        (is (= core-query/max-pagination-limit (:limit @captured)))
+        (is (= 0 (:offset @captured)))))))
 
 (deftest create-user-repository-runs-preference-upgrade
   (let [ctx {:adapter (adapter-stub {:dialect :postgresql
