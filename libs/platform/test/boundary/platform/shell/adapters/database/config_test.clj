@@ -207,14 +207,29 @@
           "Should detect environment from system property")
       (System/clearProperty "env"))
 
-    (testing "Default environment when not set"
-      (System/clearProperty "env")
-      (is (= "dev" (config/detect-environment))
-          "Should default to 'dev' when env not set"))
+    ;; Env vars can't be modified inside a JVM (and the documented test
+    ;; invocation exports BND_ENV=test), so exercise the env-var branches
+    ;; through the config/getenv seam instead of the real environment.
+    (testing "System property takes precedence over env vars"
+      (System/setProperty "env" "prop-env")
+      (with-redefs [config/getenv (constantly "env-env")]
+        (is (= "prop-env" (config/detect-environment))))
+      (System/clearProperty "env"))
 
-    (testing "Environment from environment variable")))
-      ; Note: This would require setting actual env vars, which is complex in tests
-      ; Instead we test the function behavior with mocked system calls
+    (testing "BND_ENV wins over ENV and ENVIRONMENT"
+      (System/clearProperty "env")
+      (with-redefs [config/getenv {"BND_ENV" "from-bnd" "ENV" "from-env"}]
+        (is (= "from-bnd" (config/detect-environment))))
+      (with-redefs [config/getenv {"ENV" "from-env" "ENVIRONMENT" "from-environment"}]
+        (is (= "from-env" (config/detect-environment))))
+      (with-redefs [config/getenv {"ENVIRONMENT" "from-environment"}]
+        (is (= "from-environment" (config/detect-environment)))))
+
+    (testing "Defaults to 'dev' when nothing is set"
+      (System/clearProperty "env")
+      (with-redefs [config/getenv (constantly nil)]
+        (is (= "dev" (config/detect-environment))
+            "Should default to 'dev' when env not set")))))
 
 ;; =============================================================================
 ;; Configuration Merging and Override Tests

@@ -108,11 +108,20 @@
        (update :completed-at #(when % (.toEpochMilli %))))))
 
 (defn- deserialize-job
-  "Deserialize job from JSON string."
+  "Deserialize job from JSON string.
+
+   JSON round-trips keyword VALUES as plain strings, so the keyword-typed
+   fields (:job-type :status :queue :priority) must be restored explicitly —
+   without this every keyword comparison downstream (status filters, terminal
+   checks, history lookups) silently misses."
   [json-str]
   (when json-str
     (-> (json/parse-string json-str true)
         (update :id #(java.util.UUID/fromString %))
+        (update :job-type #(when % (keyword %)))
+        (update :status #(when % (keyword %)))
+        (update :queue #(when % (keyword %)))
+        (update :priority #(when % (keyword %)))
         (update :execute-at #(when % (Instant/ofEpochMilli %)))
         (update :created-at #(Instant/ofEpochMilli %))
         (update :updated-at #(Instant/ofEpochMilli %))
@@ -253,8 +262,9 @@
       (fn [^Jedis redis]
         (let [job-key (job-key job-id)
               result (.del redis (into-array String [job-key]))]
-          ;; Also remove from scheduled set if present
-          (.zrem redis (scheduled-key) (str job-id))
+          ;; Also remove from scheduled set if present.
+          ;; Jedis zrem is (String key, String... members) — varargs need an array.
+          (.zrem redis (scheduled-key) (into-array String [(str job-id)]))
           (pos? result)))))
 
   (queue-size [_ queue-name]
@@ -306,7 +316,7 @@
           ;; With multiple workers polling concurrently, only the one whose ZREM
           ;; returns 1 owns this job; the others get 0 and skip it — so a scheduled
           ;; job is promoted to an execution queue exactly once across all workers.
-          (when (pos? (.zrem redis (scheduled-key) job-id-str))
+          (when (pos? (.zrem redis (scheduled-key) (into-array String [job-id-str])))
             (let [job-id (java.util.UUID/fromString job-id-str)
                   job-key (job-key job-id)
                   job-data (.get redis job-key)]

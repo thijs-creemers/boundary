@@ -69,13 +69,19 @@
 
 (def ^:dynamic *default-environment* "dev")
 
+(defn getenv
+  "Environment variable lookup. Exists as a var (rather than inline interop)
+   so tests can redef it — env vars cannot be modified inside a JVM."
+  [k]
+  (System/getenv k))
+
 (defn detect-environment
   "Detect current environment from various sources"
   []
   (or (System/getProperty "env")
-      (System/getenv "BND_ENV")
-      (System/getenv "ENV")
-      (System/getenv "ENVIRONMENT")
+      (getenv "BND_ENV")
+      (getenv "ENV")
+      (getenv "ENVIRONMENT")
       *default-environment*))
 
 (defn with-environment
