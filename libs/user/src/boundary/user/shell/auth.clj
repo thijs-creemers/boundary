@@ -55,16 +55,20 @@
 ;; JWT Token Operations (Side Effects)
 ;; =============================================================================
 
-(defn- get-jwt-secret
-  "Get JWT signing secret from environment variable.
+(def ^:private jwt-secret
+  "JWT signing secret, resolved from the environment once per process.
 
    SECURITY: Must be set via JWT_SECRET environment variable.
-   Throws exception if not configured to prevent accidental use of default secret."
-  []
-  (or (System/getenv "JWT_SECRET")
-      (throw (ex-info "JWT_SECRET environment variable not configured. Set JWT_SECRET before starting the application."
-                      {:type :configuration-error
-                       :required-env-var "JWT_SECRET"}))))
+   Throws on first use if not configured to prevent accidental use of a
+   default secret. The environment cannot change within a JVM process, so
+   a per-call System/getenv lookup only added cost on every sign/verify."
+  (delay
+    (or (System/getenv "JWT_SECRET")
+        (throw (ex-info "JWT_SECRET environment variable not configured. Set JWT_SECRET before starting the application."
+                        {:type :configuration-error
+                         :required-env-var "JWT_SECRET"})))))
+
+(defn- get-jwt-secret [] @jwt-secret)
 
 (defn create-jwt-token
   "Shell function: Create JWT token for authenticated user.
