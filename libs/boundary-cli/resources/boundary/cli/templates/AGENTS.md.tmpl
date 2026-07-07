@@ -189,6 +189,20 @@ clj-paren-repair src/{{project-ns}}/core/product.clj
 
 ### Adding new functionality
 
+**Step -1 — check existing Boundary modules FIRST.** Before designing or writing
+anything, check whether a Boundary module already provides the functionality
+(auth, storage, jobs, email, cache, search, payments, realtime, workflow, …):
+
+```bash
+boundary list modules          # what exists (see “Boundary Modules” below)
+boundary list modules --json   # machine-readable, for agents
+```
+
+If a module covers the need, `boundary add <module>` and use its ports — never
+reimplement what a module already ships. Only build custom code for genuinely
+domain-specific logic. Installed modules and their docs are listed at the bottom
+of this file.
+
 **Step 0 — scaffold it.** Never hand-write a new module skeleton:
 
 ```bash
