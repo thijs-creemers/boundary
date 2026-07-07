@@ -1,7 +1,8 @@
 (ns boundary.cli.add
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [boundary.cli.catalogue :as cat]))
+            [boundary.cli.catalogue :as cat]
+            [boundary.cli.templates :as templates]))
 
 ;; ─── Project detection ────────────────────────────────────────────────────────
 
@@ -62,9 +63,7 @@
       (let [content (slurp f)]
         (if-not (str/includes? content "<!-- boundary:available-modules -->")
           (println "  Warning: AGENTS.md sentinel comments not found — skipping AGENTS.md update")
-          (let [row-pattern  (re-pattern (str "(?m)^.*\\b" (java.util.regex.Pattern/quote name)
-                                              "\\b.*boundary add " (java.util.regex.Pattern/quote name) ".*\\n?"))
-                without-row  (str/replace content row-pattern "")
+          (let [without-row  (str/replace content (templates/module-row-pattern name) "")
                 install-line (str "- " name " — [docs](" docs-url ")\n")
                 with-install (str/replace without-row
                                           "<!-- /boundary:installed-modules -->"

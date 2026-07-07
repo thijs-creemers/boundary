@@ -17,7 +17,8 @@
    NOT synced (project state): <!-- boundary:installed-modules -->. Rows for
    already-installed modules are re-removed from the refreshed available
    table, mirroring what `boundary add` did at install time."
-  (:require [clojure.java.io :as io]
+  (:require [boundary.cli.templates :as templates]
+            [clojure.java.io :as io]
             [clojure.string :as str]))
 
 (def ^:private synced-blocks
@@ -26,28 +27,37 @@
 (defn- open-marker [block] (str "<!-- " block " -->"))
 (defn- close-marker [block] (str "<!-- /" block " -->"))
 
-(defn- block-content
-  "Content between a block's markers (exclusive), or nil when absent."
+(defn- block-bounds
+  "[start-of-body end-of-body] indices of the FIRST marker pair, or nil."
   [content block]
   (let [open  (open-marker block)
         close (close-marker block)
         start (str/index-of content open)
         end   (when start (str/index-of content close start))]
     (when (and start end)
-      (subs content (+ start (count open)) end))))
+      [(+ start (count open)) end])))
+
+(defn- block-content
+  "Content between the first marker pair (exclusive), or nil when absent."
+  [content block]
+  (when-let [[start end] (block-bounds content block)]
+    (subs content start end)))
 
 (defn replace-block
-  "Replace the content between block markers in target with new-body.
-   Returns target unchanged when the markers are missing."
+  "Replace the content of the FIRST marker pair in target with new-body via
+   index splicing — a user-duplicated marker elsewhere in the document is
+   left alone. Returns target unchanged when the markers are missing."
   [target block new-body]
-  (if (block-content target block)
-    (str/replace target
-                 (re-pattern (str "(?s)" (java.util.regex.Pattern/quote (open-marker block))
-                                  ".*?"
-                                  (java.util.regex.Pattern/quote (close-marker block))))
-                 (str/re-quote-replacement
-                  (str (open-marker block) new-body (close-marker block))))
+  (if-let [[start end] (block-bounds target block)]
+    (str (subs target 0 start) new-body (subs target end))
     target))
+
+(defn- update-block
+  "Apply f to the body of the first marker pair; no-op when markers absent."
+  [content block f]
+  (if-let [body (block-content content block)]
+    (replace-block content block (f body))
+    content))
 
 (defn installed-module-names
   "Module names listed in the installed-modules block: lines like
@@ -60,28 +70,16 @@
     #{}))
 
 (defn remove-available-rows
-  "Remove table rows for installed modules from the available-modules block,
-   mirroring what `boundary add` does at install time."
+  "Remove table rows for installed modules from the available-modules block
+   ONLY — prose elsewhere mentioning `boundary add <name>` is never touched.
+   Mirrors what `boundary add` does at install time."
   [content installed]
-  (reduce (fn [c module-name]
-            (str/replace c
-                         (re-pattern (str "(?m)^.*\\b" (java.util.regex.Pattern/quote module-name)
-                                          "\\b.*boundary add " (java.util.regex.Pattern/quote module-name)
-                                          ".*\\n?"))
-                         ""))
-          content
-          installed))
-
-(defn- render [template substitutions]
-  (reduce (fn [s [k v]] (str/replace s (str "{{" (name k) "}}") v))
-          template
-          substitutions))
-
-(defn- read-template []
-  (let [r (io/resource "boundary/cli/templates/AGENTS.md.tmpl")]
-    (when-not r
-      (throw (ex-info "AGENTS.md.tmpl not found on the CLI classpath" {})))
-    (slurp r)))
+  (update-block content "boundary:available-modules"
+                (fn [body]
+                  (reduce (fn [b module-name]
+                            (str/replace b (templates/module-row-pattern module-name) ""))
+                          body
+                          installed))))
 
 (defn project-name-from-agents
   "Project name from the AGENTS.md title line, or nil."
@@ -96,7 +94,7 @@
         ;; front (mirroring `boundary add`), so the block comparison below is
         ;; against what the project file should actually contain — otherwise
         ;; every run would report the available block as stale.
-        rendered  (-> (render template subs)
+        rendered  (-> (templates/render template subs)
                       (remove-available-rows installed))]
     (reduce (fn [{:keys [content updated missing]} block]
               (let [new-body (block-content rendered block)
@@ -127,7 +125,7 @@
                              (.getName (.getCanonicalFile (io/file "."))))
             project-ns   (str/replace project-name "-" "_")
             {:keys [content updated missing]}
-            (update-agents-content current (read-template)
+            (update-agents-content current (templates/read-template "AGENTS.md.tmpl")
                                    {:project-name project-name
                                     :project-ns   project-ns})]
         (doseq [block missing]
