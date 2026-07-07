@@ -17,7 +17,6 @@
                         [reitit.swagger-ui :as swagger-ui]
                         [ring.middleware.resource :refer [wrap-resource]]
                         [ring.middleware.cookies :refer [wrap-cookies]]
-                        [ring.middleware.params :refer [wrap-params]]
                         [muuntaja.core :as m])
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]
            [java.util.zip GZIPOutputStream]))
@@ -511,6 +510,19 @@
 ;; Static Asset Caching Middleware
 ;; =============================================================================
 
+(defn- wrap-static-resources
+  "Serve classpath resources from resources/public/, but only for requests
+   that can actually be static assets: GET/HEAD with a file extension in the
+   URI. Plain ring.middleware.resource/wrap-resource does a classloader
+   lookup on EVERY request (including all API calls) before routing."
+  [handler]
+  (let [with-resources (wrap-resource handler "public")]
+    (fn [request]
+      (if (and (contains? #{:get :head} (:request-method request))
+               (str/includes? (:uri request) "."))
+        (with-resources request)
+        (handler request)))))
+
 (defn- wrap-static-cache
   "Adds Cache-Control headers to static asset responses.
 
@@ -559,14 +571,15 @@
 
           ;; Wrap handler with middlewares (outermost last):
           ;; 1. Cookies middleware - parse and set cookies
-          ;; 2. Static resource middleware - serve files from resources/public/
-          ;; 3. Params middleware - parse query and form params (including PUT/PATCH bodies)
+          ;; 2. Static resource middleware - asset-shaped GET/HEAD requests only
+          ;; Query/form params are parsed by reitit's parameters-middleware
+          ;; (create-default-middleware) — a global wrap-params here would
+          ;; parse them a second time for every request.
           handler (-> (ring/ring-handler router default-handler)
                       (wrap-gzip)
                       (wrap-static-cache)
-                      (wrap-resource "public")
-                      (wrap-cookies)
-                      (wrap-params))]
+                      (wrap-static-resources)
+                      (wrap-cookies))]
 
       ;; Store the Reitit router in metadata so devtools can extract route info
       ;; from the wrapped handler without needing to unwrap middleware layers.
