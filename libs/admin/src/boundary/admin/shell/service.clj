@@ -351,8 +351,8 @@
              count-result (db/execute-one! db-ctx count-query)
              total-count (:total count-result 0)
 
-              ; Convert snake_case keys from database to kebab-case for internal use
-             kebab-records (mapv case-conversion/snake-case->kebab-case-map records)
+              ; Keys arrive kebab-case from the execution layer builder-fn
+             kebab-records records
 
               ; Calculate pagination metadata
              page-size (:limit pagination)
@@ -386,8 +386,8 @@
                                      [:= id-field id-str])}
                      join-clause (assoc :join join-clause))
              db-result (db/execute-one! db-ctx query)]
-          ; Convert snake_case keys from database to kebab-case for internal use
-         (case-conversion/snake-case->kebab-case-map db-result)))
+          ; Keys arrive kebab-case from the execution layer builder-fn
+         db-result))
      db-ctx))
 
   (create-entity [_ entity-name data]
@@ -443,8 +443,8 @@
                            :where [:= primary-key id-str]}
              db-result (db/execute-one! db-ctx select-query)]
 
-          ; Convert snake_case keys from database to kebab-case for internal use
-         (case-conversion/snake-case->kebab-case-map db-result)))
+          ; Keys arrive kebab-case from the execution layer builder-fn
+         db-result))
      db-ctx))
 
   (update-entity [_ entity-name id data]
@@ -512,8 +512,8 @@
                             join-clause (assoc :join join-clause))
              db-result (db/execute-one! db-ctx select-query)]
 
-          ; Convert snake_case keys from database to kebab-case for internal use
-         (case-conversion/snake-case->kebab-case-map db-result)))
+          ; Keys arrive kebab-case from the execution layer builder-fn
+         db-result))
      db-ctx))
 
   (update-entity-field [_ entity-name id field value]
@@ -584,8 +584,8 @@
                               join-clause (assoc :join join-clause))
                db-result (db/execute-one! db-ctx select-query)]
 
-           ; Return kebab-case record
-           (case-conversion/snake-case->kebab-case-map db-result))))
+           ; Keys arrive kebab-case from the execution layer builder-fn
+           db-result)))
      db-ctx))
 
   (delete-entity [_ entity-name id]
@@ -746,7 +746,7 @@
                       :from   [table]
                       :where  [:= fk-col (str parent-id)]}
              results (db/execute-query! db-ctx query)]
-         (mapv case-conversion/snake-case->kebab-case-map results)))
+         results))
      db-ctx)))
 
 ;; =============================================================================

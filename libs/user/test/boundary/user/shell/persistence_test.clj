@@ -33,23 +33,24 @@
         tenant-id (str (UUID/randomUUID))
         result (#'sut/db->user-entity
                 ctx
+                ;; Keys arrive kebab-case from the execution layer builder-fn
                 {:id user-id
-                 :tenant_id tenant-id
+                 :tenant-id tenant-id
                  :email "jane@example.com"
                  :role "admin"
                  :active 1
-                 :created_at "2026-03-25T10:00:00Z"
-                 :updated_at "2026-03-25T11:00:00Z"
-                 :deleted_at nil
-                 :last_login "2026-03-25T12:00:00Z"
-                 :notifications_email 1
-                 :notifications_push 0
-                 :notifications_sms nil
+                 :created-at "2026-03-25T10:00:00Z"
+                 :updated-at "2026-03-25T11:00:00Z"
+                 :deleted-at nil
+                 :last-login "2026-03-25T12:00:00Z"
+                 :notifications-email 1
+                 :notifications-push 0
+                 :notifications-sms nil
                  :theme "dark"
-                 :date_format "dmy"
-                 :time_format "24h"
-                 :mfa_backup_codes (json/generate-string ["abc" "def"])
-                 :mfa_backup_codes_used (json/generate-string ["abc"])})]
+                 :date-format "dmy"
+                 :time-format "24h"
+                 :mfa-backup-codes (json/generate-string ["abc" "def"])
+                 :mfa-backup-codes-used (json/generate-string ["abc"])})]
     (is (= (UUID/fromString user-id) (:id result)))
     (is (= (UUID/fromString tenant-id) (:tenant-id result)))
     (is (= :admin (:role result)))
