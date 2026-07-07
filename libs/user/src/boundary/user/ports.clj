@@ -140,18 +140,22 @@
        (hard-delete-user repo user-id)")
 
   ;; Business-Specific Queries
-  (find-active-users-by-role [this role]
-    "Find all active users with specific role.
-     
+  (find-active-users-by-role [this role] [this role options]
+    "Find active users with specific role.
+
      Args:
        role: Keyword role (:admin, :user, :viewer)
-     
+       options: Optional map with :limit and :offset for pagination.
+                Without options, results are bounded by the platform
+                max pagination limit (defense against unbounded scans).
+
      Returns:
        Vector of user entities with specified role
        Only returns active (non-deleted) users
-     
+
      Example:
-       (find-active-users-by-role repo :admin)")
+       (find-active-users-by-role repo :admin)
+       (find-active-users-by-role repo :admin {:limit 50 :offset 100})")
 
   (count-users [this]
     "Count total active users.
@@ -162,31 +166,39 @@
      Example:
        (count-users repo)")
 
-  (find-users-created-since [this since-date]
+  (find-users-created-since [this since-date] [this since-date options]
     "Find users created after specified date.
-     
+
      Args:
        since-date: Instant representing cutoff date
-     
+       options: Optional map with :limit and :offset for pagination.
+                Without options, results are bounded by the platform
+                max pagination limit (defense against unbounded scans).
+
      Returns:
        Vector of user entities created after since-date
        Useful for analytics, recent user tracking, etc.
-     
-     Example:
-       (find-users-created-since repo (time/minus (time/instant) (time/days 7)))")
 
-  (find-users-by-email-domain [this email-domain]
+     Example:
+       (find-users-created-since repo (time/minus (time/instant) (time/days 7)))
+       (find-users-created-since repo cutoff {:limit 50 :offset 100})")
+
+  (find-users-by-email-domain [this email-domain] [this email-domain options]
     "Find users with email addresses from specific domain.
-     
+
      Args:
        email-domain: String domain to match (e.g., \"company.com\")
-     
+       options: Optional map with :limit and :offset for pagination.
+                Without options, results are bounded by the platform
+                max pagination limit (defense against unbounded scans).
+
      Returns:
        Vector of user entities with matching email domain
        Useful for organization-based user management
-     
+
      Example:
-       (find-users-by-email-domain repo \"company.com\")")
+       (find-users-by-email-domain repo \"company.com\")
+       (find-users-by-email-domain repo \"company.com\" {:limit 50 :offset 100})")
 
   ;; Batch Operations
   (create-users-batch [this user-entities]
