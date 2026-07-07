@@ -207,14 +207,17 @@
           "Should detect environment from system property")
       (System/clearProperty "env"))
 
-    (testing "Default environment when not set"
+    (testing "Fallback chain when the system property is not set"
+      ;; Environment variables cannot be unset inside a JVM, and the test
+      ;; runner itself sets BND_ENV (see AGENTS.md) — so compute the expected
+      ;; value through the same env-var fallback chain, ending in "dev".
       (System/clearProperty "env")
-      (is (= "dev" (config/detect-environment))
-          "Should default to 'dev' when env not set"))
-
-    (testing "Environment from environment variable")))
-      ; Note: This would require setting actual env vars, which is complex in tests
-      ; Instead we test the function behavior with mocked system calls
+      (let [expected (or (System/getenv "BND_ENV")
+                         (System/getenv "ENV")
+                         (System/getenv "ENVIRONMENT")
+                         "dev")]
+        (is (= expected (config/detect-environment))
+            "Should fall back to env vars, then default to 'dev'")))))
 
 ;; =============================================================================
 ;; Configuration Merging and Override Tests
