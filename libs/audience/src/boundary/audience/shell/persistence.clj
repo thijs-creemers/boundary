@@ -179,11 +179,18 @@
              {:builder-fn rs/as-unqualified-lower-maps})]
     (:id row)))
 
+(def ^:private membership-insert-chunk-size
+  "Rows per multi-row INSERT statement when saving memberships."
+  500)
+
 (defn save-memberships!
   "Batch-insert user UUIDs into audience_memberships for an audience.
 
-   Idempotent: existing (audience_id, user_id) pairs are ignored via
-   INSERT OR IGNORE / ON CONFLICT DO NOTHING semantics (H2 and PostgreSQL).
+   Idempotent: one SELECT fetches the audience's existing user-ids, the
+   already-present ids are removed in memory, and only the missing ones are
+   inserted via chunked multi-row INSERTs — all inside a single transaction.
+   This keeps the SQL portable across H2 and PostgreSQL (no ON CONFLICT)
+   and avoids per-user round-trips.
 
    Args:
      datasource  - javax.sql.DataSource
@@ -198,26 +205,32 @@
       (when-not seg-uuid
         (throw (ex-info "Cannot save memberships: audience segment not found in DB"
                         {:type :audience-not-found :audience-id audience-id})))
-      (when seg-uuid
-        (jdbc/with-transaction [tx datasource]
-          (doseq [uid user-ids]
-            ;; Check-then-insert avoids PostgreSQL transaction abort on constraint
-            ;; violation and works on H2 without ON CONFLICT support.
-            (let [exists? (jdbc/execute-one!
-                           tx
-                           (sql/format {:select [[1 :one]]
-                                        :from   [:audience_memberships]
-                                        :where  [:and
-                                                 [:= :audience_id seg-uuid]
-                                                 [:= :user_id uid]]})
-                           {:builder-fn rs/as-unqualified-lower-maps})]
-              (when-not exists?
-                (jdbc/execute-one!
-                 tx
-                 (sql/format {:insert-into :audience_memberships
-                              :values      [{:audience_id seg-uuid
-                                             :user_id     uid}]})
-                 {:builder-fn rs/as-unqualified-lower-maps})))))))))
+      (jdbc/with-transaction [tx datasource]
+        (let [existing (into #{}
+                             (map (fn [row]
+                                    (let [uid (:user_id row)]
+                                      (if (instance? UUID uid)
+                                        uid
+                                        (UUID/fromString (str uid))))))
+                             (jdbc/execute!
+                              tx
+                              (sql/format {:select [:user_id]
+                                           :from   [:audience_memberships]
+                                           :where  [:= :audience_id seg-uuid]})
+                              {:builder-fn rs/as-unqualified-lower-maps}))
+              ;; `set` dedupes the input (callers may pass any collection —
+              ;; often already a set) without `distinct`, which chokes on
+              ;; sets under Clojure 1.12.
+              missing  (remove existing (set user-ids))]
+          (doseq [chunk (partition-all membership-insert-chunk-size missing)]
+            (jdbc/execute-one!
+             tx
+             (sql/format {:insert-into :audience_memberships
+                          :values      (mapv (fn [uid]
+                                               {:audience_id seg-uuid
+                                                :user_id     uid})
+                                             chunk)})
+             {:builder-fn rs/as-unqualified-lower-maps})))))))
 
 (defn get-memberships
   "Return all user UUIDs that are members of the given audience.
