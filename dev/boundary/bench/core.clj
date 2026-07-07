@@ -174,6 +174,8 @@
   (run-interceptor)
   (println "\n========== Done =========="))
 
-(defn -main [& _args]
-  (run-all)
+(defn -main [& args]
+  (if (= (first args) "hotpaths")
+    ((requiring-resolve 'boundary.bench.hotpaths/run-all))
+    (run-all))
   (shutdown-agents))

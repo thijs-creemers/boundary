@@ -15,6 +15,9 @@
   []
   (Instant/now))
 
+(def ^:private create-tenant-request-validator (m/validator tenant-schema/CreateTenantRequest))
+(def ^:private create-tenant-request-explainer (m/explainer tenant-schema/CreateTenantRequest))
+
 (defrecord TenantService [tenant-repository validation-config logger metrics-emitter error-reporter]
 
   ports/ITenantService
@@ -65,10 +68,10 @@
      {:tenant-input tenant-input}
      (fn [{:keys [params]}]
        (let [tenant-input (:tenant-input params)]
-         (when-not (m/validate tenant-schema/CreateTenantRequest tenant-input)
+         (when-not (create-tenant-request-validator tenant-input)
            (throw (ex-info "Invalid tenant data"
                            {:type :validation-error
-                            :errors (m/explain tenant-schema/CreateTenantRequest tenant-input)})))
+                            :errors (create-tenant-request-explainer tenant-input)})))
 
          (let [existing-slugs (set (map :slug (.find-all-tenants tenant-repository {:limit 10000})))
                decision (tenant-core/create-tenant-decision (:slug tenant-input) existing-slugs)]

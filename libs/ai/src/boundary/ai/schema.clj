@@ -73,12 +73,15 @@
 ;; Validation helpers
 ;; =============================================================================
 
+(def ^:private message-validator (m/validator Message))
+(def ^:private ai-response-validator (m/validator AIResponse))
+
 (defn valid-message?
   "Returns true if the given map satisfies the Message schema."
   [msg]
-  (m/validate Message msg))
+  (message-validator msg))
 
 (defn valid-ai-response?
   "Returns true if the given map satisfies the AIResponse schema."
   [resp]
-  (m/validate AIResponse resp))
+  (ai-response-validator resp))

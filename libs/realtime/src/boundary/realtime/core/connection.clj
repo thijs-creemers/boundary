@@ -207,28 +207,31 @@
 
 ;; Connection Validation (Pure)
 
+(def ^:private connection-validator (m/validator schema/Connection))
+(def ^:private connection-explainer (m/explainer schema/Connection))
+
 (defn valid-connection?
   "Validate connection against schema.
-  
+
   Pure function - no side effects.
-  
+
   Args:
     connection - Connection record
-  
+
   Returns:
     Boolean - true if valid"
   [connection]
-  (m/validate schema/Connection connection))
+  (connection-validator connection))
 
 (defn explain-connection
   "Explain why connection is invalid.
-  
+
   Pure function - returns validation errors.
-  
+
   Args:
     connection - Connection record
-  
+
   Returns:
     Malli explanation or nil if valid"
   [connection]
-  (m/explain schema/Connection connection))
+  (connection-explainer connection))

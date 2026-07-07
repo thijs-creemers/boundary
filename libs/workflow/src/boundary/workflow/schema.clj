@@ -142,22 +142,27 @@
 ;; Validation helpers
 ;; =============================================================================
 
+(def ^:private workflow-definition-validator (m/validator WorkflowDefinition))
+(def ^:private workflow-definition-explainer (m/explainer WorkflowDefinition))
+(def ^:private workflow-instance-validator (m/validator WorkflowInstance))
+(def ^:private audit-entry-validator (m/validator AuditEntry))
+
 (defn valid-workflow-definition?
   "Returns true when the given map is a valid WorkflowDefinition."
   [def]
-  (m/validate WorkflowDefinition def))
+  (workflow-definition-validator def))
 
 (defn valid-workflow-instance?
   "Returns true when the given map is a valid WorkflowInstance."
   [instance]
-  (m/validate WorkflowInstance instance))
+  (workflow-instance-validator instance))
 
 (defn valid-audit-entry?
   "Returns true when the given map is a valid AuditEntry."
   [entry]
-  (m/validate AuditEntry entry))
+  (audit-entry-validator entry))
 
 (defn explain-workflow-definition
   "Returns human-readable validation errors for a WorkflowDefinition."
   [def]
-  (m/explain WorkflowDefinition def))
+  (workflow-definition-explainer def))

@@ -42,6 +42,7 @@
    - Reitit adapter translates :interceptors → :middleware with this runner"
   (:require [boundary.cache.ports :as cache-ports]
             [boundary.core.interceptor :as interceptor]
+            [boundary.observability.logging.ports :as log-ports]
             [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.errors.core :as error-reporting]
             [boundary.platform.core.csrf :as csrf]
@@ -50,6 +51,8 @@
             [clojure.string :as str])
   (:import [java.time Instant]
            [java.util UUID]))
+
+(set! *warn-on-reflection* true)
 
 ;; ==============================================================================
 ;; CSRF Token Helpers
@@ -251,12 +254,12 @@
   "Emit a diagnostic response for ex-info missing :type."
   [{:keys [exception request correlation-id system] :as ctx} ex-data]
   (when-let [logger (:logger system)]
-    (.warn logger
-           "Exception reached HTTP boundary without :type in ex-data"
-           {:exception-class (.getName (class exception))
-            :uri (:uri request)
-            :correlation-id correlation-id
-            :ex-data-keys (sort (keys ex-data))}))
+    (log-ports/warn logger
+                    "Exception reached HTTP boundary without :type in ex-data"
+                    {:exception-class (.getName (class exception))
+                     :uri (:uri request)
+                     :correlation-id correlation-id
+                     :ex-data-keys (sort (keys ex-data))}))
   (set-response ctx
                 {:status 500
                  :headers {"Content-Type" "application/json"
@@ -278,26 +281,26 @@
   {:name :http-request-logging
    :enter (fn [{:keys [request system correlation-id] :as ctx}]
             (when-let [logger (:logger system)]
-              (.info logger "HTTP request received"
-                     {:method (:request-method request)
-                      :uri (:uri request)
-                      :correlation-id correlation-id}))
+              (log-ports/info logger "HTTP request received"
+                              {:method (:request-method request)
+                               :uri (:uri request)
+                               :correlation-id correlation-id}))
             ctx)
    :leave (fn [{:keys [request response system correlation-id] :as ctx}]
             (when-let [logger (:logger system)]
-              (.info logger "HTTP request completed"
-                     {:method (:request-method request)
-                      :uri (:uri request)
-                      :status (:status response)
-                      :correlation-id correlation-id}))
+              (log-ports/info logger "HTTP request completed"
+                              {:method (:request-method request)
+                               :uri (:uri request)
+                               :status (:status response)
+                               :correlation-id correlation-id}))
             ctx)
    :error (fn [{:keys [request system correlation-id exception] :as ctx}]
             (when-let [logger (:logger system)]
-              (.error logger "HTTP request failed"
-                      {:method (:request-method request)
-                       :uri (:uri request)
-                       :error (.getMessage ^Throwable exception)
-                       :correlation-id correlation-id}))
+              (log-ports/error logger "HTTP request failed"
+                               {:method (:request-method request)
+                                :uri (:uri request)
+                                :error (.getMessage ^Throwable exception)
+                                :correlation-id correlation-id}))
             ctx)})
 
 (def http-request-metrics

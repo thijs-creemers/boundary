@@ -6,12 +6,15 @@
             [malli.core :as m]
             [ring.util.response :as resp]))
 
+(def ^:private device-info-explainer (m/explainer schema/DeviceInfo))
+(def ^:private callback-payload-explainer (m/explainer schema/CallbackPayload))
+
 (defn register-device-handler
   [{:keys [device-store]} request]
   (let [user-id (get-in request [:identity :user-id])
         body    (:body-params request)]
     (if-not (schema/valid-device-info? body)
-      (resp/bad-request {:errors (m/explain schema/DeviceInfo body)})
+      (resp/bad-request {:errors (device-info-explainer body)})
       (let [device (ports/register-device! device-store user-id body)]
         (-> (resp/created (str "/api/push/devices/" (:id device)) device)
             (resp/content-type "application/json"))))))
@@ -34,7 +37,7 @@
   (let [body (:body-params request)]
     (cond
       (not (schema/valid-callback? body))
-      (resp/bad-request {:errors (m/explain schema/CallbackPayload body)})
+      (resp/bad-request {:errors (callback-payload-explainer body)})
 
       (not (service/verify-callback-token
             callback-secret

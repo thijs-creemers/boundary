@@ -24,6 +24,12 @@
 ;; Helpers
 ;; =============================================================================
 
+(def ^:private dynamic-audience-definition-validator
+  (m/validator schema/DynamicAudienceDefinition))
+
+(def ^:private dynamic-audience-definition-explainer
+  (m/explainer schema/DynamicAudienceDefinition))
+
 (defn- parse-audience-id
   "Parse a path-param string into a keyword, or nil if it fails validation.
    Guards against keyword interning DoS by rejecting invalid patterns."
@@ -154,8 +160,8 @@
   (let [body       (get-in request [:parameters :body] {})
         definition (cond-> body
                      (:filtersData body) (assoc :filters (:filtersData body)))]
-    (if-not (m/validate schema/DynamicAudienceDefinition definition)
-      (let [explanation (m/explain schema/DynamicAudienceDefinition definition)]
+    (if-not (dynamic-audience-definition-validator definition)
+      (let [explanation (dynamic-audience-definition-explainer definition)]
         (log/warn "Invalid audience definition submitted" {:errors explanation})
         (unprocessable-response "Invalid audience definition"
                                 {:errors (str explanation)}))
@@ -179,9 +185,9 @@
       (bad-request-response "Invalid audience id")
       (let [body       (get-in request [:parameters :body] {})
             definition (assoc body :id id)]
-        (if-not (m/validate schema/DynamicAudienceDefinition definition)
+        (if-not (dynamic-audience-definition-validator definition)
           (unprocessable-response "Invalid audience definition"
-                                  {:errors (str (m/explain schema/DynamicAudienceDefinition definition))})
+                                  {:errors (str (dynamic-audience-definition-explainer definition))})
           (try
             (log/info "Updating audience" {:id id})
             (let [updated (ports/save-audience store definition)]

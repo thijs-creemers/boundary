@@ -84,6 +84,9 @@
 ;; User Update Business Logic
 ;; =============================================================================
 
+(def ^:private user-validator (m/validator schema/User))
+(def ^:private user-explainer (m/explainer schema/User))
+
 (defn validate-user-update-request
   "Pure function: Validate user update request against business rules.
 
@@ -96,9 +99,9 @@
 
        Pure - schema validation only, no external dependencies."
   [user-entity]
-  (if (m/validate schema/User user-entity)
+  (if (user-validator user-entity)
     {:valid? true :data user-entity}
-    {:valid? false :errors (validation/format-schema-errors (m/explain schema/User user-entity))}))
+    {:valid? false :errors (validation/format-schema-errors (user-explainer user-entity))}))
 
 (defn calculate-user-changes
   "Pure function: Calculate what fields are being changed.

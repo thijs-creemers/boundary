@@ -10,6 +10,9 @@
 
 (defonce ^:private registry (atom {}))
 
+(def ^:private audience-definition-validator (m/validator schema/AudienceDefinition))
+(def ^:private audience-definition-explainer (m/explainer schema/AudienceDefinition))
+
 (defn register-audience!
   "Register an audience definition in the in-process registry.
 
@@ -22,9 +25,9 @@
    Returns:
      definition"
   [definition]
-  (when-not (m/validate schema/AudienceDefinition definition)
+  (when-not (audience-definition-validator definition)
     (throw (ex-info "Invalid audience definition"
-                    {:errors (m/explain schema/AudienceDefinition definition)
+                    {:errors (audience-definition-explainer definition)
                      :id     (:id definition)})))
   (let [id (:id definition)]
     (swap! registry assoc id definition)

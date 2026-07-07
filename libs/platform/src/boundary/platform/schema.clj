@@ -241,6 +241,14 @@
 ;; Helper Functions for Schema Validation
 ;; =============================================================================
 
+(def ^:private pagination-params-validator (m/validator PaginationParams))
+(def ^:private offset-pagination-params-validator (m/validator OffsetPaginationParams))
+(def ^:private cursor-pagination-params-validator (m/validator CursorPaginationParams))
+(def ^:private version-string-validator (m/validator VersionString))
+(def ^:private paginated-response-validator (m/validator PaginatedResponse))
+(def ^:private pagination-params-explainer (m/explainer PaginationParams))
+(def ^:private paginated-response-explainer (m/explainer PaginatedResponse))
+
 (defn valid-pagination-params?
   "Validate pagination parameters against schema.
    
@@ -250,7 +258,7 @@
    Returns:
      Boolean indicating validity"
   [params]
-  (m/validate PaginationParams params))
+  (pagination-params-validator params))
 
 (defn valid-offset-pagination-params?
   "Validate offset pagination parameters.
@@ -261,7 +269,7 @@
    Returns:
      Boolean indicating validity"
   [params]
-  (m/validate OffsetPaginationParams params))
+  (offset-pagination-params-validator params))
 
 (defn valid-cursor-pagination-params?
   "Validate cursor pagination parameters.
@@ -272,7 +280,7 @@
    Returns:
      Boolean indicating validity"
   [params]
-  (m/validate CursorPaginationParams params))
+  (cursor-pagination-params-validator params))
 
 (defn valid-version-string?
   "Validate version string format.
@@ -283,7 +291,7 @@
    Returns:
      Boolean indicating validity"
   [version-str]
-  (m/validate VersionString version-str))
+  (version-string-validator version-str))
 
 (defn valid-paginated-response?
   "Validate paginated response structure.
@@ -294,7 +302,7 @@
    Returns:
      Boolean indicating validity"
   [response]
-  (m/validate PaginatedResponse response))
+  (paginated-response-validator response))
 
 (defn explain-pagination-params
   "Get detailed validation errors for pagination parameters.
@@ -305,7 +313,7 @@
    Returns:
      Malli explanation map or nil if valid"
   [params]
-  (m/explain PaginationParams params))
+  (pagination-params-explainer params))
 
 (defn explain-paginated-response
   "Get detailed validation errors for paginated response.
@@ -316,7 +324,7 @@
    Returns:
      Malli explanation map or nil if valid"
   [response]
-  (m/explain PaginatedResponse response))
+  (paginated-response-explainer response))
 
 ;; =============================================================================
 ;; Schema Coercion Transformers

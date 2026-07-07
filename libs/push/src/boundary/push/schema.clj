@@ -91,7 +91,12 @@
    [:timestamp {:optional true} inst?]])
 
 ;; --- Validators ---
-(defn valid-push-definition? [d] (m/validate PushDefinition d))
-(defn explain-push-definition [d] (m/explain PushDefinition d))
-(defn valid-device-info? [d] (m/validate DeviceInfo d))
-(defn valid-callback? [d] (m/validate CallbackPayload d))
+(def ^:private push-definition-validator (m/validator PushDefinition))
+(def ^:private push-definition-explainer (m/explainer PushDefinition))
+(def ^:private device-info-validator (m/validator DeviceInfo))
+(def ^:private callback-payload-validator (m/validator CallbackPayload))
+
+(defn valid-push-definition? [d] (push-definition-validator d))
+(defn explain-push-definition [d] (push-definition-explainer d))
+(defn valid-device-info? [d] (device-info-validator d))
+(defn valid-callback? [d] (callback-payload-validator d))

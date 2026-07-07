@@ -73,37 +73,44 @@
 
 ;; Validation functions
 
+(def ^:private connection-validator (m/validator Connection))
+(def ^:private message-validator (m/validator Message))
+(def ^:private query-params-validator (m/validator QueryParams))
+(def ^:private jwt-claims-validator (m/validator JWTClaims))
+(def ^:private connection-explainer (m/explainer Connection))
+(def ^:private message-explainer (m/explainer Message))
+
 (defn valid-connection?
   "Check if connection data is valid."
   [connection]
-  (m/validate Connection connection))
+  (connection-validator connection))
 
 (defn valid-message?
   "Check if message data is valid."
   [message]
-  (m/validate Message message))
+  (message-validator message))
 
 (defn valid-query-params?
   "Check if query params are valid."
   [params]
-  (m/validate QueryParams params))
+  (query-params-validator params))
 
 (defn valid-jwt-claims?
   "Check if JWT claims are valid."
   [claims]
-  (m/validate JWTClaims claims))
+  (jwt-claims-validator claims))
 
 ;; Explain functions for better error messages
 
 (defn explain-connection
   "Explain why connection validation failed."
   [connection]
-  (m/explain Connection connection))
+  (connection-explainer connection))
 
 (defn explain-message
   "Explain why message validation failed."
   [message]
-  (m/explain Message message))
+  (message-explainer message))
 
 ;; Pub/Sub Schemas
 
@@ -131,28 +138,34 @@
 
 ;; Pub/Sub validation functions
 
+(def ^:private topic-validator (m/validator Topic))
+(def ^:private subscription-validator (m/validator Subscription))
+(def ^:private subscriptions-validator (m/validator Subscriptions))
+(def ^:private topic-explainer (m/explainer Topic))
+(def ^:private subscription-explainer (m/explainer Subscription))
+
 (defn valid-topic?
   "Check if topic name is valid."
   [topic]
-  (m/validate Topic topic))
+  (topic-validator topic))
 
 (defn valid-subscription?
   "Check if subscription is valid."
   [subscription]
-  (m/validate Subscription subscription))
+  (subscription-validator subscription))
 
 (defn valid-subscriptions?
   "Check if subscriptions data structure is valid."
   [subscriptions]
-  (m/validate Subscriptions subscriptions))
+  (subscriptions-validator subscriptions))
 
 (defn explain-topic
   "Explain why topic validation failed."
   [topic]
-  (m/explain Topic topic))
+  (topic-explainer topic))
 
 (defn explain-subscription
   "Explain why subscription validation failed."
   [subscription]
-  (m/explain Subscription subscription))
+  (subscription-explainer subscription))
 

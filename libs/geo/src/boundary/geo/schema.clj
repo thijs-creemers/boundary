@@ -62,17 +62,21 @@
 ;; Validation helpers
 ;; =============================================================================
 
+(def ^:private geo-point-validator (m/validator GeoPoint))
+(def ^:private address-query-validator (m/validator AddressQuery))
+(def ^:private geo-result-validator (m/validator GeoResult))
+
 (defn valid-geo-point?
   "Returns true if the given map satisfies GeoPoint schema."
   [point]
-  (m/validate GeoPoint point))
+  (geo-point-validator point))
 
 (defn valid-address-query?
   "Returns true if the given map satisfies AddressQuery schema."
   [query]
-  (m/validate AddressQuery query))
+  (address-query-validator query))
 
 (defn valid-geo-result?
   "Returns true if the given map satisfies GeoResult schema."
   [result]
-  (m/validate GeoResult result))
+  (geo-result-validator result))

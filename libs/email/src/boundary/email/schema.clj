@@ -25,7 +25,7 @@
   [:map
    [:filename [:string {:min 1}]]
    [:content-type [:string {:min 1}]]
-   [:content [:or :bytes :string]]  ; Binary data or base64 string
+   [:content [:or bytes? :string]]  ; Binary data or base64 string
    [:size {:optional true} [:int {:min 0}]]])
 
 ;; =============================================================================
@@ -92,17 +92,21 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private email-validator (m/validator Email))
+(def ^:private email-explainer (m/explainer Email))
+(def ^:private send-email-input-validator (m/validator SendEmailInput))
+
 (defn valid-email?
   "Validate email against schema."
   [email]
-  (m/validate Email email))
+  (email-validator email))
 
 (defn valid-email-input?
   "Validate email input against schema."
   [email-input]
-  (m/validate SendEmailInput email-input))
+  (send-email-input-validator email-input))
 
 (defn explain-email-errors
   "Get human-readable validation errors for email."
   [email]
-  (m/explain Email email))
+  (email-explainer email))

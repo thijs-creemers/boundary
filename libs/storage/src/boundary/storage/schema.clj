@@ -98,32 +98,39 @@
 ;; Validation Functions
 ;; ============================================================================
 
+(def ^:private file-data-validator (m/validator FileData))
+(def ^:private file-data-explainer (m/explainer FileData))
+(def ^:private file-metadata-validator (m/validator FileMetadata))
+(def ^:private storage-config-validator (m/validator StorageConfig))
+(def ^:private storage-config-explainer (m/explainer StorageConfig))
+(def ^:private image-dimensions-validator (m/validator ImageDimensions))
+
 (defn valid-file-data?
   "Check if file data conforms to FileData schema."
   [data]
-  (m/validate FileData data))
+  (file-data-validator data))
 
 (defn valid-file-metadata?
   "Check if metadata conforms to FileMetadata schema."
   [metadata]
-  (m/validate FileMetadata metadata))
+  (file-metadata-validator metadata))
 
 (defn valid-storage-config?
   "Check if config conforms to StorageConfig schema."
   [config]
-  (m/validate StorageConfig config))
+  (storage-config-validator config))
 
 (defn valid-image-dimensions?
   "Check if dimensions conform to ImageDimensions schema."
   [dimensions]
-  (m/validate ImageDimensions dimensions))
+  (image-dimensions-validator dimensions))
 
 (defn explain-file-data
   "Explain validation errors for file data."
   [data]
-  (m/explain FileData data))
+  (file-data-explainer data))
 
 (defn explain-storage-config
   "Explain validation errors for storage config."
   [config]
-  (m/explain StorageConfig config))
+  (storage-config-explainer config))

@@ -18,6 +18,9 @@
 ;; Authentication Business Rules
 ;; =============================================================================
 
+(def ^:private login-request-validator (m/validator schema/LoginRequest))
+(def ^:private login-request-explainer (m/explainer schema/LoginRequest))
+
 (defn validate-login-credentials
   "Pure function: Validate login request format and basic requirements.
    
@@ -30,10 +33,10 @@
      
    Pure - schema and format validation only."
   [login-data]
-  (if (m/validate schema/LoginRequest login-data)
+  (if (login-request-validator login-data)
     {:valid? true :data login-data}
     {:valid? false
-     :errors (m/explain schema/LoginRequest login-data)}))
+     :errors (login-request-explainer login-data)}))
 
 (defn should-allow-login-attempt?
   "Pure function: Determine if login attempt should be allowed based on account state.

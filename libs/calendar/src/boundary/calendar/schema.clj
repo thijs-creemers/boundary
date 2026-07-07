@@ -70,17 +70,21 @@
 ;; Additional validation helpers
 ;; =============================================================================
 
+(def ^:private event-data-validator (m/validator EventData))
+(def ^:private event-data-explainer (m/explainer EventData))
+(def ^:private event-def-validator (m/validator EventDef))
+
 (defn valid-event?
   "Returns true if the given map satisfies EventData schema."
   [event]
-  (m/validate EventData event))
+  (event-data-validator event))
 
 (defn explain-event
   "Returns human-readable validation errors for an event map."
   [event]
-  (m/explain EventData event))
+  (event-data-explainer event))
 
 (defn valid-event-def?
   "Returns true if the given map satisfies EventDef schema."
   [event-def]
-  (m/validate EventDef event-def))
+  (event-def-validator event-def))

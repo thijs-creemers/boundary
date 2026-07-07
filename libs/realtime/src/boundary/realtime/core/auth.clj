@@ -59,31 +59,34 @@
 
 ;; JWT Claims Validation (Pure)
 
+(def ^:private jwt-claims-validator (m/validator schema/JWTClaims))
+(def ^:private jwt-claims-explainer (m/explainer schema/JWTClaims))
+
 (defn valid-jwt-claims?
   "Validate JWT claims against schema.
-  
+
   Pure function - no side effects.
-  
+
   Args:
     claims - JWT claims map
-  
+
   Returns:
     Boolean - true if valid"
   [claims]
-  (m/validate schema/JWTClaims claims))
+  (jwt-claims-validator claims))
 
 (defn explain-jwt-claims
   "Explain why JWT claims are invalid.
-  
+
   Pure function - returns validation errors.
-  
+
   Args:
     claims - JWT claims map
-  
+
   Returns:
     Malli explanation or nil if valid"
   [claims]
-  (m/explain schema/JWTClaims claims))
+  (jwt-claims-explainer claims))
 
 ;; Authorization Decisions (Pure)
 
@@ -216,19 +219,19 @@
          (token-expired? jwt-claims now-seconds))
     {:authorized? false
      :reason "Token expired"}
-    
+
     ;; Check required permissions (if specified)
     (and (:required-permissions config)
          (not (has-all-permissions? jwt-claims (:required-permissions config))))
     {:authorized? false
      :reason "Missing required permissions"}
-    
+
     ;; Check required roles (if specified)
     (and (:required-roles config)
          (not (has-any-role? jwt-claims (:required-roles config))))
     {:authorized? false
      :reason "Missing required role"}
-    
+
     ;; All checks passed
     :else
     {:authorized? true}))
@@ -253,10 +256,10 @@
   (or
    ;; Try parsed query params first
    (extract-token-from-query (:query-params request))
-   
+
    ;; Fall back to parsing query string
    (extract-token-from-query-string (:query-string request))
-   
+
    ;; Try Authorization header (Bearer token)
    (when-let [auth-header (get-in request [:headers "authorization"])]
      (when (str/starts-with? auth-header "Bearer ")

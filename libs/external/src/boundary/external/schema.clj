@@ -22,7 +22,7 @@
   [:map
    [:filename [:string {:min 1}]]
    [:content-type [:string {:min 1}]]
-   [:content [:or :bytes [:string {:min 1}]]]
+   [:content [:or bytes? [:string {:min 1}]]]
    [:size {:optional true} [:int {:min 0}]]])
 
 (def OutboundEmail
@@ -120,17 +120,21 @@
 ;; Validation Functions
 ;; =============================================================================
 
+(def ^:private smtp-config-validator (m/validator SmtpConfig))
+(def ^:private imap-config-validator (m/validator ImapConfig))
+(def ^:private twilio-config-validator (m/validator TwilioConfig))
+
 (defn valid-smtp-config?
   "Validate SMTP configuration against schema."
   [config]
-  (m/validate SmtpConfig config))
+  (smtp-config-validator config))
 
 (defn valid-imap-config?
   "Validate IMAP configuration against schema."
   [config]
-  (m/validate ImapConfig config))
+  (imap-config-validator config))
 
 (defn valid-twilio-config?
   "Validate Twilio configuration against schema."
   [config]
-  (m/validate TwilioConfig config))
+  (twilio-config-validator config))

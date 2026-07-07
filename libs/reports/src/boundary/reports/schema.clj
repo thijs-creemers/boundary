@@ -57,17 +57,21 @@
 ;; Validation helpers
 ;; =============================================================================
 
+(def ^:private report-definition-validator (m/validator ReportDefinition))
+(def ^:private report-definition-explainer (m/explainer ReportDefinition))
+(def ^:private report-output-validator (m/validator ReportOutput))
+
 (defn valid-report-def?
   "Returns true if the given map satisfies ReportDefinition schema."
   [report-def]
-  (m/validate ReportDefinition report-def))
+  (report-definition-validator report-def))
 
 (defn explain-report-def
   "Returns human-readable validation errors for a report definition."
   [report-def]
-  (m/explain ReportDefinition report-def))
+  (report-definition-explainer report-def))
 
 (defn valid-report-output?
   "Returns true if the given map satisfies ReportOutput schema."
   [output]
-  (m/validate ReportOutput output))
+  (report-output-validator output))
