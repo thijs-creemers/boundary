@@ -12,22 +12,34 @@ predicate pipeline.
 |===
 | Namespace | Purpose
 
-| `boundary.audience.core.segment`
-| Pure: segment records, `defaudience` macro, composition
+| `boundary.audience.core.audience`
+| Pure: segment definition registry and the `defaudience` macro
 
-| `boundary.audience.core.filters`
+| `boundary.audience.core.filter`
 | Pure: built-in filter types and the `filter->sql` / `filter->predicate` multimethods
 
-| `boundary.audience.core.evaluation`
-| Pure: hybrid SQL + predicate evaluation pipeline
+| `boundary.audience.core.compiler`
+| Pure: compile segments into SQL + predicate execution plans
+
+| `boundary.audience.core.composition`
+| Pure: AND/OR/NOT composition of segment result sets
+
+| `boundary.audience.core.ui`
+| Pure: Hiccup UI components for segments
 
 | `boundary.audience.ports`
-| Protocols: `IAudienceResolver`, `IAudienceRepository`, `IAudienceCache`
+| Protocols: `IAudienceResolver`, `IAudienceRepository`, `IAudienceCache`, `IUserDataSource`
 
 | `boundary.audience.shell.service`
 | Service orchestrating resolution, caching, and persistence
 
-| `boundary.audience.shell.handlers`
+| `boundary.audience.shell.persistence`
+| `IAudienceRepository` — DB persistence (next.jdbc + HoneySQL)
+
+| `boundary.audience.shell.cache`
+| `IAudienceCache` — DB-backed cache of evaluated results
+
+| `boundary.audience.shell.http`
 | REST + web endpoints (CRUD, preview, evaluate, members)
 |===
 

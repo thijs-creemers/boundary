@@ -15,8 +15,14 @@ service, with job-backed reliable delivery and delivery analytics.
 | `boundary.push.core.notification`
 | Pure: `defpush` macro, notification records, i18n locale maps
 
-| `boundary.push.core.errors`
-| Pure: error classification (retryable / permanent / token-invalid / rate-limited)
+| `boundary.push.core.delivery`
+| Pure: delivery planning + error classification (retryable / permanent / token-invalid)
+
+| `boundary.push.core.device`
+| Pure: device-token lifecycle logic (registration, rotation, deactivation)
+
+| `boundary.push.core.analytics`
+| Pure: delivery analytics aggregation
 
 | `boundary.push.ports`
 | Protocols: `IPushService`, `IFCMProvider`, `IAPNsProvider`
