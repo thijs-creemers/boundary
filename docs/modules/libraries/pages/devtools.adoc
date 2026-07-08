@@ -159,23 +159,23 @@ Steps: AI spec generation → confirm → scaffold → integrate → test.
 |===
 | Namespace | Layer | Responsibility
 
-| `boundary.devtools.core.error_classifier`
+| `boundary.devtools.core.error-classifier`
 | core
 | Exception → BND-xxx code mapping (5 strategies)
 
-| `boundary.devtools.core.error_enricher`
+| `boundary.devtools.core.error-enricher`
 | core
 | Adds stacktrace, suggestions, fix descriptor, URLs
 
-| `boundary.devtools.core.error_formatter`
+| `boundary.devtools.core.error-formatter`
 | core
 | Rich formatted output with BND code header
 
-| `boundary.devtools.core.auto_fix`
+| `boundary.devtools.core.auto-fix`
 | core
 | Pure fix descriptor registry
 
-| `boundary.devtools.core.error_codes`
+| `boundary.devtools.error-codes`
 | core
 | BND error catalog (BND-1xx through BND-6xx)
 
@@ -187,7 +187,7 @@ Steps: AI spec generation → confirm → scaffold → integrate → test.
 | core
 | Route table, config tree, module summary
 
-| `boundary.devtools.core.schema_tools`
+| `boundary.devtools.core.schema-tools`
 | core
 | Schema tree, diff, example generation
 
@@ -203,11 +203,11 @@ Steps: AI spec generation → confirm → scaffold → integrate → test.
 | core
 | Malli schema → scaffold spec conversion
 
-| `boundary.devtools.core.config_editor`
+| `boundary.devtools.core.config-editor`
 | core
 | Config redaction, formatting, diff
 
-| `boundary.devtools.core.security_analyzer`
+| `boundary.devtools.core.security-analyzer`
 | core
 | Security posture analysis
 
@@ -219,7 +219,7 @@ Steps: AI spec generation → confirm → scaffold → integrate → test.
 | shell
 | Integrant component, Reitit router for dashboard
 
-| `boundary.devtools.shell.http_error_middleware`
+| `boundary.devtools.shell.http-error-middleware`
 | shell
 | Dev error enrichment middleware
 |===

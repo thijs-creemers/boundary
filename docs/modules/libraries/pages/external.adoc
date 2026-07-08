@@ -10,31 +10,24 @@ NOTE: Stripe payments have moved to xref:payments.adoc[payments] library.
 
 [source]
 ----
-boundary.external.schema              — Malli schemas for all four adapters
+boundary.external.schema              — Malli schemas for all three adapters
 boundary.external.ports               — Protocols: ISmtpProvider, IImapMailbox,
-                                        IStripePayments, IStripeWebhooks, ITwilioMessaging
+                                        ITwilioMessaging
 boundary.external.core.smtp           — Pure SMTP helpers
 boundary.external.core.imap           — Pure IMAP helpers
-boundary.external.core.stripe         — Pure Stripe helpers (build params, verify signatures)
 boundary.external.core.twilio         — Pure Twilio helpers (build SMS/WhatsApp params)
 boundary.external.shell.adapters.smtp — SmtpProviderAdapter (javax.mail)
 boundary.external.shell.adapters.imap — ImapMailboxAdapter (javax.mail, UIDFolder)
-boundary.external.shell.adapters.stripe  — StripeAdapter (clj-http, form-encoded POSTs)
 boundary.external.shell.adapters.twilio  — TwilioAdapter (clj-http, Basic auth)
 ----
 
 == Enabling adapters
 
-All four adapters ship as `:inactive` in `config.edn`. Move to `:active` to enable:
+All three adapters ship as `:inactive` in `config.edn`. Move to `:active` to enable:
 
 [source,clojure]
 ----
 ;; In :active section of resources/conf/dev/config.edn
-
-:boundary.external/stripe
-{:api-key        #env STRIPE_API_KEY
- :webhook-secret #env STRIPE_WEBHOOK_SECRET
- :api-version    "2024-04-10"}
 
 :boundary.external/twilio
 {:account-sid #env TWILIO_ACCOUNT_SID
@@ -56,24 +49,12 @@ All four adapters ship as `:inactive` in `config.edn`. Move to `:active` to enab
  :ssl?     true}
 ----
 
-== Stripe payments
+== Twilio SMS / WhatsApp
 
 [source,clojure]
 ----
 (require '[boundary.external.ports :as ports])
 
-;; Create payment intent
-(ports/create-payment-intent stripe
-  {:amount 2999 :currency "eur" :customer-id "cus_123"})
-
-;; Verify webhook signature
-(ports/verify-webhook-signature stripe raw-body signature #env STRIPE_WEBHOOK_SECRET)
-----
-
-== Twilio SMS / WhatsApp
-
-[source,clojure]
-----
 ;; Send SMS
 (ports/send-sms twilio {:to "+31612345678" :body "Your code: 123456"})
 

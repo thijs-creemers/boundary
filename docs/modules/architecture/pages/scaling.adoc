@@ -116,7 +116,7 @@ the distributed adapter is "just configuration" once it exists.
 
 | Realtime / WebSocket
 | ✅ *
-| Replica-safe via `:provider :redis` (BOU-85, xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). Live sockets remain node-local; routing envelopes fan out over a Redis pub/sub channel so a broadcast reaches clients on any replica. Topic subscriptions are stored in Redis sets and are cluster-wide. *The default `:in-memory` provider is single-node only — use `:redis` for multi-replica deployments.
+| Replica-safe via `:provider :redis` (BOU-85, ADR-035). Live sockets remain node-local; routing envelopes fan out over a Redis pub/sub channel so a broadcast reaches clients on any replica. Topic subscriptions are stored in Redis sets and are cluster-wide. *The default `:in-memory` provider is single-node only — use `:redis` for multi-replica deployments.
 |===
 
 == Topologies
@@ -142,7 +142,7 @@ the distributed adapter is "just configuration" once it exists.
 * Enable rate limiting (`:boundary/http :rate-limit :enabled? true`) with an *active Redis cache* for a global limit across replicas; without a cache each instance counts independently (limit × N).
 * Keep `replicas × maximum-pool-size` under Postgres `max_connections`.
 * Confirm your load balancer points health probes at `/health/ready` (503-aware), not `/health/live`.
-* For WebSocket: use `:provider :redis` on `:boundary/realtime` to scale across replicas (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). Sticky sessions / single-node are only required with the default `:in-memory` provider.
+* For WebSocket: use `:provider :redis` on `:boundary/realtime` to scale across replicas (ADR-035). Sticky sessions / single-node are only required with the default `:in-memory` provider.
 * Add Redis (and, for testing N replicas, a load balancer) to your deployment — `docker-compose.yml` currently defines a single app service only.
 
 == Functional decomposition (slicing services out)
@@ -221,7 +221,7 @@ extracting *payments* as a standalone service, then tackle `user`. Don't attempt
 The architecture delivers the promise; these are the concrete pieces that make
 "scale by configuration" fully true. Tracked under the BOU-84 spike:
 
-. ✅ *Realtime Redis pub/sub adapter* — shipped in BOU-85 (xref:adr:ADR-035-realtime-redis-scaling.adoc[ADR-035]). WebSocket is now replica-safe via `:provider :redis` on `:boundary/realtime`.
+. ✅ *Realtime Redis pub/sub adapter* — shipped in BOU-85 (ADR-035). WebSocket is now replica-safe via `:provider :redis` on `:boundary/realtime`.
 . ✅ *Graceful connection draining* — shipped in BOU-86. Configurable shutdown grace (`:boundary/http :drain-timeout-ms`) lets rollouts finish in-flight requests; Jetty `GracefulHandler` + `setStopTimeout` wired in `wiring.clj`.
 . ✅ *Default rate-limit wiring* — shipped in BOU-87. Config-driven `http-rate-limit-protection` is in the default pipeline; enable via `:boundary/http :rate-limit` and it uses the Redis cache for a cross-replica limit (per-process fallback documented).
 . ✅ *Jobs hardening* — shipped in BOU-88. Missing-handler jobs are re-enqueued (bounded) instead of silently dead-lettered, an empty-registry worker warns at startup, and scheduled-job promotion is an atomic claim (`ZREM` / `swap-vals!`) so a due job runs exactly once across workers.
