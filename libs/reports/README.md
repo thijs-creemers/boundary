@@ -11,12 +11,12 @@ Report generation library for the Boundary Framework — produce PDF, Excel, and
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-reports {:mvn/version "1.0.1-alpha-39"}}}
+{:deps {org.boundary-app/boundary-reports {:mvn/version "1.0.1-alpha-40"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[org.boundary-app/boundary-reports "1.0.1-alpha-39"]
+[org.boundary-app/boundary-reports "1.0.1-alpha-40"]
 ```
 
 ## Features
