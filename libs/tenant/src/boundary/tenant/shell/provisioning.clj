@@ -457,6 +457,27 @@
 ;; Tenant Context Execution
 ;; =============================================================================
 
+(defn- rethrow-tenant-body-error!
+  "Classify an exception thrown by a `with-tenant-schema` body (ZZP-99).
+
+   A domain error deliberately thrown inside the body already carries a `:type`
+   that HTTP error-mapping layers switch on (`:not-found`, `:forbidden`,
+   `:validation-error`, `:conflict`, …). Rethrow such a typed `ex-info` UNWRAPPED
+   so tenant-scoped code surfaces the correct status instead of a generic 500.
+   Only a genuinely untyped exception (an infra failure) is wrapped as
+   `:tenant-context-error`, preserving the original as the cause. Always throws."
+  [e tenant-schema-name]
+  (if (and (instance? clojure.lang.ExceptionInfo e) (:type (ex-data e)))
+    (throw e)
+    (do
+      (log/error e "Error executing in tenant schema context"
+                 {:schema tenant-schema-name :error (.getMessage e)})
+      (throw (ex-info "Tenant context execution failed"
+                      {:type :tenant-context-error
+                       :schema-name tenant-schema-name
+                       :cause (.getMessage e)}
+                      e)))))
+
 (defn with-tenant-schema
   "Execute function f with database search_path set to tenant schema.
    
@@ -502,14 +523,7 @@
       (f tx)
 
       (catch Exception e
-        (log/error e "Error executing in tenant schema context"
-                   {:schema tenant-schema-name
-                    :error (.getMessage e)})
-        (throw (ex-info "Tenant context execution failed"
-                        {:type :tenant-context-error
-                         :schema-name tenant-schema-name
-                         :cause (.getMessage e)}
-                        e))))))
+        (rethrow-tenant-body-error! e tenant-schema-name)))))
 
 ;; =============================================================================
 ;; Tenant Schema Provider (Protocol Implementation)

@@ -646,3 +646,33 @@
       (fn []
         (is (= {:schemas-synced [] :tables []}
                (sut/sync-tenant-schemas! *test-ctx*)))))))
+
+;; =============================================================================
+;; with-tenant-schema error classification (ZZP-99)
+;; =============================================================================
+
+(deftest rethrow-tenant-body-error-preserves-domain-type-test
+  (let [classify #'sut/rethrow-tenant-body-error!]
+    (testing "a domain-typed ex-info is rethrown UNWRAPPED (its :type reaches the caller)"
+      (doseq [t [:not-found :forbidden :validation-error :conflict :unauthorized]]
+        (let [domain (ex-info "boom" {:type t :extra 1})
+              caught (try (classify domain "tenant_acme") nil
+                          (catch clojure.lang.ExceptionInfo e e))]
+          (is (identical? domain caught) "same exception instance, no wrapping")
+          (is (= t (:type (ex-data caught))))
+          (is (= 1 (:extra (ex-data caught)))))))
+
+    (testing "an untyped ex-info is wrapped as :tenant-context-error, original as cause"
+      (let [untyped (ex-info "db blew up" {:sqlstate "42P01"})
+            caught  (try (classify untyped "tenant_acme") nil
+                         (catch clojure.lang.ExceptionInfo e e))]
+        (is (= :tenant-context-error (:type (ex-data caught))))
+        (is (= "tenant_acme" (:schema-name (ex-data caught))))
+        (is (identical? untyped (.getCause caught)))))
+
+    (testing "a plain (non-ex-info) exception is wrapped as :tenant-context-error"
+      (let [raw    (RuntimeException. "connection reset")
+            caught (try (classify raw "tenant_acme") nil
+                        (catch clojure.lang.ExceptionInfo e e))]
+        (is (= :tenant-context-error (:type (ex-data caught))))
+        (is (identical? raw (.getCause caught)))))))
