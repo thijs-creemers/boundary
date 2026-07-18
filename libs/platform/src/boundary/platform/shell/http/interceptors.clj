@@ -710,8 +710,8 @@
                          (check-rate-limit-memory client-id limit window-ms))]
     (if (:allowed? rate-check)
       (assoc-in ctx [:attrs :rate-limit] rate-check)
-      ;; :halt? is required — run-pipeline does not short-circuit on :response
-      ;; alone, so without it the downstream ring-handler would overwrite the 429.
+      ;; Setting :response now halts the enter chain on its own (ZZP-117); :halt?
+      ;; is kept here as an explicit, self-documenting short-circuit.
       (-> ctx
           (assoc :halt? true)
           (set-response {:status  429

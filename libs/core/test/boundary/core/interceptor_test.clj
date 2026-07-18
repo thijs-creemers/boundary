@@ -119,6 +119,42 @@
       (is (= [[:enter :int1] [:enter :int2] [:leave :int2] [:leave :int1]]
              @shared-log)))))
 
+(deftest run-pipeline-halt-on-response-test
+  (testing "pipeline stops the enter chain when an interceptor sets :response
+            without :halt? (ZZP-117) — a short-circuiting guard is not bypassed"
+    (let [shared-log (atom [])
+          the-response {:status 401 :body "nope"}
+          interceptor1 {:name :int1
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :int1])
+                                 (assoc ctx :int1 :executed))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :int1])
+                                 ctx)}
+          ;; A guard that rejects by setting ONLY :response (the ZZP-117 pattern).
+          guard        {:name :guard
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :guard])
+                                 (assoc ctx :response the-response))
+                        :leave (fn [ctx]
+                                 (swap! shared-log conj [:leave :guard])
+                                 ctx)}
+          handler      {:name :handler
+                        :enter (fn [ctx]
+                                 (swap! shared-log conj [:enter :handler])
+                                 (assoc ctx :handler :executed))}
+          pipeline [interceptor1 guard handler]
+          result (ic/run-pipeline {:test true} pipeline)]
+
+      ;; The guard's response survives; the downstream handler never runs.
+      (is (= the-response (:response result)))
+      (is (nil? (:handler result)) "handler after a response must not execute")
+
+      ;; enter runs up to and including the guard, then leave in reverse for the
+      ;; interceptors that executed. The handler's :enter never fires.
+      (is (= [[:enter :int1] [:enter :guard] [:leave :guard] [:leave :int1]]
+             @shared-log)))))
+
 (deftest run-pipeline-exception-test
   (testing "pipeline handles exceptions with error phase"
     (let [interceptor1 (create-test-interceptor :int1 :enter true :leave true :error true)

@@ -46,12 +46,20 @@
   "Executes the :enter phase of interceptors in forward order.
    Returns [final-context executed-stack exception] where executed-stack contains
    interceptors that successfully executed their :enter function.
-   If an exception occurs, it returns [partial-context partial-executed-stack exception]."
+   If an exception occurs, it returns [partial-context partial-executed-stack exception].
+
+   Forward execution stops as soon as an interceptor either sets `:halt? true`
+   OR produces a `:response` (the standard interceptor semantics — a response
+   terminates the enter chain, mirroring Pedestal/Sieppari). This prevents a
+   short-circuiting guard (e.g. an auth interceptor that returns a 401/redirect
+   response) from being bypassed by a downstream interceptor or the wrapped
+   handler when it forgot to also set `:halt?` (ZZP-117). The :leave phase still
+   runs for the interceptors that already executed."
   [initial-ctx interceptors]
   (reduce
    (fn [[ctx executed exception] interceptor]
-     (if (or exception (:halt? ctx))
-       ;; Already halted or errored, just pass through
+     (if (or exception (:halt? ctx) (some? (:response ctx)))
+       ;; Already halted, produced a response, or errored — pass through.
        [ctx executed exception]
        (let [{:keys [name enter]} interceptor]
          (try
@@ -99,7 +107,9 @@
    3. If exception occurs, execute :error functions in reverse order
    
    Short-circuiting:
-   - Any interceptor can set :halt? true in context to stop forward execution
+   - An interceptor stops forward (:enter) execution by either setting :halt? true
+     OR producing a :response (a response terminates the enter chain). Use
+     halt-pipeline to do both at once.
    - :leave functions will still execute for already-executed interceptors"
   [initial-ctx interceptors]
   (let [[ctx executed-stack exception] (run-enter-phase initial-ctx interceptors)]
