@@ -2,6 +2,7 @@
   "Tests for HTTP-level user authentication/authorization interceptors."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest testing is]]
+            [boundary.core.interceptor :as ic]
             [boundary.user.shell.http-interceptors :as http-int]))
 
 ;; =============================================================================
@@ -58,6 +59,33 @@
           "Should have error type")
       (is (= "Authentication required" (get-in result [:response :body :message]))
           "Should have error message"))))
+
+(deftest require-authenticated-halts-pipeline-test
+  ;; ZZP-117: require-authenticated short-circuits by setting only :response.
+  ;; Run it through the real pipeline (guard then a would-be handler) and assert
+  ;; the handler never executes — the engine must halt on :response, so the 401
+  ;; is not overwritten by the downstream handler.
+  (testing "an unauthenticated request is rejected by the pipeline, handler skipped"
+    (let [handler-ran (atom false)
+          handler     {:name  :handler
+                       :enter (fn [ctx]
+                                (reset! handler-ran true)
+                                (assoc ctx :response {:status 200 :body "handler ran"}))}
+          ctx         (create-test-context {:session {}})
+          result      (ic/run-pipeline ctx [http-int/require-authenticated handler])]
+      (is (false? @handler-ran) "downstream handler must not run after a 401")
+      (is (= 401 (get-in result [:response :status])) "the guard's 401 survives")))
+
+  (testing "an authenticated request passes the guard and reaches the handler"
+    (let [handler-ran (atom false)
+          handler     {:name  :handler
+                       :enter (fn [ctx]
+                                (reset! handler-ran true)
+                                (assoc ctx :response {:status 200 :body "ok"}))}
+          ctx         (create-test-context {:session {:user {:id "u1" :role "user"}}})
+          result      (ic/run-pipeline ctx [http-int/require-authenticated handler])]
+      (is (true? @handler-ran) "handler runs when authenticated")
+      (is (= 200 (get-in result [:response :status]))))))
 
 ;; =============================================================================
 ;; Authorization Interceptor Tests
