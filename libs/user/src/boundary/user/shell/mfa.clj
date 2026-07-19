@@ -10,6 +10,7 @@
    All I/O and side effects happen here. Pure business logic
    is delegated to boundary.user.core.mfa."
   (:require [boundary.user.core.mfa :as mfa-core]
+            [boundary.user.shell.mfa-crypto :as mfa-crypto]
             [one-time.core :as otp]
             [clojure.string :as str]
             [clojure.tools.logging :as log])
@@ -213,10 +214,14 @@
         (if (:can-enable? can-enable)
           ;; Verify the code before enabling
           (if (verify-totp-code verification-code secret)
-            ;; Enable MFA
+            ;; Enable MFA. Backup codes are bcrypt-hashed for storage (the
+            ;; plaintext was shown to the user once at setup); the TOTP secret is
+            ;; stored plaintext in the entity and encrypted at the persistence
+            ;; boundary.
             (let [current-time (Instant/now)
+                  hashed-codes (mapv mfa-crypto/hash-backup-code backup-codes)
                   updates (mfa-core/prepare-mfa-enablement
-                           user secret backup-codes current-time)
+                           user secret hashed-codes current-time)
                   updated-user (merge user updates)]
               (log/info "Updating user with MFA"
                         {:user-id (:id user)
@@ -263,6 +268,18 @@
         {:success? false
          :error (str "Failed to disable MFA: " (.getMessage e))}))))
 
+(defn- find-unused-backup-code-hash
+  "Return the stored bcrypt hash that the presented plaintext `code` matches and
+   that has not already been used, or nil. Constant-time per candidate."
+  [user code]
+  (let [hashes (or (:mfa-backup-codes user) [])
+        used   (set (or (:mfa-backup-codes-used user) []))]
+    (some (fn [h]
+            (when (and (not (contains? used h))
+                       (mfa-crypto/backup-code-matches? code h))
+              h))
+          hashes)))
+
 (defn verify-mfa-code
   "Verify MFA code for authentication.
    
@@ -282,17 +299,16 @@
     {:valid? true
      :used-backup-code? false}
 
-      ;; Try backup code
-    (mfa-core/is-valid-backup-code? code user)
-    (let [updates (mfa-core/mark-backup-code-used user code)]
+      ;; Try backup code — hash-verify the presented code against stored bcrypt
+      ;; hashes, excluding already-used ones. The matched hash (not the plaintext)
+      ;; is what gets recorded as used.
+    :else
+    (if-let [used-hash (find-unused-backup-code-hash user code)]
       {:valid? true
        :used-backup-code? true
-       :updates updates})
-
-      ;; Invalid code
-    :else
-    {:valid? false
-     :used-backup-code? false}))
+       :updates {:mfa-backup-codes-used (conj (vec (:mfa-backup-codes-used user)) used-hash)}}
+      {:valid? false
+       :used-backup-code? false})))
 
 (defn get-mfa-status
   "Get MFA status for a user.

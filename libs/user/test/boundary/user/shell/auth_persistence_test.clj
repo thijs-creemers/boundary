@@ -2,6 +2,7 @@
   "Unit tests for auth repository operations (auth_users table)."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.user.shell.auth-persistence :as auth-persistence]
+            [boundary.user.shell.mfa-crypto :as mfa-crypto]
             [boundary.platform.shell.adapters.database.h2.core :as h2]
             [next.jdbc :as jdbc]
             [next.jdbc.connection :as connection])
@@ -66,16 +67,16 @@
                      :mfa-enabled false
                      :failed-login-count 0}
           created (.create-auth-user repo auth-user)]
-      
+
       (is (some? (:id created)) "Should generate ID")
       (is (= "test@example.com" (:email created)))
       (is (some? (:created-at created)) "Should have created-at timestamp")
-      
+
       ;; Find by ID
       (let [found-by-id (.find-auth-user-by-id repo (:id created))]
         (is (some? found-by-id))
         (is (= (:email created) (:email found-by-id))))
-      
+
       ;; Find by email
       (let [found-by-email (.find-auth-user-by-email repo "test@example.com")]
         (is (some? found-by-email))
@@ -90,15 +91,15 @@
                      :mfa-enabled false
                      :failed-login-count 0}
           created (.create-auth-user repo auth-user)
-          
+
           ;; Update some fields
           updated-data (assoc created
                               :active false
                               :failed-login-count 3
                               :updated-at (Instant/now))]
-      
+
       (.update-auth-user repo updated-data)
-      
+
       (let [found (.find-auth-user-by-id repo (:id created))]
         (is (= false (:active found)))
         (is (= 3 (:failed-login-count found)))))))
@@ -112,22 +113,27 @@
                      :mfa-enabled false
                      :failed-login-count 0}
           created (.create-auth-user repo auth-user)
-          
+
           ;; Enable MFA
           mfa-secret "JBSWY3DPEHPK3PXP"
           backup-codes ["code1" "code2" "code3"]]
-      
+
       (.enable-mfa repo (:id created) mfa-secret backup-codes)
-      
+
       (let [found (.find-auth-user-by-id repo (:id created))]
         (is (= true (:mfa-enabled found)))
+        ;; secret is encrypted at rest and decrypted back on read
         (is (= mfa-secret (:mfa-secret found)))
-        (is (= backup-codes (:mfa-backup-codes found)))
+        ;; backup codes are stored bcrypt-hashed (not the plaintext), each hash
+        ;; verifying against its plaintext code
+        (is (not= backup-codes (:mfa-backup-codes found)))
+        (is (every? (fn [[code hash]] (mfa-crypto/backup-code-matches? code hash))
+                    (map vector backup-codes (:mfa-backup-codes found))))
         (is (some? (:mfa-enabled-at found))))
-      
+
       ;; Disable MFA
       (.disable-mfa repo (:id created))
-      
+
       (let [found (.find-auth-user-by-id repo (:id created))]
         (is (= false (:mfa-enabled found)))
         (is (nil? (:mfa-secret found)))))))
@@ -141,27 +147,27 @@
                      :mfa-enabled false
                      :failed-login-count 0}
           created (.create-auth-user repo auth-user)]
-      
+
       ;; Increment failed login count
       (let [result1 (.increment-failed-login repo (:id created))
             result2 (.increment-failed-login repo (:id created))]
         (is (= true result1) "First increment should succeed")
         (is (= true result2) "Second increment should succeed"))
-      
+
       (let [found (.find-auth-user-by-id repo (:id created))]
         (is (= 2 (:failed-login-count found)) "Failed login count should be 2"))
-      
+
       ;; Set lockout (just verify operation succeeds)
       (let [lockout-until (.plusSeconds (Instant/now) 900)
             result (.set-lockout repo (:id created) lockout-until)]
         (is (= true result) "Set lockout should succeed"))
-      
+
       ;; Clear lockout and reset failed logins
       (let [clear-result (.clear-lockout repo (:id created))
             reset-result (.reset-failed-login repo (:id created))]
         (is (= true clear-result) "Clear lockout should succeed")
         (is (= true reset-result) "Reset failed login should succeed"))
-      
+
       (let [found (.find-auth-user-by-id repo (:id created))]
         (is (= 0 (:failed-login-count found)) "Failed login count should be reset to 0")))))
 
@@ -175,11 +181,11 @@
                      :failed-login-count 0}
           created (.create-auth-user repo auth-user)
           user-id (:id created)]
-      
+
       ;; Soft delete
       (let [deleted? (.soft-delete-auth-user repo user-id)]
         (is (= true deleted?)))
-      
+
       ;; User should not be found (deleted_at is set)
       (let [found (.find-auth-user-by-id repo user-id)]
         (is (nil? found) "Soft-deleted users should not be returned by find methods")))))
