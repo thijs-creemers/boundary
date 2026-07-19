@@ -20,11 +20,29 @@
    - Provisioning is idempotent (safe to call multiple times)
    - Does not copy data from public schema (only structure)"
   (:require [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.config :as db-config]
             [boundary.platform.shell.adapters.database.postgresql.metadata :as pg-metadata]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
+            [boundary.tenant.core.tenant :as tenant-core]
             [boundary.tenant.ports :as ports]
+            [boundary.tenant.shell.tenant-migrations :as tenant-migrations]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
+
+;; =============================================================================
+;; DDL safety
+;; =============================================================================
+
+(defn- assert-safe-schema-name!
+  "Guard the DDL boundary: schema names are interpolated into DDL (they cannot
+   be parameterized), so reject anything that is not a well-formed tenant schema
+   identifier before it reaches a statement string."
+  [schema-name]
+  (when-not (tenant-core/valid-schema-name? schema-name)
+    (throw (ex-info "Unsafe tenant schema name"
+                    {:type :validation-error
+                     :field :schema-name
+                     :schema-name schema-name}))))
 
 ;; =============================================================================
 ;; Schema Structure Introspection
@@ -150,6 +168,7 @@
    Throws:
      Exception if schema creation fails"
   [ctx schema-name]
+  (assert-safe-schema-name! schema-name)
   (when-not (schema-exists? ctx schema-name)
     (log/info "Creating tenant schema" {:schema schema-name})
     (db/execute-ddl! ctx (str "CREATE SCHEMA " schema-name)))
@@ -169,28 +188,19 @@
    Throws:
      Exception if table creation fails"
   [ctx table-name target-schema]
+  (assert-safe-schema-name! target-schema)
   (log/debug "Copying table structure" {:table table-name :target-schema target-schema})
   (let [ddl (get-table-ddl ctx table-name target-schema)]
     (db/execute-ddl! ctx ddl)))
 
-(defn- copy-schema-structure!
-  "Copy all table structures from public schema to tenant schema.
-   
-   Args:
-     ctx: Database context
-     target-schema: Target schema name (string)
-   
-   Returns:
-     Vector of copied table names
-   
-   Throws:
-     Exception if structure copy fails"
-  [ctx target-schema]
-  (let [tables (get-public-tables ctx)]
-    (log/info "Copying schema structure" {:target-schema target-schema :table-count (count tables)})
-    (doseq [table tables]
-      (copy-table-structure! ctx table target-schema))
-    tables))
+(defn- populate-tenant-schema!
+  "Build a freshly created tenant schema by running the tenant-scoped migration
+   set into it, so new tenants converge on the same migration path used to keep
+   existing tenants up to date. Replaces copying table structure from public,
+   which only ever copied whole tables and never picked up column/index deltas."
+  [schema-name]
+  (assert-safe-schema-name! schema-name)
+  (tenant-migrations/migrate-tenant! (db-config/get-active-db-config) schema-name))
 
 (defn- validate-provisioning
   "Validate that tenant schema was provisioned successfully.
@@ -283,6 +293,8 @@
                        :field :schema-name
                        :tenant-entity tenant-entity})))
 
+    (assert-safe-schema-name! schema-name)
+
     (when-not (postgresql-context? ctx)
       (log/warn "Tenant provisioning only supported for PostgreSQL, skipping"
                 {:dialect dialect :schema-name schema-name})
@@ -314,18 +326,19 @@
         ;; Create schema
         (create-schema! ctx schema-name)
 
-        ;; Copy structure
-        (let [tables (copy-schema-structure! ctx schema-name)
-              ;; Validate
-              validation (validate-provisioning ctx schema-name)]
+        ;; Build the schema by running the tenant-scoped migration set into it
+        (populate-tenant-schema! schema-name)
+
+        ;; Validate
+        (let [validation (validate-provisioning ctx schema-name)]
           (if (:valid? validation)
             (do
               (log/info "Tenant provisioning completed successfully"
                         {:schema-name schema-name
-                         :table-count (count tables)})
+                         :table-count (:table-count validation)})
               {:success? true
                :schema-name schema-name
-               :table-count (count tables)
+               :table-count (:table-count validation)
                :message "Tenant schema provisioned successfully"})
             (throw (ex-info "Tenant provisioning validation failed"
                             {:type :provisioning-error
@@ -430,6 +443,8 @@
                        :field :schema-name
                        :tenant-entity tenant-entity})))
 
+    (assert-safe-schema-name! schema-name)
+
     (if-not (schema-exists? ctx schema-name)
       {:success? true
        :schema-name schema-name
@@ -504,6 +519,7 @@
      - Falls back to public schema if error
      - Schema must exist before calling this function"
   [ctx tenant-schema-name f]
+  (assert-safe-schema-name! tenant-schema-name)
   (when-not (postgresql-context? ctx)
     (throw (ex-info "Tenant schema context only supported for PostgreSQL"
                     {:type :unsupported-database

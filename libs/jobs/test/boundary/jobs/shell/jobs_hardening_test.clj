@@ -141,7 +141,7 @@
             total-moved  (reduce + moved-counts)
             ;; Drain the execution queue and collect promoted ids.
             drained      (loop [acc []]
-                           (if-let [j (ports/dequeue-job! queue :default)]
+                           (if-let [j (ports/dequeue-job! queue :default "test-worker")]
                              (recur (conj acc (:id j)))
                              acc))]
         (is (= n-jobs total-moved)

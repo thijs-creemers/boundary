@@ -12,6 +12,7 @@
  {  ;; Core application settings (always active)
   :boundary/settings
   {:name              "boundary-test"
+   :secure-cookies?   false  ;; test over HTTP
    :version           "0.1.0"
    :date-format       "yyyy-MM-dd"
    :date-time-format  "yyyy-MM-dd HH:mm:ss"

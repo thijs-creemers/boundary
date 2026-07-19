@@ -40,14 +40,36 @@
     Returns:
       Job ID (UUID)")
 
-  (dequeue-job! [this queue-name]
-    "Dequeue the next job from queue.
+  (dequeue-job! [this queue-name worker-id]
+    "Reliably dequeue the next job from queue for a worker.
+
+    Atomically moves the job into a per-worker in-flight (processing) list so a
+    worker that crashes mid-job does not lose it — the job stays in the
+    processing list until acked (see ack-job!) or reclaimed (see
+    reclaim-abandoned-jobs!).
 
     Args:
       queue-name - Queue name
+      worker-id  - Id of the worker taking the job (owns the processing list)
 
     Returns:
       Job map or nil if queue is empty")
+
+  (ack-job! [this queue-name worker-id job-id]
+    "Acknowledge that a worker has finished with a dequeued job (completed,
+    re-enqueued for retry, or dead-lettered), removing it from the worker's
+    in-flight processing list. Must be called for every dequeued job.
+
+    Returns:
+      true")
+
+  (reclaim-abandoned-jobs! [this queue-name]
+    "Return jobs stranded in the processing lists of dead workers back to the
+    ready queue so they are re-executed (at-least-once). A worker is considered
+    dead when its heartbeat has expired. Safe and cheap to call periodically.
+
+    Returns:
+      {:reclaimed <count>}")
 
   (peek-job [this queue-name]
     "Peek at next job without removing it.
