@@ -211,6 +211,24 @@ jobs:
         run: bb check:placeholder-tests
 
   # =============================================================================
+  # Deftest metadata placement (Babashka — fast, no JVM)
+  # =============================================================================
+  check-test-meta:
+    name: Deftest Metadata Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Babashka
+        uses: DeLaGuardo/setup-clojure@13.6.1
+        with:
+          bb: latest
+
+      - name: Check deftest metadata placement
+        run: bb check:test-meta
+
+  # =============================================================================
   # Dependency direction linting (Babashka — fast, no JVM)
   # =============================================================================
   check-deps:
@@ -826,7 +844,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-deps, check-ports, check-hygiene, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai, test-mcp, test-boundary-cli]
+    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-test-meta, check-deps, check-ports, check-hygiene, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai, test-mcp, test-boundary-cli]
 
     steps:
       - name: Summary
@@ -863,6 +881,7 @@ jobs:
           echo "  - i18n:scan (no unexternalised strings)"
           echo "  - check:fcis (no FC/IS boundary violations)"
           echo "  - check:placeholder-tests (no placeholder assertions)"
+          echo "  - check:test-meta (deftest metadata placed correctly)"
           echo "  - check:deps (no dependency direction violations)"
           echo "  - check:ports (no hexagonal boundary violations)"
           echo "  - check:hygiene (no tracked backup/cruft files)"

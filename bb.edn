@@ -90,6 +90,8 @@
               :task (check-fcis/-main)}
   check:placeholder-tests {:doc "Detect placeholder (is true) assertions in test files (bb check:placeholder-tests)"
                            :task (check-tests/-main)}
+  check:test-meta {:doc "Detect deftest metadata placed after the name (breaks --focus-meta) (bb check:test-meta)"
+                   :task (check-tests/check-deftest-metadata)}
   check:deps {:doc "Verify library dependency direction and detect cycles (bb check:deps)"
               :task (check-deps/-main)}
   check:ports {:doc "Hexagonal boundary enforcement — modules must define ports.clj; shell/web must not bypass protocols (bb check:ports)"
@@ -103,6 +105,7 @@
                                  'boundary.tools.integrate-test
                                  'boundary.tools.setup-test
                                  'boundary.tools.check-fcis-test
+                                 'boundary.tools.check-tests-test
                                  'boundary.tools.check-ports-test
                                  'boundary.tools.check-test
                                  'boundary.tools.quickstart-test
@@ -114,6 +117,7 @@
                                        'boundary.tools.integrate-test
                                        'boundary.tools.setup-test
                                        'boundary.tools.check-fcis-test
+                                       'boundary.tools.check-tests-test
                                        'boundary.tools.check-ports-test
                                        'boundary.tools.check-test
                                        'boundary.tools.quickstart-test
