@@ -1,4 +1,7 @@
-(ns boundary.core.validation.behavior
+;; ^:boundary/allow-throw — validation-testing DSL; the throws guard against
+;; misuse of the test API (malformed scenarios), which is intentional developer
+;; tooling behaviour, not runtime business logic.
+(ns ^:boundary/allow-throw boundary.core.validation.behavior
   "Behavior Specification DSL for validation testing.
 
   Data-first DSL for declarative validation testing with reusable scenarios.

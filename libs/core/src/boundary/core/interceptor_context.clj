@@ -1,4 +1,6 @@
-(ns boundary.core.interceptor-context
+;; ^:boundary/allow-throw — a construction-time guard for the interceptor
+;; context schema (part of the pipeline engine, see boundary.core.interceptor).
+(ns ^:boundary/allow-throw boundary.core.interceptor-context
   "Context schema and validation for interceptor pipelines.
 
    Defines the structure and validation rules for the context map that flows
