@@ -144,13 +144,14 @@
       (is (= "Internal Server Error" (:detail problem-body)))
       (is (nil? (:errorContext problem-body)))))
 
-  (testing "handles exception with custom status"
+  (testing "untyped exception with a :status key is still a generic 500"
     (let [exception (create-test-exception :message "Not found"
                                            :data {:status 404})
           context {:user-id "test-user"}
           problem-body (pd/exception->problem-body exception nil nil {} context)]
 
-      ;; Untyped ex-data (even with a :status key) is still a generic 500.
+      ;; A bare :status key in ex-data does NOT set the HTTP status — only a
+      ;; recognised :type via error-mappings does. Untyped => generic 500.
       (is (= 500 (:status problem-body)))
       (is (= "Internal Server Error" (:detail problem-body)))
       (is (= "test-user" (get-in problem-body [:errorContext :user-id])))

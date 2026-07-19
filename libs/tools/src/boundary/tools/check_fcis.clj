@@ -127,15 +127,15 @@
 ;; a code-generator emitting a `(throw ...)` template — are ignored.
 ;; ---------------------------------------------------------------------------
 
-(def ^:private throw-pattern
-  "A (throw ...) call in a core namespace body."
-  #"\(\s*throw\b")
-
 (def ^:private symbol-tail
   "Negative lookahead marking the end of a Clojure symbol. A plain \\b fails
    after `!` (both `!` and the following space are non-word characters, so
    there is no word boundary between them), so match the delimiter explicitly."
   "(?![\\w!?*+'-])")
+
+(def ^:private throw-pattern
+  "A (throw ...) call in a core namespace body."
+  (re-pattern (str "\\(\\s*throw" symbol-tail)))
 
 (def ^:private mutable-state-patterns
   "Mutable-state constructs keyed by the label reported in the violation.
