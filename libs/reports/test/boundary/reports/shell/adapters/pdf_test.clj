@@ -48,8 +48,7 @@
 ;; Tests
 ;; =============================================================================
 
-(deftest pdf-magic-bytes-template-test
-  ^:integration
+(deftest ^:integration pdf-magic-bytes-template-test
   (testing "template-based report produces valid PDF bytes"
     (let [gen    (sut/create-pdf-generator)
           result (ports/generate! gen sample-template-report sample-data {})]
@@ -61,8 +60,7 @@
       (is (= (int \D) (aget ^bytes (:bytes result) 2)))
       (is (= (int \F) (aget ^bytes (:bytes result) 3))))))
 
-(deftest pdf-filename-default-test
-  ^:integration
+(deftest ^:integration pdf-filename-default-test
   (testing "filename defaults to <id>.pdf when not specified"
     (let [gen    (sut/create-pdf-generator)
           defn   {:id :my-report :type :pdf :template (fn [_] [:html [:body [:p "hi"]]])}
@@ -73,8 +71,7 @@
           result (ports/generate! gen sample-template-report sample-data {})]
       (is (= "test-output.pdf" (:filename result))))))
 
-(deftest pdf-sections-based-test
-  ^:integration
+(deftest ^:integration pdf-sections-based-test
   (testing "sections-based report produces valid PDF bytes"
     (let [gen    (sut/create-pdf-generator)
           result (ports/generate! gen sample-sections-report sample-data {})]
@@ -87,8 +84,7 @@
   (testing "supported-type? returns false for :excel"
     (is (not (ports/supported-type? (sut/create-pdf-generator) :excel)))))
 
-(deftest pdf-type-in-output-test
-  ^:integration
+(deftest ^:integration pdf-type-in-output-test
   (testing ":type is :pdf in output"
     (let [gen    (sut/create-pdf-generator)
           result (ports/generate! gen sample-template-report sample-data {})]

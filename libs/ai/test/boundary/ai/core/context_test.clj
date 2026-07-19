@@ -3,8 +3,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest extract-module-names-test
-  ^:unit
+(deftest ^:unit extract-module-names-test
   (testing "extracts basenames from paths"
     (is (= ["core" "user"] (ctx/extract-module-names ["libs/core" "libs/user"]))))
 
@@ -17,8 +16,7 @@
   (testing "returns empty seq for empty input"
     (is (= [] (ctx/extract-module-names [])))))
 
-(deftest extract-file-references-test
-  ^:unit
+(deftest ^:unit extract-file-references-test
   (testing "extracts file:line refs from stack traces"
     (let [trace "at boundary.user.core.validation/validate (validation.clj:42)\n   at boundary.user.shell.service/create-user! (service.clj:15)"
           refs  (ctx/extract-file-references trace)]
@@ -32,8 +30,7 @@
           refs  (ctx/extract-file-references trace)]
       (is (= 1 (count refs))))))
 
-(deftest summarise-stacktrace-test
-  ^:unit
+(deftest ^:unit summarise-stacktrace-test
   (testing "returns full trace when under limit"
     (let [trace "line1\nline2\nline3"]
       (is (= trace (ctx/summarise-stacktrace trace 10)))))
@@ -46,8 +43,7 @@
     (let [trace (str/join "\n" (repeat 200 "x"))]
       (is (= 60 (count (str/split-lines (ctx/summarise-stacktrace trace))))))))
 
-(deftest extract-public-function-names-test
-  ^:unit
+(deftest ^:unit extract-public-function-names-test
   (testing "extracts defn names"
     (let [src "(ns foo) (defn my-func [x] x) (defn other-fn [] nil)"]
       (is (= ["my-func" "other-fn"] (ctx/extract-public-function-names src)))))
@@ -56,8 +52,7 @@
     (let [src "(defn- private-fn [] nil) (defn public-fn [] nil)"]
       (is (= ["public-fn"] (ctx/extract-public-function-names src))))))
 
-(deftest determine-test-type-test
-  ^:unit
+(deftest ^:unit determine-test-type-test
   (testing "core/ paths become :unit"
     (is (= :unit (ctx/determine-test-type "libs/user/src/boundary/user/core/validation.clj"))))
 
@@ -67,8 +62,7 @@
   (testing "shell/ paths become :integration"
     (is (= :integration (ctx/determine-test-type "libs/user/src/boundary/user/shell/service.clj")))))
 
-(deftest derive-test-ns-test
-  ^:unit
+(deftest ^:unit derive-test-ns-test
   (testing "correctly derives test namespace"
     (is (= "boundary.user.core.validation-test"
            (ctx/derive-test-ns "libs/user/src/boundary/user/core/validation.clj"))))
@@ -77,8 +71,7 @@
     (is (= "boundary.user.shell.service-test"
            (ctx/derive-test-ns "libs/user/src/boundary/user/shell/service.clj")))))
 
-(deftest extract-schema-context-test
-  ^:unit
+(deftest ^:unit extract-schema-context-test
   (testing "extracts def names from schema files"
     (let [files {"schema.clj" "(def UserRecord ...) (def UserConfig ...)"}
           result (ctx/extract-schema-context files)]
@@ -88,8 +81,7 @@
   (testing "returns nil for empty input"
     (is (nil? (ctx/extract-schema-context {})))))
 
-(deftest truncate-source-test
-  ^:unit
+(deftest ^:unit truncate-source-test
   (testing "does not truncate short sources"
     (let [src "line1\nline2"]
       (is (= src (ctx/truncate-source src 150)))))

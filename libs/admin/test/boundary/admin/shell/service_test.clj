@@ -590,8 +590,7 @@
 
 (def ^:private resolve-query-config #'service/resolve-query-config)
 
-(deftest resolve-query-config-no-overrides-test
-  ^{:kaocha.testable/meta {:unit true :admin true}}
+(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-no-overrides-test
   (testing "Without query-overrides, returns table-name as from and [:*] as select"
     (let [config {:table-name :products}
           result (resolve-query-config config)]
@@ -600,8 +599,7 @@
       (is (nil? (:join-clause result)))
       (is (= {} (:field-aliases result))))))
 
-(deftest resolve-query-config-simple-overrides-test
-  ^{:kaocha.testable/meta {:unit true :admin true}}
+(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-simple-overrides-test
   (testing "With query-overrides but no split-table, uses overrides as-is"
     (let [config {:table-name :products
                   :query-overrides {:from [[:products :p]]
@@ -610,8 +608,7 @@
       (is (= [[:products :p]] (:from-clause result)))
       (is (= [:p.id :p.name] (:select-clause result))))))
 
-(deftest resolve-query-config-split-table-expands-select-test
-  ^{:kaocha.testable/meta {:unit true :admin true}}
+(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-split-table-expands-select-test
   (testing "Split-table config auto-expands SELECT for missing fields"
     (let [config {:table-name :auth-users
                   :split-table-update {:secondary-table :user-profiles
@@ -634,8 +631,7 @@
       (is (some #{:p.avatar_url} (:select-clause result))
           "Secondary field :avatar-url should use join table alias :p (snake_case in SQL)"))))
 
-(deftest resolve-query-config-split-table-no-duplicate-test
-  ^{:kaocha.testable/meta {:unit true :admin true}}
+(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-split-table-no-duplicate-test
   (testing "Fields already in explicit select are not duplicated"
     (let [config {:table-name :auth-users
                   :split-table-update {:secondary-table :user-profiles

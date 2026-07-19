@@ -54,8 +54,7 @@
 ;; explain-error tests
 ;; =============================================================================
 
-(deftest explain-error-test
-  ^:integration
+(deftest ^:integration explain-error-test
   (testing "returns AI response text on success"
     (let [service (ok-service "Root cause: nil pointer")
           result  (svc/explain-error service "ExceptionInfo: schema failed" ".")]
@@ -77,8 +76,7 @@
 ;; scaffold-from-description tests
 ;; =============================================================================
 
-(deftest scaffold-from-description-test
-  ^:integration
+(deftest ^:integration scaffold-from-description-test
   (testing "returns parsed module spec from provider JSON data"
     (let [service (ok-service "ignored")
           result  (svc/scaffold-from-description service "product module with name" ".")]
@@ -96,8 +94,7 @@
 ;; generate-tests tests
 ;; =============================================================================
 
-(deftest generate-tests-test
-  ^:integration
+(deftest ^:integration generate-tests-test
   (testing "returns error when source file does not exist"
     (let [service (ok-service "(deftest foo-test ...)")
           result  (svc/generate-tests service "/nonexistent/path/file.clj")]
@@ -115,8 +112,7 @@
 ;; sql-from-description tests
 ;; =============================================================================
 
-(deftest sql-from-description-test
-  ^:integration
+(deftest ^:integration sql-from-description-test
   (testing "returns parsed SQL result on success"
     (let [service (ok-service "{:select [:*] :from [:users]}")
           result  (svc/sql-from-description service "find all users" ".")]
@@ -127,8 +123,7 @@
 ;; generate-docs tests
 ;; =============================================================================
 
-(deftest generate-docs-test
-  ^:integration
+(deftest ^:integration generate-docs-test
   (testing "returns documentation text for :agents type"
     (let [service (ok-service "# Module Docs\n\n## Purpose\nDoes stuff.")
           result  (svc/generate-docs service "libs/core" :agents)]

@@ -28,8 +28,7 @@
 ;; export-ical
 ;; =============================================================================
 
-(deftest export-ical-basic-test
-  ^:integration
+(deftest ^:integration export-ical-basic-test
   (testing "exported string starts with VCALENDAR"
     (let [ical (service/export-ical [appointment])]
       (is (str/includes? ical "BEGIN:VCALENDAR"))
@@ -48,20 +47,17 @@
     (let [ical (service/export-ical [appointment])]
       (is (str/includes? ical "VERSION:2.0")))))
 
-(deftest export-ical-rrule-test
-  ^:integration
+(deftest ^:integration export-ical-rrule-test
   (testing "recurring event RRULE is included in export"
     (let [ical (service/export-ical [recurring-meeting])]
       (is (str/includes? ical "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR")))))
 
-(deftest export-ical-multi-event-test
-  ^:integration
+(deftest ^:integration export-ical-multi-event-test
   (testing "multi-event feed contains both VEVENTs"
     (let [ical (service/export-ical [appointment recurring-meeting])]
       (is (= 2 (count (re-seq #"BEGIN:VEVENT" ical)))))))
 
-(deftest export-ical-custom-prodid-test
-  ^:integration
+(deftest ^:integration export-ical-custom-prodid-test
   (testing "custom :product-id is used"
     (let [ical (service/export-ical [appointment] {:product-id "-//MyApp//EN"})]
       (is (str/includes? ical "-//MyApp//EN")))))
@@ -70,8 +66,7 @@
 ;; import-ical
 ;; =============================================================================
 
-(deftest import-ical-basic-test
-  ^:integration
+(deftest ^:integration import-ical-basic-test
   (testing "imported events have correct field count"
     (let [ical   (service/export-ical [appointment])
           events (service/import-ical ical)]
@@ -89,8 +84,7 @@
 ;; Round-trip
 ;; =============================================================================
 
-(deftest round-trip-non-recurring-test
-  ^:integration
+(deftest ^:integration round-trip-non-recurring-test
   (testing "non-recurring event round-trips with same title and UID"
     (let [ical       (service/export-ical [appointment])
           events     (service/import-ical ical)
@@ -99,16 +93,14 @@
       (is (= (java.util.UUID/fromString "550e8400-e29b-41d4-a716-446655440000")
              (:id ev))))))
 
-(deftest round-trip-rrule-test
-  ^:integration
+(deftest ^:integration round-trip-rrule-test
   (testing "RRULE survives round-trip"
     (let [ical   (service/export-ical [recurring-meeting])
           events (service/import-ical ical)
           ev     (first events)]
       (is (= "FREQ=WEEKLY;BYDAY=MO,WE,FR" (:recurrence ev))))))
 
-(deftest round-trip-multi-event-test
-  ^:integration
+(deftest ^:integration round-trip-multi-event-test
   (testing "multi-event round-trip preserves event count"
     (let [ical   (service/export-ical [appointment recurring-meeting])
           events (service/import-ical ical)]
@@ -118,8 +110,7 @@
 ;; ical-feed-response
 ;; =============================================================================
 
-(deftest ical-feed-response-test
-  ^:integration
+(deftest ^:integration ical-feed-response-test
   (testing "returns status 200"
     (let [resp (service/ical-feed-response [appointment])]
       (is (= 200 (:status resp)))))
@@ -143,8 +134,7 @@
 ;; Non-UUID UID handling
 ;; =============================================================================
 
-(deftest non-uuid-uid-import-test
-  ^:integration
+(deftest ^:integration non-uuid-uid-import-test
   (testing "importing iCal with non-UUID UID generates deterministic UUID"
     ;; Many calendar systems (Google, Outlook) use non-UUID UID strings
     (let [ical-with-text-uid "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:meeting-2026-03-10@example.com\nDTSTART:20260310T090000Z\nDTEND:20260310T093000Z\nSUMMARY:Meeting\nEND:VEVENT\nEND:VCALENDAR"
@@ -170,8 +160,7 @@
              (:id (first events)))
           "Valid UUID UID should be preserved exactly"))))
 
-(deftest malformed-ical-import-test
-  ^:integration
+(deftest ^:integration malformed-ical-import-test
   (testing "importing iCal with missing DTEND is valid (DTEND optional per RFC 5545)"
     ;; Missing DTEND - should not throw, DTEND is optional (DURATION can replace it)
     (let [ical-no-dtend "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:test-uid\nDTSTART:20260310T090000Z\nSUMMARY:Valid Event\nEND:VEVENT\nEND:VCALENDAR"
@@ -197,8 +186,7 @@
       (is (thrown? Exception (service/import-ical not-ical))
           "Non-iCal string should throw"))))
 
-(deftest rrule-validation-edge-cases-test
-  ^:integration
+(deftest ^:integration rrule-validation-edge-cases-test
   (testing "importing iCal with invalid RRULE syntax throws exception"
     ;; Invalid FREQ value
     (let [ical-bad-freq "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Test//Test//EN\nBEGIN:VEVENT\nUID:test-uid\nDTSTART:20260310T090000Z\nDTEND:20260310T093000Z\nSUMMARY:Bad RRULE\nRRULE:FREQ=INVALIDFREQ\nEND:VEVENT\nEND:VCALENDAR"]

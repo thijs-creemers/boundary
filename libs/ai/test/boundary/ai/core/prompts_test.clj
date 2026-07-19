@@ -3,8 +3,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest build-scaffolding-system-prompt-test
-  ^:unit
+(deftest ^:unit build-scaffolding-system-prompt-test
   (testing "system prompt contains FC/IS framework context"
     (let [prompt (prompts/build-scaffolding-system-prompt)]
       (is (string? prompt))
@@ -12,8 +11,7 @@
       (is (str/includes? prompt "kebab-case"))
       (is (str/includes? prompt "JSON")))))
 
-(deftest build-scaffolding-user-prompt-test
-  ^:unit
+(deftest ^:unit build-scaffolding-user-prompt-test
   (testing "user prompt includes description"
     (let [prompt (prompts/build-scaffolding-user-prompt "a product module" [])]
       (is (str/includes? prompt "product module"))))
@@ -27,16 +25,14 @@
     (let [prompt (prompts/build-scaffolding-user-prompt "product" [])]
       (is (not (str/includes? prompt "Existing modules"))))))
 
-(deftest scaffolding-messages-test
-  ^:unit
+(deftest ^:unit scaffolding-messages-test
   (testing "returns two messages with correct roles"
     (let [msgs (prompts/scaffolding-messages "product module" ["user"])]
       (is (= 2 (count msgs)))
       (is (= :system (:role (first msgs))))
       (is (= :user   (:role (second msgs)))))))
 
-(deftest error-explainer-messages-test
-  ^:unit
+(deftest ^:unit error-explainer-messages-test
   (testing "returns system + user messages"
     (let [msgs (prompts/error-explainer-messages "ExceptionInfo: ..." {})]
       (is (= 2 (count msgs)))
@@ -47,15 +43,13 @@
           msgs  (prompts/error-explainer-messages trace {})]
       (is (str/includes? (:content (second msgs)) trace)))))
 
-(deftest test-generator-messages-test
-  ^:unit
+(deftest ^:unit test-generator-messages-test
   (testing "includes source file path and type in user message"
     (let [msgs (prompts/test-generator-messages "libs/user/src/core/v.clj" "(ns foo)" :unit)]
       (is (str/includes? (:content (second msgs)) "libs/user/src/core/v.clj"))
       (is (str/includes? (:content (second msgs)) "unit")))))
 
-(deftest sql-copilot-messages-test
-  ^:unit
+(deftest ^:unit sql-copilot-messages-test
   (testing "description is included in user message"
     (let [msgs (prompts/sql-copilot-messages "find active users" nil)]
       (is (str/includes? (:content (second msgs)) "active users"))))
@@ -64,8 +58,7 @@
     (let [msgs (prompts/sql-copilot-messages "find users" "users: id, email")]
       (is (str/includes? (:content (second msgs)) "users: id, email")))))
 
-(deftest docs-messages-test
-  ^:unit
+(deftest ^:unit docs-messages-test
   (testing "agents type uses AGENTS.md prompt"
     (let [msgs (prompts/docs-messages "libs/user" {} :agents)]
       (is (str/includes? (:content (first msgs)) "AGENTS.md"))))
@@ -78,8 +71,7 @@
     (let [msgs (prompts/docs-messages "libs/user" {} :readme)]
       (is (str/includes? (:content (first msgs)) "README")))))
 
-(deftest build-docs-system-prompt-agents-ports-test
-  ^:unit
+(deftest ^:unit build-docs-system-prompt-agents-ports-test
   (testing "agents prompt instructs documenting the ports/protocols convention (BOU-80)"
     (let [prompt (prompts/build-docs-system-prompt :agents)]
       (is (str/includes? prompt "Ports & Protocols"))

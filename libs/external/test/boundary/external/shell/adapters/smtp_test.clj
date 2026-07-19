@@ -17,8 +17,7 @@
    :ssl? false
    :from "no-reply@example.com"})
 
-(deftest create-smtp-provider-test
-  ^:integration
+(deftest ^:integration create-smtp-provider-test
   (testing "returns a record satisfying ISmtpProvider"
     (let [provider (smtp/create-smtp-provider test-config)]
       (is (satisfies? ports/ISmtpProvider provider))
@@ -26,8 +25,7 @@
       (is (= 1025 (:port provider)))
       (is (= "no-reply@example.com" (:from provider))))))
 
-(deftest test-connection-unreachable-test
-  ^:integration
+(deftest ^:integration test-connection-unreachable-test
   (testing "test-connection! on unreachable host returns {:success? false}"
     (let [provider (smtp/create-smtp-provider test-config)
           result   (ports/test-connection! provider)]
@@ -35,8 +33,7 @@
       (is (some? (:error result)))
       (is (string? (get-in result [:error :message]))))))
 
-(deftest send-email-unreachable-test
-  ^:integration
+(deftest ^:integration send-email-unreachable-test
   (testing "send-email! on unreachable host returns {:success? false}"
     (let [provider (smtp/create-smtp-provider test-config)
           email    {:to      "dest@example.com"
@@ -56,16 +53,14 @@
 (defn- multipart-parts [^MimeMultipart mp]
   (mapv #(.getBodyPart mp %) (range (.getCount mp))))
 
-(deftest build-mime-message-plain-body-test
-  ^:unit
+(deftest ^:unit build-mime-message-plain-body-test
   (testing "no attachments, no html — msg content is a plain String (unchanged)"
     (let [email {:to "dest@example.com" :subject "Plain" :body "Hello"}
           msg   (#'smtp/build-mime-message (test-session) email "from@example.com")]
       (is (string? (.getContent msg)))
       (is (= "Hello" (.getContent msg))))))
 
-(deftest build-mime-message-html-body-test
-  ^:unit
+(deftest ^:unit build-mime-message-html-body-test
   (testing "html-body, no attachments — multipart/alternative (unchanged)"
     (let [email {:to "dest@example.com" :subject "HTML" :body "text" :html-body "<p>hi</p>"}
           msg   (#'smtp/build-mime-message (test-session) email "from@example.com")
@@ -73,8 +68,7 @@
       (is (instance? MimeMultipart content))
       (is (str/includes? (.getContentType content) "multipart/alternative")))))
 
-(deftest build-mime-message-attachment-test
-  ^:unit
+(deftest ^:unit build-mime-message-attachment-test
   (testing "attachments become an application/pdf part inside a mixed multipart"
     (let [pdf-bytes (.getBytes "%PDF-1.4 fake invoice" "UTF-8")
           email     {:to      "dest@example.com"
@@ -98,8 +92,7 @@
                (seq (.readAllBytes (.getInputStream pdf-part))))
             "attachment bytes round-trip intact")))))
 
-(deftest build-mime-message-html-and-attachment-test
-  ^:unit
+(deftest ^:unit build-mime-message-html-and-attachment-test
   (testing "html-body + attachment — mixed multipart with a nested alternative body part"
     (let [pdf-bytes (.getBytes "%PDF-1.4" "UTF-8")
           email     {:to      "dest@example.com"
@@ -122,8 +115,7 @@
         (is (str/starts-with? (.getContentType body-part) "multipart/alternative")
             "body part carries the text/html alternative")))))
 
-(deftest build-mime-message-base64-attachment-test
-  ^:unit
+(deftest ^:unit build-mime-message-base64-attachment-test
   (testing "attachment :content as a base64 string is decoded to the original bytes"
     (let [pdf-bytes (.getBytes "%PDF-1.4 base64" "UTF-8")
           b64       (.encodeToString (java.util.Base64/getEncoder) pdf-bytes)
@@ -140,8 +132,7 @@
       (is (= (seq pdf-bytes)
              (seq (.readAllBytes (.getInputStream pdf-part))))))))
 
-(deftest build-mime-message-message-id-test
-  ^:unit
+(deftest ^:unit build-mime-message-message-id-test
   (testing ":message-id sets a Message-ID header that survives saveChanges/send"
     (let [email {:to "dest@example.com" :subject "Invoice" :body "B" :message-id "inv-123"}
           ;; saveChanges is what Transport/send calls; it regenerates Message-ID
@@ -150,8 +141,7 @@
                   (.saveChanges))]
       (is (= "<inv-123>" (.getMessageID msg))))))
 
-(deftest build-mime-message-message-id-already-bracketed-test
-  ^:unit
+(deftest ^:unit build-mime-message-message-id-already-bracketed-test
   (testing "an already-bracketed :message-id is used verbatim"
     (let [email {:to "dest@example.com" :subject "Invoice" :body "B"
                  :message-id "<abc@boundary>"}
@@ -159,16 +149,14 @@
                   (.saveChanges))]
       (is (= "<abc@boundary>" (.getMessageID msg))))))
 
-(deftest build-mime-message-default-message-id-test
-  ^:unit
+(deftest ^:unit build-mime-message-default-message-id-test
   (testing "no :message-id -> javax.mail generates one (unchanged default)"
     (let [email {:to "dest@example.com" :subject "S" :body "B"}
           msg   (doto (#'smtp/build-mime-message (test-session) email "from@example.com")
                   (.saveChanges))]
       (is (some? (.getMessageID msg))))))
 
-(deftest send-email-async-test
-  ^:integration
+(deftest ^:integration send-email-async-test
   (testing "send-email-async! returns a future"
     (let [provider (smtp/create-smtp-provider test-config)
           email    {:to "dest@example.com" :subject "Async" :body "Hi"}

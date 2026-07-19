@@ -21,8 +21,7 @@
 ;; Multi-timezone rendering tests
 ;; =============================================================================
 
-(deftest month-view-multi-timezone-test
-  ^:unit
+(deftest ^:unit month-view-multi-timezone-test
   (testing "month-view displays events on correct day in their timezone"
     ;; Regression test for timezone bug: events should appear on the day
     ;; corresponding to their local time in the event's timezone, not UTC.
@@ -57,8 +56,7 @@
         (is (re-find #"Late Event" html-str)
             "Late-night event at 23:00 UTC should render in Amsterdam timezone (00:00 on next day)")))))
 
-(deftest events-on-date-timezone-test
-  ^:unit
+(deftest ^:unit events-on-date-timezone-test
   (testing "events-on-date respects event timezone"
     ;; Direct test of the helper function that was buggy
     (let [;; Event at 23:00 UTC on March 10 = 00:00+01:00 on March 11 in Amsterdam
@@ -80,8 +78,7 @@
                                             "Europe/Amsterdam")))
           "Event at 23:00 UTC should appear on March 11 in Amsterdam (00:00+01:00 locally)"))))
 
-(deftest week-view-timezone-test
-  ^:unit
+(deftest ^:unit week-view-timezone-test
   (testing "week-view renders events with correct timezone"
     (let [;; Event spanning midnight in UTC but not in Amsterdam
           event (make-event "2026-03-10T22:00:00Z"
