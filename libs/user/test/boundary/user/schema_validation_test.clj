@@ -1,4 +1,4 @@
-(ns boundary.user.schema-validation-test-fixed
+(ns boundary.user.schema-validation-test
   (:require
    [clojure.test :refer [deftest is testing]]
    [boundary.user.schema :as schema]))

@@ -4,7 +4,8 @@
 (def lib 'org.boundary-app/boundary-external)
 (def version "1.0.1-alpha-42")
 (def class-dir "target/classes")
-(def basis (b/create-basis {:project "deps.edn"}))
+(load-file "../build_shared.clj")
+(def basis (build-shared/pom-basis version))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
 
 (defn clean [_]

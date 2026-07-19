@@ -25,7 +25,7 @@
                       ((resolve 'boundary.cli.agents-update/-main) (rest rest-args)))
                   (do (println "Usage: boundary agents update [--check]")
                       (System/exit 1)))
-      "version" (println "boundary CLI version 1.0.0-alpha-1")
+      "version" (println "boundary CLI version 1.0.1-alpha-42")
       (do (when cmd (println (str "Unknown command: " cmd "\n")))
           (usage)
           (System/exit (if cmd 1 0))))))

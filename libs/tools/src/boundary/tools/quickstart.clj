@@ -147,8 +147,8 @@
   (println (green "  Your Boundary project is configured and ready to start!"))
   (println)
   (println "  Next steps:")
-  (println "    1. Start the REPL:  " (bold "clojure -M:repl-clj"))
-  (println "    2. In the REPL:     " (bold "(go)"))
+  (println "    1. Start the REPL:  " (bold "clojure -M:repl") "  (headless nREPL on port 7888)")
+  (println "    2. Connect your editor (or the Boundary MCP server) and eval " (bold "(go)"))
   (println "    3. The startup dashboard will show you the URLs and ports")
   (println)
   (println "  Useful commands:")
@@ -188,7 +188,9 @@
 
     ;; Step 4: Scaffold and integrate a sample module (non-critical — continue on failure)
     (let [scaffolded? (run-step 4 8 "Scaffolding sample module"
-                                ["bb" "scaffold" "generate" "tasks" "title:string" "done:boolean"]
+                                ["bb" "scaffold" "generate"
+                                 "--module-name" "tasks" "--entity" "Task"
+                                 "--field" "title:string" "--field" "done:boolean"]
                                 :continue? true)]
       (when scaffolded?
         (run-step 5 8 "Integrating sample module into project"

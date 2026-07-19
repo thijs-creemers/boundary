@@ -1,12 +1,17 @@
 # Boundary Framework
 
+[![CI](https://github.com/thijs-creemers/boundary/actions/workflows/ci.yml/badge.svg)](https://github.com/thijs-creemers/boundary/actions/workflows/ci.yml)
+[![Clojars Project](https://img.shields.io/clojars/v/org.boundary-app/boundary-core.svg)](https://clojars.org/org.boundary-app/boundary-core)
+[![cljdoc](https://cljdoc.org/badge/org.boundary-app/boundary-core)](https://cljdoc.org/d/org.boundary-app/boundary-core)
+[![License: EPL-2.0](https://img.shields.io/badge/License-EPL_2.0-blue.svg)](https://www.eclipse.org/legal/epl-2.0/)
+
 **Boundary** is a batteries-included Clojure web framework that enforces the **Functional Core / Imperative Shell (FC/IS)** pattern: pure business logic in `core/`, side effects in `shell/`, and clean interfaces through `ports.clj` protocols.
 
 ---
 
 ## Why Boundary?
 
-**For developers:** 24 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
+**For developers:** 23 independently-publishable libraries on Clojars — use just `boundary-core` for validation utilities, or go full-stack with JWT + MFA auth, auto-generated CRUD UIs, background jobs, multi-tenancy, real-time WebSockets, and more. Every library follows the same FC/IS structure, making any Boundary codebase instantly familiar.
 
 **Ship faster:** The scaffolder generates fully structured modules (entity + routes + tests) in seconds. The admin UI auto-generates CRUD interfaces from your schema — no manual forms. Built-in observability, RFC 5988 pagination, and declarative interceptors mean you write business logic, not plumbing. AI tooling (`bb scaffold ai`, `bb ai gen-tests`, `bb ai sql`) handles the repetitive parts.
 
@@ -41,17 +46,17 @@ cd my-app
 
 # 2. Add optional modules (e.g. payments, cache, search)
 boundary add payments
-boundary list modules    # see all 20 optional modules
+boundary list modules    # see all 19 optional modules
 
 # 3. Run database migrations
 clojure -M:migrate up
 
-# 4. Start the REPL (nREPL on port 7888)
+# 4. Start the REPL (headless nREPL server on port 7888)
 export JWT_SECRET="change-me-dev-secret-min-32-chars"
-clojure -M:repl-clj
+clojure -M:repl
 ```
 
-In the REPL:
+Connect your editor (or the Boundary MCP server) to the nREPL port, then eval:
 
 ```clojure
 (go)    ; start the system — http://localhost:3000
@@ -106,7 +111,7 @@ Each library also has its own `AGENTS.md` with library-specific documentation.
 
 ## Libraries
 
-Boundary is a monorepo of **24 independently publishable libraries** plus development tooling:
+Boundary is a monorepo of **23 independently publishable libraries** plus development tooling:
 
 | Library | Description |
 |---------|-------------|
@@ -266,8 +271,8 @@ find . \( -name "*.clj" -o -name "*.edn" \) \
   ! -path "*/docs/superpowers/*" ! -path "*/.git/*" \
   -exec grep -l "$OLD" {} \; | xargs sed -i '' "s/$OLD/$NEW/g"
 
-# Documentation
-find . -name "*.md" \
+# Documentation (.md and .adoc)
+find . \( -name "*.md" -o -name "*.adoc" \) \
   ! -path "*/CHANGELOG.md" ! -path "*/docs/superpowers/*" ! -path "*/.git/*" \
   -exec grep -l "$OLD" {} \; | xargs sed -i '' "s/$OLD/$NEW/g"
 ```
@@ -278,7 +283,7 @@ On Linux, use `sed -i` instead of `sed -i ''`.
 
 ```bash
 # Verify — must print nothing
-grep -r "$OLD" --include="*.clj" --include="*.edn" . | grep -v ".git" | grep -v "docs/superpowers"
+grep -r "$OLD" --include="*.clj" --include="*.edn" --include="*.adoc" . | grep -v ".git" | grep -v "docs/superpowers"
 
 bb check --quick
 
@@ -345,4 +350,6 @@ https://boundary-app.org
 ---
 ## License
 
-Copyright 2024–2026 Thijs Creemers. All rights reserved.
+Copyright 2024–2026 Thijs Creemers.
+
+Distributed under the [Eclipse Public License 2.0](./LICENSE).

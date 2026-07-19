@@ -58,6 +58,9 @@
    {:id    :placeholder-tests
     :label "Placeholder tests"
     :cmd   ["bb" "check:placeholder-tests"]}
+   {:id    :hygiene
+    :label "Repo hygiene (no backup files)"
+    :cmd   ["bb" "check:hygiene"]}
    {:id    :agents
     :label "AGENTS.md drift"
     :cmd   ["bb" "check:agents"]}
