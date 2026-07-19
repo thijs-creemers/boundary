@@ -52,8 +52,7 @@
 ;; Tests
 ;; =============================================================================
 
-(deftest excel-magic-bytes-test
-  ^:integration
+(deftest ^:integration excel-magic-bytes-test
   (testing "sections-based report produces valid XLSX bytes"
     (let [gen    (sut/create-excel-generator)
           result (ports/generate! gen sample-sections-report sample-data {})]
@@ -61,8 +60,7 @@
       (is (pos? (count (:bytes result))))
       (is (xlsx-magic? (:bytes result))))))
 
-(deftest excel-filename-default-test
-  ^:integration
+(deftest ^:integration excel-filename-default-test
   (testing "filename defaults to <id>.xlsx when not specified"
     (let [gen  (sut/create-excel-generator)
           defn {:id       :my-excel
@@ -76,8 +74,7 @@
           result (ports/generate! gen sample-sections-report sample-data {})]
       (is (= "test-output.xlsx" (:filename result))))))
 
-(deftest excel-multi-sheet-test
-  ^:integration
+(deftest ^:integration excel-multi-sheet-test
   (testing "multi-sheet report produces valid XLSX bytes"
     (let [gen    (sut/create-excel-generator)
           result (ports/generate! gen multi-sheet-report nil {})]
@@ -89,8 +86,7 @@
   (testing "supported-type? returns false for :pdf"
     (is (not (ports/supported-type? (sut/create-excel-generator) :pdf)))))
 
-(deftest excel-type-in-output-test
-  ^:integration
+(deftest ^:integration excel-type-in-output-test
   (testing ":type is :excel in output"
     (let [gen    (sut/create-excel-generator)
           result (ports/generate! gen sample-sections-report sample-data {})]

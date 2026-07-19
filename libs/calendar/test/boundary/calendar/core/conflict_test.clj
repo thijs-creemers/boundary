@@ -23,8 +23,7 @@
 ;; overlaps?
 ;; =============================================================================
 
-(deftest overlaps-test
-  ^:unit
+(deftest ^:unit overlaps-test
   (testing "fully overlapping events"
     (let [a (make-event "2026-03-10T09:00:00Z" "2026-03-10T11:00:00Z")
           b (make-event "2026-03-10T09:30:00Z" "2026-03-10T10:30:00Z")]
@@ -54,8 +53,7 @@
 ;; conflicts?
 ;; =============================================================================
 
-(deftest conflicts-non-recurring-test
-  ^:unit
+(deftest ^:unit conflicts-non-recurring-test
   (let [ws (Instant/parse "2026-03-10T00:00:00Z")
         we (Instant/parse "2026-03-11T00:00:00Z")]
     (testing "two overlapping non-recurring events conflict"
@@ -67,8 +65,7 @@
             b (make-event "2026-03-10T11:00:00Z" "2026-03-10T12:00:00Z")]
         (is (false? (sut/conflicts? a b ws we)))))))
 
-(deftest conflicts-recurring-test
-  ^:unit
+(deftest ^:unit conflicts-recurring-test
   (let [ws (Instant/parse "2026-03-09T00:00:00Z")
         we (Instant/parse "2026-03-14T00:00:00Z")]
     (testing "recurring events with overlapping occurrences conflict"
@@ -86,8 +83,7 @@
 ;; find-conflicts
 ;; =============================================================================
 
-(deftest find-conflicts-test
-  ^:unit
+(deftest ^:unit find-conflicts-test
   (let [ws (Instant/parse "2026-03-10T00:00:00Z")
         we (Instant/parse "2026-03-11T00:00:00Z")]
     (testing "no events → no conflicts"

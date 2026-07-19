@@ -12,8 +12,7 @@
 ;; format-cell
 ;; =============================================================================
 
-(deftest format-cell-string-test
-  ^:unit
+(deftest ^:unit format-cell-string-test
   (testing "nil value returns empty string"
     (is (= "" (sut/format-cell* nil :string formatting-context))))
   (testing "non-nil value is coerced to string"
@@ -22,15 +21,13 @@
   (testing "nil format treated as :string"
     (is (= "world" (sut/format-cell* "world" nil formatting-context)))))
 
-(deftest format-cell-number-test
-  ^:unit
+(deftest ^:unit format-cell-number-test
   (testing "integer becomes double"
     (is (= 5.0 (sut/format-cell* 5 :number formatting-context))))
   (testing "nil becomes 0.0"
     (is (= 0.0 (sut/format-cell* nil :number formatting-context)))))
 
-(deftest format-cell-currency-test
-  ^:unit
+(deftest ^:unit format-cell-currency-test
   (testing "nil returns default"
     (is (= "€ 0,00" (sut/format-cell* nil :currency formatting-context))))
   (testing "positive value formatted with EUR prefix"
@@ -39,8 +36,7 @@
   (testing "zero formatted"
     (is (= "€ 0,00" (sut/format-cell* 0 :currency formatting-context)))))
 
-(deftest format-cell-date-test
-  ^:unit
+(deftest ^:unit format-cell-date-test
   (testing "nil returns empty string"
     (is (= "" (sut/format-cell* nil :date formatting-context))))
   (testing "LocalDate returns ISO date string"
@@ -56,8 +52,7 @@
 ;; map-columns
 ;; =============================================================================
 
-(deftest map-columns-test
-  ^:unit
+(deftest ^:unit map-columns-test
   (testing "maps record through column defs"
     (let [columns [{:key :name  :label "Name"   :format :string}
                    {:key :price :label "Price"  :format :currency}
@@ -74,8 +69,7 @@
 ;; build-table-rows
 ;; =============================================================================
 
-(deftest build-table-rows-test
-  ^:unit
+(deftest ^:unit build-table-rows-test
   (testing "returns hiccup tbody with one tr per record"
     (let [columns [{:key :name  :label "Name"}
                    {:key :value :label "Value" :format :number}]
@@ -92,8 +86,7 @@
 ;; prepare-report
 ;; =============================================================================
 
-(deftest prepare-report-valid-test
-  ^:unit
+(deftest ^:unit prepare-report-valid-test
   (testing "valid report definition returns :valid? true"
     (let [defn   {:id :valid-report :type :pdf}
           result (sut/prepare-report defn)]
@@ -101,8 +94,7 @@
       (is (empty? (:errors result)))
       (is (= defn (:definition result))))))
 
-(deftest prepare-report-invalid-test
-  ^:unit
+(deftest ^:unit prepare-report-invalid-test
   (testing "missing :id and :type returns :valid? false"
     (let [result (sut/prepare-report {})]
       (is (false? (:valid? result)))
@@ -112,8 +104,7 @@
 ;; resolve-data
 ;; =============================================================================
 
-(deftest resolve-data-test
-  ^:unit
+(deftest ^:unit resolve-data-test
   (testing "returns nil when no :data-source"
     (is (nil? (sut/resolve-data {:id :r :type :pdf} {}))))
   (testing "calls :data-source fn with opts"
@@ -128,8 +119,7 @@
 ;; build-sections-hiccup
 ;; =============================================================================
 
-(deftest build-sections-hiccup-test
-  ^:unit
+(deftest ^:unit build-sections-hiccup-test
   (testing "produces :html root"
     (let [sections [{:type :header :content [:h1 "Report Title"]}
                     {:type    :table

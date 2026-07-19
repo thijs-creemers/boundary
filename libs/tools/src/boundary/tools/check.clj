@@ -58,6 +58,9 @@
    {:id    :placeholder-tests
     :label "Placeholder tests"
     :cmd   ["bb" "check:placeholder-tests"]}
+   {:id    :test-meta
+    :label "Deftest metadata placement"
+    :cmd   ["bb" "check:test-meta"]}
    {:id    :hygiene
     :label "Repo hygiene (no backup files)"
     :cmd   ["bb" "check:hygiene"]}

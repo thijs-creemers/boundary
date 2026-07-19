@@ -24,8 +24,7 @@
    :type     :pdf
    :template (fn [_] [:html [:body [:h1 "Test"]]])})
 
-(deftest defreport-macro-test
-  ^:unit
+(deftest ^:unit defreport-macro-test
   (testing "defreport binds var to definition map"
     (is (= :test-report-a (:id test-report-a)))
     (is (= :pdf (:type test-report-a))))
@@ -37,8 +36,7 @@
     (registry/register-report! test-report-a)
     (is (some #{:test-report-a} (registry/list-reports)))))
 
-(deftest register-report-test
-  ^:unit
+(deftest ^:unit register-report-test
   (testing "programmatic registration via register-report!"
     (let [defn {:id :prog-report :type :excel}]
       (registry/register-report! defn)

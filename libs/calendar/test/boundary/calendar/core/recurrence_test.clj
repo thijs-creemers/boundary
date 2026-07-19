@@ -26,8 +26,7 @@
 ;; recurring?
 ;; =============================================================================
 
-(deftest recurring-test
-  ^:unit
+(deftest ^:unit recurring-test
   (testing "event with RRULE is recurring"
     (let [ev (make-event "2026-03-02T09:00:00Z" "2026-03-02T09:30:00Z"
                          "FREQ=DAILY")]
@@ -44,8 +43,7 @@
 ;; Non-recurring events
 ;; =============================================================================
 
-(deftest non-recurring-within-window-test
-  ^:unit
+(deftest ^:unit non-recurring-within-window-test
   (testing "non-recurring event inside window returns [start]"
     (let [ev (make-event "2026-03-10T09:00:00Z" "2026-03-10T10:00:00Z")]
       (is (= [(Instant/parse "2026-03-10T09:00:00Z")]
@@ -68,8 +66,7 @@
 ;; DAILY recurrence
 ;; =============================================================================
 
-(deftest daily-recurrence-test
-  ^:unit
+(deftest ^:unit daily-recurrence-test
   (testing "FREQ=DAILY returns an occurrence each day in window"
     (let [ev   (make-event "2026-03-01T09:00:00Z" "2026-03-01T09:30:00Z"
                            "FREQ=DAILY")
@@ -91,8 +88,7 @@
 ;; WEEKLY recurrence
 ;; =============================================================================
 
-(deftest weekly-recurrence-test
-  ^:unit
+(deftest ^:unit weekly-recurrence-test
   (testing "FREQ=WEEKLY returns one occurrence per week"
     (let [ev   (make-event "2026-03-02T09:00:00Z" "2026-03-02T09:30:00Z"
                            "FREQ=WEEKLY")
@@ -114,8 +110,7 @@
 ;; MONTHLY recurrence
 ;; =============================================================================
 
-(deftest monthly-recurrence-test
-  ^:unit
+(deftest ^:unit monthly-recurrence-test
   (testing "FREQ=MONTHLY returns one occurrence per month"
     (let [ev   (make-event "2026-01-15T10:00:00Z" "2026-01-15T11:00:00Z"
                            "FREQ=MONTHLY")
@@ -129,8 +124,7 @@
 ;; YEARLY recurrence
 ;; =============================================================================
 
-(deftest yearly-recurrence-test
-  ^:unit
+(deftest ^:unit yearly-recurrence-test
   (testing "FREQ=YEARLY returns one occurrence per year"
     (let [ev   (make-event "2024-06-01T09:00:00Z" "2024-06-01T10:00:00Z"
                            "FREQ=YEARLY")
@@ -144,8 +138,7 @@
 ;; UNTIL limit
 ;; =============================================================================
 
-(deftest until-limit-test
-  ^:unit
+(deftest ^:unit until-limit-test
   (testing "FREQ=DAILY;UNTIL stops at the specified date"
     (let [ev   (make-event "2026-03-01T09:00:00Z" "2026-03-01T09:30:00Z"
                            "FREQ=DAILY;UNTIL=20260305T090000Z")
@@ -159,8 +152,7 @@
 ;; DST edge case — spring-forward Amsterdam (last Sunday of March)
 ;; =============================================================================
 
-(deftest dst-spring-forward-test
-  ^:unit
+(deftest ^:unit dst-spring-forward-test
   (testing "weekly recurrence at 09:00 Amsterdam stays at 09:00 local after DST spring-forward"
     ;; Amsterdam: UTC+1 in winter, UTC+2 in summer.
     ;; Spring-forward 2026: last Sunday of March = March 29 02:00 local → 03:00.
@@ -176,8 +168,7 @@
       ;; After DST, 09:00 Amsterdam = 07:00 UTC
       (is (= (Instant/parse "2026-03-30T07:00:00Z") (first occs))))))
 
-(deftest dst-fall-back-test
-  ^:unit
+(deftest ^:unit dst-fall-back-test
   (testing "weekly recurrence at 09:00 Amsterdam stays at 09:00 local after DST fall-back"
     ;; Amsterdam: UTC+2 in summer, UTC+1 in winter.
     ;; Fall-back 2026: last Sunday of October = Oct 25, 03:00 local → 02:00.
@@ -197,8 +188,7 @@
 ;; expand-event
 ;; =============================================================================
 
-(deftest expand-event-test
-  ^:unit
+(deftest ^:unit expand-event-test
   (testing "expand-event returns occurrence maps without :recurrence key"
     (let [ev   (make-event "2026-03-02T09:00:00Z" "2026-03-02T09:30:00Z"
                            "FREQ=DAILY;COUNT=3")
@@ -220,8 +210,7 @@
 ;; next-occurrence
 ;; =============================================================================
 
-(deftest next-occurrence-test
-  ^:unit
+(deftest ^:unit next-occurrence-test
   (testing "future non-recurring event returns its start"
     (let [reference-time "2026-01-01T00:00:00Z"
           far-future "2099-06-01T09:00:00Z"

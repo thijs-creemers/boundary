@@ -2,8 +2,7 @@
   (:require [boundary.external.core.imap :as imap]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest parse-message-headers-test
-  ^:unit
+(deftest ^:unit parse-message-headers-test
   (testing "converts string keys to kebab-case keywords"
     (let [result (imap/parse-message-headers {"Content-Type" "text/plain"
                                               "Message-ID"   "<123@example.com>"
@@ -18,8 +17,7 @@
   (testing "handles empty map"
     (is (= {} (imap/parse-message-headers {})))))
 
-(deftest extract-body-text-test
-  ^:unit
+(deftest ^:unit extract-body-text-test
   (testing "extracts plain text part"
     (let [{:keys [text html]}
           (imap/extract-body-text [{:content-type "text/plain; charset=UTF-8"
@@ -52,8 +50,7 @@
       (is (nil? text))
       (is (nil? html)))))
 
-(deftest build-inbound-message-test
-  ^:unit
+(deftest ^:unit build-inbound-message-test
   (testing "constructs InboundMessage map"
     (let [now (java.util.Date.)
           msg (imap/build-inbound-message
@@ -72,8 +69,7 @@
       (is (= now (:received-at msg)))
       (is (= :content-type (first (keys (:headers msg))))))))
 
-(deftest filter-by-date-test
-  ^:unit
+(deftest ^:unit filter-by-date-test
   (let [now   (java.util.Date.)
         old   (java.util.Date. (- (.getTime now) 86400000))
         later (java.util.Date. (+ (.getTime now) 1000))
@@ -87,8 +83,7 @@
       (is (= [{:uid 2 :received-at later}]
              (imap/filter-by-date msgs now))))))
 
-(deftest filter-unread-test
-  ^:unit
+(deftest ^:unit filter-unread-test
   (let [msgs [{:uid 1 :seen? false}
               {:uid 2 :seen? true}
               {:uid 3}]]
@@ -98,8 +93,7 @@
         (is (= 2 (count result)))
         (is (every? #(not (:seen? %)) result))))))
 
-(deftest message-summary-test
-  ^:unit
+(deftest ^:unit message-summary-test
   (testing "returns expected summary shape"
     (let [now  (java.util.Date.)
           msg  {:uid 5 :from "a@b.com" :subject "Hi" :received-at now :seen? false}

@@ -3,8 +3,7 @@
             [boundary.ai.shell.providers.no-op :as no-op]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest no-op-provider-complete-json-test
-  ^:integration
+(deftest ^:integration no-op-provider-complete-json-test
   (testing "complete-json satisfies protocol arity and returns deterministic payload"
     (let [provider (no-op/create-no-op-provider {:model "no-op-model"})
           result   (ports/complete-json provider [{:role :user :content "hello"}] "ModuleSpec" {})]

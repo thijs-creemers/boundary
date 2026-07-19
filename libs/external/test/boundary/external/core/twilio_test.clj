@@ -2,8 +2,7 @@
   (:require [boundary.external.core.twilio :as twilio]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest build-sms-params-test
-  ^:unit
+(deftest ^:unit build-sms-params-test
   (testing "builds basic SMS params"
     (let [params (twilio/build-sms-params
                   {:to "+31612345678" :body "Hello!"}
@@ -28,8 +27,7 @@
     (let [params (twilio/build-sms-params {:to "+1234" :body "text"} "+15005550006")]
       (is (nil? (get params "MediaUrl"))))))
 
-(deftest build-whatsapp-params-test
-  ^:unit
+(deftest ^:unit build-whatsapp-params-test
   (testing "adds whatsapp: prefix to To and From"
     (let [params (twilio/build-whatsapp-params
                   {:to "+31612345678" :body "Hello via WhatsApp"}
@@ -45,8 +43,7 @@
       (is (= "whatsapp:+31612345678" (get params "To")))
       (is (= "whatsapp:+14155238886" (get params "From"))))))
 
-(deftest parse-message-response-test
-  ^:unit
+(deftest ^:unit parse-message-response-test
   (testing "parses Twilio message response"
     (let [body   {"sid"    "SMxxx123"
                   "status" "queued"
@@ -58,8 +55,7 @@
       (is (= "+31612345678"   (:to result)))
       (is (= "+15005550006"   (:from result))))))
 
-(deftest parse-twilio-error-test
-  ^:unit
+(deftest ^:unit parse-twilio-error-test
   (testing "parses Twilio error body"
     (let [body   {"message"   "The From phone number is not valid."
                   "code"      21211

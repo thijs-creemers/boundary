@@ -6,8 +6,7 @@
 ;; persistence-error-handling :error handler
 ;; ==============================================================================
 
-(deftest persistence-error-handling-sets-error-key-test
-  ^:unit
+(deftest ^:unit persistence-error-handling-sets-error-key-test
   (testing ":error handler preserves :error key so execute-persistence-operation can rethrow"
     (let [exception  (ex-info "SQL error" {:type "constraint-violation"})
           ctx        {:operation-name "update-user"
@@ -34,8 +33,7 @@
 ;; execute-persistence-operation — error propagation
 ;; ==============================================================================
 
-(deftest execute-persistence-operation-rethrows-on-db-error-test
-  ^:unit
+(deftest ^:unit execute-persistence-operation-rethrows-on-db-error-test
   (testing "rethrows when db-logic-fn throws — exception is NOT swallowed"
     (let [boom (ex-info "DB constraint violation" {:type "unique-constraint"})]
       (is (thrown? clojure.lang.ExceptionInfo
@@ -58,8 +56,7 @@
 ;; execute-persistence-operation — happy path
 ;; ==============================================================================
 
-(deftest execute-persistence-operation-returns-result-test
-  ^:unit
+(deftest ^:unit execute-persistence-operation-returns-result-test
   (testing "returns db-logic-fn result on success"
     (let [expected {:id 42 :name "Alice"}
           result   (pi/execute-persistence-operation

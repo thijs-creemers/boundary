@@ -41,13 +41,34 @@
               lookup))))))
 
 (deftest ^:unit circular-ref-detection
-  (testing "circular references throw"
+  (testing "explain-composition flags a circular reference; evaluation still terminates"
     (let [lookup (fn [id]
                    (case id
                      :seg-a {:compose {:and [{:ref :seg-b}]}}
                      :seg-b {:compose {:and [{:ref :seg-a}]}}
-                     nil))]
-      (is (thrown? Exception
-                   (comp/resolve-and-compose
-                    {:and [{:ref :seg-a}]}
-                    lookup))))))
+                     nil))
+          tree   {:and [{:ref :seg-a}]}]
+      (is (= :circular-reference (get-in (comp/explain-composition tree lookup) [:error :type])))
+      ;; core no longer throws — it fails safe to a set rather than looping
+      (is (set? (comp/resolve-and-compose tree lookup))))))
+
+(deftest ^:unit explain-composition-validation
+  (let [lookup (fn [id] (case id
+                          :seg-a {:user-ids #{1 2}}
+                          :with-compose {:compose {:or [{:user-ids #{1}}]}}
+                          :bad-seg {}
+                          nil))]
+    (testing "well-formed tree returns nil"
+      (is (nil? (comp/explain-composition {:and [{:ref :seg-a} {:user-ids #{3}}]} lookup))))
+    (testing "unknown operator"
+      (is (= :composition-error
+             (get-in (comp/explain-composition {:xor [{:user-ids #{1}}]} lookup) [:error :type]))))
+    (testing "NOT directly inside OR"
+      (is (= :composition-error
+             (get-in (comp/explain-composition {:or [{:not {:user-ids #{1}}}]} lookup) [:error :type]))))
+    (testing "unknown segment ref"
+      (is (= :unknown-segment-ref
+             (get-in (comp/explain-composition {:and [{:ref :missing}]} lookup) [:error :type]))))
+    (testing "segment with neither :user-ids nor :compose"
+      (is (= :invalid-segment
+             (get-in (comp/explain-composition {:and [{:ref :bad-seg}]} lookup) [:error :type]))))))
