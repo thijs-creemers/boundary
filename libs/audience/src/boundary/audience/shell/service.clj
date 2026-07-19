@@ -16,6 +16,7 @@
    FC/IS boundary: this shell namespace is allowed to perform I/O."
   (:require [boundary.audience.core.compiler :as compiler]
             [boundary.audience.core.composition :as composition]
+            [boundary.audience.core.filter :as filter]
             [boundary.audience.ports :as ports]
             [boundary.audience.shell.registry :as registry]
             [clojure.tools.logging :as log])
@@ -26,6 +27,16 @@
 ;; =============================================================================
 
 (defn- now-inst [] (Instant/now))
+
+(defn- unwrap!
+  "Raise the anomaly carried by an {:error {...}} map as a typed ex-info (so the
+   HTTP error interceptor maps it to a response), otherwise return the value.
+   The pure core validators return these anomalies; the shell turns them into
+   the throw the boundary expects."
+  [x]
+  (if-let [err (:error x)]
+    (throw (ex-info (:message err "Invalid audience definition") err))
+    x))
 
 (defn- load-definition
   "Load audience definition: registry first, then repository."
@@ -113,6 +124,9 @@
                             {:type :audience-not-found :audience-id audience-id})))
 
           (let [eval-date (or (:as-of opts) (java.time.LocalDate/now))
+                ;; Validate filters up front (pure core check); raise a typed
+                ;; error before compiling if any filter is unknown/unsupported.
+                _ (unwrap! (filter/explain-filters (:filters definition)))
                 {:keys [sql-clauses predicates]} (compiler/compile-segment definition {:now eval-date})]
 
             ;; If :compose present, resolve composition tree
@@ -121,6 +135,9 @@
               (let [lookup  (fn [id]
                               (let [result (ports/resolve-audience this id)]
                                 {:user-ids (:user-ids result)}))
+                    ;; Validate the composition tree (structure + refs) before
+                    ;; evaluating it, so bad trees raise instead of failing safe.
+                    _ (unwrap! (composition/explain-composition compose lookup))
                     user-ids (composition/resolve-and-compose compose lookup)
                     result   {:user-ids     user-ids
                               :count        (count user-ids)

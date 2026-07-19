@@ -126,3 +126,21 @@
           boundary-ts (->timestamp (.minusDays today 7))]
       (is (true? (pred {:last-active-at boundary-ts}))
           "User active exactly 7 days ago should be included (inclusive boundary)"))))
+
+(deftest ^:unit explain-filter-validation
+  (testing "valid built-in filter returns nil"
+    (is (nil? (f/explain-filter {:type :demographics :field :plan :op :eq :value "free"}))))
+  (testing "behavior filter (no :op) is valid"
+    (is (nil? (f/explain-filter {:type :behavior :value (constantly true)}))))
+  (testing "unknown filter type"
+    (is (= :unknown-filter-type
+           (get-in (f/explain-filter {:type :nope :op :eq}) [:error :type]))))
+  (testing "unsupported operator for a built-in type"
+    (is (= :unsupported-filter-op
+           (get-in (f/explain-filter {:type :last-active :op :eq :value 7}) [:error :type]))))
+  (testing "explain-filters returns first error across a collection"
+    (is (nil? (f/explain-filters [{:type :demographics :op :eq :value 1}
+                                  {:type :role :op :in :value [:admin]}])))
+    (is (= :unknown-filter-type
+           (get-in (f/explain-filters [{:type :demographics :op :eq :value 1}
+                                       {:type :bogus :op :eq}]) [:error :type])))))
