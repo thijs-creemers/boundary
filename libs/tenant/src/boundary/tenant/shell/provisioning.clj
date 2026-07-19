@@ -20,10 +20,12 @@
    - Provisioning is idempotent (safe to call multiple times)
    - Does not copy data from public schema (only structure)"
   (:require [boundary.platform.shell.adapters.database.common.core :as db]
+            [boundary.platform.shell.adapters.database.config :as db-config]
             [boundary.platform.shell.adapters.database.postgresql.metadata :as pg-metadata]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.tenant.core.tenant :as tenant-core]
             [boundary.tenant.ports :as ports]
+            [boundary.tenant.shell.tenant-migrations :as tenant-migrations]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
 
@@ -191,24 +193,14 @@
   (let [ddl (get-table-ddl ctx table-name target-schema)]
     (db/execute-ddl! ctx ddl)))
 
-(defn- copy-schema-structure!
-  "Copy all table structures from public schema to tenant schema.
-   
-   Args:
-     ctx: Database context
-     target-schema: Target schema name (string)
-   
-   Returns:
-     Vector of copied table names
-   
-   Throws:
-     Exception if structure copy fails"
-  [ctx target-schema]
-  (let [tables (get-public-tables ctx)]
-    (log/info "Copying schema structure" {:target-schema target-schema :table-count (count tables)})
-    (doseq [table tables]
-      (copy-table-structure! ctx table target-schema))
-    tables))
+(defn- populate-tenant-schema!
+  "Build a freshly created tenant schema by running the tenant-scoped migration
+   set into it, so new tenants converge on the same migration path used to keep
+   existing tenants up to date. Replaces copying table structure from public,
+   which only ever copied whole tables and never picked up column/index deltas."
+  [schema-name]
+  (assert-safe-schema-name! schema-name)
+  (tenant-migrations/migrate-tenant! (db-config/get-active-db-config) schema-name))
 
 (defn- validate-provisioning
   "Validate that tenant schema was provisioned successfully.
@@ -334,18 +326,19 @@
         ;; Create schema
         (create-schema! ctx schema-name)
 
-        ;; Copy structure
-        (let [tables (copy-schema-structure! ctx schema-name)
-              ;; Validate
-              validation (validate-provisioning ctx schema-name)]
+        ;; Build the schema by running the tenant-scoped migration set into it
+        (populate-tenant-schema! schema-name)
+
+        ;; Validate
+        (let [validation (validate-provisioning ctx schema-name)]
           (if (:valid? validation)
             (do
               (log/info "Tenant provisioning completed successfully"
                         {:schema-name schema-name
-                         :table-count (count tables)})
+                         :table-count (:table-count validation)})
               {:success? true
                :schema-name schema-name
-               :table-count (count tables)
+               :table-count (:table-count validation)
                :message "Tenant schema provisioned successfully"})
             (throw (ex-info "Tenant provisioning validation failed"
                             {:type :provisioning-error

@@ -3,7 +3,9 @@
 
    Proves the BOU-159 acceptance: provision two tenant schemas, run a tenant
    migration, and confirm each schema gets the change with its own ledger."
-  (:require [boundary.tenant.shell.tenant-migrations :as tmig]
+  (:require [boundary.platform.shell.adapters.database.config :as db-config]
+            [boundary.tenant.shell.provisioning :as provisioning]
+            [boundary.tenant.shell.tenant-migrations :as tmig]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [next.jdbc :as jdbc]
             [support.embedded-pg :as epg]))
@@ -62,3 +64,14 @@
         (is (empty? (:errors again)))
         (is (= 1 (ledger-count "tenant_alpha")))
         (is (= 1 (ledger-count "tenant_beta")))))))
+
+(deftest ^:integration provision-tenant-runs-migrations-test
+  (testing "provisioning a new tenant runs the tenant migration set into its schema"
+    (with-redefs [db-config/get-active-db-config (constantly (epg/db-config @pg-instance))
+                  tmig/default-tenant-migration-dir test-migration-dir]
+      (let [ctx    (epg/db-context @pg-instance)
+            result (provisioning/provision-tenant! ctx {:schema-name "tenant_gamma"})]
+        (is (:success? result))
+        (is (= "tenant_gamma" (:schema-name result)))
+        (is (table-in-schema? "tenant_gamma" "widgets")
+            "the tenant-scoped table from the migration set exists in the new schema")))))
