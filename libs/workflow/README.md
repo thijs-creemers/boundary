@@ -17,7 +17,7 @@ Optionally enqueue side-effect jobs via `boundary-jobs` after successful transit
 ### 1. Define a Workflow
 
 ```clojure
-(require '[boundary.workflow.core.machine :refer [defworkflow]])
+(require '[boundary.workflow.shell.registry :refer [defworkflow]])
 
 (defworkflow order-workflow
   {:id            :order-workflow
@@ -189,14 +189,14 @@ Test fixture pattern:
 
 ```clojure
 (defn with-clean-system [f]
-  (machine/clear-registry!)
-  (machine/register-workflow! my-workflow-def)
+  (registry/clear-registry!)
+  (registry/register-workflow! my-workflow-def)
   (let [store    (create-memory-store)
-        registry (machine/create-workflow-registry)
+        registry (registry/create-workflow-registry)
         svc      (service/create-workflow-service store registry)]
     (binding [*store* store *service* svc]
       (f)))
-  (machine/clear-registry!))
+  (registry/clear-registry!))
 ```
 
 ---

@@ -14,10 +14,10 @@
      9. Return result.
 
    FC/IS boundary: this shell namespace is allowed to perform I/O."
-  (:require [boundary.audience.core.audience :as audience]
-            [boundary.audience.core.compiler :as compiler]
+  (:require [boundary.audience.core.compiler :as compiler]
             [boundary.audience.core.composition :as composition]
             [boundary.audience.ports :as ports]
+            [boundary.audience.shell.registry :as registry]
             [clojure.tools.logging :as log])
   (:import [java.time Instant]))
 
@@ -30,7 +30,7 @@
 (defn- load-definition
   "Load audience definition: registry first, then repository."
   [audience-id repository]
-  (or (audience/get-audience audience-id)
+  (or (registry/get-audience audience-id)
       (when repository
         (ports/find-audience repository audience-id))))
 

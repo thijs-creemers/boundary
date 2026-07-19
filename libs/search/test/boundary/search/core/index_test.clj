@@ -1,7 +1,8 @@
 (ns boundary.search.core.index-test
   "Unit tests for the search index registry and document construction."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [boundary.search.core.index :as index])
+            [boundary.search.core.index :as index]
+            [boundary.search.shell.registry :as registry])
   (:import [java.time Instant]
            [java.util UUID]))
 
@@ -10,9 +11,9 @@
 ;; =============================================================================
 
 (defn- registry-fixture [f]
-  (index/clear-registry!)
+  (registry/clear-registry!)
   (f)
-  (index/clear-registry!))
+  (registry/clear-registry!))
 
 (use-fixtures :each registry-fixture)
 
@@ -30,22 +31,22 @@
 
 (deftest ^:unit register-and-get-test
   (testing "registers and retrieves a definition by id"
-    (index/register-search! sample-def)
-    (let [found (index/get-search :product-search)]
+    (registry/register-search! sample-def)
+    (let [found (registry/get-search :product-search)]
       (is (= :product-search (:id found)))
       (is (= :product (:entity-type found)))))
 
   (testing "returns nil for unknown index"
-    (is (nil? (index/get-search :unknown-index))))
+    (is (nil? (registry/get-search :unknown-index))))
 
   (testing "list-searches returns registered ids"
-    (index/register-search! sample-def)
-    (is (contains? (set (index/list-searches)) :product-search)))
+    (registry/register-search! sample-def)
+    (is (contains? (set (registry/list-searches)) :product-search)))
 
   (testing "clear-registry! removes all definitions"
-    (index/register-search! sample-def)
-    (index/clear-registry!)
-    (is (empty? (index/list-searches)))))
+    (registry/register-search! sample-def)
+    (registry/clear-registry!)
+    (is (empty? (registry/list-searches)))))
 
 ;; =============================================================================
 ;; defsearch macro
@@ -53,13 +54,13 @@
 
 (deftest ^:unit defsearch-macro-test
   (testing "defsearch binds a var and registers the definition"
-    (index/defsearch order-search
+    (registry/defsearch order-search
       {:id          :order-search
        :entity-type :order
        :language    :english
        :fields      [{:name :status :weight :a}]})
     (is (= :order-search (:id order-search)))
-    (is (some? (index/get-search :order-search)))))
+    (is (some? (registry/get-search :order-search)))))
 
 ;; =============================================================================
 ;; build-document

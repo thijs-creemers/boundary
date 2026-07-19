@@ -1,63 +1,14 @@
 (ns boundary.search.core.index
-  "Search index definition registry and document construction.
-
-   The defsearch macro defines a search index and registers it in the
-   global in-process registry.
+  "Pure document construction and filter-key conversion for search.
 
    Key functions:
-   - defsearch macro       — define and register an index
-   - register-search!      — low-level registration
-   - get-search            — look up by index-id
-   - build-document        — construct a SearchDocument from field values
-   - filter-key->json-key  — convert a filter keyword to a snake_case JSON key"
+   - build-document*       — construct a SearchDocument from field values
+   - filter-key->json-key  — convert a filter keyword to a snake_case JSON key
+
+   The load-time index registry (`defsearch`, `register-search!`, `get-search`,
+   `list-searches`, `clear-registry!`) is mutable process state and lives in the
+   shell at boundary.search.shell.registry, keeping this namespace pure."
   (:require [clojure.string :as str]))
-
-;; =============================================================================
-;; In-process Registry
-;; =============================================================================
-
-(defonce ^:private registry (atom {}))
-
-(defn register-search!
-  "Register a SearchDefinition in the global registry.
-
-   Args:
-     definition - SearchDefinition map with :id keyword
-
-   Returns:
-     :id keyword"
-  [definition]
-  (let [id (:id definition)]
-    (swap! registry assoc id definition)
-    id))
-
-(defn get-search
-  "Retrieve a registered SearchDefinition by id.
-
-   Args:
-     index-id - keyword
-
-   Returns:
-     SearchDefinition map or nil"
-  [index-id]
-  (get @registry index-id))
-
-(defn list-searches
-  "List all registered search index ids.
-
-   Returns:
-     Vector of keyword ids"
-  []
-  (vec (keys @registry)))
-
-(defn clear-registry!
-  "Remove all registered definitions. Use in test fixtures.
-
-   Returns:
-     nil"
-  []
-  (reset! registry {})
-  nil)
 
 ;; =============================================================================
 ;; Filter key conversion (shared with persistence layer)
@@ -73,35 +24,6 @@
    query builders (retrieval) so that stored and queried keys always match."
   [k]
   (str/replace (name k) "-" "_"))
-
-;; =============================================================================
-;; defsearch Macro
-;; =============================================================================
-
-(defmacro defsearch
-  "Define a search index configuration and register it globally.
-
-   Binds a var and registers in the in-process search registry.
-
-   Example:
-     (defsearch product-search
-       {:id          :product-search
-        :entity-type :product
-        :language    :english
-        :fields      [{:name :title       :weight :a}
-                      {:name :description :weight :b}
-                      {:name :tags        :weight :c}]
-        :options     {:highlight? true
-                      :trigrams?  true}})
-
-   This is equivalent to:
-     (def product-search {...})
-     (register-search! product-search)"
-  [var-name definition]
-  `(do
-     (def ~var-name ~definition)
-     (register-search! ~definition)
-     ~var-name))
 
 ;; =============================================================================
 ;; Document Construction

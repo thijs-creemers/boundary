@@ -2,12 +2,14 @@
   "SearchService orchestrates document indexing and search queries.
 
    Implements ISearchEngine by coordinating:
-   - core/index   — definition registry + document construction
-   - core/query   — query sanitization
-   - ISearchStore — persistence operations"
+   - core/index     — document construction
+   - core/query     — query sanitization
+   - shell/registry — index definition registry
+   - ISearchStore   — persistence operations"
   (:require [boundary.search.ports :as ports]
             [boundary.search.core.index :as index]
             [boundary.search.core.query :as qry]
+            [boundary.search.shell.registry :as registry]
             [clojure.tools.logging :as log])
   (:import [java.time Instant]
            [java.util UUID]))
@@ -23,7 +25,7 @@
 
   (index-document! [_ index-id entity-id field-values opts]
     (log/debug "Indexing document" {:index-id index-id :entity-id entity-id})
-    (let [definition (index/get-search index-id)]
+    (let [definition (registry/get-search index-id)]
       (when-not definition
         (throw (ex-info "Search index not registered"
                         {:type     :not-found
@@ -43,7 +45,7 @@
   (search [_ index-id query opts]
     (log/debug "Search request" {:index-id index-id :query query})
     (let [start      (System/currentTimeMillis)
-          definition (index/get-search index-id)]
+          definition (registry/get-search index-id)]
       (when-not definition
         (throw (ex-info "Search index not registered"
                         {:type     :not-found
@@ -76,7 +78,7 @@
 
   (suggest [_ index-id partial-query opts]
     (log/debug "Suggest request" {:index-id index-id :query partial-query})
-    (let [definition (index/get-search index-id)]
+    (let [definition (registry/get-search index-id)]
       (when-not definition
         (throw (ex-info "Search index not registered"
                         {:type     :not-found
@@ -89,9 +91,9 @@
           (ports/suggest-documents store index-id entity-type sanitized opts)))))
 
   (list-indices [_]
-    (let [index-ids (index/list-searches)]
+    (let [index-ids (registry/list-searches)]
       (mapv (fn [index-id]
-              (let [definition (index/get-search index-id)
+              (let [definition (registry/get-search index-id)
                     doc-count  (try
                                  (ports/count-documents store index-id)
                                  (catch Exception _ 0))]

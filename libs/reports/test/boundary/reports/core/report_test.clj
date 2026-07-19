@@ -1,6 +1,7 @@
 (ns boundary.reports.core.report-test
   "Unit tests for pure core functions — no I/O, no adapters."
   (:require [boundary.reports.core.report :as sut]
+            [boundary.reports.shell.registry :as registry]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing use-fixtures]])
   (:import [java.time LocalDate ZoneId]))
@@ -14,9 +15,9 @@
 
 (use-fixtures :each
   (fn [f]
-    (sut/clear-registry!)
+    (registry/clear-registry!)
     (f)
-    (sut/clear-registry!)))
+    (registry/clear-registry!)))
 
 ;; =============================================================================
 ;; format-cell
@@ -119,7 +120,7 @@
 
 ;; Defined at top level so clj-kondo can resolve the symbol.
 ;; clear-registry! is called in the :each fixture so the registry stays clean.
-(sut/defreport test-report-a
+(registry/defreport test-report-a
   {:id       :test-report-a
    :type     :pdf
    :template (fn [_] [:html [:body [:h1 "Test"]]])})
@@ -131,18 +132,18 @@
     (is (= :pdf (:type test-report-a))))
   (testing "defreport registers definition in the registry"
     ;; Re-register since the :each fixture clears the registry before each test.
-    (sut/register-report! test-report-a)
-    (is (= test-report-a (sut/get-report :test-report-a))))
+    (registry/register-report! test-report-a)
+    (is (= test-report-a (registry/get-report :test-report-a))))
   (testing "list-reports includes registered id"
-    (sut/register-report! test-report-a)
-    (is (some #{:test-report-a} (sut/list-reports)))))
+    (registry/register-report! test-report-a)
+    (is (some #{:test-report-a} (registry/list-reports)))))
 
 (deftest register-report-test
   ^:unit
   (testing "programmatic registration via register-report!"
     (let [defn {:id :prog-report :type :excel}]
-      (sut/register-report! defn)
-      (is (= defn (sut/get-report :prog-report))))))
+      (registry/register-report! defn)
+      (is (= defn (registry/get-report :prog-report))))))
 
 ;; =============================================================================
 ;; prepare-report

@@ -17,9 +17,9 @@ and an admin UI — all wired in via a single Integrant key.
 ### 1. Define a Search Index
 
 ```clojure
-(require '[boundary.search.core.index :as search])
+(require '[boundary.search.shell.registry :as registry])
 
-(search/defsearch product-search
+(registry/defsearch product-search
   {:id          :product-search
    :entity-type :product
    :language    :english
@@ -29,6 +29,8 @@ and an admin UI — all wired in via a single Integrant key.
 ```
 
 `defsearch` binds the var and registers the definition in the in-process registry.
+The registry is mutable process state, so it lives in the shell
+(`boundary.search.shell.registry`); `boundary.search.core.index` stays pure.
 
 ### 2. Index Documents
 
@@ -171,9 +173,11 @@ H2 integration tests create their own in-memory database — no external depende
 Test fixture pattern (reset the global registry between tests):
 
 ```clojure
+(require '[boundary.search.shell.registry :as registry])
+
 (use-fixtures :each
   (fn [f]
-    (search/clear-registry!)
+    (registry/clear-registry!)
     (f)))
 ```
 
