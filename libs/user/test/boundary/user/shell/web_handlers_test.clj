@@ -736,3 +736,23 @@
       (is (has-header? update-response "HX-Trigger" "userUpdated"))
       (is (= 200 (:status delete-response)))
       (is (has-header? delete-response "HX-Trigger" "userDeleted")))))
+
+(deftest ^:security login-cookie-secure-attribute-test
+  (testing "session-token cookie :secure follows config :secure-cookies?"
+    (let [auth-svc (reify ports/IUserService
+                     (authenticate-user [_ _]
+                       {:authenticated true
+                        :user    {:role :user}
+                        :session {:session-token "session-token-value"}}))
+          request  {:form-params {"email" "user@example.com" "password" "password123"}
+                    :remote-addr "127.0.0.1"
+                    :headers {"user-agent" "test-agent"}}
+          cookie-secure (fn [config]
+                          (-> ((web-handlers/login-submit-handler auth-svc config) request)
+                              (get-in [:cookies "session-token" :secure])))]
+      (testing "secure when config enables it (e.g. prod/acc over HTTPS)"
+        (is (true? (cookie-secure {:boundary/settings {:secure-cookies? true}}))))
+      (testing "insecure when config disables it (local HTTP dev)"
+        (is (false? (cookie-secure {:boundary/settings {:secure-cookies? false}}))))
+      (testing "defaults to secure when unset (fail-secure)"
+        (is (true? (cookie-secure {})))))))

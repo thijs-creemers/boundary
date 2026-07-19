@@ -15,6 +15,20 @@
   [slug]
   (str "tenant_" (str/replace slug "-" "_")))
 
+(defn valid-schema-name?
+  "True if schema-name is a safe tenant schema identifier — exactly the shape
+   slug->schema-name produces: a `tenant_` prefix followed by lowercase
+   alphanumerics and underscores, within PostgreSQL's 63-char identifier limit.
+
+   SQL identifiers cannot be parameterized, so schema names are interpolated
+   into DDL. This predicate is the defense-in-depth guard callers apply at the
+   DDL boundary before any interpolation."
+  [schema-name]
+  (boolean
+   (and (string? schema-name)
+        (<= (count schema-name) 63)
+        (re-matches #"^tenant_[a-z0-9_]+$" schema-name))))
+
 (defn prepare-tenant
   "Build a complete tenant entity from creation input, id, and timestamp."
   [{:keys [slug name settings]} tenant-id now]

@@ -35,6 +35,14 @@
 ;; Helper Functions
 ;; =============================================================================
 
+(defn- secure-cookies?
+  "Whether auth cookies should carry the `Secure` attribute (HTTPS-only).
+   Read from config; defaults to true (fail-secure) so a production deployment
+   that forgets to set it still gets Secure cookies. Set to false only for
+   local development over plain HTTP."
+  [config]
+  (get-in config [:boundary/settings :secure-cookies?] true))
+
 (defn- escape-js-string
   "Escape a string for safe embedding inside a JavaScript single-quoted
    string literal within a <script> tag. Prevents XSS via quote-breaking
@@ -416,8 +424,8 @@
                     (assoc-in [:cookies "session-token"]
                               (cond-> {:value session-token
                                        :http-only true
-                                         ;; set :secure true when running behind HTTPS
-                                       :secure false
+                                       :secure (secure-cookies? config)
+                                       :same-site :strict
                                        :path "/"}
                                   ;; Only set max-age if remember-me is checked
                                   ;; Without max-age, cookie is a session cookie (expires when browser closes)
@@ -428,7 +436,7 @@
                                   ;; Remember the email for 30 days
                                 {:value (:email validated-data)
                                  :http-only false  ; Allow JavaScript to read it if needed
-                                 :secure false
+                                 :secure (secure-cookies? config)
                                  :path "/"
                                  :max-age cookie-max-age}
                                   ;; Clear the remembered email by setting expired cookie
@@ -528,7 +536,7 @@
 
 (defn register-submit-handler
   "POST /web/register - validate data, create user account."
-  [user-service _config]
+  [user-service config]
   (fn [request]
     (let [form-data (:form-params request)
           raw-return-to (or (get form-data "return-to")
@@ -573,7 +581,7 @@
                               {:value session-token
                                :http-only true
                                :path "/"
-                               :secure false
+                               :secure (secure-cookies? config)
                                :same-site :strict})))
               ;; Shouldn't happen, but fallback to login page
               (response/redirect "/web/login")))

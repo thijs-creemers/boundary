@@ -6,6 +6,7 @@
  {  ;; Core application settings (always active)
   :boundary/settings
   {:name              "boundary-acc"
+   :secure-cookies? true  ;; HTTPS-only auth cookies
    :version           "0.1.0"
    :date-format       "yyyy-MM-dd"
    :date-time-format  "yyyy-MM-dd HH:mm:ss"

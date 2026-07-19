@@ -204,7 +204,8 @@ The raw token is **never** stored in the database:
 ## Schema Provisioning
 
 ```clojure
-;; Provision: creates PostgreSQL schema and copies table structure
+;; Provision: creates the PostgreSQL schema and runs the tenant-scoped
+;; migration set into it (see "Tenant migrations" below).
 (provisioning/provision-tenant! db-ctx tenant)
 ;=> {:success? true :schema-name "tenant_acme_corp" :table-count 5}
 
@@ -214,6 +215,38 @@ The raw token is **never** stored in the database:
     ;; SET search_path TO tenant_acme_corp, public
     (jdbc/execute! tx ["SELECT * FROM users"])))
 ```
+
+---
+
+## Tenant migrations
+
+Tenants use a **schema-per-tenant** layout, so schema changes to tenant-scoped
+tables must reach every `tenant_<slug>` schema — not just `public`. Two
+migration sets:
+
+| Set | Directory | Runs where | Ledger |
+|-----|-----------|------------|--------|
+| Public/shared | `migrations/` | once against `public` (the normal `bb migrate`) | `public.schema_migrations` |
+| Tenant-scoped | `migrations-tenant/` | inside **every** tenant schema | per-schema `schema_migrations` |
+
+`boundary.tenant.shell.tenant-migrations` drives the tenant set:
+
+```clojure
+(tenant-migrations/migrate-tenant! db-cfg "tenant_acme_corp")   ; one schema
+(tenant-migrations/migrate-all-tenants! db-cfg schemas)         ; fan out
+```
+
+Each tenant run pins `currentSchema` to the tenant schema **only** (no `,public`
+fallback) so migratus keeps a per-tenant ledger. Consequences:
+
+- Put only **tenant-scoped** DDL in `migrations-tenant/` — it may not reference
+  shared tables that live in `public` (there is no `public` in the search_path).
+- Migrations run once per tenant schema, so prefer idempotent DDL.
+
+Fan-out happens automatically: `provision-tenant!` runs the set into a new
+schema, and the `:boundary/tenant-db-schema` component runs pending tenant
+migrations across all existing schemas on startup (so a deploy reaches every
+tenant). See `libs/tenant/src/boundary/tenant/shell/tenant_migrations.clj`.
 
 ---
 
