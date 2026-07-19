@@ -46,12 +46,12 @@ boundary list modules    # see all 20 optional modules
 # 3. Run database migrations
 clojure -M:migrate up
 
-# 4. Start the REPL (nREPL on port 7888)
+# 4. Start the REPL (headless nREPL server on port 7888)
 export JWT_SECRET="change-me-dev-secret-min-32-chars"
-clojure -M:repl-clj
+clojure -M:repl
 ```
 
-In the REPL:
+Connect your editor (or the Boundary MCP server) to the nREPL port, then eval:
 
 ```clojure
 (go)    ; start the system — http://localhost:3000

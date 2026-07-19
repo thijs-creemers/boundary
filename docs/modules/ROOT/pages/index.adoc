@@ -50,14 +50,14 @@ cd my-app
 boundary add payments
 boundary list modules
 
-# REPL-driven development
+# REPL-driven development (headless nREPL on port 7888 — connect your editor)
 export JWT_SECRET="change-me-dev-secret-min-32-chars"
 export BND_ENV="development"
-clojure -M:repl-clj
+clojure -M:repl
 
 # Scaffold a new module (interactive)
 bb scaffold
 
 # Run all tests
-clojure -M:test:db/h2
+clojure -M:test
 ----

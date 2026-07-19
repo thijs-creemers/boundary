@@ -50,6 +50,13 @@
   check:deps        {:doc "Verify library dependency direction and detect cycles"
                      :task (check-deps/-main)}
 
+  ;; Development
+  repl              {:doc "Start the nREPL server on port 7888 (clojure -M:repl)"
+                     :override-builtin true
+                     :task (clojure "-M:repl")}
+  test              {:doc "Run tests via Kaocha (clojure -M:test [args])"
+                     :task (apply clojure "-M:test" *command-line-args*)}
+
   ;; Database management
   migrate           {:doc "Run database migrations (bb migrate [up|status|rollback|create ...])"
                      :task (apply dev/migrate *command-line-args*)}

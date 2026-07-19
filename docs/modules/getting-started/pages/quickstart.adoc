@@ -50,10 +50,11 @@ clojure -M:migrate up
 [source,bash]
 ----
 export JWT_SECRET="change-me-dev-secret-min-32-chars"
-clojure -M:repl-clj
+clojure -M:repl
 ----
 
-In the REPL:
+`clojure -M:repl` starts a headless nREPL server on port 7888. Connect your editor
+(or the Boundary MCP server) to it, then eval:
 
 [source,clojure]
 ----
