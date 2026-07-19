@@ -178,3 +178,28 @@
                   (is (= status (:status response)))
                   (when body
                     (is (= body (:body response)))))))))))))
+
+(deftest ^:integration start-on-occupied-port-throws-test
+  (if-not (socket-bind-supported?)
+    (is (not (socket-bind-supported?))
+        "Skipping socket-bind dependent bind-failure test in sandbox")
+    (testing "start! on an already-bound port throws :server-start-failed"
+      ;; Occupy the port with a real running server on the same host, so the
+      ;; second bind genuinely conflicts (a wildcard-bound socket would not).
+      (let [adapter (jetty-server/create-ring-jetty-server)
+            port    (free-port)
+            running (ports/start! adapter test-handler
+                                  {:port port :host "127.0.0.1" :join? false})]
+        (try
+          (is (wait-until-ready (str "http://127.0.0.1:" port "/__ready"))
+              "first server bound the port")
+          (let [ex (try
+                     (ports/start! adapter test-handler
+                                   {:port port :host "127.0.0.1" :join? false})
+                     nil
+                     (catch clojure.lang.ExceptionInfo e e))]
+            (is (some? ex) "second start! on the occupied port threw")
+            (is (= :server-start-failed (:type (ex-data ex)))
+                "adapter maps the bind failure to a typed :server-start-failed error"))
+          (finally
+            (ports/stop! adapter running)))))))
