@@ -47,6 +47,37 @@
                :system         {}}]
       (is (= 500 (get-in (error-handler ctx) [:response :status]))))))
 
+(deftest ^:security ^:unit error-500-does-not-leak-internals-test
+  (let [error-handler (:error interceptors/http-error-handler)]
+    (testing "a raw exception's message/class never reach the client on 500"
+      (let [secret "relation \"users\" does not exist at /var/app/db.clj"
+            ctx    {:exception (RuntimeException. secret) :correlation-id "corr-500" :system {}}
+            resp   (:response (error-handler ctx))
+            body   (:body resp)]
+        (is (= 500 (:status resp)))
+        (is (= "Internal Server Error" (:message body)))
+        (is (= "corr-500" (:correlation-id body)))
+        (is (nil? (:details body)) "no ex-data details on a 500")
+        (is (not (str/includes? (pr-str body) secret)) "raw exception message must not leak")
+        (is (not (str/includes? (pr-str body) "RuntimeException")))))
+
+    (testing "a typed :internal-error does not leak its ex-data"
+      (let [ctx  {:exception (ex-info "boom" {:type :internal-error :sql "SELECT secret" :path "/etc/passwd"})
+                  :correlation-id "corr-501" :system {}}
+            body (get-in (error-handler ctx) [:response :body])]
+        (is (= "Internal Server Error" (:message body)))
+        (is (nil? (:details body)))
+        (is (not (str/includes? (pr-str body) "/etc/passwd")))
+        (is (not (str/includes? (pr-str body) "SELECT secret")))))
+
+    (testing "typed 4xx still returns its intended domain message and details"
+      (let [ctx  {:exception (ex-info "Email is required" {:type :validation-error :field :email})
+                  :correlation-id "corr-400" :system {}}
+            resp (:response (error-handler ctx))]
+        (is (= 400 (:status resp)))
+        (is (= "Email is required" (get-in resp [:body :message])))
+        (is (= {:field :email} (get-in resp [:body :details])))))))
+
 ;; =============================================================================
 ;; CSRF interceptor routing logic
 ;; =============================================================================

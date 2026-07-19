@@ -65,6 +65,12 @@
   [worker-id]
   (str "jobs:worker:" worker-id))
 
+(defn- processing-key
+  "Redis key for a worker's in-flight (processing) list for a queue.
+   Job ids live here between dequeue and ack; reclaim drains dead workers'."
+  [queue-name worker-id]
+  (str "jobs:processing:" (name queue-name) ":" worker-id))
+
 ;; =============================================================================
 ;; Redis Key Scanning (non-blocking alternative to KEYS)
 ;; =============================================================================
@@ -230,21 +236,56 @@
     (let [scheduled-job (assoc job :execute-at execute-at)]
       (ports/enqueue-job! this queue-name scheduled-job)))
 
-  (dequeue-job! [_ queue-name]
+  (dequeue-job! [_ queue-name worker-id]
     (with-redis pool
       (fn [^Jedis redis]
         (let [queue-key (queue-key queue-name)
-              ;; Try to dequeue from priority queues in order
-              job-id (or (.rpop redis (str queue-key ":critical"))
-                         (.rpop redis (str queue-key ":high"))
-                         (.rpop redis queue-key)
-                         (.rpop redis (str queue-key ":low")))]
+              proc-key  (processing-key queue-name worker-id)
+              ;; Atomically move the next job into the worker's processing list
+              ;; (RPOPLPUSH) so a crash between dequeue and ack cannot lose it.
+              ;; Try priority queues in order.
+              job-id (or (.rpoplpush redis (str queue-key ":critical") proc-key)
+                         (.rpoplpush redis (str queue-key ":high") proc-key)
+                         (.rpoplpush redis queue-key proc-key)
+                         (.rpoplpush redis (str queue-key ":low") proc-key))]
 
           (when job-id
             (let [job-key (job-key (java.util.UUID/fromString job-id))
                   job-data (.get redis job-key)]
               (when job-data
                 (deserialize-job job-data))))))))
+
+  (ack-job! [_ queue-name worker-id job-id]
+    (with-redis pool
+      (fn [^Jedis redis]
+        (.lrem redis (processing-key queue-name worker-id) 0 (str job-id))
+        true)))
+
+  (reclaim-abandoned-jobs! [_ queue-name]
+    (with-redis pool
+      (fn [^Jedis redis]
+        (let [queue-key     (queue-key queue-name)
+              proc-keys     (scan-keys redis (str "jobs:processing:" (name queue-name) ":*"))
+              worker-alive? (fn [^String proc-key]
+                              (let [worker-id (subs proc-key (inc (.lastIndexOf proc-key ":")))]
+                                (pos? (.exists redis (into-array String [(worker-key worker-id)])))))
+              drain!        (fn [proc-key]
+                              ;; Move every stranded job id back onto the ready queue.
+                              (loop [moved 0]
+                                (if (.rpoplpush redis proc-key queue-key)
+                                  (recur (inc moved))
+                                  moved)))]
+          (reduce
+           (fn [acc proc-key]
+             (if (worker-alive? proc-key)
+               acc
+               (let [n (drain! proc-key)]
+                 (when (pos? n)
+                   (log/warn "Reclaimed jobs from abandoned worker"
+                             {:processing-key proc-key :count n}))
+                 (update acc :reclaimed + n))))
+           {:reclaimed 0}
+           proc-keys)))))
 
   (peek-job [_ queue-name]
     (with-redis pool

@@ -185,9 +185,18 @@
     (let [scheduled-job (assoc job :execute-at execute-at)]
       (ports/enqueue-job! this queue-name scheduled-job)))
 
-  (dequeue-job! [_ queue-name]
+  (dequeue-job! [_ queue-name _worker-id]
     (when-let [job-id (remove-from-queue! (:queues state) queue-name)]
       (get @(:jobs state) job-id)))
+
+  ;; In-memory jobs live in-process, so a crash loses the whole queue anyway;
+  ;; there is no cross-process in-flight list to track. ack/reclaim are no-ops
+  ;; that satisfy the protocol so worker code is adapter-agnostic.
+  (ack-job! [_ _queue-name _worker-id _job-id]
+    true)
+
+  (reclaim-abandoned-jobs! [_ _queue-name]
+    {:reclaimed 0})
 
   (peek-job [_ queue-name]
     (when-let [job-id (peek-queue (:queues state) queue-name)]

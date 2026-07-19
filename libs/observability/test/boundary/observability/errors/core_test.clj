@@ -326,11 +326,13 @@
         (when correlation-header
           (is (= "response-trace-456" correlation-header))))
 
-      ;; Parse response body if it exists
+      ;; Parse response body if it exists. Untyped exceptions map to a 5xx, whose
+      ;; title is now generalized to hide the raw message (BOU-161); the reporting
+      ;; context (trace-id) must still be preserved in the response.
       (when-let [body-str (:body response)]
         (let [body (json/parse-string body-str keyword)]
           (when (:title body)
-            (is (= "Response context test" (:title body))))
+            (is (= "Internal Server Error" (:title body))))
           (when (get-in body [:context :trace-id])
             (is (= "response-trace-456" (get-in body [:context :trace-id]))))))
 
@@ -377,10 +379,12 @@
         (is (= correlation-id (get-in error-data [:context :trace-id])))
         (is (= request-id (get-in error-data [:context :request-id])))
 
-        ;; Check problem details response has correlation in the instance field
+        ;; Check problem details response has correlation in the instance field.
+        ;; The untyped exception yields a 5xx whose detail is now generic to avoid
+        ;; leaking the raw message (BOU-161); correlation must still be present.
         (is (= correlation-id (get-in response-body ["instance" "trace-id"])))
         (is (= "user-456" (get-in response-body ["instance" "user-id"])))
-        (is (= "Correlated error" (get response-body "detail"))))))
+        (is (= "Internal Server Error" (get response-body "detail"))))))
 
   (testing "maintains correlation across service boundaries"
     (let [mock-service (create-mock-error-service)
