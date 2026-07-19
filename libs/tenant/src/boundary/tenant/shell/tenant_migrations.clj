@@ -74,12 +74,13 @@
    the schema list from `provisioning/list-tenant-schemas` (kept out of this ns
    to avoid a dependency cycle with provisioning)."
   ([schemas] (migrate-all-tenants! (db-config/get-active-db-config) schemas))
-  ([db-cfg schemas]
+  ([db-cfg schemas] (migrate-all-tenants! db-cfg schemas default-tenant-migration-dir))
+  ([db-cfg schemas migration-dir]
    (log/info "Fanning out migrations to tenant schemas" {:count (count schemas)})
    (reduce
     (fn [acc schema]
       (try
-        (migrate-tenant! db-cfg schema)
+        (migrate-tenant! db-cfg schema migration-dir)
         (update acc :schemas-migrated conj schema)
         (catch Exception e
           (log/error e "Tenant migration failed" {:schema schema})
