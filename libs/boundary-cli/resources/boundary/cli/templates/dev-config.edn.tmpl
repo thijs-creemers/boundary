@@ -5,6 +5,9 @@
      :version          "0.1.0"
      :date-format      "yyyy-MM-dd"
      :date-time-format "yyyy-MM-dd HH:mm:ss"
+     ;; Auth cookies omit the Secure attribute for local HTTP dev.
+     ;; Defaults to true (HTTPS-only) when unset — set true behind TLS in prod.
+     :secure-cookies?  false
      :features         {}}
 
    :boundary/h2
