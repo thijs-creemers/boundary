@@ -1,19 +1,8 @@
 (ns boundary.calendar.core.event-test
   "Unit tests for boundary.calendar.core.event — pure functions, no I/O."
   (:require [boundary.calendar.core.event :as sut]
-            [boundary.calendar.shell.registry :as registry]
-            [clojure.test :refer [deftest is testing use-fixtures]])
+            [clojure.test :refer [deftest is testing]])
   (:import [java.time Instant]))
-
-;; =============================================================================
-;; Fixture — clear registry between tests
-;; =============================================================================
-
-(use-fixtures :each
-  (fn [f]
-    (registry/clear-registry!)
-    (f)
-    (registry/clear-registry!)))
 
 ;; =============================================================================
 ;; Test data
@@ -25,42 +14,6 @@
    :start    (Instant/parse "2026-03-10T09:00:00Z")
    :end      (Instant/parse "2026-03-10T10:00:00Z")
    :timezone "Europe/Amsterdam"})
-
-;; =============================================================================
-;; defevent macro and registry
-;; =============================================================================
-
-(registry/defevent test-appointment-event
-  {:id    :test-appointment
-   :label "Test Appointment"})
-
-(deftest defevent-macro-test
-  ^:unit
-  (testing "defevent binds var to definition map"
-    (is (= :test-appointment (:id test-appointment-event)))
-    (is (= "Test Appointment" (:label test-appointment-event))))
-  (testing "defevent registers in the registry"
-    (registry/register-event-type! test-appointment-event)
-    (is (= test-appointment-event (registry/get-event-type :test-appointment))))
-  (testing "list-event-types includes registered id"
-    (registry/register-event-type! test-appointment-event)
-    (is (some #{:test-appointment} (registry/list-event-types)))))
-
-(deftest register-event-type-test
-  ^:unit
-  (testing "programmatic registration"
-    (let [defn {:id :booking :label "Booking"}]
-      (registry/register-event-type! defn)
-      (is (= defn (registry/get-event-type :booking)))))
-  (testing "get-event-type returns nil for unknown id"
-    (is (nil? (registry/get-event-type :unknown-event-xyz)))))
-
-(deftest clear-registry-test
-  ^:unit
-  (testing "clear-registry! empties the registry"
-    (registry/register-event-type! {:id :temp-event})
-    (registry/clear-registry!)
-    (is (empty? (registry/list-event-types)))))
 
 ;; =============================================================================
 ;; duration

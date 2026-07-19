@@ -11,7 +11,7 @@
  :linters {:unresolved-symbol {:exclude [(boundary.platform.shell.adapters.database.common.core/with-transaction [tx])
                                          ;; spel (Playwright) binding macro: binds the page symbol from a vector.
                                          (com.blockether.spel.core/with-testing-page [pg])]}}
- :config-in-ns {boundary.search.core.index-test {:linters {:inline-def {:level :off}}}
+ :config-in-ns {boundary.search.shell.registry-test {:linters {:inline-def {:level :off}}}
                 boundary.audience.shell.registry-test {:linters {:inline-def {:level :off}}}
                 boundary.user.ports {:linters {:redefined-var {:level :off}}}
                 build {:linters {:redefined-var {:level :off}}}

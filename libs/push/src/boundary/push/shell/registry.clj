@@ -4,8 +4,7 @@
    The registry is mutable process state, so it lives in the shell — the core
    (boundary.push.core.notification) stays pure (rendering only). Definitions are
    registered at namespace load via the `defpush` macro and read at runtime by
-   the push service/jobs."
-  (:require [clojure.string]))
+   the push service/jobs.")
 
 (defonce ^:private registry-atom (atom {}))
 
