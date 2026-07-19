@@ -394,17 +394,38 @@
                                    :unauthorized 401
                                    :forbidden 403
                                    :conflict 409
-                                   500)]
+                                   500)
+                          server-error? (>= status 500)]
+                      ;; Never leak internals on a 5xx: log the full exception
+                      ;; (message, class, ex-data, stacktrace) server-side, keyed
+                      ;; by correlation-id, and return only a generic body to the
+                      ;; client. Typed 4xx errors carry an intended domain message
+                      ;; and details, but never fall back to the raw .getMessage.
+                      (when server-error?
+                        (when-let [logger (:logger system)]
+                          (log-ports/error logger "Unhandled error at HTTP boundary"
+                                           {:correlation-id correlation-id
+                                            :error-type error-type
+                                            :exception-class (some-> ^Throwable exception class .getName)
+                                            :message (some-> ^Throwable exception .getMessage)
+                                            :ex-data ex-data})))
                       (set-response ctx
                                     {:status status
                                      :headers {"Content-Type" "application/json"
                                                "X-Correlation-ID" correlation-id}
-                                     :body {:error (name error-type)
-                                            :message (or (:message ex-data)
-                                                         (.getMessage ^Throwable exception)
-                                                         "An error occurred")
-                                            :correlation-id correlation-id
-                                            :details (dissoc ex-data :type :message)}})))))))})
+                                     :body (if server-error?
+                                             {:error "internal-error"
+                                              :message "Internal Server Error"
+                                              :correlation-id correlation-id}
+                                             ;; A typed 4xx carries a domain-authored
+                                             ;; message (ex-data :message or the
+                                             ;; ex-info message) — safe to return.
+                                             {:error (name error-type)
+                                              :message (or (:message ex-data)
+                                                           (.getMessage ^Throwable exception)
+                                                           "An error occurred")
+                                              :correlation-id correlation-id
+                                              :details (dissoc ex-data :type :message)})})))))))})
 
 (def http-csrf-protection
   "Validates CSRF tokens for state-changing requests (POST, PUT, DELETE, PATCH) and

@@ -63,10 +63,14 @@
    (let [ex-data                      (ex-data ex)
          ex-type                      (:type ex-data)
          mappings                     (merge default-error-mappings error-mappings)
-         ;; Title logic: typed exceptions use mapping, untyped use message
+         ;; Title logic: typed exceptions use their mapping; untyped errors are
+         ;; always 500 and must NOT expose the raw exception message.
          [status title] (if ex-type
                           (get mappings ex-type [500 "Internal Server Error"])
-                          [500 (.getMessage ex)])
+                          [500 "Internal Server Error"])
+         ;; Never leak internals (raw message, ex-data, extension members) on a
+         ;; 5xx — those go to the server log, not the client.
+         server-error?                (>= status 500)
          ;; Reserved RFC 7807 fields that shouldn't be duplicated
          reserved-keys                #{:type :title :status :detail :instance}
          ;; Internal keys that shouldn't appear in response
@@ -97,15 +101,17 @@
                            (name (or ex-type :internal-error)))
        :title         title
        :status        status
-       :detail        (if ex-type ex-data (.getMessage ex)) ;; Use ex-data for typed errors, message for others
+       ;; 5xx: generic detail only. Typed 4xx: the domain ex-data is the detail.
+       :detail        (if server-error? "Internal Server Error" ex-data)
        :instance      uri
        :correlationId correlation-id
-       :errors        (or (:errors ex-data) {})}
+       :errors        (if server-error? {} (or (:errors ex-data) {}))}
        ;; Add error context if present - key depends on exception type
       (when (seq error-context)
         {context-key error-context})
-       ;; Merge extension members at top level per RFC 7807
-      extension-members))))
+       ;; Merge extension members at top level per RFC 7807 — suppressed for 5xx
+       ;; so ex-data fields never leak on a server error.
+      (when-not server-error? extension-members)))))
 
 (defn problem-details->response
   "Convert problem details body to Ring response map.
