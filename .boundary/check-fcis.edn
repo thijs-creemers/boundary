@@ -1,28 +1,21 @@
-;; check:fcis allowlist — pre-existing core throws / mutable state.
+;; check:fcis allowlist — genuine FC/IS debt only.
 ;;
-;; The FC/IS gate (bb check:fcis) bans (throw ...) and mutable state (defonce,
-;; atom, swap!, reset!) in core namespaces: core must return typed error values
-;; (the shell translates them into HTTP responses) and hold no process state.
+;; The gate (bb check:fcis) bans (throw ...) and mutable state (defonce, atom,
+;; swap!, reset!, …) in core namespaces.
 ;;
-;; The namespaces below predate that ban — they are framework-spine code
-;; (interceptor engine, validation framework, error-detail construction,
-;; pagination/ranking) whose typed throws are precondition/invariant guards
-;; caught centrally at the HTTP boundary. They are allowlisted so the gate can
-;; enforce the rule for all NEW code while this debt is migrated incrementally.
+;; Namespaces that LEGITIMATELY need an exception are exempted INLINE via
+;; ^:boundary/allow-throw / ^:boundary/allow-mutable-state ns metadata, with the
+;; rationale next to the code — the interceptor engine's error propagation
+;; (boundary.core.interceptor, …interceptor-context), the validation-testing
+;; tooling (…validation.behavior / .generators / .snapshot), and the local
+;; volatile! accumulators in boundary.platform.core.search.ranking.
 ;;
-;; Burn-down tracked in BOU-186 (core/platform infra) and BOU-185 (audience,
-;; which is exempted inline via ^:boundary/allow-throw instead). Remove each
-;; entry as its namespace is converted to error-return values.
+;; This file is reserved for REAL debt to migrate. The single remaining entry is
+;; a mutable rule registry (two defonce atoms) that predates the shell-per-
+;; registry pattern and should move out of the functional core — tracked in
+;; BOU-188. Remove it here once that move lands.
 {:allow-throw
- [boundary.core.interceptor
-  boundary.core.interceptor-context
-  boundary.core.validation.behavior
-  boundary.core.validation.generators
-  boundary.core.validation.registry
-  boundary.core.validation.snapshot
-  boundary.platform.core.search.ranking]
+ [boundary.core.validation.registry]
 
  :allow-mutable-state
- [boundary.core.validation.registry
-  ;; local volatile! accumulators inside otherwise-pure ranking fns
-  boundary.platform.core.search.ranking]}
+ [boundary.core.validation.registry]}

@@ -1,4 +1,7 @@
-(ns boundary.core.validation.snapshot
+;; ^:boundary/allow-throw — snapshot-testing helper; the throws guard against
+;; missing required opts (:ns / :test) when misusing the snapshot API —
+;; intentional developer tooling behaviour.
+(ns ^:boundary/allow-throw boundary.core.validation.snapshot
   "Pure snapshot capture, comparison, and serialization for validation testing.
 
   This namespace provides data-only operations for snapshot testing:
