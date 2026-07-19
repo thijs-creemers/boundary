@@ -1015,7 +1015,9 @@ This is the initial 1.0.0 release. No migration from previous versions.
 
 ### License
 
-Copyright 2024-2025 Thijs Creemers. All rights reserved.
+Copyright 2024-2025 Thijs Creemers.
+
+Distributed under the [Eclipse Public License 2.0](./LICENSE).
 
 ### Acknowledgments
 

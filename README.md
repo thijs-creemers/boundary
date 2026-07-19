@@ -345,4 +345,6 @@ https://boundary-app.org
 ---
 ## License
 
-Copyright 2024–2026 Thijs Creemers. All rights reserved.
+Copyright 2024–2026 Thijs Creemers.
+
+Distributed under the [Eclipse Public License 2.0](./LICENSE).
