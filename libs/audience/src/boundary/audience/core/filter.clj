@@ -1,12 +1,12 @@
-(ns ^:boundary/allow-throw boundary.audience.core.filter
+(ns boundary.audience.core.filter
   "Filter multimethods for audience segment evaluation.
    FC/IS rule: pure functions only — no I/O, no side effects, no logging.
 
-   Exempt from the core throw ban (^:boundary/allow-throw): the throws here are
-   multimethod extensibility guards (unknown filter type) and precondition
-   guards (missing :now, unsupported operator) — not domain errors surfaced to
-   end users. Converting them to error-return values requires validating the
-   filter tree in the shell before dispatch; tracked in BOU-185."
+   Validity is checked up front by `explain-filter` (pure, returns an anomaly
+   map or nil). The shell validates a segment's filters before compilation and
+   raises the typed error at the HTTP boundary, so the multimethods below assume
+   a known filter type and a supported operator and never throw — their unknown
+   branches fail safe (nil / a false predicate)."
   (:import [java.util.regex Pattern]))
 
 ;; =============================================================================
@@ -74,16 +74,14 @@
   :type)
 
 ;; =============================================================================
-;; Default implementations — fail loudly for unknown filter types
+;; Default implementations — unknown filter types are rejected up front by
+;; `explain-filter`, so these are unreachable in a validated pipeline and fail
+;; safe (no SQL clause / a predicate that matches nobody).
 ;; =============================================================================
 
-(defmethod filter->sql :default [filt]
-  (throw (ex-info (str "No filter->sql implementation for filter type " (:type filt))
-                  {:type :unknown-filter-type :filter-type (:type filt) :filter filt})))
+(defmethod filter->sql :default [_filt] nil)
 
-(defmethod filter->predicate :default [filt]
-  (throw (ex-info (str "No filter->predicate implementation for filter type " (:type filt))
-                  {:type :unknown-filter-type :filter-type (:type filt) :filter filt})))
+(defmethod filter->predicate :default [_filt] (constantly false))
 
 ;; =============================================================================
 ;; :demographics — simple field equality / comparison
@@ -104,8 +102,8 @@
                      :in   #(contains? (set honey-val) %)
                      :like (let [pat (re-pattern (str "(?i).*" (Pattern/quote (str value)) ".*"))]
                              #(boolean (re-find pat (str %))))
-                     (throw (ex-info (str "Unsupported operator " honey-op " for filter type :demographics")
-                                     {:type :unsupported-filter-op :op honey-op :filter-type :demographics})))]
+                     ;; validated up front; unreachable, matches nobody
+                     (constantly false))]
     (fn [user] (compare-fn (get user field)))))
 
 ;; =============================================================================
@@ -140,7 +138,9 @@
     [sql-operator :created_at [:raw (str "CURRENT_DATE - INTERVAL '" days " days'")]]))
 
 (defmethod filter->predicate :account-tenure [{:keys [op value now]}]
-  (let [today      (or now (throw (ex-info "filter->predicate :account-tenure requires :now" {})))
+  ;; `now` is supplied by the shell (compile-segment); the op is validated by
+  ;; explain-filter, so the case has no throwing fallback.
+  (let [today      now
         compare-fn (case op
                      :gte #(>= % value)
                      :gt  #(> % value)
@@ -148,8 +148,7 @@
                      :lt  #(< % value)
                      :eq  #(= % value)
                      :neq #(not= % value)
-                     (throw (ex-info (str "Unsupported operator " op " for filter type :account-tenure")
-                                     {:type :unsupported-filter-op :op op :filter-type :account-tenure})))]
+                     (constantly false))]
     (fn [user]
       (when-let [created (:created-at user)]
         (let [days (.between java.time.temporal.ChronoUnit/DAYS
@@ -169,7 +168,7 @@
       [:>= :last_active_at [:raw (str "CURRENT_DATE - INTERVAL '" days " days'")]])))
 
 (defmethod filter->predicate :last-active [{:keys [op value now]}]
-  (let [today (or now (throw (ex-info "filter->predicate :last-active requires :now" {})))]
+  (let [today now]
     (case op
       :within-days
       (fn [user]
@@ -178,8 +177,7 @@
                 active-date (.toLocalDate (.atZone (.toInstant last-active)
                                                    java.time.ZoneOffset/UTC))]
             (not (.isBefore active-date cutoff)))))
-      (throw (ex-info (str "Unsupported operator " op " for filter type :last-active")
-                      {:type :unsupported-filter-op :op op :filter-type :last-active})))))
+      (constantly false))))
 
 ;; =============================================================================
 ;; :behavior — arbitrary in-process predicate; not SQL-evaluable
@@ -200,7 +198,7 @@
   nil)
 
 (defmethod filter->predicate :feature-usage [{:keys [field op value now]}]
-  (let [today (or now (throw (ex-info "filter->predicate :feature-usage requires :now" {})))]
+  (let [today now]
     (case op
       :used-within
       (fn [user]
@@ -210,5 +208,56 @@
                   last-used (.toLocalDate (.atZone (.toInstant usage)
                                                    java.time.ZoneOffset/UTC))]
               (not (.isBefore last-used cutoff))))))
-      (throw (ex-info (str "Unsupported operator " op " for filter type :feature-usage")
-                      {:type :unsupported-filter-op :op op :filter-type :feature-usage})))))
+      (constantly false))))
+
+;; =============================================================================
+;; Validation (pure) — the shell calls this before compilation and raises the
+;; typed error at the HTTP boundary. Keeping it here lets the multimethods above
+;; assume valid input and stay throw-free.
+;; =============================================================================
+
+(def supported-ops
+  "User-facing operators accepted per built-in filter type. Source of truth for
+   `explain-filter`; kept in step with the filter->predicate/filter->sql cases."
+  {:demographics   #{:eq :neq :gt :gte :lt :lte :in :contains}
+   :location       #{:eq :neq :gt :gte :lt :lte :in :contains}
+   :role           #{:eq :neq :gt :gte :lt :lte :in :contains}
+   :account-tenure #{:eq :neq :gt :gte :lt :lte}
+   :last-active    #{:within-days}
+   :feature-usage  #{:used-within}})
+
+(defn known-type?
+  "True when `t` has a registered filter->sql or filter->predicate method
+   (built-in or application-extended via defmethod). `:default` is the
+   multimethod fallback, not a real filter type, so it never counts as known —
+   otherwise a {:type :default} filter would validate and then silently match
+   nobody via the fail-safe defaults."
+  [t]
+  (boolean (and (not= t :default)
+                (or (contains? (methods filter->sql) t)
+                    (contains? (methods filter->predicate) t)))))
+
+(defn explain-filter
+  "Return an anomaly map {:error {...}} describing why `filt` cannot be
+   evaluated, or nil when it is valid. Pure — never throws.
+
+   Checks the :type is registered and — for built-in types with a fixed
+   operator set — that :op is supported. Application-registered types are
+   trusted for their own operators."
+  [{:keys [type op] :as filt}]
+  (cond
+    (not (known-type? type))
+    {:error {:type :unknown-filter-type :filter-type type :filter filt
+             :message (str "No filter implementation for filter type " type)}}
+
+    (and (contains? supported-ops type)
+         (not (contains? (supported-ops type) op)))
+    {:error {:type :unsupported-filter-op :filter-type type :op op :filter filt
+             :message (str "Unsupported operator " op " for filter type " type)}}
+
+    :else nil))
+
+(defn explain-filters
+  "Return the first {:error {...}} among `filters`, or nil when all are valid."
+  [filters]
+  (some explain-filter filters))
