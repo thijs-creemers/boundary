@@ -228,10 +228,14 @@
 
 (defn known-type?
   "True when `t` has a registered filter->sql or filter->predicate method
-   (built-in or application-extended via defmethod)."
+   (built-in or application-extended via defmethod). `:default` is the
+   multimethod fallback, not a real filter type, so it never counts as known —
+   otherwise a {:type :default} filter would validate and then silently match
+   nobody via the fail-safe defaults."
   [t]
-  (boolean (or (contains? (methods filter->sql) t)
-               (contains? (methods filter->predicate) t))))
+  (boolean (and (not= t :default)
+                (or (contains? (methods filter->sql) t)
+                    (contains? (methods filter->predicate) t)))))
 
 (defn explain-filter
   "Return an anomaly map {:error {...}} describing why `filt` cannot be

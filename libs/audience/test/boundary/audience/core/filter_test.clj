@@ -135,6 +135,10 @@
   (testing "unknown filter type"
     (is (= :unknown-filter-type
            (get-in (f/explain-filter {:type :nope :op :eq}) [:error :type]))))
+  (testing ":default is the multimethod fallback, not a real type — rejected"
+    (is (false? (f/known-type? :default)))
+    (is (= :unknown-filter-type
+           (get-in (f/explain-filter {:type :default :op :eq}) [:error :type]))))
   (testing "unsupported operator for a built-in type"
     (is (= :unsupported-filter-op
            (get-in (f/explain-filter {:type :last-active :op :eq :value 7}) [:error :type]))))
