@@ -188,7 +188,9 @@
 
     ;; Step 4: Scaffold and integrate a sample module (non-critical — continue on failure)
     (let [scaffolded? (run-step 4 8 "Scaffolding sample module"
-                                ["bb" "scaffold" "generate" "tasks" "title:string" "done:boolean"]
+                                ["bb" "scaffold" "generate"
+                                 "--module-name" "tasks" "--entity" "Task"
+                                 "--field" "title:string" "--field" "done:boolean"]
                                 :continue? true)]
       (when scaffolded?
         (run-step 5 8 "Integrating sample module into project"
