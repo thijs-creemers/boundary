@@ -98,8 +98,10 @@
       (is (= "application/problem+json" (get-in response [:headers "Content-Type"])))
 
       (let [body (json/parse-string (:body response) keyword)]
-        (is (= "Test error" (:title body)))
-        (is (= "Test error" (:detail body)))
+        ;; Untyped (500) errors must not leak the raw exception message.
+        (is (= "Internal Server Error" (:title body)))
+        (is (= "Internal Server Error" (:detail body)))
+        (is (not= "Test error" (:title body)))
         (is (contains? (:errorContext body) :user-id))
         (is (= (str user-id) (get-in body [:errorContext :user-id]))))))
 
@@ -148,8 +150,8 @@
       (is (= 500 (:status response)))
 
       (let [body (json/parse-string (:body response) keyword)]
-        (is (= "Combined test" (:title body)))
-        (is (= "Combined test" (:detail body)))
+        (is (= "Internal Server Error" (:title body)))
+        (is (= "Internal Server Error" (:detail body)))
         (is (contains? (:errorContext body) :user-id))
         (is (contains? (:errorContext body) :timestamp))))))
 
@@ -251,8 +253,8 @@
       (is (= "application/problem+json" (get-in response [:headers "Content-Type"])))
 
       (let [body (json/parse-string (:body response) keyword)]
-        (is (= "Integration test error" (:title body)))
-        (is (= "Integration test error" (:detail body)))
+        (is (= "Internal Server Error" (:title body)))
+        (is (= "Internal Server Error" (:detail body)))
         (is (= (str user-id) (get-in body [:errorContext :user-id])))
         (is (= (str tenant-id) (get-in body [:errorContext :tenant-id])))
         (is (contains? (:errorContext body) :timestamp))))))

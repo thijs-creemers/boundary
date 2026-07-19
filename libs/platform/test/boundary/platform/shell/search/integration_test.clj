@@ -16,12 +16,11 @@
             [clojure.string :as str]
             [clojure.set]
             [next.jdbc :as jdbc]
-            [next.jdbc.connection :as connection]
             [boundary.platform.shell.search.postgresql :as pg]
             [boundary.platform.shell.search.service :as svc]
-            [boundary.platform.search.ports :as ports])
-  (:import (com.zaxxer.hikari HikariDataSource)
-           (java.util UUID)
+            [boundary.platform.search.ports :as ports]
+            [support.embedded-pg :as epg])
+  (:import (java.util UUID)
            (java.time Instant)
            (java.time.temporal ChronoUnit)))
 
@@ -34,39 +33,22 @@
 (def test-search-service (atom nil))
 
 (defn postgres-available?
-  "Check if PostgreSQL is available for testing.
-   Checks if the test container is running on port 5433."
+  "True once the embedded-PostgreSQL fixture has initialised the test context.
+   Embedded PG always starts (or the :once fixture fails loud), so these tests
+   never silently skip the way the old external-container check allowed."
   []
-  (try
-    (with-open [_conn (java.sql.DriverManager/getConnection
-                       "jdbc:postgresql://localhost:5433/boundary_search_test"
-                       "test"
-                       "test")]
-      true)
-    (catch Exception _e
-      false)))
-
-(defn create-test-database
-  "Create a fresh test database for search integration tests.
-   The database is already created by the Docker container."
-  []
-  (postgres-available?))
+  (some? @test-db-context))
 
 (defn setup-test-db
-  "Initialize test database with schema and migrations."
-  []
-  (when (and (postgres-available?) (create-test-database))
-    (let [^HikariDataSource datasource (connection/->pool
-                                        com.zaxxer.hikari.HikariDataSource
-                                        {:jdbcUrl "jdbc:postgresql://localhost:5433/boundary_search_test"
-                                         :username "test"
-                                         :password "test"})
-          db-ctx {:datasource datasource}]
-      (reset! test-db-context db-ctx)
+  "Initialise the (embedded) test database with schema and FTS migrations,
+   then build the search provider and service against it."
+  [db-ctx]
+  (let [datasource (:datasource db-ctx)]
+    (reset! test-db-context db-ctx)
 
-      ;; Create users table
-      (jdbc/execute! datasource
-                     ["CREATE TABLE IF NOT EXISTS users (
+    ;; Create users table
+    (jdbc/execute! datasource
+                   ["CREATE TABLE IF NOT EXISTS users (
                         id UUID PRIMARY KEY,
                         email VARCHAR(255) UNIQUE NOT NULL,
                         name VARCHAR(255),
@@ -78,9 +60,9 @@
                         deleted_at TIMESTAMP
                       )"])
 
-      ;; Create items table
-      (jdbc/execute! datasource
-                     ["CREATE TABLE IF NOT EXISTS items (
+    ;; Create items table
+    (jdbc/execute! datasource
+                   ["CREATE TABLE IF NOT EXISTS items (
                         id UUID PRIMARY KEY,
                         name VARCHAR(255) NOT NULL,
                         sku VARCHAR(100) UNIQUE NOT NULL,
@@ -90,76 +72,58 @@
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                       )"])
 
-      ;; Apply full-text search migration for users
-      ;; Drop the column if it exists and recreate as GENERATED column
-      (jdbc/execute! datasource
-                     ["ALTER TABLE users DROP COLUMN IF EXISTS search_vector"])
-
-      (jdbc/execute! datasource
-                     ["ALTER TABLE users ADD COLUMN search_vector tsvector 
+    ;; Apply full-text search migration for users (search_vector as GENERATED column)
+    (jdbc/execute! datasource
+                   ["ALTER TABLE users DROP COLUMN IF EXISTS search_vector"])
+    (jdbc/execute! datasource
+                   ["ALTER TABLE users ADD COLUMN search_vector tsvector
                        GENERATED ALWAYS AS (
                          setweight(to_tsvector('english', COALESCE(name, '')), 'A') ||
                          setweight(to_tsvector('english', COALESCE(email, '')), 'B') ||
                          setweight(to_tsvector('english', COALESCE(bio, '')), 'C')
                        ) STORED"])
-
-      ;; Create GIN index for users
-      (jdbc/execute! datasource
-                     ["CREATE INDEX IF NOT EXISTS users_search_vector_idx 
+    (jdbc/execute! datasource
+                   ["CREATE INDEX IF NOT EXISTS users_search_vector_idx
                        ON users USING GIN (search_vector)"])
 
-      ;; Apply full-text search migration for items
-      ;; Drop the column if it exists and recreate as GENERATED column
-      (jdbc/execute! datasource
-                     ["ALTER TABLE items DROP COLUMN IF EXISTS search_vector"])
-
-      (jdbc/execute! datasource
-                     ["ALTER TABLE items ADD COLUMN search_vector tsvector 
+    ;; Apply full-text search migration for items
+    (jdbc/execute! datasource
+                   ["ALTER TABLE items DROP COLUMN IF EXISTS search_vector"])
+    (jdbc/execute! datasource
+                   ["ALTER TABLE items ADD COLUMN search_vector tsvector
                        GENERATED ALWAYS AS (
                          setweight(to_tsvector('english', COALESCE(name, '')), 'A') ||
                          setweight(to_tsvector('english', COALESCE(sku, '')), 'B') ||
                          setweight(to_tsvector('english', COALESCE(location, '')), 'C')
                        ) STORED"])
-
-      ;; Create GIN index for items
-      (jdbc/execute! datasource
-                     ["CREATE INDEX IF NOT EXISTS items_search_vector_idx 
+    (jdbc/execute! datasource
+                   ["CREATE INDEX IF NOT EXISTS items_search_vector_idx
                        ON items USING GIN (search_vector)"])
 
-      ;; Create search provider
-      (reset! test-search-provider
-              (pg/create-postgresql-search-provider
-               db-ctx
-               {:weights {:users {:name 'A :email 'B :bio 'C}
-                          :items {:name 'A :sku 'B :location 'C}}
-                :language "english"}))
+    ;; Create search provider — the record is invoked directly as a connectable,
+    ;; so it must hold the datasource, not the db-context map.
+    (reset! test-search-provider
+            (pg/create-postgresql-search-provider
+             datasource
+             {:weights {:users {:name 'A :email 'B :bio 'C}
+                        :items {:name 'A :sku 'B :location 'C}}
+              :language "english"}))
 
-      ;; Create search service with ranking and highlighting
-      (reset! test-search-service
-              (svc/create-search-service
-               @test-search-provider
-               {:ranking {:users {:recency-field :created_at
-                                  :recency-max-boost 2.0
-                                  :recency-decay-days 30}
-                          :items {:recency-field :created_at
-                                  :recency-max-boost 2.0
-                                  :recency-decay-days 30}}
-                :highlighting {:pre-tag "<mark>"
-                               :post-tag "</mark>"
-                               :max-fragments 3
-                               :fragment-size 150}}))
-
-      true)))
-
-(defn teardown-test-db
-  "Clean up test database."
-  []
-  (when-let [db-ctx @test-db-context]
-    (when-let [^HikariDataSource ds (:datasource db-ctx)]
-      (.close ds))
-    (reset! test-db-context nil)
-    (reset! test-search-provider nil)
-    (reset! test-search-service nil)))
+    ;; Create search service with ranking and highlighting
+    (reset! test-search-service
+            (svc/create-search-service
+             @test-search-provider
+             {:ranking {:users {:recency-field :created_at
+                                :recency-max-boost 2.0
+                                :recency-decay-days 30}
+                        :items {:recency-field :created_at
+                                :recency-max-boost 2.0
+                                :recency-decay-days 30}}
+              :highlighting {:pre-tag "<mark>"
+                             :post-tag "</mark>"
+                             :max-fragments 3
+                             :fragment-size 150}}))
+    true))
 
 (defn clean-test-data
   "Remove all test data from tables."
@@ -169,26 +133,26 @@
     (jdbc/execute! (:datasource db-ctx) ["DELETE FROM users"])))
 
 (defn database-fixture
-  "Fixture to setup/teardown test database."
+  "Start embedded PostgreSQL once, set up schema + FTS, run the tests, then tear
+   down. Embedded PG always starts, so the search integration tests always run."
   [test-fn]
-  (if (postgres-available?)
-    (when (setup-test-db)
-      (try
-        (test-fn)
-        (finally
-          (teardown-test-db))))
-    (do
-      (println "SKIPPED: Search integration tests (PostgreSQL not available)")
-      (is (not (postgres-available?)) "Skipped because PostgreSQL is not available"))))
+  ((epg/with-embedded-pg
+     (fn [ctx] (setup-test-db ctx)))
+   (fn []
+     (try
+       (test-fn)
+       (finally
+         (reset! test-db-context nil)
+         (reset! test-search-provider nil)
+         (reset! test-search-service nil))))))
 
 (defn clean-data-fixture
   "Fixture to clean test data between tests."
   [test-fn]
-  (when (postgres-available?)
-    (try
-      (test-fn)
-      (finally
-        (clean-test-data)))))
+  (try
+    (test-fn)
+    (finally
+      (clean-test-data))))
 
 (use-fixtures :once database-fixture)
 (use-fixtures :each clean-data-fixture)

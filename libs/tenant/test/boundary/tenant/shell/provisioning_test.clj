@@ -196,8 +196,8 @@
           executed-ddl (atom [])]
       (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly false)
                     boundary.tenant.shell.provisioning/create-schema! (fn [_ _] nil)
-                    boundary.tenant.shell.provisioning/copy-schema-structure! (fn [_ _]
-                                                                                (throw (ex-info "copy boom" {})))
+                    boundary.tenant.shell.provisioning/populate-tenant-schema! (fn [_]
+                                                                                 (throw (ex-info "migrate boom" {})))
                     boundary.platform.shell.adapters.database.common.core/execute-ddl! (fn [_ sql]
                                                                                          (swap! executed-ddl conj sql))]
         (let [ex (is (thrown? clojure.lang.ExceptionInfo
@@ -315,18 +315,6 @@
                       (swap! executed-ddl conj sql))]
         (#'sut/create-schema! {:adapter nil :datasource nil} "tenant_existing")
         (is (= [] @executed-ddl)))))
-
-  (testing "copy-schema-structure copies every tenant-scoped public table"
-    (let [copied (atom [])]
-      (with-redefs [boundary.tenant.shell.provisioning/get-public-tables (fn [_]
-                                                                           ["contracts" "timesheets"])
-                    boundary.tenant.shell.provisioning/copy-table-structure! (fn [_ table schema]
-                                                                               (swap! copied conj [table schema]))]
-        (is (= ["contracts" "timesheets"]
-               (#'sut/copy-schema-structure! {:adapter nil :datasource nil} "tenant_copy")))
-        (is (= [["contracts" "tenant_copy"]
-                ["timesheets" "tenant_copy"]]
-               @copied)))))
 
   (testing "validate-provisioning reports missing schema, empty schema, success, and query failures"
     (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly false)]
