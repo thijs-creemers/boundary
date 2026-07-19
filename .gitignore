@@ -55,7 +55,7 @@ existing-dir/
 # Boundary devtools recordings
 .boundary/
 
-re# Claude Code local settings
+# Claude Code local settings
 .claude/settings.local.json
 
 # Generated lint reports
@@ -64,4 +64,12 @@ build/docs-lint/
 # Local AI-agent / session harness tooling (not part of the repo)
 .agents/
 skills-lock.json
+
+# Editor/backup cruft — never commit (enforced by bb check:hygiene)
+*.bak
+*.bak[0-9]
+*.backup
+*.backup[0-9]
+*.orig
+*~
 
