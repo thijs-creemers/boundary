@@ -49,7 +49,7 @@
       (ports/enqueue-job! queue :default test-job)
       (is (= 1 (ports/queue-size queue :default)))
 
-      (let [dequeued (ports/dequeue-job! queue :default)]
+      (let [dequeued (ports/dequeue-job! queue :default "test-worker")]
         (is (= (:id test-job) (:id dequeued)))
         (is (= :test-job (:job-type dequeued)))
         (is (zero? (ports/queue-size queue :default)))))))
@@ -71,10 +71,10 @@
       (is (= 4 (ports/queue-size queue :default)))
 
       ;; Should dequeue in priority order
-      (is (= (:id critical-job) (:id (ports/dequeue-job! queue :default))))
-      (is (= (:id high-job) (:id (ports/dequeue-job! queue :default))))
-      (is (= (:id normal-job) (:id (ports/dequeue-job! queue :default))))
-      (is (= (:id low-job) (:id (ports/dequeue-job! queue :default))))
+      (is (= (:id critical-job) (:id (ports/dequeue-job! queue :default "test-worker"))))
+      (is (= (:id high-job) (:id (ports/dequeue-job! queue :default "test-worker"))))
+      (is (= (:id normal-job) (:id (ports/dequeue-job! queue :default "test-worker"))))
+      (is (= (:id low-job) (:id (ports/dequeue-job! queue :default "test-worker"))))
       (is (zero? (ports/queue-size queue :default))))))
 
 (deftest peek-job-test
@@ -88,7 +88,7 @@
         (is (= 1 (ports/queue-size queue :default)))  ; Still in queue
 
         ;; Dequeue should return same job
-        (is (= (:id test-job) (:id (ports/dequeue-job! queue :default))))))))
+        (is (= (:id test-job) (:id (ports/dequeue-job! queue :default "test-worker"))))))))
 
 (deftest delete-job-test
   (testing "Delete removes job from queue"
@@ -113,8 +113,8 @@
       (is (= 1 (ports/queue-size queue :queue1)))
       (is (= 1 (ports/queue-size queue :queue2)))
 
-      (is (= (:id job1) (:id (ports/dequeue-job! queue :queue1))))
-      (is (= (:id job2) (:id (ports/dequeue-job! queue :queue2)))))))
+      (is (= (:id job1) (:id (ports/dequeue-job! queue :queue1 "test-worker"))))
+      (is (= (:id job2) (:id (ports/dequeue-job! queue :queue2 "test-worker")))))))
 
 (deftest list-queues-test
   (testing "List all queues"
@@ -166,7 +166,7 @@
 
         ;; Due job should now be in execution queue
         (is (= 1 (ports/queue-size queue :default)))
-        (is (= (:id due-job) (:id (ports/dequeue-job! queue :default))))
+        (is (= (:id due-job) (:id (ports/dequeue-job! queue :default "test-worker"))))
 
         ;; Future job still in scheduled set
         (is (= 1 (count (in-memory/get-scheduled-jobs (:state *system*)))))))))
@@ -324,7 +324,7 @@
       (ports/enqueue-job! queue :default (create-test-job))
 
       ;; Complete one job
-      (let [job (ports/dequeue-job! queue :default)]
+      (let [job (ports/dequeue-job! queue :default "test-worker")]
         (ports/update-job-status! store (:id job) :running nil)
         (ports/update-job-status! store (:id job) :completed {:result "ok"}))
 
@@ -396,7 +396,7 @@
       (is (= 1 (ports/queue-size queue :default)))
 
       ;; 2. Dequeue job for processing
-      (let [dequeued (ports/dequeue-job! queue :default)]
+      (let [dequeued (ports/dequeue-job! queue :default "test-worker")]
         (is (= (:id test-job) (:id dequeued)))
         (is (zero? (ports/queue-size queue :default)))
 
@@ -428,7 +428,7 @@
 
       ;; 1. Enqueue and process
       (ports/enqueue-job! queue :default test-job)
-      (let [dequeued (ports/dequeue-job! queue :default)]
+      (let [dequeued (ports/dequeue-job! queue :default "test-worker")]
         (ports/update-job-status! store (:id dequeued) :running nil)
 
         ;; 2. Fail the job
@@ -466,7 +466,7 @@
       (is (= num-jobs (ports/queue-size queue :default)))
 
       ;; Should be able to dequeue all
-      (let [dequeued (repeatedly num-jobs #(ports/dequeue-job! queue :default))]
+      (let [dequeued (repeatedly num-jobs #(ports/dequeue-job! queue :default "test-worker"))]
         (is (= num-jobs (count (filter some? dequeued))))
         (is (zero? (ports/queue-size queue :default)))))))
 
@@ -481,7 +481,7 @@
         (ports/enqueue-job! queue :default job))
 
       ;; Dequeue concurrently
-      (let [dequeued (doall (pmap (fn [_] (ports/dequeue-job! queue :default))
+      (let [dequeued (doall (pmap (fn [_] (ports/dequeue-job! queue :default "test-worker"))
                                   (range num-jobs)))
             successful (filter some? dequeued)]
         ;; All jobs should be dequeued exactly once

@@ -192,7 +192,7 @@
    Returns:
      true if job was processed, false if queue was empty"
   [config queue store registry worker-state]
-  (when-let [job (ports/dequeue-job! queue (:queue-name worker-state))]
+  (when-let [job (ports/dequeue-job! queue (:queue-name worker-state) (:id worker-state))]
     (let [job-id (:id job)
           job-type (:job-type job)]
       (reset! (:current-job worker-state) job)
@@ -228,6 +228,11 @@
             (log/error e "Unexpected error processing job" {:job-id job-id})))
 
         (finally
+          ;; Ack removes the job from this worker's in-flight processing list.
+          ;; By here the job is completed, re-enqueued for retry, or dead-lettered
+          ;; — no longer in flight. A crash BEFORE this point leaves it in the
+          ;; processing list for reclaim-abandoned-jobs! to re-run (at-least-once).
+          (ports/ack-job! queue (:queue-name worker-state) (:id worker-state) job-id)
           (reset! (:current-job worker-state) nil)
           (reset! (:last-heartbeat worker-state) (Instant/now))))
 
@@ -289,13 +294,19 @@
             (redis-adapter/heartbeat-worker! queue (:id worker-state))
             (reset! last-heartbeat now)))
 
-        ;; Process scheduled jobs periodically
+        ;; Process scheduled jobs and reclaim abandoned in-flight jobs periodically
         (let [now (Instant/now)
               elapsed-ms (.toMillis (java.time.Duration/between @last-scheduled-check now))]
           (when (>= elapsed-ms scheduled-interval-ms)
             (let [moved (process-scheduled-jobs! queue)]
               (when (pos? moved)
                 (log/debug "Moved scheduled jobs to execution queues" {:count moved})))
+            (try
+              (let [{:keys [reclaimed]} (ports/reclaim-abandoned-jobs! queue (:queue-name worker-state))]
+                (when (and reclaimed (pos? reclaimed))
+                  (log/warn "Reclaimed abandoned jobs onto the ready queue" {:count reclaimed})))
+              (catch Exception e
+                (log/error e "Error reclaiming abandoned jobs")))
             (reset! last-scheduled-check now)))
 
         ;; Process next job from queue; apply exponential backoff on empty queue

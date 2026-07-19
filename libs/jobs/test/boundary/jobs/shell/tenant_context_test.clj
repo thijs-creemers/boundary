@@ -66,11 +66,15 @@
       (schedule-job! [_this _queue-name job _execute-at]
         (swap! queue conj job)
         (:id job))
-      (dequeue-job! [_this _queue-name]
+      (dequeue-job! [_this _queue-name _worker-id]
         (let [job (first @queue)]
           (when job
             (swap! queue rest))
           job))
+      (ack-job! [_this _queue-name _worker-id _job-id]
+        true)
+      (reclaim-abandoned-jobs! [_this _queue-name]
+        {:reclaimed 0})
       (peek-job [_this _queue-name]
         (first @queue))
       (delete-job! [_this _job-id]
@@ -360,14 +364,14 @@
       (is (= 2 (ports/queue-size job-queue :default)))
 
       ;; Process first job
-      (let [job1 (ports/dequeue-job! job-queue :default)
+      (let [job1 (ports/dequeue-job! job-queue :default "test-worker")
             result1 (tenant-jobs/process-tenant-job!
                      job1 handler-fn db-ctx tenant-service tenant-schema-provider)]
         (is (:success? result1))
         (is (= "tenant-1" (get-in job1 [:metadata :tenant-id]))))
 
       ;; Process second job
-      (let [job2 (ports/dequeue-job! job-queue :default)
+      (let [job2 (ports/dequeue-job! job-queue :default "test-worker")
             result2 (tenant-jobs/process-tenant-job!
                      job2 handler-fn db-ctx tenant-service tenant-schema-provider)]
         (is (:success? result2))
