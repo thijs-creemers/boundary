@@ -20,6 +20,7 @@
             [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
             [boundary.platform.shell.persistence-interceptors :as persistence-interceptors]
+            [boundary.user.shell.mfa-crypto :as mfa-crypto]
             [cheshire.core]
             [clojure.set])
   (:import [java.util UUID]))
@@ -28,7 +29,7 @@
   "Authentication user repository interface for public.auth_users table.
    
    Manages global authentication credentials shared across all tenants."
-  
+
   (find-auth-user-by-id [this user-id]
     "Find authentication record by user ID.
      
@@ -37,7 +38,7 @@
      
      Returns:
        AuthUser entity or nil if not found")
-  
+
   (find-auth-user-by-email [this email]
     "Find authentication record by email (for login).
      
@@ -46,7 +47,7 @@
      
      Returns:
        AuthUser entity or nil if not found")
-  
+
   (create-auth-user [this auth-user-entity]
     "Create new authentication record.
      
@@ -55,7 +56,7 @@
      
      Returns:
        Created AuthUser entity with generated ID and timestamps")
-  
+
   (update-auth-user [this auth-user-entity]
     "Update existing authentication record.
      
@@ -64,7 +65,7 @@
      
      Returns:
        Updated AuthUser entity or throws if not found")
-  
+
   (update-password [this user-id password-hash]
     "Update user password hash.
      
@@ -74,7 +75,7 @@
      
      Returns:
        true if updated, false if user not found")
-  
+
   (increment-failed-login [this user-id]
     "Increment failed login count for user.
      
@@ -83,7 +84,7 @@
      
      Returns:
        true if updated")
-  
+
   (reset-failed-login [this user-id]
     "Reset failed login count to 0.
      
@@ -92,7 +93,7 @@
      
      Returns:
        true if updated")
-  
+
   (set-lockout [this user-id lockout-until]
     "Set account lockout until specified time.
      
@@ -102,7 +103,7 @@
      
      Returns:
        true if updated")
-  
+
   (clear-lockout [this user-id]
     "Clear account lockout.
      
@@ -111,7 +112,7 @@
      
      Returns:
        true if updated")
-  
+
   (enable-mfa [this user-id mfa-secret mfa-backup-codes]
     "Enable MFA for user.
      
@@ -122,7 +123,7 @@
      
      Returns:
        true if updated")
-  
+
   (disable-mfa [this user-id]
     "Disable MFA for user.
      
@@ -131,7 +132,7 @@
      
      Returns:
        true if updated")
-  
+
   (mark-backup-code-used [this user-id backup-code]
     "Mark a backup code as used.
      
@@ -141,7 +142,7 @@
      
      Returns:
        true if updated")
-  
+
   (soft-delete-auth-user [this user-id]
     "Soft delete authentication record.
      
@@ -150,7 +151,7 @@
      
      Returns:
        true if deleted, false if not found")
-  
+
   (hard-delete-auth-user [this user-id]
     "Hard delete authentication record (permanent).
      
@@ -167,6 +168,9 @@
     (-> auth-user-entity
         (update :id type-conversion/uuid->string)
         (update :active #(protocols/boolean->db adapter %))
+        ;; Encrypt the reversible TOTP secret at the persistence boundary. Backup
+        ;; codes are already bcrypt-hashed before they reach here.
+        (update :mfa-secret #(when % (mfa-crypto/encrypt-secret %)))
         (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
         (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
         (clojure.set/rename-keys {:mfa-enabled :mfa_enabled
@@ -205,12 +209,16 @@
           (update :deleted-at type-conversion/string->instant)
           (update :mfa-enabled-at type-conversion/string->instant)
           (update :lockout-until type-conversion/string->instant)
+          ;; Decrypt the TOTP secret. A legacy plaintext value decrypts to nil,
+          ;; so pre-encryption MFA rows read as having no usable secret and must
+          ;; be re-enrolled (they are also cleared by the invalidation migration).
+          (update :mfa-secret mfa-crypto/decrypt-secret)
           (update :mfa-backup-codes #(when % (vec (cheshire.core/parse-string % true))))
           (update :mfa-backup-codes-used #(when % (vec (cheshire.core/parse-string % true))))))))
 
 (defrecord DatabaseAuthUserRepository [ctx]
   IAuthUserRepository
-  
+
   (find-auth-user-by-id [_ user-id]
     (persistence-interceptors/execute-persistence-operation
      :find-auth-user-by-id
@@ -225,7 +233,7 @@
              result (db/execute-one! ctx query)]
          (db->auth-user-entity ctx result)))
      {:db-ctx ctx}))
-  
+
   (find-auth-user-by-email [_ email]
     (persistence-interceptors/execute-persistence-operation
      :find-auth-user-by-email
@@ -240,7 +248,7 @@
              result (db/execute-one! ctx query)]
          (db->auth-user-entity ctx result)))
      {:db-ctx ctx}))
-  
+
   (create-auth-user [_ auth-user-entity]
     (persistence-interceptors/execute-persistence-operation
      :create-auth-user
@@ -259,7 +267,7 @@
          (db/execute-update! ctx query)
          auth-user-with-metadata))
      {:db-ctx ctx}))
-  
+
   (update-auth-user [_ auth-user-entity]
     (persistence-interceptors/execute-persistence-operation
      :update-auth-user
@@ -277,7 +285,7 @@
                            {:type :user-not-found
                             :user-id (:id auth-user-entity)})))))
      {:db-ctx ctx}))
-  
+
   (update-password [_ user-id password-hash]
     (persistence-interceptors/execute-persistence-operation
      :update-password
@@ -295,7 +303,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (increment-failed-login [_ user-id]
     (persistence-interceptors/execute-persistence-operation
      :increment-failed-login
@@ -310,7 +318,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (reset-failed-login [_ user-id]
     (persistence-interceptors/execute-persistence-operation
      :reset-failed-login
@@ -325,7 +333,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (set-lockout [_ user-id lockout-until]
     (persistence-interceptors/execute-persistence-operation
      :set-lockout
@@ -341,7 +349,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (clear-lockout [_ user-id]
     (persistence-interceptors/execute-persistence-operation
      :clear-lockout
@@ -357,7 +365,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (enable-mfa [_ user-id mfa-secret mfa-backup-codes]
     (persistence-interceptors/execute-persistence-operation
      :enable-mfa
@@ -368,10 +376,13 @@
              mfa-backup-codes (:mfa-backup-codes params)
              now (java.time.Instant/now)
              adapter (:adapter ctx)
+             ;; Encrypt the TOTP secret and bcrypt-hash the backup codes at rest
+             ;; (this port takes plaintext), matching the update-user path.
              query {:update :auth_users
                     :set {:mfa_enabled (protocols/boolean->db adapter true)
-                          :mfa_secret mfa-secret
-                          :mfa_backup_codes (cheshire.core/generate-string mfa-backup-codes)
+                          :mfa_secret (mfa-crypto/encrypt-secret mfa-secret)
+                          :mfa_backup_codes (cheshire.core/generate-string
+                                             (mapv mfa-crypto/hash-backup-code mfa-backup-codes))
                           :mfa_backup_codes_used (cheshire.core/generate-string [])
                           :mfa_enabled_at (type-conversion/instant->string now)
                           :updated_at (type-conversion/instant->string now)}
@@ -379,7 +390,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (disable-mfa [_ user-id]
     (persistence-interceptors/execute-persistence-operation
      :disable-mfa
@@ -399,7 +410,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (mark-backup-code-used [_ user-id backup-code]
     (persistence-interceptors/execute-persistence-operation
      :mark-backup-code-used
@@ -418,7 +429,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (soft-delete-auth-user [_ user-id]
     (persistence-interceptors/execute-persistence-operation
      :soft-delete-auth-user
@@ -437,7 +448,7 @@
              affected-rows (db/execute-update! ctx query)]
          (> affected-rows 0)))
      {:db-ctx ctx}))
-  
+
   (hard-delete-auth-user [_ user-id]
     (persistence-interceptors/execute-persistence-operation
      :hard-delete-auth-user

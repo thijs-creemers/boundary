@@ -128,40 +128,10 @@
 ;; Backup Code Logic
 ;; =============================================================================
 
-(defn is-valid-backup-code?
-  "Pure function: Check if backup code is valid and unused.
-   
-   Args:
-     code: Backup code to validate
-     user: User entity with backup codes
-     
-   Returns:
-     Boolean - true if code is valid and unused
-     
-   Pure - backup code validation logic."
-  [code user]
-  (let [backup-codes (or (:mfa-backup-codes user) [])
-        used-codes (or (:mfa-backup-codes-used user) [])]
-    (and
-     ;; Code exists in backup codes
-     (some #(= code %) backup-codes)
-     ;; Code has not been used
-     (not (some #(= code %) used-codes)))))
-
-(defn mark-backup-code-used
-  "Pure function: Prepare updates to mark backup code as used.
-   
-   Args:
-     user: User entity
-     code: Backup code that was used
-     
-   Returns:
-     Map of field updates to apply to user
-     
-   Pure - data transformation for backup code usage."
-  [user code]
-  (let [used-codes (or (:mfa-backup-codes-used user) [])]
-    {:mfa-backup-codes-used (conj used-codes code)}))
+;; NOTE: backup-code verification is no longer a pure plaintext comparison.
+;; Codes are stored bcrypt-hashed, so matching a presented code against the
+;; stored hashes (and recording the used hash) is a shell concern —
+;; see boundary.user.shell.mfa/verify-mfa-code.
 
 (defn count-remaining-backup-codes
   "Pure function: Count remaining unused backup codes.
