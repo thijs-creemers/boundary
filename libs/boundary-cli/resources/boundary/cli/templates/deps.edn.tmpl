@@ -35,11 +35,11 @@
              :main-opts  ["-e" "(require '[boundary.user.shell.cli-entry :as e]) (System/exit (e/run-cli! (vec *command-line-args*)))"]}
   ;; Boundary MCP server for editor agents (Claude Code / Cursor). Kept in an
   ;; alias — NOT in :deps — so the app runtime never pulls the MCP server.
-  ;; Launched by .mcp.json via `clojure -M:mcp`. Published Boundary poms omit
-  ;; their boundary deps (write-pom skips :local/root), and :extra-deps composes
-  ;; with :deps above (which already provides core/observability/platform/user/
-  ;; ui-style/external/payments), so this lists only mcp's remaining boundary
-  ;; closure: ai, devtools, scaffolder, tools, jobs.
+  ;; Launched by .mcp.json via `clojure -M:mcp`. boundary-mcp's pom now declares
+  ;; its full boundary closure (ai, devtools, scaffolder, tools, jobs via
+  ;; devtools), so once alpha-43+ poms are published this can be reduced to just
+  ;; boundary-mcp. The closure is enumerated explicitly for now so `-M:mcp` also
+  ;; resolves against the current published poms.
   :mcp      {:extra-deps {org.boundary-app/boundary-mcp        {:mvn/version "{{boundary-mcp-version}}"}
                           org.boundary-app/boundary-ai         {:mvn/version "{{boundary-mcp-version}}"}
                           org.boundary-app/boundary-devtools   {:mvn/version "{{boundary-mcp-version}}"}
