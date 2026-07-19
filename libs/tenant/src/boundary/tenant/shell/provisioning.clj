@@ -22,9 +22,25 @@
   (:require [boundary.platform.shell.adapters.database.common.core :as db]
             [boundary.platform.shell.adapters.database.postgresql.metadata :as pg-metadata]
             [boundary.platform.shell.adapters.database.protocols :as protocols]
+            [boundary.tenant.core.tenant :as tenant-core]
             [boundary.tenant.ports :as ports]
             [clojure.string :as str]
             [clojure.tools.logging :as log]))
+
+;; =============================================================================
+;; DDL safety
+;; =============================================================================
+
+(defn- assert-safe-schema-name!
+  "Guard the DDL boundary: schema names are interpolated into DDL (they cannot
+   be parameterized), so reject anything that is not a well-formed tenant schema
+   identifier before it reaches a statement string."
+  [schema-name]
+  (when-not (tenant-core/valid-schema-name? schema-name)
+    (throw (ex-info "Unsafe tenant schema name"
+                    {:type :validation-error
+                     :field :schema-name
+                     :schema-name schema-name}))))
 
 ;; =============================================================================
 ;; Schema Structure Introspection
@@ -150,6 +166,7 @@
    Throws:
      Exception if schema creation fails"
   [ctx schema-name]
+  (assert-safe-schema-name! schema-name)
   (when-not (schema-exists? ctx schema-name)
     (log/info "Creating tenant schema" {:schema schema-name})
     (db/execute-ddl! ctx (str "CREATE SCHEMA " schema-name)))
@@ -169,6 +186,7 @@
    Throws:
      Exception if table creation fails"
   [ctx table-name target-schema]
+  (assert-safe-schema-name! target-schema)
   (log/debug "Copying table structure" {:table table-name :target-schema target-schema})
   (let [ddl (get-table-ddl ctx table-name target-schema)]
     (db/execute-ddl! ctx ddl)))
@@ -282,6 +300,8 @@
                       {:type :validation-error
                        :field :schema-name
                        :tenant-entity tenant-entity})))
+
+    (assert-safe-schema-name! schema-name)
 
     (when-not (postgresql-context? ctx)
       (log/warn "Tenant provisioning only supported for PostgreSQL, skipping"
@@ -430,6 +450,8 @@
                        :field :schema-name
                        :tenant-entity tenant-entity})))
 
+    (assert-safe-schema-name! schema-name)
+
     (if-not (schema-exists? ctx schema-name)
       {:success? true
        :schema-name schema-name
@@ -504,6 +526,7 @@
      - Falls back to public schema if error
      - Schema must exist before calling this function"
   [ctx tenant-schema-name f]
+  (assert-safe-schema-name! tenant-schema-name)
   (when-not (postgresql-context? ctx)
     (throw (ex-info "Tenant schema context only supported for PostgreSQL"
                     {:type :unsupported-database

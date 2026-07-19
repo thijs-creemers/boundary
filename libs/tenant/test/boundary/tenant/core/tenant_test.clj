@@ -27,6 +27,23 @@
     (is (= "tenant_my_company" (sut/slug->schema-name "my-company")))
     (is (= "tenant_test123" (sut/slug->schema-name "test123")))))
 
+(deftest ^:security valid-schema-name?-test
+  (testing "accepts schema names produced by slug->schema-name"
+    (is (true? (sut/valid-schema-name? "tenant_acme_corp")))
+    (is (true? (sut/valid-schema-name? "tenant_company123")))
+    (is (true? (sut/valid-schema-name? (sut/slug->schema-name "my-tenant-name")))))
+
+  (testing "rejects names that could break out of a DDL identifier"
+    (is (false? (sut/valid-schema-name? "public")))              ; wrong prefix
+    (is (false? (sut/valid-schema-name? "tenant_")))             ; empty body
+    (is (false? (sut/valid-schema-name? "tenant_acme; DROP TABLE users;--")))
+    (is (false? (sut/valid-schema-name? "tenant_acme corp")))    ; space
+    (is (false? (sut/valid-schema-name? "tenant_ACME")))         ; uppercase
+    (is (false? (sut/valid-schema-name? "tenant_acme\"")))       ; quote
+    (is (false? (sut/valid-schema-name? (str "tenant_" (apply str (repeat 64 "a")))))) ; > 63 chars
+    (is (false? (sut/valid-schema-name? nil)))
+    (is (false? (sut/valid-schema-name? :tenant_acme)))))
+
 (deftest prepare-tenant-test
   (testing "prepares tenant entity with all fields"
     (let [tenant-id (UUID/randomUUID)
