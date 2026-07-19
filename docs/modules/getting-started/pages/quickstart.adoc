@@ -35,7 +35,7 @@ Add optional modules before starting the system:
 ----
 boundary add payments          # PSP abstraction (Stripe / Mollie / Mock)
 boundary add cache             # Redis / in-memory caching
-boundary list modules          # See all 18 optional modules
+boundary list modules          # See all 19 optional modules
 ----
 
 == Run database migrations
