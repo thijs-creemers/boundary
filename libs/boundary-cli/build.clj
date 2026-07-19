@@ -2,7 +2,7 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib 'org.boundary-app/boundary-cli)
-(def version "1.0.1-alpha-41")
+(def version "1.0.1-alpha-42")
 (def class-dir "target/classes")
 (load-file "../build_shared.clj")
 (def basis (build-shared/pom-basis version))
