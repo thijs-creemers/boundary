@@ -60,6 +60,30 @@
       (is (= "Authentication required" (get-in result [:response :body :message]))
           "Should have error message"))))
 
+(deftest error-response-lets-muuntaja-encode-body-test
+  ;; ZZP-120: create-error-response used to hardcode a "Content-Type" header.
+  ;; muuntaja's format-response middleware SKIPS encoding when the response
+  ;; already carries a Content-Type, so the Clojure-map :body was handed to
+  ;; Jetty unencoded and written as an empty body (Content-Length: 0).
+  ;; The guard's short-circuit response must NOT set Content-Type — leaving
+  ;; content negotiation + encoding to muuntaja, exactly like handler responses.
+  (testing "unauthenticated 401 response omits a hardcoded Content-Type header"
+    (let [ctx    (create-test-context {:session {}})
+          result ((:enter http-int/require-authenticated) ctx)
+          headers (get-in result [:response :headers])]
+      (is (map? (get-in result [:response :body]))
+          "body stays a Clojure map for muuntaja to encode")
+      (is (not (contains? headers "Content-Type"))
+          "must not hardcode Content-Type — it suppresses muuntaja encoding")))
+
+  (testing "forbidden 403 response omits a hardcoded Content-Type header"
+    (let [ctx    (create-test-context {:session {:user {:id "u1" :role "user"}}})
+          result ((:enter http-int/require-admin) ctx)
+          headers (get-in result [:response :headers])]
+      (is (= 403 (get-in result [:response :status])))
+      (is (not (contains? headers "Content-Type"))
+          "must not hardcode Content-Type — it suppresses muuntaja encoding"))))
+
 (deftest require-authenticated-halts-pipeline-test
   ;; ZZP-117: require-authenticated short-circuits by setting only :response.
   ;; Run it through the real pipeline (guard then a would-be handler) and assert

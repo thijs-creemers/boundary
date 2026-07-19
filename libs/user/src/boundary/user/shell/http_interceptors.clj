@@ -64,11 +64,17 @@
   (= :admin (normalize-role (:role user))))
 
 (defn- create-error-response
-  "Creates standardized error response."
+  "Creates standardized error response.
+
+   Note: deliberately does NOT set a Content-Type header. muuntaja's
+   format-response middleware skips body encoding when a response already
+   carries a Content-Type, which would leave the Clojure-map :body unencoded
+   and cause Jetty to write an empty body on the interceptor short-circuit
+   path (ZZP-120). Leaving Content-Type unset lets muuntaja negotiate and
+   encode the body exactly like a normal handler response."
   [status error-type message correlation-id]
   {:status status
-   :headers {"Content-Type" "application/json"
-             "X-Correlation-ID" correlation-id}
+   :headers {"X-Correlation-ID" correlation-id}
    :body {:error error-type
           :message message
           :correlation-id correlation-id}})
