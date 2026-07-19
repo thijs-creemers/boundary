@@ -68,8 +68,7 @@
 ;; cache-lookup — miss
 ;; =============================================================================
 
-(deftest cache-lookup-miss-test
-  ^:contract
+(deftest ^:contract cache-lookup-miss-test
   (testing "lookup on empty cache returns nil"
     (is (nil? (ports/cache-lookup *cache* test-hash)))))
 
@@ -77,8 +76,7 @@
 ;; cache-store! + cache-lookup — hit
 ;; =============================================================================
 
-(deftest cache-store-and-lookup-test
-  ^:contract
+(deftest ^:contract cache-store-and-lookup-test
   (testing "stored result is retrievable"
     (ports/cache-store! *cache* test-hash test-result)
     (let [hit (ports/cache-lookup *cache* test-hash)]
@@ -96,8 +94,7 @@
 ;; TTL expiry
 ;; =============================================================================
 
-(deftest cache-ttl-expiry-test
-  ^:contract
+(deftest ^:contract cache-ttl-expiry-test
   (testing "expired entries are not returned"
     ;; Insert with a past created_at timestamp (2 hours ago)
     (let [past (Timestamp/from (Instant/ofEpochSecond
@@ -120,8 +117,7 @@
 ;; Duplicate key — idempotent store
 ;; =============================================================================
 
-(deftest cache-store-idempotent-test
-  ^:contract
+(deftest ^:contract cache-store-idempotent-test
   (testing "storing the same hash twice does not throw"
     (ports/cache-store! *cache* test-hash test-result)
     ;; Second store should be silently ignored (duplicate key → non-fatal)

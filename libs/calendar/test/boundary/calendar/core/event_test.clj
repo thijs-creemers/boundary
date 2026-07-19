@@ -19,8 +19,7 @@
 ;; duration
 ;; =============================================================================
 
-(deftest duration-test
-  ^:unit
+(deftest ^:unit duration-test
   (testing "1-hour event returns 60-minute duration"
     (let [dur (sut/duration base-event)]
       (is (= 60 (.toMinutes dur)))))
@@ -34,8 +33,7 @@
 ;; all-day?
 ;; =============================================================================
 
-(deftest all-day-test
-  ^:unit
+(deftest ^:unit all-day-test
   (testing "24-hour event starting at midnight UTC is all-day"
     (let [event (assoc base-event
                        :start (Instant/parse "2026-03-10T00:00:00Z")
@@ -58,8 +56,7 @@
 ;; within-range?
 ;; =============================================================================
 
-(deftest within-range-test
-  ^:unit
+(deftest ^:unit within-range-test
   (let [range-start (Instant/parse "2026-03-10T08:00:00Z")
         range-end   (Instant/parse "2026-03-10T18:00:00Z")]
     (testing "event fully inside range"
@@ -89,8 +86,7 @@
 ;; valid-event?
 ;; =============================================================================
 
-(deftest valid-event-test
-  ^:unit
+(deftest ^:unit valid-event-test
   (testing "valid event passes schema"
     (is (true? (sut/valid-event? base-event))))
   (testing "missing required key fails"

@@ -3,8 +3,7 @@
             [clojure.test :refer [deftest is testing]])
   (:import [java.util Properties]))
 
-(deftest normalize-recipients-test
-  ^:unit
+(deftest ^:unit normalize-recipients-test
   (testing "string to single-element vector"
     (is (= ["user@example.com"] (smtp/normalize-recipients "user@example.com"))))
 
@@ -20,8 +19,7 @@
   (testing "filters blank strings from vector"
     (is (= ["a@b.com"] (smtp/normalize-recipients ["a@b.com" "" nil])))))
 
-(deftest build-mime-properties-test
-  ^:unit
+(deftest ^:unit build-mime-properties-test
   (testing "returns Properties instance"
     (let [props (smtp/build-mime-properties {:host "smtp.example.com" :port 587})]
       (is (instance? Properties props))))
@@ -50,8 +48,7 @@
                                              :username "u" :password "p"})]
       (is (= "true" (.getProperty props "mail.smtp.auth"))))))
 
-(deftest validate-config-test
-  ^:unit
+(deftest ^:unit validate-config-test
   (testing "valid config returns {:valid? true}"
     (let [result (smtp/validate-config {:host "smtp.example.com"
                                         :port 587
@@ -63,8 +60,7 @@
       (is (false? (:valid? result)))
       (is (some? (:errors result))))))
 
-(deftest prepare-outbound-email-test
-  ^:unit
+(deftest ^:unit prepare-outbound-email-test
   (testing "normalises :to to vector"
     (let [now    (java.util.Date.)
           result (smtp/prepare-outbound-email
@@ -80,8 +76,7 @@
                   now)]
       (is (= ["a@b.com" "c@d.com"] (:to result))))))
 
-(deftest outbound-email-summary-test
-  ^:unit
+(deftest ^:unit outbound-email-summary-test
   (testing "returns expected summary keys"
     (let [email  {:to      ["a@b.com" "c@d.com"]
                   :from    "no-reply@example.com"

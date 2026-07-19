@@ -21,8 +21,7 @@
   {:id    :test-appointment
    :label "Test Appointment"})
 
-(deftest defevent-macro-test
-  ^:unit
+(deftest ^:unit defevent-macro-test
   (testing "defevent binds var to definition map"
     (is (= :test-appointment (:id test-appointment-event)))
     (is (= "Test Appointment" (:label test-appointment-event))))
@@ -33,8 +32,7 @@
     (registry/register-event-type! test-appointment-event)
     (is (some #{:test-appointment} (registry/list-event-types)))))
 
-(deftest register-event-type-test
-  ^:unit
+(deftest ^:unit register-event-type-test
   (testing "programmatic registration"
     (let [defn {:id :booking :label "Booking"}]
       (registry/register-event-type! defn)
@@ -42,8 +40,7 @@
   (testing "get-event-type returns nil for unknown id"
     (is (nil? (registry/get-event-type :unknown-event-xyz)))))
 
-(deftest clear-registry-test
-  ^:unit
+(deftest ^:unit clear-registry-test
   (testing "clear-registry! empties the registry"
     (registry/register-event-type! {:id :temp-event})
     (registry/clear-registry!)

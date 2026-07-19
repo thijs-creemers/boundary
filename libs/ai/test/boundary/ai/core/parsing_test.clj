@@ -3,8 +3,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest parse-json-response-test
-  ^:unit
+(deftest ^:unit parse-json-response-test
   (testing "parses plain JSON"
     (let [result (parsing/parse-json-response "{\"key\": \"value\"}")]
       (is (= "value" (:key result)))))
@@ -20,8 +19,7 @@
   (testing "returns nil for nil input"
     (is (nil? (parsing/parse-json-response nil)))))
 
-(deftest parse-module-spec-test
-  ^:unit
+(deftest ^:unit parse-module-spec-test
   (testing "parses valid module spec JSON"
     (let [json   "{\"module-name\": \"product\", \"entity\": \"Product\", \"fields\": [{\"name\": \"price\", \"type\": \"decimal\", \"required\": true, \"unique\": false}], \"http\": true, \"web\": true}"
           result (parsing/parse-module-spec json)]
@@ -66,8 +64,7 @@
       (is (= "enum" (:type field)))
       (is (nil? (:enum-values field))))))
 
-(deftest module-spec->cli-args-test
-  ^:unit
+(deftest ^:unit module-spec->cli-args-test
   (testing "generates correct CLI args for generate command"
     (let [spec {:module-name "product"
                 :entity      "Product"
@@ -91,8 +88,7 @@
           args (parsing/module-spec->cli-args spec)]
       (is (some #{"--no-web"} args)))))
 
-(deftest parse-sql-response-test
-  ^:unit
+(deftest ^:unit parse-sql-response-test
   (testing "parses SQL response JSON"
     (let [json   "{\"honeysql\": \"{:select [:*]}\", \"explanation\": \"selects all\", \"raw-sql\": \"SELECT *\"}"
           result (parsing/parse-sql-response json)]
@@ -100,8 +96,7 @@
       (is (= "selects all" (:explanation result)))
       (is (= "SELECT *" (:raw-sql result))))))
 
-(deftest parse-generated-tests-test
-  ^:unit
+(deftest ^:unit parse-generated-tests-test
   (testing "strips markdown code fences"
     (let [result (parsing/parse-generated-tests "```clojure\n(ns foo-test)\n```")]
       (is (= "(ns foo-test)" result))))
