@@ -14,16 +14,14 @@
    :ssl?     true
    :folder   "INBOX"})
 
-(deftest create-imap-mailbox-test
-  ^:integration
+(deftest ^:integration create-imap-mailbox-test
   (testing "returns a record satisfying IImapMailbox"
     (let [mailbox (imap/create-imap-mailbox test-config)]
       (is (satisfies? ports/IImapMailbox mailbox))
       (is (= "localhost-nonexistent.invalid" (:host mailbox)))
       (is (= "INBOX" (:folder mailbox))))))
 
-(deftest fetch-messages-unreachable-test
-  ^:integration
+(deftest ^:integration fetch-messages-unreachable-test
   (testing "fetch-messages! on unreachable host returns error map"
     (let [mailbox (imap/create-imap-mailbox test-config)
           result  (ports/fetch-messages! mailbox)]
@@ -32,15 +30,13 @@
       (is (= [] (:messages result)))
       (is (= 0  (:count result))))))
 
-(deftest fetch-unread-unreachable-test
-  ^:integration
+(deftest ^:integration fetch-unread-unreachable-test
   (testing "fetch-unread! on unreachable host returns error map"
     (let [mailbox (imap/create-imap-mailbox test-config)
           result  (ports/fetch-unread! mailbox)]
       (is (false? (:success? result))))))
 
-(deftest close-returns-true-test
-  ^:integration
+(deftest ^:integration close-returns-true-test
   (testing "close! always returns true (connection-per-call adapter)"
     (let [mailbox (imap/create-imap-mailbox test-config)]
       (is (true? (ports/close! mailbox))))))

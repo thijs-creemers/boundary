@@ -7,8 +7,7 @@
 ;; normalize-query
 ;; =============================================================================
 
-(deftest normalize-query-test
-  ^:unit
+(deftest ^:unit normalize-query-test
   (testing "full query is joined in deterministic order"
     (is (= "damrak 1, 1012 lj, amsterdam, netherlands"
            (sut/normalize-query {:address  "Damrak 1"
@@ -41,8 +40,7 @@
 ;; query-hash
 ;; =============================================================================
 
-(deftest query-hash-test
-  ^:unit
+(deftest ^:unit query-hash-test
   (testing "returns a 64-character hex string"
     (let [h (sut/query-hash {:city "Amsterdam"})]
       (is (string? h))

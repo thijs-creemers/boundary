@@ -104,7 +104,36 @@
          (distinct))))
 
 ;; ---------------------------------------------------------------------------
-;; Entry point
+;; Misplaced deftest metadata (BOU-184)
+;; ---------------------------------------------------------------------------
+
+(def ^:private misplaced-meta-pattern
+  "A deftest whose metadata sits AFTER the test name — e.g.
+     (deftest foo
+       ^:unit
+       ...)
+   The reader attaches that metadata to the following body form (the testing
+   block), not the test var, so `--focus-meta` silently skips the test. The
+   correct form is (deftest ^:unit foo ...). Matched on stripped source so
+   commented-out or string occurrences are ignored. `\\^[:{]` covers both the
+   `^:keyword` and `^{...}` metadata forms."
+  #"(?s)\(\s*deftest\s+([^\s()^]+)\s+\^[:{]")
+
+(defn- scan-file-meta
+  "Return match maps for deftest forms with metadata placed after the name."
+  [file]
+  (let [raw     (slurp file)
+        cleaned (parsing/strip-comments-and-strings raw)
+        matcher (re-matcher misplaced-meta-pattern cleaned)]
+    (loop [matches []]
+      (if (.find matcher)
+        (recur (conj matches {:file (str file)
+                              :line (offset->line-number raw (.start matcher))
+                              :name (.group matcher 1)}))
+        matches))))
+
+;; ---------------------------------------------------------------------------
+;; Entry points
 ;; ---------------------------------------------------------------------------
 
 (defn -main [& _args]
@@ -121,4 +150,24 @@
         (System/exit 1))
       (do
         (println (ansi/green "No placeholder tests found.") (str (count files) " test file(s) scanned."))
+        (System/exit 0)))))
+
+(defn check-deftest-metadata
+  "Flag deftest forms whose metadata is placed after the name (attaching to the
+   body form, so `--focus-meta` skips them). Correct form: (deftest ^:meta name).
+   BOU-184."
+  [& _args]
+  (let [files   (test-clj-files)
+        matches (mapcat scan-file-meta files)]
+    (if (seq matches)
+      (do
+        (println (ansi/red "Misplaced deftest metadata found (attaches to the body, not the test var):"))
+        (println)
+        (doseq [{:keys [file line name]} matches]
+          (println (str "  " file ":" line ": (deftest " name " …) — move the ^:meta before the name")))
+        (println)
+        (println (str (count matches) " misplaced. Write (deftest ^:meta name …) so --focus-meta selects the test."))
+        (System/exit 1))
+      (do
+        (println (ansi/green "No misplaced deftest metadata.") (str (count files) " test file(s) scanned."))
         (System/exit 0)))))

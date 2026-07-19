@@ -56,8 +56,7 @@
 ;; Tests
 ;; =============================================================================
 
-(deftest word-magic-bytes-test
-  ^:integration
+(deftest ^:integration word-magic-bytes-test
   (testing "sections-based report produces valid DOCX bytes"
     (let [gen    (sut/create-word-generator)
           result (ports/generate! gen sample-sections-report sample-data {})]
@@ -65,8 +64,7 @@
       (is (pos? (count (:bytes result))))
       (is (docx-magic? (:bytes result))))))
 
-(deftest word-filename-default-test
-  ^:integration
+(deftest ^:integration word-filename-default-test
   (testing "filename defaults to <id>.docx when not specified"
     (let [gen  (sut/create-word-generator)
           defn {:id       :my-word-report
@@ -86,15 +84,13 @@
   (testing "supported-type? returns false for :pdf"
     (is (not (ports/supported-type? (sut/create-word-generator) :pdf)))))
 
-(deftest word-type-in-output-test
-  ^:integration
+(deftest ^:integration word-type-in-output-test
   (testing ":type is :word in output"
     (let [gen    (sut/create-word-generator)
           result (ports/generate! gen sample-sections-report sample-data {})]
       (is (= :word (:type result))))))
 
-(deftest word-empty-sections-test
-  ^:integration
+(deftest ^:integration word-empty-sections-test
   (testing "report with no sections still produces valid DOCX bytes"
     (let [gen    (sut/create-word-generator)
           report {:id   :empty-word
@@ -102,8 +98,7 @@
           result (ports/generate! gen report [] {})]
       (is (docx-magic? (:bytes result))))))
 
-(deftest word-deterministic-output-test
-  ^:integration
+(deftest ^:integration word-deterministic-output-test
   (testing "same input always produces identical bytes"
     (let [gen     (sut/create-word-generator)
           result1 (ports/generate! gen sample-sections-report sample-data {})

@@ -13,8 +13,7 @@
 ;; haversine-distance
 ;; =============================================================================
 
-(deftest haversine-distance-test
-  ^:unit
+(deftest ^:unit haversine-distance-test
   (testing "same point has zero distance"
     (is (< (sut/haversine-distance amsterdam amsterdam) 0.001)))
 
@@ -42,8 +41,7 @@
 ;; bearing
 ;; =============================================================================
 
-(deftest bearing-test
-  ^:unit
+(deftest ^:unit bearing-test
   (testing "bearing is in range 0–360"
     (let [b (sut/bearing amsterdam london)]
       (is (>= b 0.0))

@@ -63,8 +63,7 @@
 ;; geocode! — no cache
 ;; =============================================================================
 
-(deftest geocode-no-cache-test
-  ^:integration
+(deftest ^:integration geocode-no-cache-test
   (let [provider (make-mock-provider {"Amsterdam" amsterdam-result})
         service  {:providers [provider] :cache nil}]
     (testing "returns result from provider"
@@ -79,8 +78,7 @@
 ;; geocode! — with cache
 ;; =============================================================================
 
-(deftest geocode-cache-miss-then-hit-test
-  ^:integration
+(deftest ^:integration geocode-cache-miss-then-hit-test
   (let [provider  (make-mock-provider {"Amsterdam" amsterdam-result})
         geo-cache (make-atom-cache)
         service   {:providers [provider] :cache geo-cache}]
@@ -100,8 +98,7 @@
 ;; geocode! — fallback chain
 ;; =============================================================================
 
-(deftest geocode-fallback-chain-test
-  ^:integration
+(deftest ^:integration geocode-fallback-chain-test
   (let [provider-a (make-mock-provider {})                     ; always nil
         provider-b (make-mock-provider {"Amsterdam" amsterdam-result})
         service    {:providers [provider-a provider-b] :cache nil}]
@@ -115,8 +112,7 @@
 ;; reverse-geocode!
 ;; =============================================================================
 
-(deftest reverse-geocode-test
-  ^:integration
+(deftest ^:integration reverse-geocode-test
   (let [provider (make-mock-provider {})
         service  {:providers [provider] :cache nil}]
     (testing "returns result for known coordinates"
@@ -131,8 +127,7 @@
 ;; distance — delegates to core/math
 ;; =============================================================================
 
-(deftest distance-test
-  ^:integration
+(deftest ^:integration distance-test
   (testing "distance between Amsterdam and Rotterdam is approximately 57 km"
     (let [d (sut/distance {:lat 52.3676 :lng 4.9041}
                           {:lat 51.9225 :lng 4.4792})]
