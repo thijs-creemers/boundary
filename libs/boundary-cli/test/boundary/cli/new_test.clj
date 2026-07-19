@@ -82,10 +82,10 @@
           (is (not (str/includes? content "{{boundary-mcp-version}}")))))
 
       (testing ":mcp alias lists mcp's full boundary closure"
-        ;; Published Boundary poms omit boundary deps (write-pom skips :local/root),
-        ;; so the alias must enumerate mcp's closure not already in the default
-        ;; :deps. If a closure lib silently disappears from the template, -M:mcp
-        ;; would fail to resolve at runtime — guard it here.
+        ;; boundary-mcp's pom now declares its full boundary closure, but the
+        ;; alias still enumerates it so -M:mcp also resolves against currently
+        ;; published poms (pre-alpha-43). If a closure lib silently disappears
+        ;; from the template, -M:mcp would fail to resolve at runtime — guard it.
         (let [content (slurp (io/file tmp "deps.edn"))]
           (doseq [lib ["boundary-ai" "boundary-devtools" "boundary-scaffolder"
                        "boundary-tools" "boundary-jobs"]]

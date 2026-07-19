@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a defect in the Boundary Framework
+labels: ["Bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please run `bb doctor` first — it catches most
+        configuration mistakes — and include anything it flags below.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: A clear description of the bug and what you expected instead.
+      placeholder: When I run `bb quickstart`, step 4 fails with ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps. A failing snippet or `boundary new` command is ideal.
+      placeholder: |
+        1. boundary new my-app
+        2. cd my-app
+        3. bb quickstart
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Boundary version
+      description: Output of `boundary version`, or the library suite version from deps.edn.
+      placeholder: 1.0.1-alpha-42
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, JDK version, Clojure CLI version, database (H2/PostgreSQL/SQLite), and `bb doctor` output.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      description: Relevant log lines or a full stack trace. This is automatically formatted as code.
+      render: shell
+    validations:
+      required: false

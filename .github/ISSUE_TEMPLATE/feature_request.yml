@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest a capability or improvement for the Boundary Framework
+labels: ["Feature"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that Boundary makes hard or impossible today?
+      placeholder: There's no built-in way to ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should Boundary do? Sketch the API, CLI command, or module shape if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workarounds, other libraries, or approaches you ruled out.
+    validations:
+      required: false
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Which part of Boundary does this touch?
+      options:
+        - A single library (which one?)
+        - Cross-cutting / framework-wide
+        - Scaffolder / CLI / tooling
+        - Documentation
+        - Not sure
+    validations:
+      required: false
