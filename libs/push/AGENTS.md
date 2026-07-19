@@ -264,17 +264,18 @@ Require `boundary.push.shell.module-wiring` at system start to load the `defmeth
 7. **Upsert strategy** — persistence uses INSERT + catch `SQLIntegrityConstraintViolationException` + UPDATE for H2+PostgreSQL compat (avoids dialect-specific `ON CONFLICT`)
 8. **FCM "multicast" is concurrent single sends** — `fcm-send-multicast!` sends one per-token request via `sendAsync`, not FCM batch API
 9. **APNs JWT is minted per call** — `make-jwt` runs on every `apns-send!` and `apns-send-batch!` invocation; no caching. Fine for normal throughput; at broadcast scale (thousands of tokens) this becomes a known bottleneck — JWT caching with a ~45-min expiry window is the fix
-10. **Registry is global mutable state** — call `notif/clear-registry!` in test setup when testing notification lookup
+10. **Registry lives in the shell** — the definition registry (`defpush`, `register-push!`, `get-push`, `list-pushes`, `clear-registry!`) is in `boundary.push.shell.registry`; `boundary.push.core.notification` is pure (rendering only). Call `registry/clear-registry!` in test setup when testing notification lookup.
 
 ## REPL Smoke Checks
 
 ```clojure
-;; Verify registry
-(require '[boundary.push.core.notification :as notif])
-(notif/list-pushes)
+;; Verify registry (shell)
+(require '[boundary.push.shell.registry :as registry])
+(registry/list-pushes)
 
-;; Render a notification
-(notif/build-notification (notif/get-push :order-shipped)
+;; Render a notification (core is pure)
+(require '[boundary.push.core.notification :as notif])
+(notif/build-notification (registry/get-push :order-shipped)
                           {:order-id "ORD-123"} :en)
 
 ;; Inspect FCM payload shape

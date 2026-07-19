@@ -5,17 +5,18 @@
             [boundary.push.shell.persistence :as p]
             [boundary.push.shell.persistence-test :as pt]
             [boundary.push.core.notification :as notif]
+            [boundary.push.shell.registry :as registry]
             [boundary.push.ports :as ports]
             [boundary.jobs.ports]))
 
 (use-fixtures :each
   (fn [f]
-    (notif/clear-registry!)
+    (registry/clear-registry!)
     (binding [pt/*db* (pt/create-test-db)]
       (f))))
 
 (deftest ^:integration send-push-enqueues-job
-  (notif/register-push!
+  (registry/register-push!
    {:id :test-push :title "Hello" :body "World" :channels #{:fcm}})
 
   (let [jobs-atom    (atom [])

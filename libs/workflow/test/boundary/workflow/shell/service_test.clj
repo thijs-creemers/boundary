@@ -5,7 +5,7 @@
    to exercise the full transition orchestration without a real DB."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.workflow.ports :as ports]
-            [boundary.workflow.core.machine :as machine]
+            [boundary.workflow.shell.registry :as registry]
             [boundary.workflow.shell.service :as service])
   (:import [java.time Instant]
            [java.util UUID]))
@@ -81,14 +81,14 @@
 (def ^:dynamic *service* nil)
 
 (defn with-clean-system [f]
-  (machine/clear-registry!)
-  (machine/register-workflow! order-def)
+  (registry/clear-registry!)
+  (registry/register-workflow! order-def)
   (let [store    (create-memory-store)
-        registry (machine/create-workflow-registry)
+        registry (registry/create-workflow-registry)
         svc      (service/create-workflow-service store registry)]
     (binding [*store* store *registry* registry *service* svc]
       (f)))
-  (machine/clear-registry!))
+  (registry/clear-registry!))
 
 (use-fixtures :each with-clean-system)
 
@@ -115,11 +115,11 @@
 
     (testing "throws not-found for unknown workflow"
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                             #"Workflow definition not found"
-                             (ports/start-workflow! *service*
-                                                    {:workflow-id :ghost
-                                                     :entity-type :order
-                                                     :entity-id   entity-id}))))))
+                            #"Workflow definition not found"
+                            (ports/start-workflow! *service*
+                                                   {:workflow-id :ghost
+                                                    :entity-type :order
+                                                    :entity-id   entity-id}))))))
 
 ;; =============================================================================
 ;; transition! — happy path
@@ -203,11 +203,11 @@
   (let [ghost-id (UUID/randomUUID)]
     (testing "throws not-found when instance does not exist"
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                             #"Workflow instance not found"
-                             (ports/transition! *service*
-                                                {:instance-id ghost-id
-                                                 :transition  :paid
-                                                 :actor-roles [:admin]}))))))
+                            #"Workflow instance not found"
+                            (ports/transition! *service*
+                                               {:instance-id ghost-id
+                                                :transition  :paid
+                                                :actor-roles [:admin]}))))))
 
 ;; =============================================================================
 ;; audit-log accumulates across transitions
@@ -275,7 +275,7 @@
 (deftest ^:unit lifecycle-hooks-test
   (let [enter-calls (atom [])
         any-calls   (atom [])]
-    (machine/register-workflow!
+    (registry/register-workflow!
      (assoc hook-workflow-base
             :hooks {:on-enter-approved [(fn [inst _ae _ctx]
                                           (swap! enter-calls conj (:current-state inst)))]
@@ -309,15 +309,15 @@
                    {:from :processing :to :done}]})
 
 (deftest ^:unit process-auto-transitions-test
-  (machine/register-workflow! auto-workflow-def)
+  (registry/register-workflow! auto-workflow-def)
   (let [auto-store (create-memory-store)
         auto-svc   (service/create-workflow-service auto-store *registry* nil nil)
         i1 (ports/start-workflow! auto-svc {:workflow-id :auto-workflow
-                                             :entity-type :task
-                                             :entity-id   (UUID/randomUUID)})
+                                            :entity-type :task
+                                            :entity-id   (UUID/randomUUID)})
         i2 (ports/start-workflow! auto-svc {:workflow-id :auto-workflow
-                                             :entity-type :task
-                                             :entity-id   (UUID/randomUUID)})]
+                                            :entity-type :task
+                                            :entity-id   (UUID/randomUUID)})]
 
     (testing "all instances in the from-state are transitioned automatically"
       (let [result (ports/process-auto-transitions! auto-svc :auto-workflow)]

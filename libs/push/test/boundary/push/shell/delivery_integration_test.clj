@@ -6,11 +6,12 @@
             [boundary.push.shell.persistence-test :as pt]
             [boundary.push.shell.jobs :as jobs]
             [boundary.push.core.notification :as notif]
+            [boundary.push.shell.registry :as registry]
             [boundary.push.ports :as ports]))
 
 (use-fixtures :each
   (fn [f]
-    (notif/clear-registry!)
+    (registry/clear-registry!)
     (binding [pt/*db* (pt/create-test-db)]
       (f))))
 
@@ -48,7 +49,7 @@
 ;; --- handle-send-push job handler ---
 
 (deftest ^:integration handle-send-push-delivers-to-devices
-  (notif/register-push!
+  (registry/register-push!
    {:id :job-test :title "Hello" :body "World" :channels #{:fcm :apns}})
 
   (let [device-store    (p/->DeviceTokenStore pt/*db*)
@@ -82,7 +83,7 @@
 ;; --- handle-broadcast job handler ---
 
 (deftest ^:integration handle-broadcast-delivers-paginated
-  (notif/register-push!
+  (registry/register-push!
    {:id :broadcast-test :title "Alert" :body "Msg" :channels #{:fcm}})
 
   (let [device-store    (p/->DeviceTokenStore pt/*db*)

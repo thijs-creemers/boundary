@@ -1,6 +1,10 @@
-(ns boundary.audience.core.audience
-  "Audience definition registry and defaudience macro.
-   FC/IS rule: no I/O here — pure in-process atom-backed registry."
+(ns boundary.audience.shell.registry
+  "Load-time registry of audience segment definitions and the `defaudience` macro.
+
+   The registry is mutable process state, so it lives in the shell — the audience
+   core namespaces (compiler, composition, filter, ui) stay pure. Definitions are
+   registered at namespace load via the `defaudience` macro (validated against the
+   AudienceDefinition schema) and read at runtime by the audience service."
   (:require [boundary.audience.schema :as schema]
             [malli.core :as m]))
 

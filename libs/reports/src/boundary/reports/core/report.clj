@@ -1,109 +1,17 @@
 (ns boundary.reports.core.report
-  "Report definition registry and pure helper functions.
+  "Pure report logic: cell/row formatting, section rendering, and report
+   preparation.
 
-   Provides the `defreport` macro for declaring report definitions as data,
-   an in-process registry backed by an atom, and pure transformation helpers
-   used by shell adapters.
+   The definition registry and the `defreport` macro live in the shell
+   (boundary.reports.shell.registry) — this namespace holds no mutable state.
 
    FC/IS rule: no I/O here. All side effects (file writing, HTTP responses,
    calling :data-source) live in the shell layer."
   (:require [boundary.reports.schema :as schema]))
 
 ;; =============================================================================
-;; Global definition registry (in-process)
-;; =============================================================================
-
-(defonce ^:private registry-atom (atom {}))
-
-;; =============================================================================
-;; defreport macro
-;; =============================================================================
-
-(defmacro defreport
-  "Define and register a report.
-
-   The body is a map literal that must satisfy ReportDefinition schema.
-   After macro expansion the definition is automatically registered in the
-   in-process registry so it is available via `get-report`.
-
-   Example (PDF with template fn):
-
-     (defreport invoice-report
-       {:id        :invoice-report
-        :type      :pdf
-        :page-size :a4
-        :filename  \"invoice.pdf\"
-        :template  (fn [data]
-                     [:html
-                      [:body
-                       [:h1 \"Invoice #\" (:invoice-number data)]
-                       [:p \"Total: \" (:total data)]]])})
-
-   Example (Excel with declarative sections):
-
-     (defreport sales-report
-       {:id       :sales-report
-        :type     :excel
-        :filename \"sales.xlsx\"
-        :sections [{:type    :table
-                    :columns [{:key :name  :label \"Product\"}
-                               {:key :qty   :label \"Qty\"    :format :number}
-                               {:key :price :label \"Price\"  :format :currency}]}]})
-
-   The var `invoice-report` is bound to the definition map.
-   The report is registered under :invoice-report."
-  [sym definition-map]
-  `(do
-     (def ~sym ~definition-map)
-     (register-report! ~sym)
-     ~sym))
-
-;; =============================================================================
-;; Registry operations (pure — no I/O)
-;; =============================================================================
-
-(defn register-report!
-  "Register a report definition in the in-process registry.
-
-   Args:
-     definition - ReportDefinition map
-
-   Returns the definition map."
-  [definition]
-  (swap! registry-atom assoc (:id definition) definition)
-  definition)
-
-(defn get-report
-  "Look up a report definition by id.
-
-   Returns the definition map or nil if not found."
-  [id]
-  (get @registry-atom id))
-
-(defn list-reports
-  "Return a vector of all registered report ids."
-  []
-  (vec (keys @registry-atom)))
-
-(defn clear-registry!
-  "Reset the registry to an empty map.
-
-   Use in tests to avoid inter-test pollution."
-  []
-  (reset! registry-atom {}))
-
-;; =============================================================================
 ;; Pure cell / row helpers
 ;; =============================================================================
-
-(defn format-cell
-  "Deprecated for BOU-15.
-
-   Use `format-cell*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "format-cell is deprecated; use format-cell* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'format-cell*})))
 
 (defn format-cell*
   "Format a single cell value according to format-type.
@@ -148,15 +56,6 @@
     ;; :string or nil
     (if (nil? value) "" (str value))))
 
-(defn map-columns
-  "Deprecated for BOU-15.
-
-   Use `map-columns*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "map-columns is deprecated; use map-columns* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'map-columns*})))
-
 (defn map-columns*
   "Map a single data record through a vector of ColumnDef maps.
 
@@ -170,15 +69,6 @@
   (mapv (fn [{:keys [key format]}]
           (format-cell* (get record key) format formatting-context))
         columns))
-
-(defn build-table-rows
-  "Deprecated for BOU-15.
-
-   Use `build-table-rows*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "build-table-rows is deprecated; use build-table-rows* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'build-table-rows*})))
 
 (defn build-table-rows*
   "Build a Hiccup [:tbody ...] from a collection of data records and column defs.
@@ -199,15 +89,6 @@
                                (format-cell* (get record key) format formatting-context)]))
                           columns)))
              data)))
-
-(defn build-sections-hiccup
-  "Deprecated for BOU-15.
-
-   Use `build-sections-hiccup*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "build-sections-hiccup is deprecated; use build-sections-hiccup* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'build-sections-hiccup*})))
 
 (defn build-sections-hiccup*
   "Build Hiccup from a vector of SectionDef maps and the report data.

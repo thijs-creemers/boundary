@@ -14,6 +14,7 @@
    [boundary.admin.ports :as ports]
    [boundary.admin.core.ui :as admin-ui]
    [boundary.admin.core.permissions :as permissions]
+   [boundary.admin.shell.permissions :as shell-permissions]
    [boundary.i18n.shell.middleware :as i18n-middleware]
    [boundary.i18n.shell.render :as i18n]
    [boundary.shared.ui.core.validation :as ui-validation]
@@ -380,7 +381,7 @@
      ExceptionInfo with :type :forbidden if not admin"
   [request]
   (let [user (get-current-user request)]
-    (permissions/assert-can-access-admin! user)
+    (shell-permissions/assert-can-access-admin! user)
     user))
 
 (defn get-entity-name
@@ -693,7 +694,7 @@
           entity-config (ports/get-entity-config schema-provider entity-name)
 
           ; Check permissions
-          _ (permissions/assert-can-edit-entity! user entity-name entity-config)
+          _ (shell-permissions/assert-can-edit-entity! user entity-name entity-config)
 
           ; Get entity record
           record (ports/get-entity admin-service entity-name id)
@@ -737,7 +738,7 @@
           entity-config (ports/get-entity-config schema-provider entity-name)
 
           ; Check permissions
-          _ (permissions/assert-can-create-entity! user entity-name entity-config)]
+          _ (shell-permissions/assert-can-create-entity! user entity-name entity-config)]
 
       ;; Split-table entities MUST have :create-redirect-url because the generic
       ;; admin create flow only writes to one table, leaving orphaned rows.
@@ -796,7 +797,7 @@
           entity-config (ports/get-entity-config schema-provider entity-name)
 
           ; Check permissions
-          _ (permissions/assert-can-create-entity! user entity-name entity-config)
+          _ (shell-permissions/assert-can-create-entity! user entity-name entity-config)
 
           ; Parse form data - support both :form-params (GET/POST) and :params/:body-params (PUT/PATCH)
           raw-params (or (:form-params request)
@@ -889,7 +890,7 @@
           entity-config (ports/get-entity-config schema-provider entity-name)
 
           ; Check permissions
-          _ (permissions/assert-can-edit-entity! user entity-name entity-config)
+          _ (shell-permissions/assert-can-edit-entity! user entity-name entity-config)
 
           ; Parse form data - for PUT requests, params might be in :params or :body-params
           raw-params (or (:form-params request)
@@ -963,7 +964,7 @@
           entity-config (ports/get-entity-config schema-provider entity-name)
 
           ; Check permissions
-          _ (permissions/assert-can-delete-entity! user entity-name entity-config)
+          _ (shell-permissions/assert-can-delete-entity! user entity-name entity-config)
 
           ; Delete entity (soft or hard based on schema)
           deleted? (ports/delete-entity admin-service entity-name id)
@@ -1007,7 +1008,7 @@
           entity-config (ports/get-entity-config schema-provider entity-name)
 
           ; Check permissions
-          _ (permissions/assert-can-delete-entity! user entity-name entity-config)
+          _ (shell-permissions/assert-can-delete-entity! user entity-name entity-config)
 
           ; Extract IDs from form params
           id-strings (get-in request [:form-params "ids[]"])
@@ -1104,7 +1105,7 @@
           field-config (get-in entity-config [:fields field])
 
           ; Check permissions
-          _ (permissions/assert-can-edit-entity! user entity-name entity-config)
+          _ (shell-permissions/assert-can-edit-entity! user entity-name entity-config)
 
           ; Verify field exists and is not readonly
           _ (when-not field-config
@@ -1147,7 +1148,7 @@
           field-config (get-in entity-config [:fields field])
 
           ; Check permissions
-          _ (permissions/assert-can-edit-entity! user entity-name entity-config)
+          _ (shell-permissions/assert-can-edit-entity! user entity-name entity-config)
 
           ; Get new value from form
           raw-params (or (:form-params request)

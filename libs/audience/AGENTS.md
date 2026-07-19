@@ -23,7 +23,8 @@ The library saves boilerplate around:
 ### Defining a segment (code)
 
 ```clojure
-(require '[boundary.audience.core.audience :as audience])
+;; The definition registry + `defaudience` live in the shell (mutable state)
+(require '[boundary.audience.shell.registry :as audience])
 
 (audience/defaudience active-free-users
   {:id      :active-free-users
@@ -258,14 +259,14 @@ The `:boundary/audience` component returns `{:store <IAudienceRepository> :resol
 
 ### Fixture warning — registry pollution
 
-`defaudience` at namespace load time registers into a global atom. Always reset it between tests:
+`defaudience` at namespace load time registers into a global atom (in the shell). Always reset it between tests:
 
 ```clojure
 (use-fixtures :each
   (fn [f]
-    (boundary.audience.core.audience/clear-registry!)
+    (boundary.audience.shell.registry/clear-registry!)
     (f)
-    (boundary.audience.core.audience/clear-registry!)))
+    (boundary.audience.shell.registry/clear-registry!)))
 ```
 
 ### Test commands
@@ -319,7 +320,7 @@ Passing `nil` as the HoneySQL clause means "all users". Implement your `IUserDat
 | What | Where |
 |------|-------|
 | Filter multimethod dispatch (`filter->sql`, `filter->predicate`) | `core/filter.clj` |
-| Segment registry + `defaudience` macro | `core/audience.clj` |
+| Segment registry + `defaudience` macro (mutable state) | `shell/registry.clj` |
 | SQL/predicate plan compilation | `core/compiler.clj` |
 | AND/OR/NOT set composition | `core/composition.clj` |
 | Pure Hiccup UI components | `core/ui.clj` |

@@ -108,7 +108,7 @@ bb install-hooks                                   # Configure git hooks path to
 bb scripts/docs_lint.clj                           # Run documentation drift linter directly
 
 # Quality Gates (all run in CI + check:fcis/check:ports run in pre-commit)
-bb check:fcis                                      # FC/IS enforcement: core/ must not import shell/IO/logging/DB
+bb check:fcis                                      # FC/IS enforcement: core/ must not import shell/IO/logging/DB, throw, or hold mutable state
 bb check:placeholder-tests                         # Detect (is true) placeholder assertions in tests
 bb check:deps                                      # Verify library dependency direction + cycle detection
 bb check:ports                                     # Hexagonal: modules must define ports.clj; shell/web must not bypass protocols
@@ -315,6 +315,8 @@ clojure -M:test:db/h2 --watch :{module-name}  # Watch tests
 Every module MUST define `ports.clj`.
 
 - core/ must not import shell/IO/logging/DB
+- core/ must not throw — return typed error values ({:error {:type ... :message ...}}); the shell translates them into HTTP responses (escape hatch: ^:boundary/allow-throw ns metadata or .boundary/check-fcis.edn)
+- core/ must not hold mutable state (defonce/atom/swap!/reset!) — definition registries and process state live in the shell (boundary.<lib>.shell.registry)
 - cross-module calls go through service ports
 - web/HTTP layers never require *.shell.persistence directly
 
@@ -827,7 +829,7 @@ Seven automated safeguards run in CI (and `check:fcis` + `check:ports` in pre-co
 
 | Gate | Command | What it catches | Hard fail? |
 |------|---------|-----------------|------------|
-| **FC/IS enforcement** | `bb check:fcis` | Core namespaces importing shell, I/O, logging, or DB code | Yes |
+| **FC/IS enforcement** | `bb check:fcis` | Core namespaces importing shell, I/O, logging, or DB code; throwing; or holding mutable state (defonce/atom/swap!/reset!) | Yes |
 | **Placeholder tests** | `bb check:placeholder-tests` | `(is true)` / `(is (= true true))` masking missing coverage | Yes |
 | **Dependency direction** | `bb check:deps` | Core independence violations, circular deps between libraries | Yes (cycles/core); warn (undeclared) |
 | **Ports / hexagonal** | `bb check:ports` | Modules missing `ports.clj`; shell coupling to another module's `shell.persistence`/`shell.service`; web/HTTP requiring `shell.persistence` directly | Yes |

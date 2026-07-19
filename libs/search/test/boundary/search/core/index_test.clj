@@ -1,65 +1,9 @@
 (ns boundary.search.core.index-test
-  "Unit tests for the search index registry and document construction."
-  (:require [clojure.test :refer [deftest testing is use-fixtures]]
+  "Unit tests for search document construction (pure)."
+  (:require [clojure.test :refer [deftest testing is]]
             [boundary.search.core.index :as index])
   (:import [java.time Instant]
            [java.util UUID]))
-
-;; =============================================================================
-;; Test fixture
-;; =============================================================================
-
-(defn- registry-fixture [f]
-  (index/clear-registry!)
-  (f)
-  (index/clear-registry!))
-
-(use-fixtures :each registry-fixture)
-
-;; =============================================================================
-;; Registry
-;; =============================================================================
-
-(def ^:private sample-def
-  {:id          :product-search
-   :entity-type :product
-   :language    :english
-   :fields      [{:name :title       :weight :a}
-                 {:name :description :weight :b}]
-   :options     {:highlight? true}})
-
-(deftest ^:unit register-and-get-test
-  (testing "registers and retrieves a definition by id"
-    (index/register-search! sample-def)
-    (let [found (index/get-search :product-search)]
-      (is (= :product-search (:id found)))
-      (is (= :product (:entity-type found)))))
-
-  (testing "returns nil for unknown index"
-    (is (nil? (index/get-search :unknown-index))))
-
-  (testing "list-searches returns registered ids"
-    (index/register-search! sample-def)
-    (is (contains? (set (index/list-searches)) :product-search)))
-
-  (testing "clear-registry! removes all definitions"
-    (index/register-search! sample-def)
-    (index/clear-registry!)
-    (is (empty? (index/list-searches)))))
-
-;; =============================================================================
-;; defsearch macro
-;; =============================================================================
-
-(deftest ^:unit defsearch-macro-test
-  (testing "defsearch binds a var and registers the definition"
-    (index/defsearch order-search
-      {:id          :order-search
-       :entity-type :order
-       :language    :english
-       :fields      [{:name :status :weight :a}]})
-    (is (= :order-search (:id order-search)))
-    (is (some? (index/get-search :order-search)))))
 
 ;; =============================================================================
 ;; build-document
@@ -154,12 +98,3 @@
                                             {:id fixed-document-id
                                              :updated-at fixed-updated-at})]
       (is (= "dutch" (:language doc))))))
-
-(deftest ^:unit build-document-deprecated-test
-  (testing "legacy API fails loudly to force explicit id and timestamp injection"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"build-document is deprecated"
-         (index/build-document sample-def
-                               (UUID/fromString "77777777-7777-7777-7777-777777777777")
-                               {:title "Widget"})))))

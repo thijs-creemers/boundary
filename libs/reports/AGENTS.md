@@ -10,7 +10,8 @@ PDF, Excel, and Word report generation with Hiccup-style templates and declarati
 
 | Namespace | Purpose |
 |-----------|---------|
-| `boundary.reports.core.report` | Registry, `defreport` macro, pure helpers (`format-cell*`, `map-columns*`, `build-table-rows*`, `build-sections-hiccup*`, `prepare-report`) |
+| `boundary.reports.core.report` | Pure helpers (`format-cell*`, `map-columns*`, `build-table-rows*`, `build-sections-hiccup*`, `prepare-report`, `resolve-data`) |
+| `boundary.reports.shell.registry` | Definition registry + `defreport` macro (`register-report!`, `get-report`, `list-reports`, `clear-registry!`) — mutable process state, lives in the shell |
 | `boundary.reports.ports` | Protocol: `ReportGeneratorProtocol` (`generate!`, `supported-type?`) |
 | `boundary.reports.schema` | Malli schemas: `ColumnDef`, `SectionDef`, `ReportDefinition`, `ReportOutput` |
 | `boundary.reports.shell.adapters.pdf` | OpenHTMLtoPDF adapter — Hiccup → HTML → PDF bytes |
@@ -24,10 +25,10 @@ PDF, Excel, and Word report generation with Hiccup-style templates and declarati
 ### PDF report with a template function
 
 ```clojure
-(require '[boundary.reports.core.report :as r])
+(require '[boundary.reports.shell.registry :as registry])
 (require '[boundary.reports.shell.service :as reports])
 
-(r/defreport invoice-report
+(registry/defreport invoice-report
   {:id        :invoice-report
    :type      :pdf
    :page-size :a4
@@ -58,7 +59,7 @@ PDF, Excel, and Word report generation with Hiccup-style templates and declarati
 ### Excel report with declarative sections
 
 ```clojure
-(r/defreport sales-report
+(registry/defreport sales-report
   {:id          :sales-report
    :type        :excel
    :filename    "sales.xlsx"
@@ -78,7 +79,7 @@ PDF, Excel, and Word report generation with Hiccup-style templates and declarati
 ### Multi-sheet Excel with explicit :sheets
 
 ```clojure
-(r/defreport quarterly-report
+(registry/defreport quarterly-report
   {:id     :quarterly-report
    :type   :excel
    :sheets [{:name    "Q1 Sales"
@@ -94,7 +95,7 @@ PDF, Excel, and Word report generation with Hiccup-style templates and declarati
 ### Word report with declarative sections
 
 ```clojure
-(r/defreport contract-report
+(registry/defreport contract-report
   {:id          :contract-report
    :type        :word
    :filename    "contract.docx"
@@ -244,10 +245,10 @@ clojure -M:clj-kondo --lint libs/reports/src libs/reports/test
 ## REPL Smoke Check
 
 ```clojure
-(require '[boundary.reports.core.report :as r])
+(require '[boundary.reports.shell.registry :as registry])
 (require '[boundary.reports.shell.service :as reports])
 
-(r/defreport smoke-report
+(registry/defreport smoke-report
   {:id       :smoke-report
    :type     :pdf
    :template (fn [_] [:html [:body [:h1 "Smoke Test"]]])})

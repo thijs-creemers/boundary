@@ -143,10 +143,4 @@
   (testing "handles files without extension"
     (let [result (sut/generate-unique-filename* "README" "1712745600000-abc12345")]
       (is (= "1712745600000-abc12345" result))
-      (is (not (re-find #"\." result)))))
-
-  (testing "legacy helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"generate-unique-filename is deprecated"
-         (sut/generate-unique-filename "photo.jpg")))))
+      (is (not (re-find #"\." result))))))

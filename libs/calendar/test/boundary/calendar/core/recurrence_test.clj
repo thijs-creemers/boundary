@@ -237,11 +237,4 @@
           ev (make-event far-future-start "2099-01-01T10:00:00Z"
                          "FREQ=DAILY")]
       (is (= (Instant/parse far-future-start)
-             (sut/next-occurrence* ev (Instant/parse reference-time))))))
-  (testing "legacy helper is deprecated"
-    (let [ev (make-event "2099-01-01T09:00:00Z" "2099-01-01T10:00:00Z"
-                         "FREQ=DAILY")]
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo
-           #"next-occurrence is deprecated"
-           (sut/next-occurrence ev))))))
+             (sut/next-occurrence* ev (Instant/parse reference-time)))))))

@@ -20,10 +20,11 @@ It saves ~€3.2k–€4k per project by eliminating boilerplate around:
 |-----------|-------|----------------|
 | `boundary.calendar.schema` | shared | Malli schemas: `EventData`, `EventDef`, `OccurrenceResult`, `ConflictResult` |
 | `boundary.calendar.ports` | shared | `CalendarAdapterProtocol` interface |
-| `boundary.calendar.core.event` | core | `defevent` macro, registry, `duration`, `all-day?`, `within-range?` |
+| `boundary.calendar.core.event` | core | Pure helpers: `duration`, `all-day?`, `within-range?`, `valid-event?` |
 | `boundary.calendar.core.recurrence` | core | RRULE parsing, `occurrences`, `next-occurrence*`, `expand-event` |
 | `boundary.calendar.core.conflict` | core | `overlaps?`, `conflicts?`, `find-conflicts` |
 | `boundary.calendar.core.ui` | core | Pure Hiccup: `month-view`, `week-view`, `mini-calendar`, `event-badge` |
+| `boundary.calendar.shell.registry` | shell | `defevent` macro, event type registry (`register-event-type!`, `get-event-type`, `list-event-types`, `clear-registry!`) |
 | `boundary.calendar.shell.adapters.ical` | shell | ical4j adapter (`ICalAdapter`) |
 | `boundary.calendar.shell.service` | shell | Public API: `export-ical`, `import-ical`, `ical-feed-response` |
 
@@ -31,11 +32,14 @@ It saves ~€3.2k–€4k per project by eliminating boilerplate around:
 
 ## 3. `defevent` Usage
 
+The `defevent` macro and the event type registry live in the shell
+(`boundary.calendar.shell.registry`); `boundary.calendar.core.event` is pure.
+
 ```clojure
-(require '[boundary.calendar.core.event :as event])
+(require '[boundary.calendar.shell.registry :as registry])
 
 ;; Define an event type with optional schema extension
-(event/defevent appointment-event
+(registry/defevent appointment-event
   {:id    :appointment
    :label "Appointment"
    :schema [:map
@@ -43,13 +47,15 @@ It saves ~€3.2k–€4k per project by eliminating boilerplate around:
             [:room       :string]]})
 
 ;; Registry operations
-(event/get-event-type :appointment)   ;; => {:id :appointment ...}
-(event/list-event-types)              ;; => [:appointment ...]
-(event/clear-registry!)               ;; use in tests only
+(registry/get-event-type :appointment)   ;; => {:id :appointment ...}
+(registry/list-event-types)              ;; => [:appointment ...]
+(registry/clear-registry!)               ;; use in tests only
 ```
 
-**Validation** of raw EventData maps (independent of type registry):
+**Validation** of raw EventData maps (independent of type registry, pure core):
 ```clojure
+(require '[boundary.calendar.core.event :as event])
+
 (event/valid-event? {:id (random-uuid) :title "X"
                      :start #inst "2026-03-10T09:00:00Z"
                      :end   #inst "2026-03-10T10:00:00Z"
@@ -227,7 +233,7 @@ ical4j `DateTime` objects are mutable. The adapter always creates new instances 
 `all-day?` checks for midnight UTC. If your app treats events as all-day based on local midnight, compute this at the application layer before calling the library.
 
 ### 8. Registry pollution in tests
-Always use `(use-fixtures :each (fn [f] (sut/clear-registry!) (f) (sut/clear-registry!)))` to prevent `defevent` definitions at namespace load time from leaking across tests.
+Always use `(use-fixtures :each (fn [f] (registry/clear-registry!) (f) (registry/clear-registry!)))` (with `boundary.calendar.shell.registry` aliased as `registry`) to prevent `defevent` definitions at namespace load time from leaking across tests.
 
 ---
 

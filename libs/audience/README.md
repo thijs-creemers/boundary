@@ -17,7 +17,7 @@
 ```
 
 ```clojure
-(require '[boundary.audience.core.audience :as audience])
+(require '[boundary.audience.shell.registry :as audience])
 (require '[boundary.audience.ports :as ports])
 
 ;; Define a segment
@@ -74,7 +74,7 @@ The `:boundary/audience` component returns `{:store <IAudienceRepository> :resol
 ## API
 
 ```clojure
-(require '[boundary.audience.core.audience :as audience])
+(require '[boundary.audience.shell.registry :as audience])
 (require '[boundary.audience.ports :as ports])
 
 ;; Registry

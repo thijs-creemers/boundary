@@ -26,7 +26,7 @@ Report generation library for the Boundary Framework — produce PDF, Excel, and
 | **PDF generation** | Hiccup → HTML → PDF via OpenHTMLtoPDF; custom CSS, page sizes |
 | **Excel generation** | Column-based XLSX via docjure; single and multi-sheet support |
 | **Word generation** | Declarative DOCX via Apache POI XWPF; no extra Maven deps |
-| **`defreport` macro** | Register reports as data in a global in-process registry |
+| **`defreport` macro** | Register reports as data in an in-process registry (`boundary.reports.shell.registry`) |
 | **Declarative sections** | `:header`, `:paragraph`, `:table`, `:footer`, `:spacer` section types |
 | **Column formats** | `:string`, `:number`, `:currency` (nl-NL), `:date` (ISO-8601) |
 | **Async generation** | Optional boundary-jobs integration for large, background reports |
@@ -42,10 +42,10 @@ Report generation library for the Boundary Framework — produce PDF, Excel, and
 ### PDF report with a template function
 
 ```clojure
-(require '[boundary.reports.core.report :as r]
+(require '[boundary.reports.shell.registry :as registry]
          '[boundary.reports.shell.service :as reports])
 
-(r/defreport invoice-report
+(registry/defreport invoice-report
   {:id        :invoice-report
    :type      :pdf
    :page-size :a4
@@ -74,7 +74,7 @@ Report generation library for the Boundary Framework — produce PDF, Excel, and
 ### Excel report with declarative sections
 
 ```clojure
-(r/defreport sales-report
+(registry/defreport sales-report
   {:id          :sales-report
    :type        :excel
    :filename    "sales.xlsx"
@@ -92,7 +92,7 @@ Report generation library for the Boundary Framework — produce PDF, Excel, and
 ### Word report with declarative sections
 
 ```clojure
-(r/defreport contract-report
+(registry/defreport contract-report
   {:id          :contract-report
    :type        :word
    :filename    "contract.docx"
@@ -155,10 +155,11 @@ Report generation library for the Boundary Framework — produce PDF, Excel, and
 ```
 libs/reports/src/boundary/reports/
 ├── core/
-│   └── report.clj               # defreport macro, registry, pure helpers
+│   └── report.clj               # pure helpers (formatting, sections, prepare)
 ├── ports.clj                    # ReportGeneratorProtocol
 ├── schema.clj                   # Malli schemas
 └── shell/
+    ├── registry.clj            # defreport macro + in-process registry
     ├── adapters/
     │   ├── pdf.clj              # OpenHTMLtoPDF adapter
     │   ├── excel.clj            # docjure (Apache POI) adapter

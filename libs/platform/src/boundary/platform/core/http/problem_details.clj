@@ -185,15 +185,6 @@
         (:request-method request) (assoc :method (-> request :request-method name .toUpperCase))
         (or (:remote-addr request) (get headers "x-forwarded-for")) (assoc :ip-address (or (:remote-addr request) (let [forwarded (get headers "x-forwarded-for")] (when forwarded (first (str/split forwarded #",\s*")))))))))))
 
-(defn request->context
-  "Deprecated for BOU-15.
-
-   Use `request->context*` and pass explicit runtime context from the shell."
-  [& _args]
-  (throw (ex-info "request->context is deprecated; use request->context* with explicit runtime context"
-                  {:type :deprecated-api
-                   :replacement 'request->context*})))
-
 (defn cli-context*
   "Create error context for CLI operations.
    
@@ -212,15 +203,6 @@
   ([runtime-context additional-context]
    (merge (select-keys runtime-context [:environment :timestamp :process-id])
           additional-context)))
-
-(defn cli-context
-  "Deprecated for BOU-15.
-
-   Use `cli-context*` and pass explicit runtime context from the shell."
-  [& _args]
-  (throw (ex-info "cli-context is deprecated; use cli-context* with explicit runtime context"
-                  {:type :deprecated-api
-                   :replacement 'cli-context*})))
 
 (defn enrich-context
   "Enrich existing context with additional debugging information.

@@ -12,9 +12,10 @@ Declarative state machine workflows for domain entities. Provides permission-bas
 |-----------|---------|
 | `boundary.workflow.schema` | Malli schemas: WorkflowDefinition, WorkflowInstance, AuditEntry |
 | `boundary.workflow.ports` | Protocols: IWorkflowStore, IWorkflowEngine, IWorkflowRegistry |
-| `boundary.workflow.core.machine` | `defworkflow` macro, in-process definition registry |
+| `boundary.workflow.core.machine` | Pure state-machine introspection (`states`, `initial-state`, `transitions`) |
 | `boundary.workflow.core.transitions` | Pure transition logic; `available-transitions-with-status` returns enabled/disabled candidates |
 | `boundary.workflow.core.audit` | Pure audit entry constructors |
+| `boundary.workflow.shell.registry` | `defworkflow` macro, in-process definition registry, `IWorkflowRegistry` adapter |
 | `boundary.workflow.shell.service` | Orchestration: load → validate → persist → side-effects |
 | `boundary.workflow.shell.persistence` | DB persistence (IWorkflowStore via next.jdbc + HoneySQL) |
 | `boundary.workflow.shell.module-wiring` | Integrant `:boundary/workflow` init/halt |
@@ -23,7 +24,7 @@ Declarative state machine workflows for domain entities. Provides permission-bas
 ## Defining a Workflow
 
 ```clojure
-(require '[boundary.workflow.core.machine :refer [defworkflow]])
+(require '[boundary.workflow.shell.registry :refer [defworkflow]])
 
 (defworkflow order-workflow
   {:id             :order-workflow
@@ -230,7 +231,7 @@ CREATE TABLE workflow_audit (
 ## Gotchas
 
 1. **`defonce` has no docstring** — do not add a docstring to `defonce` in Clojure (only takes 2 args).
-2. **Registry is global** — `clear-registry!` is provided for tests; always call it in fixtures.
+2. **Registry lives in the shell** — the definition registry (`defworkflow`, `register-workflow!`, `get-workflow`, `list-workflows`, `unregister-workflow!`, `clear-registry!`, `create-workflow-registry`) is in `boundary.workflow.shell.registry`; `boundary.workflow.core.machine` is pure (state-machine introspection only). `clear-registry!` is provided for tests; always call it in fixtures.
 3. **Side effects are best-effort** — a failure to enqueue is logged as a warning but does not roll back the transition.
 4. **`find-instance` is on `IWorkflowStore`, not `IWorkflowEngine`** — use `*store*` in tests, not `*service*`.
 5. **snake_case only at DB boundary** — all internal maps use kebab-case; `instance->db`/`db->instance` handle conversion.
@@ -247,14 +248,14 @@ clojure -M:test:db/h2 :workflow
 Test fixture pattern:
 ```clojure
 (defn with-clean-system [f]
-  (machine/clear-registry!)
-  (machine/register-workflow! my-workflow-def)
+  (registry/clear-registry!)
+  (registry/register-workflow! my-workflow-def)
   (let [store    (create-memory-store)
-        registry (machine/create-workflow-registry)
+        registry (registry/create-workflow-registry)
         svc      (service/create-workflow-service store registry)]
     (binding [*store* store *service* svc]
       (f)))
-  (machine/clear-registry!))
+  (registry/clear-registry!))
 ```
 
 ## Links

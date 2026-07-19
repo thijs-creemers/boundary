@@ -4,7 +4,7 @@
    Uses mocked dependencies so no real DB is required, except for the
    cache-miss-then-hit test which uses an atom-backed mock cache."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [boundary.audience.core.audience :as audience]
+            [boundary.audience.shell.registry :as registry]
             [boundary.audience.ports :as ports]
             [boundary.audience.shell.service :as service])
   (:import [java.util UUID]))
@@ -14,11 +14,11 @@
 ;; =============================================================================
 
 (defn- registry-fixture [f]
-  (audience/clear-registry!)
+  (registry/clear-registry!)
   (try
     (f)
     (finally
-      (audience/clear-registry!))))
+      (registry/clear-registry!))))
 
 (use-fixtures :each registry-fixture)
 
@@ -112,7 +112,7 @@
           free-1    {:id (uuid) :plan "free"}
           svc       (make-service [premium-1 premium-2 free-1])]
 
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :premium-users
         :label   "Premium"
         :filters [{:type :demographics :field :plan :op :eq :value "premium"}]})
@@ -125,7 +125,7 @@
 
   (testing "returns empty set when no users match"
     (let [svc (make-service [{:id (uuid) :plan "free"}])]
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :enterprise-only
         :label   "Enterprise"
         :filters [{:type :demographics :field :plan :op :eq :value "enterprise"}]})
@@ -143,7 +143,7 @@
           inactive-premium {:id (uuid) :plan "premium" :active? false}
           svc              (make-service [active-premium inactive-premium])]
 
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :active-premium
         :label   "Active premium"
         :filters [{:type :demographics :field :plan :op :eq :value "premium"}
@@ -165,7 +165,7 @@
           c   (mock-cache)
           svc (make-service [u] c)]
 
-      (audience/register-audience!
+      (registry/register-audience!
        {:id           :cached-seg
         :label        "Cached"
         :filters      [{:type :demographics :field :plan :op :eq :value "premium"}]
@@ -186,7 +186,7 @@
           c   (mock-cache)
           svc (make-service [u] c)]
 
-      (audience/register-audience!
+      (registry/register-audience!
        {:id           :force-refresh-seg
         :label        "Force"
         :filters      [{:type :demographics :field :plan :op :eq :value "premium"}]
@@ -206,7 +206,7 @@
   (testing "member? returns true for a matching user"
     (let [u   {:id (uuid) :plan "premium"}
           svc (make-service [u])]
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :member-check-seg
         :label   "MC"
         :filters [{:type :demographics :field :plan :op :eq :value "premium"}]})
@@ -215,7 +215,7 @@
   (testing "member? returns false for a non-matching user"
     (let [u   {:id (uuid) :plan "free"}
           svc (make-service [u])]
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :member-check-seg2
         :label   "MC2"
         :filters [{:type :demographics :field :plan :op :eq :value "premium"}]})
@@ -224,7 +224,7 @@
   (testing "member? returns false for an unknown user ID"
     (let [u   {:id (uuid) :plan "premium"}
           svc (make-service [u])]
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :member-check-seg3
         :label   "MC3"
         :filters [{:type :demographics :field :plan :op :eq :value "premium"}]})
@@ -270,18 +270,18 @@
           svc      (make-service [both prem-us free-eu])]
 
       ;; Register two base segments
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :premium-seg
         :label   "Premium"
         :filters [{:type :demographics :field :plan :op :eq :value "premium"}]})
 
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :eu-seg
         :label   "EU"
         :filters [{:type :demographics :field :region :op :eq :value "eu"}]})
 
       ;; Register composed segment that intersects both
-      (audience/register-audience!
+      (registry/register-audience!
        {:id      :premium-eu
         :label   "Premium EU"
         :filters []

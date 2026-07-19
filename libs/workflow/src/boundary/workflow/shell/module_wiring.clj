@@ -24,7 +24,7 @@
      Returns {:api [...] :web [...] :static []} for composition
      by the HTTP handler."
   (:require [integrant.core :as ig]
-            [boundary.workflow.core.machine :as machine]
+            [boundary.workflow.shell.registry :as registry]
             [boundary.workflow.shell.persistence :as persistence]
             [boundary.workflow.shell.service :as service]
             [boundary.workflow.shell.http :as workflow-http]
@@ -47,7 +47,7 @@
     (log/warn "Workflow component started without :db-schema dependency"))
   (let [datasource (:datasource db-ctx)
         store      (persistence/create-workflow-store datasource)
-        registry   (machine/create-workflow-registry)
+        registry   (registry/create-workflow-registry)
         engine     (service/create-workflow-service store registry job-queue guard-registry)]
     (log/info "Workflow component initialized")
     {:store    store

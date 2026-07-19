@@ -72,18 +72,3 @@
       (is (= snake-map (type-conversion/kebab-case->snake-case kebab-map)))
       (is (= {} (type-conversion/snake-case->kebab-case {})))
       (is (nil? (type-conversion/snake-case->kebab-case nil))))))
-
-(deftest deprecated-runtime-accessors-test
-  (testing "Runtime-dependent helpers fail loudly so shell code must inject values explicitly"
-    (let [uuid-error (try
-                       (type-conversion/generate-uuid)
-                       (catch clojure.lang.ExceptionInfo ex
-                         (ex-data ex)))
-          instant-error (try
-                          (type-conversion/current-instant)
-                          (catch clojure.lang.ExceptionInfo ex
-                            (ex-data ex)))]
-      (is (= :deprecated-runtime-access (:type uuid-error)))
-      (is (= 'generate-uuid (:function uuid-error)))
-      (is (= :deprecated-runtime-access (:type instant-error)))
-      (is (= 'current-instant (:function instant-error))))))

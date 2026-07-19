@@ -2,7 +2,7 @@
   "Unit tests for SearchService using an in-memory ISearchStore double."
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [boundary.search.ports :as ports]
-            [boundary.search.core.index :as index]
+            [boundary.search.shell.registry :as registry]
             [boundary.search.shell.service :as service]
             [clojure.string :as str])
   (:import [java.util UUID]))
@@ -95,8 +95,8 @@
 (def ^:private ^:dynamic *service* nil)
 
 (defn- service-fixture [f]
-  (index/clear-registry!)
-  (index/register-search!
+  (registry/clear-registry!)
+  (registry/register-search!
    {:id          :product-search
     :entity-type :product
     :language    :english
@@ -108,7 +108,7 @@
         svc     (service/create-search-service store)]
     (binding [*service* svc]
       (f)))
-  (index/clear-registry!))
+  (registry/clear-registry!))
 
 (use-fixtures :each service-fixture)
 

@@ -6,7 +6,8 @@
 ;; See ADR-021 for rationale.
 
 (ns boundary.tools.check-fcis
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [boundary.tools.ansi :as ansi]
             [boundary.tools.parsing :as parsing]))
@@ -117,6 +118,93 @@
   "Temporary BOU-15 allowlist for known remaining runtime-dependent core calls.
    Each entry should be removed as the corresponding namespace is migrated."
   [])
+
+;; ---------------------------------------------------------------------------
+;; Impurity patterns — (throw ...) and mutable process state in core bodies.
+;; Core functions must be pure: return typed error values (the shell translates
+;; them into HTTP responses) and hold no mutable state (registries live in the
+;; shell). Applied to stripped source, so throws inside string literals — e.g.
+;; a code-generator emitting a `(throw ...)` template — are ignored.
+;; ---------------------------------------------------------------------------
+
+(def ^:private symbol-tail
+  "Negative lookahead marking the end of a Clojure symbol. A plain \\b fails
+   after `!` (both `!` and the following space are non-word characters, so
+   there is no word boundary between them), so match the delimiter explicitly."
+  "(?![\\w!?*+'-])")
+
+(def ^:private throw-pattern
+  "A (throw ...) call in a core namespace body."
+  (re-pattern (str "\\(\\s*throw" symbol-tail)))
+
+(def ^:private mutable-state-patterns
+  "Mutable-state constructs keyed by the label reported in the violation.
+   Covers the atom/ref/var/volatile/agent families — all genuine mutable
+   process state that belongs in the shell, not the functional core."
+  (into {}
+        (map (fn [sym]
+               [sym (re-pattern (str "\\(\\s*" (java.util.regex.Pattern/quote sym) symbol-tail))]))
+        ["defonce" "atom" "swap!" "reset!" "compare-and-set!"
+         "volatile!" "vreset!" "vswap!"
+         "ref" "ref-set" "alter" "commute" "dosync"
+         "alter-var-root" "agent" "send" "send-off" "add-watch"]))
+
+(defn read-config
+  "Read the optional .boundary/check-fcis.edn allowlist. Returns a map with
+   :allow-throw and :allow-mutable-state sets (namespace-name string members)."
+  []
+  (let [f (io/file (System/getProperty "user.dir") ".boundary" "check-fcis.edn")]
+    (if (.exists f)
+      (try
+        (let [m (edn/read-string (slurp f))]
+          {:allow-throw         (set (map str (:allow-throw m)))
+           :allow-mutable-state (set (map str (:allow-mutable-state m)))})
+        (catch Exception _
+          {:allow-throw #{} :allow-mutable-state #{}}))
+      {:allow-throw #{} :allow-mutable-state #{}})))
+
+(defn- ns-meta-flag?
+  "True when the namespace symbol in `ns-form` carries the metadata key `k`.
+   Recognises the `^:boundary/allow-throw` form on the ns symbol (as does
+   check-ports); the attr-map form `(ns foo {:boundary/allow-throw true} ...)`
+   is not supported — use the reader-metadata form or the .boundary allowlist."
+  [ns-form k]
+  (boolean (k (meta (second ns-form)))))
+
+;; Scanner limitations (all fail toward more manual review, never silent passes
+;; of new code): the impurity scan is line-based over stripped source, so a head
+;; symbol split from its `(` by a newline, and higher-order use like
+;; `(apply swap! ...)`, are not flagged; a `#_`-discarded form is still flagged
+;; (strip handles `;` comments and string/regex interiors, not the reader macro).
+;; Use an escape hatch for the rare false positive.
+
+(defn- scan-impurity
+  "Scan stripped content for (throw ...) and mutable-state constructs.
+   A namespace is exempt from the throw ban via ^:boundary/allow-throw metadata
+   or a .boundary/check-fcis.edn :allow-throw entry, and from the mutable-state
+   ban via ^:boundary/allow-mutable-state or an :allow-mutable-state entry.
+   Returns a seq of {:file :ns :req :line :kind} maps."
+  [file content ns-form ns-name {:keys [allow-throw allow-mutable-state]}]
+  (let [cleaned   (parsing/strip-comments-and-strings content)
+        lines     (str/split-lines cleaned)
+        throw-ok? (or (ns-meta-flag? ns-form :boundary/allow-throw)
+                      (contains? (or allow-throw #{}) ns-name))
+        mut-ok?   (or (ns-meta-flag? ns-form :boundary/allow-mutable-state)
+                      (contains? (or allow-mutable-state #{}) ns-name))]
+    (->> lines
+         (map-indexed
+          (fn [idx line]
+            (concat
+             (when (and (not throw-ok?) (re-find throw-pattern line))
+               [{:file (str file) :ns ns-name :req "throw"
+                 :line (inc idx) :kind :throw}])
+             (when-not mut-ok?
+               (keep (fn [[label pat]]
+                       (when (re-find pat line)
+                         {:file (str file) :ns ns-name :req label
+                          :line (inc idx) :kind :mutable-state}))
+                     mutable-state-patterns)))))
+         (mapcat identity))))
 
 (defn- forbidden-require?
   "Returns true if `ns-str` matches any forbidden require pattern."
@@ -294,49 +382,55 @@
 
 (defn check-file
   "Check a single core/ .clj file for forbidden requires, imports,
-   fully-qualified forbidden calls, and bare I/O calls in the body.
+   fully-qualified forbidden calls, bare I/O calls, (throw ...) calls, and
+   mutable state in the body.
    Returns a seq of violation maps {:file :ns :req :kind [:line]}, or empty seq
    if clean. Public so callers (e.g. the boundary-mcp verify loop) can check an
-   arbitrary core file outside the monorepo's `core-source-paths` discovery."
-  [file]
-  (let [content  (slurp file)
-        ns-form  (parsing/read-ns-form file)
-        ns-name  (str (second ns-form))
-        requires (extract-requires ns-form)
-        imports  (extract-imports ns-form)
-        require-violations (->> requires
-                                (filter #(forbidden-require? (str %)))
-                                (map (fn [req]
-                                       {:file (str file)
-                                        :ns   ns-name
-                                        :req  (str req)
-                                        :kind :require})))
-        import-violations  (->> imports
-                                (filter forbidden-import?)
-                                (map (fn [cls]
-                                       {:file (str file)
-                                        :ns   ns-name
-                                        :req  cls
-                                        :kind :import})))
-        fq-violations (->> (concat (scan-fq-calls file content)
-                                   (scan-simple-static-calls file content imports))
-                           (remove (fn [{:keys [symbol]}]
-                                     (allowed-fq-violation? (str file) symbol)))
-                           (map (fn [{:keys [line symbol]}]
-                                  {:file (str file)
-                                   :ns   ns-name
-                                   :req  symbol
-                                   :line line
-                                   :kind :fq-call})))]
-    (concat require-violations import-violations fq-violations)))
+   arbitrary core file outside the monorepo's `core-source-paths` discovery.
+   The 1-arity reads the .boundary/check-fcis.edn allowlist itself."
+  ([file] (check-file file (read-config)))
+  ([file config]
+   (let [content  (slurp file)
+         ns-form  (parsing/read-ns-form file)
+         ns-name  (str (second ns-form))
+         requires (extract-requires ns-form)
+         imports  (extract-imports ns-form)
+         require-violations (->> requires
+                                 (filter #(forbidden-require? (str %)))
+                                 (map (fn [req]
+                                        {:file (str file)
+                                         :ns   ns-name
+                                         :req  (str req)
+                                         :kind :require})))
+         import-violations  (->> imports
+                                 (filter forbidden-import?)
+                                 (map (fn [cls]
+                                        {:file (str file)
+                                         :ns   ns-name
+                                         :req  cls
+                                         :kind :import})))
+         fq-violations (->> (concat (scan-fq-calls file content)
+                                    (scan-simple-static-calls file content imports))
+                            (remove (fn [{:keys [symbol]}]
+                                      (allowed-fq-violation? (str file) symbol)))
+                            (map (fn [{:keys [line symbol]}]
+                                   {:file (str file)
+                                    :ns   ns-name
+                                    :req  symbol
+                                    :line line
+                                    :kind :fq-call})))
+         impurity-violations (scan-impurity file content ns-form ns-name config)]
+     (concat require-violations import-violations fq-violations
+             impurity-violations))))
 
 ;; ---------------------------------------------------------------------------
 ;; Entry point
 ;; ---------------------------------------------------------------------------
 
 (defn -main [& _args]
-  (let [files      (core-clj-files)
-        violations (mapcat check-file files)]
+  (let [config     (read-config)
+        files      (core-clj-files)
+        violations (mapcat #(check-file % config) files)]
     (if (seq violations)
       (do
         (println (ansi/red "FC/IS violations found:"))
@@ -346,6 +440,14 @@
             :fq-call
             (do (println (str "  VIOLATION: " file ":" line))
                 (println (str "    namespace " ns " calls " (ansi/red req))))
+            :throw
+            (do (println (str "  VIOLATION: " file ":" line))
+                (println (str "    namespace " ns " uses " (ansi/red "(throw ...)")
+                              " — core must return typed error values")))
+            :mutable-state
+            (do (println (str "  VIOLATION: " file ":" line))
+                (println (str "    namespace " ns " uses mutable state " (ansi/red req)
+                              " — registries/state belong in the shell")))
             :import
             (do (println (str "  VIOLATION: " file))
                 (println (str "    namespace " ns " imports " (ansi/red req))))
@@ -353,7 +455,8 @@
             (do (println (str "  VIOLATION: " file))
                 (println (str "    namespace " ns " requires " (ansi/red req))))))
         (println)
-        (println (str (count violations) " violation(s) found. Core namespaces must not import shell, I/O, logging, or DB code."))
+        (println (str (count violations) " violation(s) found. Core namespaces must not import shell, I/O, logging, or DB code, throw, or hold mutable state."))
+        (println (ansi/dim "Escape hatch: ^:boundary/allow-throw / ^:boundary/allow-mutable-state ns metadata, or .boundary/check-fcis.edn allowlist."))
         (System/exit 1))
       (do
         (println (ansi/green "FC/IS check passed.") (str (count files) " core file(s) scanned, 0 violations."))

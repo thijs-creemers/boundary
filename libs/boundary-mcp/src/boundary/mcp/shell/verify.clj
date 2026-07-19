@@ -51,7 +51,10 @@
 
 (defn- run-fcis [paths]
   (when (seq paths)
-    {:violations (vec (mapcat fcis/check-file paths))}))
+    ;; Read the allowlist once and pass it, instead of the 1-arity re-reading
+    ;; .boundary/check-fcis.edn for every file.
+    (let [config (fcis/read-config)]
+      {:violations (vec (mapcat #(fcis/check-file % config) paths))})))
 
 (defn- run-tests [test-runner module]
   (if test-runner

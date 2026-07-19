@@ -1,18 +1,8 @@
 (ns boundary.calendar.core.event-test
   "Unit tests for boundary.calendar.core.event — pure functions, no I/O."
   (:require [boundary.calendar.core.event :as sut]
-            [clojure.test :refer [deftest is testing use-fixtures]])
+            [clojure.test :refer [deftest is testing]])
   (:import [java.time Instant]))
-
-;; =============================================================================
-;; Fixture — clear registry between tests
-;; =============================================================================
-
-(use-fixtures :each
-  (fn [f]
-    (sut/clear-registry!)
-    (f)
-    (sut/clear-registry!)))
 
 ;; =============================================================================
 ;; Test data
@@ -24,42 +14,6 @@
    :start    (Instant/parse "2026-03-10T09:00:00Z")
    :end      (Instant/parse "2026-03-10T10:00:00Z")
    :timezone "Europe/Amsterdam"})
-
-;; =============================================================================
-;; defevent macro and registry
-;; =============================================================================
-
-(sut/defevent test-appointment-event
-  {:id    :test-appointment
-   :label "Test Appointment"})
-
-(deftest defevent-macro-test
-  ^:unit
-  (testing "defevent binds var to definition map"
-    (is (= :test-appointment (:id test-appointment-event)))
-    (is (= "Test Appointment" (:label test-appointment-event))))
-  (testing "defevent registers in the registry"
-    (sut/register-event-type! test-appointment-event)
-    (is (= test-appointment-event (sut/get-event-type :test-appointment))))
-  (testing "list-event-types includes registered id"
-    (sut/register-event-type! test-appointment-event)
-    (is (some #{:test-appointment} (sut/list-event-types)))))
-
-(deftest register-event-type-test
-  ^:unit
-  (testing "programmatic registration"
-    (let [defn {:id :booking :label "Booking"}]
-      (sut/register-event-type! defn)
-      (is (= defn (sut/get-event-type :booking)))))
-  (testing "get-event-type returns nil for unknown id"
-    (is (nil? (sut/get-event-type :unknown-event-xyz)))))
-
-(deftest clear-registry-test
-  ^:unit
-  (testing "clear-registry! empties the registry"
-    (sut/register-event-type! {:id :temp-event})
-    (sut/clear-registry!)
-    (is (empty? (sut/list-event-types)))))
 
 ;; =============================================================================
 ;; duration

@@ -258,15 +258,6 @@
      :version version-str
      :errors  errors}))
 
-(defn validate-version
-  "Deprecated for BOU-15.
-
-   Use `validate-version*` and pass explicit current date from the shell."
-  [& _args]
-  (throw (ex-info "validate-version is deprecated; use validate-version* with explicit current date"
-                  {:type :deprecated-api
-                   :replacement 'validate-version*})))
-
 ;; =============================================================================
 ;; Version Resolution
 ;; =============================================================================

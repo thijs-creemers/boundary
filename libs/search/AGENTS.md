@@ -13,16 +13,17 @@ libs/search/
 │   ├── schema.clj          # Malli schemas: SearchDocument, SearchResult, SearchResponse, SearchDefinition (+ :filters)
 │   ├── ports.clj           # ISearchStore (persistence), ISearchEngine (orchestration)
 │   ├── core/
-│   │   ├── index.clj       # defsearch macro, global registry, build-document*
+│   │   ├── index.clj       # build-document*, filter-key->json-key (pure)
 │   │   ├── query.clj       # SQL builders (PostgreSQL FTS + H2/SQLite LIKE fallback)
 │   │   └── ui.clj          # Hiccup: indices-page, index-detail-page, search-results-fragment
 │   └── shell/
+│       ├── registry.clj    # defsearch macro + global definition registry (mutable state)
 │       ├── persistence.clj  # SearchStore (next.jdbc, HoneySQL ON CONFLICT upsert)
 │       ├── service.clj      # SearchService (orchestration, pagination, reindex)
 │       ├── http.clj         # Ring routes: API + admin web UI
 │       └── module_wiring.clj # Integrant keys :boundary/search + :boundary/search-routes
 └── test/boundary/search/
-    ├── core/index_test.clj         # unit: registry + build-document*
+    ├── core/index_test.clj         # unit: registry (shell) + build-document*
     ├── core/query_test.clj         # unit: sanitize-query, SQL builders
     ├── shell/service_test.clj      # unit: MemorySearchStore double
     └── shell/persistence_test.clj  # integration: H2 upsert, delete, search, suggest
@@ -34,12 +35,14 @@ libs/search/
 
 ### defsearch Macro
 
-Defines a search index and registers it in a global atom registry:
+Defines a search index and registers it in a global atom registry. The registry
+is mutable process state, so it lives in the shell (`boundary.search.shell.registry`);
+the core (`boundary.search.core.index`) stays pure:
 
 ```clojure
-(require '[boundary.search.core.index :as search])
+(require '[boundary.search.shell.registry :as registry])
 
-(search/defsearch product-search
+(registry/defsearch product-search
   {:id          :product-search
    :entity-type :product
    :language    "english"
@@ -50,13 +53,15 @@ Defines a search index and registers it in a global atom registry:
 ```
 
 The var `product-search` holds the `SearchDefinition` map.
-`search/get-search :product-search` retrieves it from the registry.
+`registry/get-search :product-search` retrieves it from the registry.
 
 ### build-document*
 
-Converts field values to weighted content columns:
+Converts field values to weighted content columns (pure — `boundary.search.core.index`):
 
 ```clojure
+(require '[boundary.search.core.index :as search])
+
 (search/build-document* product-search entity-id
                        {:title "Widget Pro"
                         :body  "A professional widget"
@@ -211,12 +216,15 @@ with the `search_documents` table — no external dependencies required.
 
 ### 1. Registry Leakage Between Tests
 
-`defsearch` registers in a global atom. Reset it in test fixtures:
+`defsearch` registers in a global atom that lives in the shell
+(`boundary.search.shell.registry`). Reset it in test fixtures:
 
 ```clojure
+(require '[boundary.search.shell.registry :as registry])
+
 (use-fixtures :each
   (fn [f]
-    (search/clear-registry!)
+    (registry/clear-registry!)
     (f)))
 ```
 

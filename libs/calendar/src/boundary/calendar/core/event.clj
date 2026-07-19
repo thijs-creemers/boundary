@@ -1,81 +1,14 @@
 (ns boundary.calendar.core.event
-  "Event type registry and pure helper functions.
+  "Pure helper functions for working with EventData maps.
 
-   Provides the `defevent` macro for declaring event type definitions as data,
-   an in-process registry backed by an atom, and pure helper functions
-   for working with EventData maps.
+   Provides `duration`, `all-day?`, `within-range?`, and validation
+   delegates. The event type definition registry and the `defevent` macro
+   live in the shell (boundary.calendar.shell.registry) — this namespace
+   holds no mutable state.
 
    FC/IS rule: no I/O here. All side effects live in the shell layer."
   (:require [boundary.calendar.schema :as schema])
   (:import [java.time Duration Instant ZoneId]))
-
-;; =============================================================================
-;; Global definition registry (in-process)
-;; =============================================================================
-
-(defonce ^:private registry-atom (atom {}))
-
-;; =============================================================================
-;; defevent macro
-;; =============================================================================
-
-(defmacro defevent
-  "Define and register an event type.
-
-   The body is a map literal that must satisfy EventDef schema.
-   After macro expansion the definition is automatically registered in the
-   in-process registry so it is available via `get-event-type`.
-
-   Example:
-
-     (defevent appointment-event
-       {:id    :appointment
-        :label \"Appointment\"
-        :schema [:map
-                 [:patient-id :uuid]
-                 [:room       :string]]})
-
-   The var `appointment-event` is bound to the definition map.
-   The event type is registered under :appointment."
-  [sym definition-map]
-  `(do
-     (def ~sym ~definition-map)
-     (register-event-type! ~sym)
-     ~sym))
-
-;; =============================================================================
-;; Registry operations (pure — no I/O)
-;; =============================================================================
-
-(defn register-event-type!
-  "Register an event type definition in the in-process registry.
-
-   Args:
-     definition - EventDef map
-
-   Returns the definition map."
-  [definition]
-  (swap! registry-atom assoc (:id definition) definition)
-  definition)
-
-(defn get-event-type
-  "Look up an event type definition by id.
-
-   Returns the definition map or nil if not found."
-  [id]
-  (get @registry-atom id))
-
-(defn list-event-types
-  "Return a vector of all registered event type ids."
-  []
-  (vec (keys @registry-atom)))
-
-(defn clear-registry!
-  "Reset the registry to an empty map.
-
-   Use in tests to avoid inter-test pollution."
-  []
-  (reset! registry-atom {}))
 
 ;; =============================================================================
 ;; Pure helpers

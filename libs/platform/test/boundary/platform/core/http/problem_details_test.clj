@@ -1,4 +1,4 @@
-(ns boundary.core.http.problem-details-test
+(ns boundary.platform.core.http.problem-details-test
   "Tests for Problem Details context preservation functionality"
   (:require [boundary.platform.core.http.problem-details :as pd]
             [clojure.test :refer [deftest testing is]]
@@ -69,13 +69,7 @@
           context-multiple (pd/request->context* request-multiple-ips)]
 
       (is (= "10.0.0.1" (:ip-address context-single)))
-      (is (= "10.0.0.1" (:ip-address context-multiple)))))
-
-  (testing "legacy request->context API is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"request->context is deprecated"
-         (pd/request->context (create-test-request))))))
+      (is (= "10.0.0.1" (:ip-address context-multiple))))))
 
 (deftest test-cli-context
   (testing "creates CLI context with environment info"
@@ -97,13 +91,7 @@
 
       (is (= "test-user" (:user-id context)))
       (is (= "create-user" (:operation context)))
-      (is (contains? context :environment))))
-
-  (testing "legacy cli-context API is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"cli-context is deprecated"
-         (pd/cli-context {})))))
+      (is (contains? context :environment)))))
 
 (deftest test-enrich-context
   (testing "enriches context with timestamp and environment"
@@ -133,12 +121,15 @@
           context {:user-id "test-user" :tenant-id "test-tenant"}
           problem-body (pd/exception->problem-body exception nil nil {} context)]
 
-      (is (= "Validation failed" (:title problem-body)))
+      ;; BOU-161: untyped exceptions are 500s whose body is generic — the raw
+      ;; message and ex-data extension members must not leak to the client.
+      (is (= "Internal Server Error" (:title problem-body)))
       (is (= 500 (:status problem-body)))
-      (is (= "Validation failed" (:detail problem-body)))
-      (is (= "email" (:field problem-body)))
-      (is (= "invalid" (:error problem-body)))
-      ;; Context contains only explicitly supplied values
+      (is (= "Internal Server Error" (:detail problem-body)))
+      (is (nil? (:field problem-body)))
+      (is (nil? (:error problem-body)))
+      ;; Context IS still preserved on 5xx (for the client's correlation), only
+      ;; internals are suppressed.
       (is (= "test-user" (get-in problem-body [:errorContext :user-id])))
       (is (= "test-tenant" (get-in problem-body [:errorContext :tenant-id])))
       (is (not (contains? (:errorContext problem-body) :timestamp)))
@@ -148,19 +139,21 @@
     (let [exception (create-test-exception :message "Simple error")
           problem-body (pd/exception->problem-body exception nil nil {} {})]
 
-      (is (= "Simple error" (:title problem-body)))
+      (is (= "Internal Server Error" (:title problem-body)))
       (is (= 500 (:status problem-body)))
-      (is (= "Simple error" (:detail problem-body)))
+      (is (= "Internal Server Error" (:detail problem-body)))
       (is (nil? (:errorContext problem-body)))))
 
-  (testing "handles exception with custom status"
+  (testing "untyped exception with a :status key is still a generic 500"
     (let [exception (create-test-exception :message "Not found"
                                            :data {:status 404})
           context {:user-id "test-user"}
           problem-body (pd/exception->problem-body exception nil nil {} context)]
 
+      ;; A bare :status key in ex-data does NOT set the HTTP status — only a
+      ;; recognised :type via error-mappings does. Untyped => generic 500.
       (is (= 500 (:status problem-body)))
-      (is (= "Not found" (:detail problem-body)))
+      (is (= "Internal Server Error" (:detail problem-body)))
       (is (= "test-user" (get-in problem-body [:errorContext :user-id])))
       (is (not (contains? (:errorContext problem-body) :timestamp))))))
 
@@ -175,8 +168,8 @@
 
       ;; Parse the JSON body since it's a string
       (let [body (json/parse-string (:body response))]
-        (is (= "Server error" (get body "title")))
-        (is (= "Server error" (get body "detail")))
+        (is (= "Internal Server Error" (get body "title")))
+        (is (= "Internal Server Error" (get body "detail")))
         ;; Context contains only explicitly supplied values
         (is (= "test-user" (get-in body ["errorContext" "user-id"])))
         (is (not (contains? (get body "errorContext") "timestamp"))))))
@@ -214,8 +207,8 @@
 
       ;; Parse the JSON body since it's a string
       (let [body (json/parse-string (:body response))]
-        (is (= "Business logic error" (get body "title")))
-        (is (= "Business logic error" (get body "detail")))
+        (is (= "Internal Server Error" (get body "title")))
+        (is (= "Internal Server Error" (get body "detail")))
         ;; Check that context fields are present using string keys
         (is (contains? (get body "errorContext") "user-id"))
         (is (contains? (get body "errorContext") "tenant-id"))

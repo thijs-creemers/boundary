@@ -2,16 +2,17 @@
            boundary.platform.shell.adapters.database.sqlite.core/with-transaction clojure.core/with-open
            boundary.platform.shell.adapters.database.h2.core/with-transaction clojure.core/with-open
            clojure.test.check.clojure-test/defspec clojure.core/def
-           boundary.search.core.index/defsearch clojure.core/def
-           boundary.reports.core.report/defreport clojure.core/def
-           boundary.calendar.core.event/defevent  clojure.core/def
-           boundary.push.core.notification/defpush clojure.core/def
-           boundary.audience.core.audience/defaudience clojure.core/def}
+           boundary.search.shell.registry/defsearch clojure.core/def
+           boundary.reports.shell.registry/defreport clojure.core/def
+           boundary.calendar.shell.registry/defevent clojure.core/def
+           boundary.push.shell.registry/defpush clojure.core/def
+           boundary.workflow.shell.registry/defworkflow clojure.core/def
+           boundary.audience.shell.registry/defaudience clojure.core/def}
  :linters {:unresolved-symbol {:exclude [(boundary.platform.shell.adapters.database.common.core/with-transaction [tx])
                                          ;; spel (Playwright) binding macro: binds the page symbol from a vector.
                                          (com.blockether.spel.core/with-testing-page [pg])]}}
- :config-in-ns {boundary.search.core.index-test {:linters {:inline-def {:level :off}}}
-                boundary.audience.core.audience-test {:linters {:inline-def {:level :off}}}
+ :config-in-ns {boundary.search.shell.registry-test {:linters {:inline-def {:level :off}}}
+                boundary.audience.shell.registry-test {:linters {:inline-def {:level :off}}}
                 boundary.user.ports {:linters {:redefined-var {:level :off}}}
                 build {:linters {:redefined-var {:level :off}}}
                 hooks.com.github.seancorfield.next-jdbc {:linters {:redefined-var {:level :off}}}

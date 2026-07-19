@@ -2,21 +2,11 @@
   "Unit tests for pure core functions — no I/O, no adapters."
   (:require [boundary.reports.core.report :as sut]
             [clojure.string :as str]
-            [clojure.test :refer [deftest is testing use-fixtures]])
+            [clojure.test :refer [deftest is testing]])
   (:import [java.time LocalDate ZoneId]))
 
 (def ^:private formatting-context
   {:zone-id (ZoneId/of "UTC")})
-
-;; =============================================================================
-;; Test fixture — clear registry between tests
-;; =============================================================================
-
-(use-fixtures :each
-  (fn [f]
-    (sut/clear-registry!)
-    (f)
-    (sut/clear-registry!)))
 
 ;; =============================================================================
 ;; format-cell
@@ -30,12 +20,7 @@
     (is (= "hello" (sut/format-cell* "hello" :string formatting-context)))
     (is (= "42"    (sut/format-cell* 42 :string formatting-context))))
   (testing "nil format treated as :string"
-    (is (= "world" (sut/format-cell* "world" nil formatting-context))))
-  (testing "legacy format-cell helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"format-cell is deprecated"
-         (sut/format-cell "world" nil)))))
+    (is (= "world" (sut/format-cell* "world" nil formatting-context)))))
 
 (deftest format-cell-number-test
   ^:unit
@@ -83,12 +68,7 @@
   (testing "missing key returns formatted nil"
     (let [columns [{:key :missing :label "X" :format :string}]
           record  {}]
-      (is (= [""] (sut/map-columns* columns record formatting-context)))))
-  (testing "legacy map-columns helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"map-columns is deprecated"
-         (sut/map-columns [] {})))))
+      (is (= [""] (sut/map-columns* columns record formatting-context))))))
 
 ;; =============================================================================
 ;; build-table-rows
@@ -106,43 +86,7 @@
       (is (= 2 (count (rest result))))))
   (testing "empty data produces empty tbody"
     (let [result (sut/build-table-rows* [{:key :x :label "X"}] [] formatting-context)]
-      (is (= [:tbody] result))))
-  (testing "legacy build-table-rows helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"build-table-rows is deprecated"
-         (sut/build-table-rows [] [])))))
-
-;; =============================================================================
-;; defreport macro and registry
-;; =============================================================================
-
-;; Defined at top level so clj-kondo can resolve the symbol.
-;; clear-registry! is called in the :each fixture so the registry stays clean.
-(sut/defreport test-report-a
-  {:id       :test-report-a
-   :type     :pdf
-   :template (fn [_] [:html [:body [:h1 "Test"]]])})
-
-(deftest defreport-macro-test
-  ^:unit
-  (testing "defreport binds var to definition map"
-    (is (= :test-report-a (:id test-report-a)))
-    (is (= :pdf (:type test-report-a))))
-  (testing "defreport registers definition in the registry"
-    ;; Re-register since the :each fixture clears the registry before each test.
-    (sut/register-report! test-report-a)
-    (is (= test-report-a (sut/get-report :test-report-a))))
-  (testing "list-reports includes registered id"
-    (sut/register-report! test-report-a)
-    (is (some #{:test-report-a} (sut/list-reports)))))
-
-(deftest register-report-test
-  ^:unit
-  (testing "programmatic registration via register-report!"
-    (let [defn {:id :prog-report :type :excel}]
-      (sut/register-report! defn)
-      (is (= defn (sut/get-report :prog-report))))))
+      (is (= [:tbody] result)))))
 
 ;; =============================================================================
 ;; prepare-report
@@ -198,9 +142,4 @@
           result   (sut/build-sections-hiccup* sections [] formatting-context)
           ;; body is [:html [:head ...] [:body [:div.spacer]]]
           body     (last result)]
-      (is (some #(= [:div.spacer] %) (rest body)))))
-  (testing "legacy build-sections-hiccup helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"build-sections-hiccup is deprecated"
-         (sut/build-sections-hiccup [] [])))))
+      (is (some #(= [:div.spacer] %) (rest body))))))
