@@ -211,52 +211,9 @@
 ;; Backup Code Tests
 ;; =============================================================================
 
-(deftest is-valid-backup-code-test
-  (testing "Backup code validation"
-    (let [user-with-codes {:mfa-backup-codes ["CODE1" "CODE2" "CODE3"]
-                           :mfa-backup-codes-used ["CODE4" "CODE5"]}
-          user-no-codes {:mfa-backup-codes nil
-                         :mfa-backup-codes-used nil}
-          user-all-used {:mfa-backup-codes ["CODE1" "CODE2"]
-                         :mfa-backup-codes-used ["CODE1" "CODE2"]}]
-
-      (testing "valid when code is in available list and not used"
-        (is (true? (mfa/is-valid-backup-code? "CODE1" user-with-codes))))
-
-      (testing "invalid when code not in available list"
-        (is (not (mfa/is-valid-backup-code? "INVALID" user-with-codes))))
-
-      (testing "invalid when code already used"
-        (is (not (mfa/is-valid-backup-code? "CODE4" user-with-codes))))
-
-      (testing "invalid when code is nil"
-        (is (not (mfa/is-valid-backup-code? nil user-with-codes))))
-
-      (testing "invalid when user has no backup codes"
-        (is (not (mfa/is-valid-backup-code? "CODE1" user-no-codes))))
-
-      (testing "invalid when all codes are used"
-        (is (not (mfa/is-valid-backup-code? "CODE1" user-all-used)))))))
-
-(deftest mark-backup-code-used-test
-  (testing "Mark backup code as used"
-    (testing "adds code to used list when valid"
-      (let [user {:mfa-backup-codes ["CODE1" "CODE2" "CODE3"]
-                  :mfa-backup-codes-used ["CODE4"]}
-            result (mfa/mark-backup-code-used user "CODE1")]
-        (is (= ["CODE4" "CODE1"] (:mfa-backup-codes-used result)))))
-
-    (testing "initializes used list if nil"
-      (let [user {:mfa-backup-codes ["CODE1" "CODE2"]
-                  :mfa-backup-codes-used nil}
-            result (mfa/mark-backup-code-used user "CODE1")]
-        (is (= ["CODE1"] (:mfa-backup-codes-used result)))))
-
-    (testing "adds code even if already used (no deduplication in core)"
-      (let [user {:mfa-backup-codes ["CODE1" "CODE2"]
-                  :mfa-backup-codes-used ["CODE1"]}
-            result (mfa/mark-backup-code-used user "CODE1")]
-        (is (= ["CODE1" "CODE1"] (:mfa-backup-codes-used result)))))))
+;; Backup-code verification moved to the shell (bcrypt hash-verify) — see
+;; boundary.user.shell.mfa-test. The former pure plaintext-compare tests are
+;; removed with the functions they covered.
 
 (deftest count-remaining-backup-codes-test
   (testing "Count remaining backup codes"

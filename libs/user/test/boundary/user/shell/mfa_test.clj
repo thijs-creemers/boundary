@@ -9,6 +9,7 @@
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest testing is]]
             [boundary.user.shell.mfa :as mfa-shell]
+            [boundary.user.shell.mfa-crypto :as mfa-crypto]
             [boundary.user.ports :as ports]))
 
 ;; =============================================================================
@@ -273,12 +274,14 @@
           setup-result (mfa-shell/setup-mfa service (:id test-user))
           secret (:secret setup-result)
           backup-codes (:backup-codes setup-result)
-
-          ;; Create a user with MFA enabled (simulating post-enable state)
+          ;; Post-enable state: backup codes are stored bcrypt-hashed (the
+          ;; plaintext was shown to the user once), secret is plaintext in the
+          ;; entity (encrypted only at the persistence boundary).
+          hashed-codes (mapv mfa-crypto/hash-backup-code backup-codes)
           user-with-mfa (merge test-user
                                {:mfa-enabled true
                                 :mfa-secret secret
-                                :mfa-backup-codes backup-codes
+                                :mfa-backup-codes hashed-codes
                                 :mfa-backup-codes-used []
                                 :mfa-enabled-at (java.time.Instant/now)})]
 
@@ -287,18 +290,17 @@
           (is (some? result))
           (is (false? (:valid? result)))))
 
-      (testing "verifies valid backup code"
-        (let [backup-code (first backup-codes)
-              result (mfa-shell/verify-mfa-code service user-with-mfa backup-code)]
-          (is (some? result))
-          (is (true? (:valid? result)))))
+      (testing "verifies valid backup code (plaintext matched against stored hash)"
+        (let [result (mfa-shell/verify-mfa-code service user-with-mfa (first backup-codes))]
+          (is (true? (:valid? result)))
+          (is (true? (:used-backup-code? result)))
+          ;; the recorded 'used' value is the matched hash, not the plaintext code
+          (let [used (get-in result [:updates :mfa-backup-codes-used])]
+            (is (mfa-crypto/backup-code-matches? (first backup-codes) (last used))))))
 
-      (testing "rejects used backup code"
-        (let [backup-code (first backup-codes)
-              ;; Mark code as used
-              user-with-used-code (update user-with-mfa :mfa-backup-codes-used conj backup-code)
-              result (mfa-shell/verify-mfa-code service user-with-used-code backup-code)]
-          (is (some? result))
+      (testing "rejects an already-used backup code"
+        (let [user-with-used-code (update user-with-mfa :mfa-backup-codes-used conj (first hashed-codes))
+              result (mfa-shell/verify-mfa-code service user-with-used-code (first backup-codes))]
           (is (false? (:valid? result))))))))
 (deftest setup-mfa-user-not-found-test
   (testing "MFA setup with non-existent user"

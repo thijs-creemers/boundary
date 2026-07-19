@@ -102,6 +102,23 @@
           (log/info "Adding missing users preference column" {:column name :type type})
           (db/execute-ddl! ctx (str "ALTER TABLE users ADD COLUMN " name " " type)))))))
 
+(defn- invalidate-legacy-plaintext-mfa!
+  "One-time, idempotent security upgrade: clear MFA on any auth_users row whose
+   mfa_secret is a pre-encryption *plaintext* value (i.e. not prefixed with the
+   `enc:v1:` marker). Those users must re-enroll — their old TOTP seed and backup
+   codes are no longer trusted now that secrets are encrypted and codes hashed.
+
+   Encrypted secrets carry the `enc:v1:` prefix, so this only ever matches legacy
+   rows and is a no-op on subsequent startups."
+  [ctx]
+  (when (db/table-exists? ctx :auth_users)
+    (db/execute-ddl! ctx
+                     (str "UPDATE auth_users "
+                          "SET mfa_enabled = false, mfa_secret = NULL, "
+                          "    mfa_backup_codes = NULL, mfa_backup_codes_used = NULL, "
+                          "    mfa_enabled_at = NULL "
+                          "WHERE mfa_secret IS NOT NULL AND mfa_secret NOT LIKE 'enc:v1:%'"))))
+
 (defn initialize-user-schema!
   "Initialize database schema for user entities using Malli schema definitions.
 
@@ -138,6 +155,8 @@
   ;; Pre-upgrade existing tables before we try to create indexes that depend on new columns.
   (ensure-auth-users-audit-columns! ctx)
   (ensure-users-preference-columns! ctx)
+  ;; Retire any MFA rows still holding a pre-encryption plaintext secret.
+  (invalidate-legacy-plaintext-mfa! ctx)
 
   (db-schema/initialize-tables-from-schemas! ctx
                                              {"auth_users" user-schema/AuthUser
