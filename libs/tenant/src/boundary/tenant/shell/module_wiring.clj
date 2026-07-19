@@ -1,10 +1,13 @@
 (ns boundary.tenant.shell.module-wiring
-  (:require [boundary.tenant.shell.invite-persistence :as invite-persistence]
+  (:require [boundary.platform.shell.adapters.database.config :as db-config]
+            [boundary.tenant.shell.invite-persistence :as invite-persistence]
             [boundary.tenant.shell.invite-service :as invite-service]
             [boundary.tenant.shell.membership-persistence :as membership-persistence]
             [boundary.tenant.shell.membership-service :as membership-service]
             [boundary.tenant.shell.persistence :as tenant-persistence]
+            [boundary.tenant.shell.provisioning :as provisioning]
             [boundary.tenant.shell.service :as tenant-service]
+            [boundary.tenant.shell.tenant-migrations :as tenant-migrations]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]))
 
@@ -12,10 +15,29 @@
 ;; Tenant Database Schema
 ;; =============================================================================
 
+(defn- fan-out-tenant-migrations!
+  "Apply pending tenant-scoped migrations to every existing tenant schema on
+   startup, so a deploy that ships a new tenant migration reaches all tenants —
+   not just newly provisioned ones. No-op on non-PostgreSQL (list-tenant-schemas
+   returns []). Never blocks startup: per-tenant failures are collected/logged."
+  [ctx]
+  (try
+    (let [schemas (provisioning/list-tenant-schemas ctx)]
+      (when (seq schemas)
+        (let [{:keys [errors]} (tenant-migrations/migrate-all-tenants!
+                                (db-config/get-active-db-config) schemas)]
+          (when (seq errors)
+            (log/error "Some tenant schemas failed to migrate on startup" {:errors errors})))))
+    (catch Exception e
+      ;; Never block application startup on tenant migration fan-out; surface
+      ;; the failure so it can be alerted on and re-run.
+      (log/error e "Tenant migration fan-out failed on startup"))))
+
 (defmethod ig/init-key :boundary/tenant-db-schema
   [_ {:keys [ctx]}]
   (log/info "Initializing tenant module database schema")
   (tenant-persistence/initialize-tenant-schema! ctx)
+  (fan-out-tenant-migrations! ctx)
   (log/info "Tenant module database schema initialized")
   {:status :initialized})
 
