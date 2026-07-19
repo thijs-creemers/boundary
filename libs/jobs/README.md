@@ -114,7 +114,7 @@ Redis-backed background job processing with:
 (defn process-next-job!
   "Process one job from queue."
   [job-queue job-store job-registry]
-  (when-let [job (ports/dequeue-job! job-queue :default)]
+  (when-let [job (ports/dequeue-job! job-queue :default worker-id)]
     (let [handler (get @job-registry (:job-type job))]
       (if handler
         (let [started-job (job/start-job job)
@@ -246,7 +246,7 @@ Jobs are automatically processed in the correct tenant schema:
 ;; Worker loop with tenant context
 (defn process-tenant-jobs! []
   (loop []
-    (when-let [job (job-ports/dequeue-job! job-queue :default)]
+    (when-let [job (job-ports/dequeue-job! job-queue :default worker-id)]
       ;; Extract tenant context from job metadata
       (let [tenant-context (tenant-jobs/extract-tenant-context job tenant-service)]
         (if tenant-context
@@ -344,7 +344,7 @@ Jobs without tenant metadata continue to work unchanged:
   (job-ports/enqueue-job! job-queue :default job))
 
 ;; Worker detects no tenant-id, processes in public schema
-(when-let [job (job-ports/dequeue-job! job-queue :default)]
+(when-let [job (job-ports/dequeue-job! job-queue :default worker-id)]
   (if (:tenant-id (:metadata job))
     (tenant-jobs/process-tenant-job! ...)  ; Tenant job
     (process-regular-job! ...)))           ; Regular job
@@ -802,7 +802,9 @@ volumes:
 **IJobQueue** - Job queue operations
 - `enqueue-job!` - Add job to queue
 - `schedule-job!` - Schedule job for future
-- `dequeue-job!` - Get next job
+- `dequeue-job!` - Reliably take the next job for a worker (moves it to a per-worker in-flight list)
+- `ack-job!` - Acknowledge a finished job (removes it from the in-flight list)
+- `reclaim-abandoned-jobs!` - Return a crashed worker's in-flight jobs to the ready queue (at-least-once)
 - `delete-job!` - Remove job
 - `queue-size` - Get queue size
 
