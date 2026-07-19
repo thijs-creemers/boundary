@@ -86,11 +86,17 @@ jobs:
       - name: Guard — source version matches the release
         run: bb deploy --check-versions "${{ steps.version.outputs.version }}"
 
-      - name: Publish all libraries
+      # Deploy only artifacts not yet on Clojars at this version. Clojars
+      # coordinates are immutable, so a re-run after a partial/transient failure
+      # must skip already-published libs (re-deploying them 409s and aborts the
+      # whole run). --missing makes the publish idempotent and recoverable: on a
+      # fresh release nothing is published so it deploys everything, and on a
+      # re-run it ships only the stragglers. --verify below still gates on all 26.
+      - name: Publish libraries (idempotent — skips already-published)
         env:
           CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
           CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
-        run: bb deploy --all
+        run: bb deploy --missing
 
       # Confirm every artifact actually landed on Clojars at this version; a
       # partial/failed deploy fails the workflow here.
