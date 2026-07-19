@@ -1,8 +1,9 @@
 (ns boundary.push.core.notification-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
-            [boundary.push.core.notification :as notif]))
+            [boundary.push.core.notification :as notif]
+            [boundary.push.shell.registry :as registry]))
 
-(use-fixtures :each (fn [f] (notif/clear-registry!) (f)))
+(use-fixtures :each (fn [f] (registry/clear-registry!) (f)))
 
 (deftest ^:unit render-template-test
   (is (= "Order ORD-123 shipped"
@@ -26,21 +27,21 @@
     (is (some? (notif/resolve-content {:nl "Verzonden" :de "Versendet"} :fr)))))
 
 (deftest ^:unit defpush-and-registry-test
-  (notif/register-push!
+  (registry/register-push!
    {:id :test-notification
     :title {:en "Test"}
     :body {:en "Body"}
     :channels #{:fcm}})
   (testing "registered push is retrievable"
-    (is (= :test-notification (:id (notif/get-push :test-notification)))))
+    (is (= :test-notification (:id (registry/get-push :test-notification)))))
   (testing "list-pushes returns registered ids"
-    (is (= [:test-notification] (notif/list-pushes))))
+    (is (= [:test-notification] (registry/list-pushes))))
   (testing "clear-registry! removes all"
-    (notif/clear-registry!)
-    (is (nil? (notif/get-push :test-notification)))))
+    (registry/clear-registry!)
+    (is (nil? (registry/get-push :test-notification)))))
 
 (deftest ^:unit build-notification-test
-  (notif/register-push!
+  (registry/register-push!
    {:id :order-shipped
     :title {:en "Order {{order-id}} Shipped" :nl "Bestelling {{order-id}} Verzonden"}
     :body {:en "On its way!" :nl "Onderweg!"}
@@ -51,7 +52,7 @@
     :silent? false
     :collapse-key :order-status})
   (let [result (notif/build-notification
-                (notif/get-push :order-shipped)
+                (registry/get-push :order-shipped)
                 {:order-id "ORD-42"}
                 :nl)]
     (is (= "Bestelling ORD-42 Verzonden" (:title result)))

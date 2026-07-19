@@ -1,31 +1,9 @@
 (ns boundary.push.core.notification
-  "Push notification definitions, registry, and template rendering."
+  "Pure push-notification logic: locale resolution and template rendering.
+
+   The definition registry and the `defpush` macro live in the shell
+   (boundary.push.shell.registry) — this namespace holds no mutable state."
   (:require [clojure.string :as str]))
-
-;; ===== Registry =====
-
-(defonce ^:private registry-atom (atom {}))
-
-(defn register-push! [definition]
-  (swap! registry-atom assoc (:id definition) definition)
-  definition)
-
-(defn get-push [id]
-  (get @registry-atom id))
-
-(defn list-pushes []
-  (vec (keys @registry-atom)))
-
-(defn clear-registry! []
-  (reset! registry-atom {}))
-
-(defmacro defpush
-  "Define and register a push notification type."
-  [sym definition-map]
-  `(do
-     (def ~sym ~definition-map)
-     (register-push! ~sym)
-     ~sym))
 
 ;; ===== Template Rendering =====
 

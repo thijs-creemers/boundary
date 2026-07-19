@@ -1,6 +1,7 @@
 (ns boundary.push.shell.jobs
   (:require [boundary.push.core.notification :as notif]
             [boundary.push.core.delivery :as delivery]
+            [boundary.push.shell.registry :as registry]
             [boundary.push.shell.service :as service]
             [boundary.push.ports :as ports]
             [clojure.tools.logging :as log]))
@@ -10,7 +11,7 @@
   [{:keys [device-store fcm-provider apns-provider
            analytics-store]}
    {:keys [notification-id data user-id locale]}]
-  (let [push-def (notif/get-push notification-id)]
+  (let [push-def (registry/get-push notification-id)]
     (when-not push-def
       (throw (ex-info "Push notification not found in registry"
                       {:type :not-found :notification-id notification-id})))
@@ -36,7 +37,7 @@
   "Job handler for :push/broadcast. Paginated send to all devices on platform."
   [{:keys [device-store] :as deps}
    {:keys [notification-id data platform _app-id locale]}]
-  (let [push-def  (notif/get-push notification-id)
+  (let [push-def  (registry/get-push notification-id)
         rendered  (notif/build-notification push-def data (or locale :en))
         page-size 500]
     (log/infof "Push: broadcasting %s to platform %s" notification-id platform)
