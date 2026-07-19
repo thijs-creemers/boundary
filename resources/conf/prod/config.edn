@@ -96,7 +96,7 @@
                 :limit     #long #or [#env HTTP_RATE_LIMIT 300]
                 :window-ms #long #or [#env HTTP_RATE_LIMIT_WINDOW_MS 60000]}
    :security {:csrf {:enabled? true
-                     :secret   #env "JWT_SECRET"}}}
+                     :secret   #or [#env CSRF_SECRET #env JWT_SECRET]}}}
 
   ;; Internationalisation — marker-based i18n with EDN catalogues
   :boundary/i18n

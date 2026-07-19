@@ -94,6 +94,9 @@
 (defmethod ig/init-key :boundary/auth-service
   [_ {:keys [user-repository session-repository mfa-service auth-config]}]
   (log/info "Initializing authentication service")
+  ;; Fail fast: a missing or too-short JWT_SECRET aborts boot here rather than
+  ;; surfacing on the first authentication request.
+  (user-auth/validate-jwt-secret!)
   (let [service (user-auth/create-authentication-service
                  user-repository session-repository mfa-service auth-config)]
     (log/info "Authentication service initialized")
