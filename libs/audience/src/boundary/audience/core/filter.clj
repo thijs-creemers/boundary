@@ -1,6 +1,12 @@
-(ns boundary.audience.core.filter
+(ns ^:boundary/allow-throw boundary.audience.core.filter
   "Filter multimethods for audience segment evaluation.
-   FC/IS rule: pure functions only — no I/O, no side effects, no logging."
+   FC/IS rule: pure functions only — no I/O, no side effects, no logging.
+
+   Exempt from the core throw ban (^:boundary/allow-throw): the throws here are
+   multimethod extensibility guards (unknown filter type) and precondition
+   guards (missing :now, unsupported operator) — not domain errors surfaced to
+   end users. Converting them to error-return values requires validating the
+   filter tree in the shell before dispatch; tracked in BOU-185."
   (:import [java.util.regex Pattern]))
 
 ;; =============================================================================

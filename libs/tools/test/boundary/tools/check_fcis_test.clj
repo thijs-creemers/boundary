@@ -78,3 +78,59 @@
       (is (contains? symbols "java.util.UUID/randomUUID"))
       (is (contains? symbols "java.lang.System/currentTimeMillis"))
       (is (contains? symbols "java.lang.ProcessHandle/current")))))
+
+;; ---------------------------------------------------------------------------
+;; Throw / mutable-state ban + escape hatch
+;; ---------------------------------------------------------------------------
+
+(defn- check-src
+  "Write `src` to a temp core file and run check-file with `config`."
+  ([src] (check-src src {}))
+  ([src config]
+   (let [f (io/file (System/getProperty "java.io.tmpdir")
+                    (str "fcis-impurity-" (System/currentTimeMillis) "-" (hash src))
+                    "core" "sample.clj")]
+     (try
+       (io/make-parents f)
+       (spit f src)
+       (fcis/check-file f config)
+       (finally
+         (doseq [x (reverse (file-seq (.getParentFile f)))] (.delete x)))))))
+
+(deftest ^:unit flags-throw-in-core
+  (testing "(throw ...) in a core namespace is a :throw violation"
+    (let [vs (check-src "(ns ex.core)\n(defn f [x] (when-not x (throw (ex-info \"bad\" {:type :validation-error}))))\n")]
+      (is (some #(= :throw (:kind %)) vs)))))
+
+(deftest ^:unit allow-throw-metadata-exempts
+  (testing "^:boundary/allow-throw ns metadata suppresses the throw violation"
+    (let [vs (check-src "(ns ^:boundary/allow-throw ex.core)\n(defn f [x] (throw (ex-info \"bad\" {:type :x})))\n")]
+      (is (not (some #(= :throw (:kind %)) vs))))))
+
+(deftest ^:unit allow-throw-config-exempts
+  (testing ".boundary/check-fcis.edn :allow-throw allowlist suppresses by ns name"
+    (let [vs (check-src "(ns ex.core)\n(defn f [] (throw (ex-info \"bad\" {})))\n"
+                        {:allow-throw #{"ex.core"}})]
+      (is (not (some #(= :throw (:kind %)) vs))))))
+
+(deftest ^:unit flags-mutable-state-in-core
+  (testing "defonce/atom/swap!/reset! in a core namespace are :mutable-state violations"
+    (let [vs (check-src (str "(ns ex.core)\n"
+                             "(defonce reg (atom {}))\n"
+                             "(defn add! [k v] (swap! reg assoc k v))\n"
+                             "(defn clear! [] (reset! reg {}))\n"))
+          labels (set (map :req (filter #(= :mutable-state (:kind %)) vs)))]
+      (is (contains? labels "defonce"))
+      (is (contains? labels "atom"))
+      (is (contains? labels "swap!"))
+      (is (contains? labels "reset!")))))
+
+(deftest ^:unit allow-mutable-state-metadata-exempts
+  (testing "^:boundary/allow-mutable-state ns metadata suppresses mutable-state violations"
+    (let [vs (check-src "(ns ^:boundary/allow-mutable-state ex.core)\n(defonce reg (atom {}))\n")]
+      (is (not (some #(= :mutable-state (:kind %)) vs))))))
+
+(deftest ^:unit ignores-throw-inside-string-literal
+  (testing "a (throw ...) inside a string literal (e.g. a code generator) is not flagged"
+    (let [vs (check-src "(ns ex.core)\n(defn gen [] (format \"(defn f [] (throw (ex-info \\\"x\\\" {})))\"))\n")]
+      (is (not (some #(= :throw (:kind %)) vs))))))

@@ -253,13 +253,7 @@
                   :sunset-dates {:v1 "2026-04-10"}}
           result (versioning/validate-version* "v1" config "2026-04-10")]
       (is (not (:valid? result)))
-      (is (some #(re-find #"has been sunset" %) (:errors result)))))
-
-  (testing "legacy validate-version helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"validate-version is deprecated"
-         (versioning/validate-version "v1" {:supported-versions #{:v1 :v2}})))))
+      (is (some #(re-find #"has been sunset" %) (:errors result))))))
 
 ;; =============================================================================
 ;; Version Resolution Tests

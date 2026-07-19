@@ -52,8 +52,10 @@ docs-site/.hugo_build.lock
 existing-dir/
 .worktrees
 
-# Boundary devtools recordings
-.boundary/
+# Boundary devtools recordings (but keep the committed check:* allowlists)
+.boundary/*
+!.boundary/check-fcis.edn
+!.boundary/check-ports.edn
 
 # Claude Code local settings
 .claude/settings.local.json

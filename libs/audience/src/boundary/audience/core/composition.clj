@@ -1,6 +1,12 @@
-(ns boundary.audience.core.composition
+(ns ^:boundary/allow-throw boundary.audience.core.composition
   "AND/OR/NOT composition of audience segment result sets.
-   FC/IS rule: pure functions only — no I/O, no side effects."
+   FC/IS rule: pure functions only — no I/O, no side effects.
+
+   Exempt from the core throw ban (^:boundary/allow-throw): the throws here are
+   composition-tree invariant guards (unknown operator, NOT-inside-OR, circular
+   or unknown segment refs) raised deep inside recursive set-algebra. Converting
+   them to error-return values requires a separate shell-side validation pass
+   over the tree before evaluation; tracked in BOU-185."
   (:require [clojure.set :as set]))
 
 ;; =============================================================================

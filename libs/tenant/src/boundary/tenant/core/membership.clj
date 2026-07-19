@@ -23,15 +23,6 @@
    :created-at  now
    :updated-at  nil})
 
-(defn prepare-invitation
-  "Deprecated for BOU-15.
-
-   Use `prepare-invitation*` and pass a shell-generated membership id."
-  [& _args]
-  (throw (ex-info "prepare-invitation is deprecated; use prepare-invitation* with an explicit membership-id"
-                  {:type :deprecated-api
-                   :replacement 'prepare-invitation*})))
-
 (defn prepare-active-membership*
   "Creates a new membership map directly in :active status using explicit runtime inputs.
 
@@ -57,15 +48,6 @@
    :accepted-at now
    :created-at  now
    :updated-at  nil})
-
-(defn prepare-active-membership
-  "Deprecated for BOU-15.
-
-   Use `prepare-active-membership*` and pass a shell-generated membership id."
-  [& _args]
-  (throw (ex-info "prepare-active-membership is deprecated; use prepare-active-membership* with an explicit membership-id"
-                  {:type :deprecated-api
-                   :replacement 'prepare-active-membership*})))
 
 (defn accept-invitation
   "Transitions a membership from :invited to :active.

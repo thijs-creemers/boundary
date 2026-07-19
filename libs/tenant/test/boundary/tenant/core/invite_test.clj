@@ -34,13 +34,6 @@
       (is (= now (:created-at invite)))
       (is (nil? (:updated-at invite))))))
 
-(deftest prepare-invite-deprecated-test
-  (testing "legacy API fails loudly to force explicit id injection"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"prepare-invite is deprecated"
-         (sut/prepare-invite {:tenant-id tenant-id} now)))))
-
 (deftest expired-test
   (testing "returns true when invite expiry is before now"
     (is (true? (sut/expired? {:expires-at now} later))))

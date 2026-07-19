@@ -20,12 +20,7 @@
     (is (= "hello" (sut/format-cell* "hello" :string formatting-context)))
     (is (= "42"    (sut/format-cell* 42 :string formatting-context))))
   (testing "nil format treated as :string"
-    (is (= "world" (sut/format-cell* "world" nil formatting-context))))
-  (testing "legacy format-cell helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"format-cell is deprecated"
-         (sut/format-cell "world" nil)))))
+    (is (= "world" (sut/format-cell* "world" nil formatting-context)))))
 
 (deftest format-cell-number-test
   ^:unit
@@ -73,12 +68,7 @@
   (testing "missing key returns formatted nil"
     (let [columns [{:key :missing :label "X" :format :string}]
           record  {}]
-      (is (= [""] (sut/map-columns* columns record formatting-context)))))
-  (testing "legacy map-columns helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"map-columns is deprecated"
-         (sut/map-columns [] {})))))
+      (is (= [""] (sut/map-columns* columns record formatting-context))))))
 
 ;; =============================================================================
 ;; build-table-rows
@@ -96,12 +86,7 @@
       (is (= 2 (count (rest result))))))
   (testing "empty data produces empty tbody"
     (let [result (sut/build-table-rows* [{:key :x :label "X"}] [] formatting-context)]
-      (is (= [:tbody] result))))
-  (testing "legacy build-table-rows helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"build-table-rows is deprecated"
-         (sut/build-table-rows [] [])))))
+      (is (= [:tbody] result)))))
 
 ;; =============================================================================
 ;; prepare-report
@@ -157,9 +142,4 @@
           result   (sut/build-sections-hiccup* sections [] formatting-context)
           ;; body is [:html [:head ...] [:body [:div.spacer]]]
           body     (last result)]
-      (is (some #(= [:div.spacer] %) (rest body)))))
-  (testing "legacy build-sections-hiccup helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"build-sections-hiccup is deprecated"
-         (sut/build-sections-hiccup [] [])))))
+      (is (some #(= [:div.spacer] %) (rest body))))))

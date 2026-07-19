@@ -145,13 +145,6 @@
       (is (re-find #"abc/def\+ghi==" row-html))
       (is (re-find #"2 hours ago" row-html)))))
 
-(deftest format-relative-time-deprecated-test
-  (testing "legacy relative time helper is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"format-relative-time is deprecated"
-         (ui/format-relative-time (java.time.Instant/parse "2026-03-19T08:00:00Z"))))))
-
 (deftest format-relative-time-explicit-zone-test
   (testing "long-range relative formatting uses explicit zone id"
     (let [result (ui/format-relative-time* (java.time.Instant/parse "2026-03-01T08:00:00Z")

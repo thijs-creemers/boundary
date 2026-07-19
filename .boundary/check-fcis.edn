@@ -1,0 +1,26 @@
+;; check:fcis allowlist — pre-existing core throws / mutable state.
+;;
+;; The FC/IS gate (bb check:fcis) bans (throw ...) and mutable state (defonce,
+;; atom, swap!, reset!) in core namespaces: core must return typed error values
+;; (the shell translates them into HTTP responses) and hold no process state.
+;;
+;; The namespaces below predate that ban — they are framework-spine code
+;; (interceptor engine, validation framework, error-detail construction,
+;; pagination/ranking) whose typed throws are precondition/invariant guards
+;; caught centrally at the HTTP boundary. They are allowlisted so the gate can
+;; enforce the rule for all NEW code while this debt is migrated incrementally.
+;;
+;; Burn-down tracked in BOU-186 (core/platform infra) and BOU-185 (audience,
+;; which is exempted inline via ^:boundary/allow-throw instead). Remove each
+;; entry as its namespace is converted to error-return values.
+{:allow-throw
+ [boundary.core.interceptor
+  boundary.core.interceptor-context
+  boundary.core.validation.behavior
+  boundary.core.validation.generators
+  boundary.core.validation.registry
+  boundary.core.validation.snapshot
+  boundary.platform.core.search.ranking]
+
+ :allow-mutable-state
+ [boundary.core.validation.registry]}

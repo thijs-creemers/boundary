@@ -259,12 +259,3 @@
     (if ext
       (str base "." ext)
       base)))
-
-(defn generate-unique-filename
-  "Deprecated for BOU-15.
-
-   Use `generate-unique-filename*` and pass an explicit shell-generated suffix."
-  [& _args]
-  (throw (ex-info "generate-unique-filename is deprecated; use generate-unique-filename* with explicit shell-generated suffix"
-                  {:type :deprecated-api
-                   :replacement 'generate-unique-filename*})))

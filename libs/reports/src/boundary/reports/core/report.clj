@@ -13,15 +13,6 @@
 ;; Pure cell / row helpers
 ;; =============================================================================
 
-(defn format-cell
-  "Deprecated for BOU-15.
-
-   Use `format-cell*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "format-cell is deprecated; use format-cell* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'format-cell*})))
-
 (defn format-cell*
   "Format a single cell value according to format-type.
 
@@ -65,15 +56,6 @@
     ;; :string or nil
     (if (nil? value) "" (str value))))
 
-(defn map-columns
-  "Deprecated for BOU-15.
-
-   Use `map-columns*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "map-columns is deprecated; use map-columns* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'map-columns*})))
-
 (defn map-columns*
   "Map a single data record through a vector of ColumnDef maps.
 
@@ -87,15 +69,6 @@
   (mapv (fn [{:keys [key format]}]
           (format-cell* (get record key) format formatting-context))
         columns))
-
-(defn build-table-rows
-  "Deprecated for BOU-15.
-
-   Use `build-table-rows*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "build-table-rows is deprecated; use build-table-rows* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'build-table-rows*})))
 
 (defn build-table-rows*
   "Build a Hiccup [:tbody ...] from a collection of data records and column defs.
@@ -116,15 +89,6 @@
                                (format-cell* (get record key) format formatting-context)]))
                           columns)))
              data)))
-
-(defn build-sections-hiccup
-  "Deprecated for BOU-15.
-
-   Use `build-sections-hiccup*` with explicit formatting context."
-  [& _args]
-  (throw (ex-info "build-sections-hiccup is deprecated; use build-sections-hiccup* with explicit formatting context"
-                  {:type :deprecated-api
-                   :replacement 'build-sections-hiccup*})))
 
 (defn build-sections-hiccup*
   "Build Hiccup from a vector of SectionDef maps and the report data.

@@ -6,18 +6,6 @@
            [java.util UUID]))
 
 ;; =============================================================================
-;; Test data
-;; =============================================================================
-
-(def ^:private sample-def
-  {:id          :product-search
-   :entity-type :product
-   :language    :english
-   :fields      [{:name :title       :weight :a}
-                 {:name :description :weight :b}]
-   :options     {:highlight? true}})
-
-;; =============================================================================
 ;; build-document
 ;; =============================================================================
 
@@ -110,12 +98,3 @@
                                             {:id fixed-document-id
                                              :updated-at fixed-updated-at})]
       (is (= "dutch" (:language doc))))))
-
-(deftest ^:unit build-document-deprecated-test
-  (testing "legacy API fails loudly to force explicit id and timestamp injection"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"build-document is deprecated"
-         (index/build-document sample-def
-                               (UUID/fromString "77777777-7777-7777-7777-777777777777")
-                               {:title "Widget"})))))

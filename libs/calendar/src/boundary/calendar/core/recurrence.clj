@@ -91,15 +91,6 @@
         occs       (occurrences event now far-future)]
     (first occs)))
 
-(defn next-occurrence
-  "Deprecated for BOU-15.
-
-   Use `next-occurrence*` and pass explicit time from the shell."
-  [& _args]
-  (throw (ex-info "next-occurrence is deprecated; use next-occurrence* with explicit time"
-                  {:type :deprecated-api
-                   :replacement 'next-occurrence*})))
-
 (defn expand-event
   "Return a vector of single-occurrence EventData maps for the given window.
 

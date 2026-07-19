@@ -126,28 +126,6 @@
     (string? value) (keyword value)
     :else value))
 
-(defn- deprecated-runtime-access
-  [fn-name replacement]
-  (throw (ex-info (str fn-name " is deprecated for BOU-15. "
-                       "Acquire runtime-dependent values in the shell and pass them into core explicitly.")
-                  {:type :deprecated-runtime-access
-                   :function fn-name
-                   :replacement replacement})))
-
-(defn generate-uuid
-  "Deprecated for BOU-15.
-
-   Acquire UUIDs in the imperative shell and pass them into core explicitly."
-  []
-  (deprecated-runtime-access 'generate-uuid "Use an explicit UUID argument from shell code."))
-
-(defn current-instant
-  "Deprecated for BOU-15.
-
-   Acquire timestamps in the imperative shell and pass them into core explicitly."
-  []
-  (deprecated-runtime-access 'current-instant "Use an explicit Instant argument from shell code."))
-
 ;; =============================================================================
 ;; CLI Parsing Functions
 ;; =============================================================================

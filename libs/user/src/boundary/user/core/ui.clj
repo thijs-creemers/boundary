@@ -879,21 +879,6 @@
 ;; Session Management UI
 ;; =============================================================================
 
-(defn format-relative-time
-  "Format a timestamp as relative time (e.g., '2 hours ago', 'just now').
-   
-   Args:
-     timestamp - java.time.Instant or similar
-     
-   Returns:
-     String describing time relative to now
-     
-   Deprecated for BOU-15. Use `format-relative-time*` with explicit time."
-  [& _args]
-  (throw (ex-info "format-relative-time is deprecated; use format-relative-time* with explicit time"
-                  {:type :deprecated-api
-                   :replacement 'format-relative-time*})))
-
 (defn format-relative-time*
   "Format a timestamp as relative time (e.g., '2 hours ago', 'just now').
    

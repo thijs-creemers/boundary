@@ -88,12 +88,3 @@
       ;; Store filter values so they can be used as WHERE-clause predicates.
       (seq (:filter-values opts))
       (assoc :filters (:filter-values opts)))))
-
-(defn build-document
-  "Deprecated for BOU-15.
-
-   Use `build-document*` and pass explicit :id and :updated-at in opts."
-  [& _args]
-  (throw (ex-info "build-document is deprecated; use build-document* with explicit :id and :updated-at"
-                  {:type :deprecated-api
-                   :replacement 'build-document*})))

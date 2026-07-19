@@ -34,13 +34,6 @@
           m2 (sut/prepare-invitation* alt-membership-id user-id tenant-id :admin now)]
       (is (not= (:id m1) (:id m2))))))
 
-(deftest prepare-invitation-deprecated-test
-  (testing "legacy API fails loudly to force explicit id injection"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"prepare-invitation is deprecated"
-         (sut/prepare-invitation user-id tenant-id :member now)))))
-
 (deftest prepare-active-membership-test
   (testing "creates an active membership with explicit id"
     (let [m (sut/prepare-active-membership* membership-id user-id tenant-id :admin now)]
