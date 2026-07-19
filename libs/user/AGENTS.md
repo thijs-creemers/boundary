@@ -58,6 +58,29 @@ curl -X POST http://localhost:3000/api/v1/auth/logout \
   -H "Authorization: Bearer <accessToken>"
 ```
 
+### Token model — DB sessions are canonical
+
+The module carries **two** token mechanisms; know which you are using:
+
+- **DB-backed session tokens** (`boundary.user.shell.middleware/validate-session`)
+  are the **canonical, horizontally-safe** mechanism. They are stored, so they
+  can be **revoked immediately** (logout, `invalidate-session`,
+  `invalidate-all-user-sessions`) and any replica validates them against the DB.
+  Prefer these for request authentication.
+- **Stateless HS256 JWTs** (`auth/create-jwt-token` / `validate-jwt-token`) are
+  **not stored** and therefore **cannot be revoked before expiry** — a logout
+  does not invalidate an outstanding JWT. Use only for short-lived, stateless
+  cases where that trade-off is acceptable.
+
+Signing keys:
+
+- `JWT_SECRET` — HMAC key for JWTs. Required, **≥ 32 chars**, validated at
+  startup (`auth/validate-jwt-secret!` fails boot fast). The algorithm is
+  **pinned to HS256** on both sign and verify (no `alg` downgrade).
+- `CSRF_SECRET` — separate secret for CSRF token signing. Falls back to
+  `JWT_SECRET` when unset, but set it independently so rotating one key does not
+  invalidate the other.
+
 ---
 
 ## Service Layer

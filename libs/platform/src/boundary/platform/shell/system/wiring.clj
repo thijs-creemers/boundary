@@ -315,9 +315,11 @@
         ;; Opt-in: disabled by default so a framework upgrade cannot 403 consumers
         ;; that don't yet emit tokens. Each app enables it (after emitting tokens in
         ;; its /web forms) via :boundary/http :security :csrf :enabled? true. Secret
-        ;; falls back to JWT_SECRET. Config keys override these defaults.
+        ;; prefers a dedicated CSRF_SECRET, falling back to JWT_SECRET so existing
+        ;; deployments keep working while allowing key separation. Config overrides.
         csrf-config (merge {:enabled?     false
-                            :secret       (System/getenv "JWT_SECRET")
+                            :secret       (or (System/getenv "CSRF_SECRET")
+                                              (System/getenv "JWT_SECRET"))
                             :exempt-paths []}
                            (get-in config [:active :boundary/http :security :csrf]))
         ;; Fail-loud guard: an enabled CSRF interceptor with no secret cannot validate

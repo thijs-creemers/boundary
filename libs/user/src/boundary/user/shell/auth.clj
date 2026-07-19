@@ -15,6 +15,7 @@
             [boundary.user.shell.mfa :as mfa-shell]
             [buddy.hashers :as hashers]
             [buddy.sign.jwt :as jwt]
+            [clojure.string :as str]
             [clojure.tools.logging :as log])
   (:import (java.time Instant Duration)
            (java.security SecureRandom)
@@ -55,20 +56,49 @@
 ;; JWT Token Operations (Side Effects)
 ;; =============================================================================
 
-(def ^:private jwt-secret
-  "JWT signing secret, resolved from the environment once per process.
+(def ^:private min-jwt-secret-length
+  "Minimum JWT_SECRET length. A short HMAC key materially weakens signing, so the
+   framework refuses anything shorter."
+  32)
 
-   SECURITY: Must be set via JWT_SECRET environment variable.
-   Throws on first use if not configured to prevent accidental use of a
-   default secret. The environment cannot change within a JVM process, so
-   a per-call System/getenv lookup only added cost on every sign/verify."
-  (delay
-    (or (System/getenv "JWT_SECRET")
-        (throw (ex-info "JWT_SECRET environment variable not configured. Set JWT_SECRET before starting the application."
-                        {:type :configuration-error
-                         :required-env-var "JWT_SECRET"})))))
+(def ^:private jwt-alg
+  "Pinned JWT signature algorithm. Passed to both sign and unsign so a token
+   presented with a different alg (e.g. the classic alg:none downgrade) is
+   rejected instead of trusting the header's self-declared algorithm."
+  :hs256)
+
+(defn- validate-jwt-secret*
+  "Return secret when valid, else throw a :configuration-error. Enforces
+   presence and the minimum length."
+  [secret]
+  (cond
+    (str/blank? secret)
+    (throw (ex-info "JWT_SECRET environment variable not configured. Set JWT_SECRET before starting the application."
+                    {:type :configuration-error
+                     :required-env-var "JWT_SECRET"}))
+
+    (< (count secret) min-jwt-secret-length)
+    (throw (ex-info (str "JWT_SECRET must be at least " min-jwt-secret-length " characters (HMAC key strength).")
+                    {:type :configuration-error
+                     :required-env-var "JWT_SECRET"}))
+
+    :else secret))
+
+(def ^:private jwt-secret
+  "JWT signing secret, resolved and validated from the environment once per
+   process. The environment cannot change within a JVM, so a per-call lookup
+   only added cost on every sign/verify."
+  (delay (validate-jwt-secret* (System/getenv "JWT_SECRET"))))
 
 (defn- get-jwt-secret [] @jwt-secret)
+
+(defn validate-jwt-secret!
+  "Fail-fast startup check: force resolution + validation of JWT_SECRET so a
+   missing or too-short secret aborts boot, rather than booting green and
+   failing on the first authentication request. Call from system wiring."
+  []
+  (get-jwt-secret)
+  nil)
 
 (defn create-jwt-token
   "Shell function: Create JWT token for authenticated user.
@@ -89,7 +119,7 @@
                 :role (name (:role user))
                 :iat (.getEpochSecond now)
                 :exp (.getEpochSecond exp)}]
-    (jwt/sign claims (get-jwt-secret))))
+    (jwt/sign claims (get-jwt-secret) {:alg jwt-alg})))
 
 (defn validate-jwt-token
   "Shell function: Validate and decode JWT token.
@@ -103,7 +133,7 @@
    Side effects: Crypto operations"
   [token]
   (try
-    (let [claims (jwt/unsign token (get-jwt-secret))]
+    (let [claims (jwt/unsign token (get-jwt-secret) {:alg jwt-alg})]
       {:valid? true :claims claims})
     (catch Exception e
       {:valid? false :error (.getMessage e)})))
