@@ -79,11 +79,17 @@
         (swap! queue conj job)
         (:id job))
 
-      (dequeue-job! [_this _queue-name]
+      (dequeue-job! [_this _queue-name _worker-id]
         (let [job (first @queue)]
           (when job
             (swap! queue rest))
           job))
+
+      (ack-job! [_this _queue-name _worker-id _job-id]
+        true)
+
+      (reclaim-abandoned-jobs! [_this _queue-name]
+        {:reclaimed 0})
 
       (peek-job [_this _queue-name]
         (first @queue))
@@ -210,7 +216,7 @@
         (is (uuid? job-id) "Job should be enqueued with UUID")
 
         ;; Dequeue and verify tenant context
-        (let [queued-job (job-ports/dequeue-job! *job-queue* :default)]
+        (let [queued-job (job-ports/dequeue-job! *job-queue* :default "test-worker")]
           (is (some? queued-job) "Job should be in queue")
           (is (= tenant-id (get-in queued-job [:metadata :tenant-id]))
               "Job metadata should contain tenant-id")
@@ -304,8 +310,8 @@
            *job-queue* tenant-b-id :process-data {:tenant "B"})
 
           ;; Process jobs and verify tenant context
-          (let [job-1 (job-ports/dequeue-job! *job-queue* :default)
-                job-2 (job-ports/dequeue-job! *job-queue* :default)]
+          (let [job-1 (job-ports/dequeue-job! *job-queue* :default "test-worker")
+                job-2 (job-ports/dequeue-job! *job-queue* :default "test-worker")]
 
             (is (= tenant-a-id (get-in job-1 [:metadata :tenant-id]))
                 "First job should be for tenant A")
@@ -463,7 +469,7 @@
       (is (uuid? job-id) "Job should be enqueued")
 
         ;; Process job
-      (let [job (job-ports/dequeue-job! *job-queue* :default)
+      (let [job (job-ports/dequeue-job! *job-queue* :default "test-worker")
             _ (tenant-jobs/extract-tenant-context job *tenant-service*)
             result (process-order-handler (:args job))]
 
@@ -530,7 +536,7 @@
 
         (is (uuid? job-id) "Job should be enqueued even with invalid tenant")
 
-        (let [job (job-ports/dequeue-job! *job-queue* :default)]
+        (let [job (job-ports/dequeue-job! *job-queue* :default "test-worker")]
           ;; extract-tenant-context throws when tenant doesn't exist (by design)
           (is (thrown-with-msg?
                clojure.lang.ExceptionInfo

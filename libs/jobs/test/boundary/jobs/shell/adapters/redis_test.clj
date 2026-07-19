@@ -104,9 +104,45 @@
        (is (= 1 (ports/queue-size *queue* :default))))
 
      (testing "dequeue returns job"
-       (let [dequeued (ports/dequeue-job! *queue* :default)]
+       (let [dequeued (ports/dequeue-job! *queue* :default "test-worker")]
          (is (= (:id test-job) (:id dequeued)))
          (is (zero? (ports/queue-size *queue* :default))))))))
+
+(deftest ^:integration redis-reliable-queue-reclaim-test
+  (when-redis
+   (testing "a job dequeued by a crashed worker is reclaimed and re-runnable"
+     (let [job (make-job)]
+       (ports/enqueue-job! *queue* :default job)
+       ;; A worker takes the job but never acks (simulating a crash mid-job).
+       ;; It is unregistered, so its heartbeat key is absent → treated as dead.
+       (let [taken (ports/dequeue-job! *queue* :default "worker-dead")]
+         (is (= (:id job) (:id taken)))
+         (is (zero? (ports/queue-size *queue* :default))
+             "job is in-flight (processing list), not on the ready queue"))
+       ;; Reclaim returns the stranded job to the ready queue.
+       (is (= 1 (:reclaimed (ports/reclaim-abandoned-jobs! *queue* :default))))
+       (is (= 1 (ports/queue-size *queue* :default)) "job back on the ready queue")
+       ;; A fresh worker picks it up again (at-least-once).
+       (is (= (:id job) (:id (ports/dequeue-job! *queue* :default "worker-live"))))
+       (ports/ack-job! *queue* :default "worker-live" (:id job))))
+
+   (testing "an acked job is not reclaimed"
+     (let [job (make-job)]
+       (ports/enqueue-job! *queue* :default job)
+       (ports/dequeue-job! *queue* :default "worker-ack")
+       (ports/ack-job! *queue* :default "worker-ack" (:id job))
+       (is (zero? (:reclaimed (ports/reclaim-abandoned-jobs! *queue* :default))))
+       (is (zero? (ports/queue-size *queue* :default)))))
+
+   (testing "a live worker's in-flight job is NOT reclaimed"
+     (let [job (make-job)]
+       (ports/enqueue-job! *queue* :default job)
+       (redis-adapter/register-worker! *queue* "worker-alive" :default)
+       (ports/dequeue-job! *queue* :default "worker-alive")
+       (is (zero? (:reclaimed (ports/reclaim-abandoned-jobs! *queue* :default)))
+           "a heartbeating worker keeps its in-flight job")
+       (ports/ack-job! *queue* :default "worker-alive" (:id job))
+       (redis-adapter/unregister-worker! *queue* "worker-alive")))))
 
 (deftest ^:integration redis-priority-queue-test
   (when-redis
@@ -119,9 +155,9 @@
      (ports/enqueue-job! *queue* :default critical)
 
      (testing "dequeues in priority order (critical first)"
-       (is (= (:id critical) (:id (ports/dequeue-job! *queue* :default))))
-       (is (= (:id high)     (:id (ports/dequeue-job! *queue* :default))))
-       (is (= (:id low)      (:id (ports/dequeue-job! *queue* :default))))))))
+       (is (= (:id critical) (:id (ports/dequeue-job! *queue* :default "test-worker"))))
+       (is (= (:id high)     (:id (ports/dequeue-job! *queue* :default "test-worker"))))
+       (is (= (:id low)      (:id (ports/dequeue-job! *queue* :default "test-worker"))))))))
 
 (deftest ^:integration redis-queue-size-test
   (when-redis
