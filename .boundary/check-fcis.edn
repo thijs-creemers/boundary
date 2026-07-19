@@ -23,4 +23,6 @@
   boundary.platform.core.search.ranking]
 
  :allow-mutable-state
- [boundary.core.validation.registry]}
+ [boundary.core.validation.registry
+  ;; local volatile! accumulators inside otherwise-pure ranking fns
+  boundary.platform.core.search.ranking]}

@@ -131,15 +131,23 @@
   "A (throw ...) call in a core namespace body."
   #"\(\s*throw\b")
 
+(def ^:private symbol-tail
+  "Negative lookahead marking the end of a Clojure symbol. A plain \\b fails
+   after `!` (both `!` and the following space are non-word characters, so
+   there is no word boundary between them), so match the delimiter explicitly."
+  "(?![\\w!?*+'-])")
+
 (def ^:private mutable-state-patterns
   "Mutable-state constructs keyed by the label reported in the violation.
-   The trailing negative lookahead marks the end of the symbol — a plain \\b
-   fails after `!` (both `!` and the following space are non-word characters,
-   so there is no word boundary between them)."
-  {"defonce" #"\(\s*defonce(?![\w!?*+-])"
-   "atom"    #"\(\s*atom(?![\w!?*+-])"
-   "swap!"   #"\(\s*swap!(?![\w?*+-])"
-   "reset!"  #"\(\s*reset!(?![\w?*+-])"})
+   Covers the atom/ref/var/volatile/agent families — all genuine mutable
+   process state that belongs in the shell, not the functional core."
+  (into {}
+        (map (fn [sym]
+               [sym (re-pattern (str "\\(\\s*" (java.util.regex.Pattern/quote sym) symbol-tail))]))
+        ["defonce" "atom" "swap!" "reset!" "compare-and-set!"
+         "volatile!" "vreset!" "vswap!"
+         "ref" "ref-set" "alter" "commute" "dosync"
+         "alter-var-root" "agent" "send" "send-off" "add-watch"]))
 
 (defn read-config
   "Read the optional .boundary/check-fcis.edn allowlist. Returns a map with
@@ -156,9 +164,19 @@
       {:allow-throw #{} :allow-mutable-state #{}})))
 
 (defn- ns-meta-flag?
-  "True when the namespace symbol in `ns-form` carries the metadata key `k`."
+  "True when the namespace symbol in `ns-form` carries the metadata key `k`.
+   Recognises the `^:boundary/allow-throw` form on the ns symbol (as does
+   check-ports); the attr-map form `(ns foo {:boundary/allow-throw true} ...)`
+   is not supported — use the reader-metadata form or the .boundary allowlist."
   [ns-form k]
   (boolean (k (meta (second ns-form)))))
+
+;; Scanner limitations (all fail toward more manual review, never silent passes
+;; of new code): the impurity scan is line-based over stripped source, so a head
+;; symbol split from its `(` by a newline, and higher-order use like
+;; `(apply swap! ...)`, are not flagged; a `#_`-discarded form is still flagged
+;; (strip handles `;` comments and string/regex interiors, not the reader macro).
+;; Use an escape hatch for the rare false positive.
 
 (defn- scan-impurity
   "Scan stripped content for (throw ...) and mutable-state constructs.

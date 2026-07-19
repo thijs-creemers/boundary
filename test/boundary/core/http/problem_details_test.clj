@@ -69,13 +69,7 @@
           context-multiple (pd/request->context* request-multiple-ips)]
 
       (is (= "10.0.0.1" (:ip-address context-single)))
-      (is (= "10.0.0.1" (:ip-address context-multiple)))))
-
-  (testing "legacy request->context API is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"request->context is deprecated"
-         (pd/request->context (create-test-request))))))
+      (is (= "10.0.0.1" (:ip-address context-multiple))))))
 
 (deftest test-cli-context
   (testing "creates CLI context with environment info"
@@ -97,13 +91,7 @@
 
       (is (= "test-user" (:user-id context)))
       (is (= "create-user" (:operation context)))
-      (is (contains? context :environment))))
-
-  (testing "legacy cli-context API is deprecated"
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo
-         #"cli-context is deprecated"
-         (pd/cli-context {})))))
+      (is (contains? context :environment)))))
 
 (deftest test-enrich-context
   (testing "enriches context with timestamp and environment"

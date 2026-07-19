@@ -134,3 +134,23 @@
   (testing "a (throw ...) inside a string literal (e.g. a code generator) is not flagged"
     (let [vs (check-src "(ns ex.core)\n(defn gen [] (format \"(defn f [] (throw (ex-info \\\"x\\\" {})))\"))\n")]
       (is (not (some #(= :throw (:kind %)) vs))))))
+
+(deftest ^:unit flags-extended-mutation-primitives
+  (testing "volatile!/vswap!/alter-var-root/ref-set/add-watch are flagged as mutable state"
+    (let [vs (check-src (str "(ns ex.core)\n"
+                             "(defn a [] (volatile! 0))\n"
+                             "(defn b [v] (vswap! v inc))\n"
+                             "(defn c [] (alter-var-root #'x (constantly 1)))\n"
+                             "(defn d [r] (ref-set r 1))\n"
+                             "(defn e [r] (add-watch r :k (fn [& _])))\n"))
+          labels (set (map :req (filter #(= :mutable-state (:kind %)) vs)))]
+      (is (contains? labels "volatile!"))
+      (is (contains? labels "vswap!"))
+      (is (contains? labels "alter-var-root"))
+      (is (contains? labels "ref-set"))
+      (is (contains? labels "add-watch")))))
+
+(deftest ^:unit does-not-flag-double-bang-symbols
+  (testing "a fn named swap!! / reset!! is not a false positive for swap!/reset!"
+    (let [vs (check-src "(ns ex.core)\n(defn f [a] (swap!! a inc))\n(defn g [a] (reset!! a 0))\n")]
+      (is (not (some #(= :mutable-state (:kind %)) vs))))))
