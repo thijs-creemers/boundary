@@ -112,6 +112,23 @@
   "Merged error mappings: base + admin-specific"
   (merge problem-details/default-error-mappings admin-error-mappings))
 
+(defn- client-safe-error-message
+  "Message safe to show in an admin flash: a typed domain error whose mapped
+   status is 4xx (same contract as the platform error path, BOU-161). Untyped,
+   unmapped, or 5xx-mapped errors return nil — the caller shows a generic
+   flash instead and the details stay in the server log (BOU-182).
+
+   Handles both mapping shapes in combined-error-mappings: the platform's
+   [status title] vectors and the admin map form {:status ...}."
+  [e]
+  (when-let [error-type (:type (ex-data e))]
+    (let [mapping (get combined-error-mappings error-type)
+          status  (cond
+                    (vector? mapping) (first mapping)
+                    (map? mapping)    (:status mapping))]
+      (when (and status (< status 500))
+        (ex-message e)))))
+
 ;; =============================================================================
 ;; Query Parameter Parsing
 ;; =============================================================================
@@ -852,14 +869,13 @@
                                :entity-configs entity-configs
                                :logo-url (:logo-url config)
                                :flash {:type :error
-                                       ;; Typed domain errors carry client-safe
-                                       ;; messages; anything untyped is internal —
-                                       ;; logged above, generic flash to the client
+                                       ;; Only 4xx-mapped domain errors carry
+                                       ;; client-safe messages; anything else is
+                                       ;; internal — logged above, generic flash
                                        ;; (BOU-182: never echo raw exception text).
-                                       :message (if (:type (ex-data e))
-                                                  (ex-message e)
-                                                  [:t :admin/flash-create-failed
-                                                   {:label (:label entity-config)}])}})))))
+                                       :message (or (client-safe-error-message e)
+                                                    [:t :admin/flash-create-failed
+                                                     {:label (:label entity-config)}])}})))))
 
         ; Validation errors - re-render form
         (let [entities (ports/list-available-entities schema-provider)

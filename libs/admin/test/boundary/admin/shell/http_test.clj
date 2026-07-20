@@ -667,7 +667,30 @@
           body            (let [b (:body response)]
                             (if (vector? b) (ui-components/render-html b) (str b)))]
       (is (str/includes? body "Email already in use")
-          "typed domain errors keep their client-safe message"))))
+          "typed domain errors keep their client-safe message")))
+
+  (testing "typed but unmapped/5xx errors are still generic (typed != client-safe)"
+    ;; e.g. schema-repository wraps raw DB errors as {:type :schema-fetch-error}
+    ;; with the driver message embedded — typed, but internal.
+    (let [secret          "INTERNAL-SCHEMA-DETAIL-456"
+          stub-service    #_{:clj-kondo/ignore [:missing-protocol-method]}
+          (reify admin-ports/IAdminService
+            (validate-entity-data [_ _ data] {:valid? true :data data})
+            (create-entity [_ _ _]
+              (throw (ex-info (str "Failed to fetch table metadata: " secret)
+                              {:type :schema-fetch-error}))))
+          schema-provider (schema-repo/create-schema-repository *db-ctx* admin-config)
+          handler         (admin-http/create-entity-handler stub-service schema-provider admin-config)
+          request         (make-request :post "/web/admin/test-users" admin-user
+                                        {:path {:entity "test-users"}
+                                         :form {"email" "typed5xx@example.com"
+                                                "name" "Typed 5xx"
+                                                "password-hash" "hash123"}})
+          response        (handler request)
+          body            (let [b (:body response)]
+                            (if (vector? b) (ui-components/render-html b) (str b)))]
+      (is (not (str/includes? body secret))
+          "typed errors without a 4xx mapping must not leak their message"))))
 
 ;; =============================================================================
 ;; Integration: Full CRUD Workflow
