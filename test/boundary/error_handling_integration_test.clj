@@ -134,10 +134,13 @@
 
         (is (= "Internal Server Error" (:title problem-body)))
         (is (= 500 (:status problem-body)))
-        (is (= {:type "database-error"
-                :field "email"
-                :constraint "unique"
-                :attempted-value "john@example.com"} (:detail problem-body)))
+        ;; BOU-161: an unrecognised exception :type (here :database-error, which
+        ;; is not in the error-mappings) is a generic 500 — the raw ex-data
+        ;; members must NOT leak into the client-facing problem body.
+        (is (= "Internal Server Error" (:detail problem-body)))
+        (is (nil? (:field problem-body)))
+        (is (nil? (:constraint problem-body)))
+        (is (nil? (:attempted-value problem-body)))
 
         (is (= (str user-id) (:user-id context)))
         (is (= (str tenant-id) (:tenant-id context)))
