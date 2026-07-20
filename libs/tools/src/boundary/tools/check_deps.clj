@@ -191,7 +191,7 @@
     ["workflow" "user"]       ["workflow" "i18n"]
     ["jobs" "tenant"]
     ["search" "i18n"]
-    ["platform" "user"]       ["platform" "i18n"]    ["platform" "admin"]
+    ["platform" "i18n"]    ["platform" "admin"]
     ["platform" "cache"]      ["platform" "workflow"] ["platform" "tenant"]
     ["platform" "search"]     ["platform" "core"]    ["platform" "external"]})
 
@@ -206,7 +206,6 @@
    in its path is covered by this set.
    Remove entries as cross-references are broken; adding new entries requires an ADR."
   #{["admin" "user"]      ["user" "admin"]
-    ["platform" "user"]   ["user" "platform"]
     ["user" "tenant"]
     ["tenant" "platform"] ["platform" "tenant"]
     ["platform" "workflow"] ["workflow" "platform"]
