@@ -3,13 +3,11 @@
 ;; one pyramid tag per deftest; these repo-relative path prefixes are exempt
 ;; until their lib is backfilled. Remove a prefix once its lib is tagged.
 ;;
-;; Enforced now (not exempt): libs/user/, libs/admin/, and every already-fully-
-;; tagged lib (workflow, search, push, payments, i18n, geo, external, email,
-;; calendar, boundary-mcp).
+;; Enforced now (not exempt): libs/user/, libs/admin/, libs/platform/, libs/core/,
+;; and every already-fully-tagged lib (workflow, search, push, payments, i18n,
+;; geo, external, email, calendar, boundary-mcp).
 {:allow-untagged
- ["libs/platform/"
-  "libs/core/"
-  "libs/realtime/"
+ ["libs/realtime/"
   "libs/tenant/"
   "libs/observability/"
   "libs/e2e/"

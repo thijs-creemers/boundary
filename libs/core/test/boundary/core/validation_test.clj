@@ -11,7 +11,7 @@
    [:active [:or :boolean :string]]
    [:role [:enum :admin :user]]])
 
-(deftest validate-with-transform-test
+(deftest ^:unit validate-with-transform-test
   (testing "Generic validation with transformation"
     (testing "Valid data passes validation"
       (let [valid-data {:name "John" :age "25" :active "true" :role :admin}
@@ -62,7 +62,7 @@
         (is (validation/validation-passed? result))
         (is (= valid-data (validation/get-validated-data result)))))))
 
-(deftest validate-cli-args-test
+(deftest ^:unit validate-cli-args-test
   (testing "CLI argument validation"
     (testing "String CLI args converted to proper types"
       (let [cli-args        {:name "John" :age "25" :active "true" :role "admin"}
@@ -103,7 +103,7 @@
         (is (not (validation/validation-passed? result)))
         (is (some? (validation/get-validation-errors result)))))))
 
-(deftest validate-request-test
+(deftest ^:unit validate-request-test
   (testing "API request validation"
     (testing "Valid request data"
       (let [request-data {:name "John" :age 25 :active true :role :admin}
@@ -134,7 +134,7 @@
         (is (not (validation/validation-passed? result)))
         (is (some? (validation/get-validation-errors result)))))))
 
-(deftest validation-result-utilities-test
+(deftest ^:unit validation-result-utilities-test
   (testing "Validation result utility functions"
     (let [success-result {:valid? true :data {:name "John" :age 25}}
           failure-result {:valid? false :errors [{:path [:name] :message "required"}]}]
@@ -152,7 +152,7 @@
         (is (= {:name "John" :age 25} (validation/get-validated-data success-result)))
         (is (nil? (validation/get-validated-data failure-result)))))))
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "Edge cases and error conditions"
     (testing "Nil data"
       (let [result (validation/validate-with-transform
@@ -174,7 +174,7 @@
         (is (nil? (validation/get-validation-errors malformed-result)))
         (is (nil? (validation/get-validated-data malformed-result)))))))
 
-(deftest integration-test
+(deftest ^:unit integration-test
   (testing "Integration scenarios"
     (testing "Multistep validation workflow"
       (let [raw-cli-input     {:name "Admin User" :age "35" :active "1" :role "admin"}

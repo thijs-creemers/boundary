@@ -86,7 +86,7 @@
           (swap! db-config/*config-cache* dissoc embedded-env)
           (epg/stop! pg))))))
 
-(deftest test-system-initialization-test
+(deftest ^:integration test-system-initialization-test
   (testing "System initialization for test environment"
     (let [initialized-dbs (integration/initialize-databases! "test")]
       (is (map? initialized-dbs) "Should return map of initialized databases")
@@ -97,7 +97,7 @@
         (is (some #(= :boundary/h2 (first %)) active-dbs)
             "Test environment should typically have H2 active")))))
 
-(deftest test-system-initialization-prod
+(deftest ^:integration test-system-initialization-prod
   (testing "System initialization for production environment"
     ;; Production config requires environment variables (POSTGRES_HOST, etc.)
     ;; Without them, initialization should fail gracefully
@@ -118,7 +118,7 @@
             (str "Expected production config error due to missing env vars, got: " (.getMessage e)))
         (println "Note: Production initialization failed as expected due to missing environment variables")))))
 
-(deftest test-system-initialization-invalid-env
+(deftest ^:integration test-system-initialization-invalid-env
   (testing "System initialization with invalid environment should fail gracefully"
     (is (thrown? Exception (integration/initialize-databases! "nonexistent"))
         "Should throw exception for nonexistent environment")))
@@ -127,7 +127,7 @@
 ;; Database Access Tests
 ;; =============================================================================
 
-(deftest test-database-access
+(deftest ^:integration test-database-access
   (testing "Database access after system initialization"
     (integration/initialize-databases! "test")              ; Use test env with H2
 
@@ -149,7 +149,7 @@
       (let [non-existent-db (integration/get-database :boundary/nonexistent)]
         (is (nil? non-existent-db) "Non-existent database should return nil")))))
 
-(deftest test-query-execution
+(deftest ^:integration test-query-execution
   (testing "Query execution through integration system"
     (integration/initialize-databases! "test")
 

@@ -96,7 +96,7 @@
 ;; Search Users Tests
 ;; ============================================================================
 
-(deftest search-users-basic-test
+(deftest ^:contract search-users-basic-test
   (testing "searches users with query"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -110,7 +110,7 @@
       (is (= 2 (:total body)))
       (is (contains? body :took-ms)))))
 
-(deftest search-users-pagination-test
+(deftest ^:contract search-users-pagination-test
   (testing "applies pagination parameters"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -123,7 +123,7 @@
       (is (= 200 (:status response)))
       (is (= {:from 10 :size 5} (:page body))))))
 
-(deftest search-users-max-size-test
+(deftest ^:contract search-users-max-size-test
   (testing "limits size to max 100"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -136,7 +136,7 @@
       ;; Size should be capped at 100
       (is (<= (get-in body [:page :size]) 100)))))
 
-(deftest search-users-highlight-test
+(deftest ^:contract search-users-highlight-test
   (testing "enables highlighting by default"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -158,7 +158,7 @@
 
       (is (= 200 (:status response))))))
 
-(deftest search-users-highlight-fields-test
+(deftest ^:contract search-users-highlight-fields-test
   (testing "parses highlight fields parameter"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -168,7 +168,7 @@
 
       (is (= 200 (:status response))))))
 
-(deftest search-users-boost-recent-test
+(deftest ^:contract search-users-boost-recent-test
   (testing "applies recency boost by default"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -186,7 +186,7 @@
 
       (is (= 200 (:status response))))))
 
-(deftest search-users-missing-query-test
+(deftest ^:contract search-users-missing-query-test
   (testing "returns 400 when query parameter missing"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -198,7 +198,7 @@
       (is (= "Bad Request" (:title body)))
       (is (contains? body :detail)))))
 
-(deftest search-users-empty-query-test
+(deftest ^:contract search-users-empty-query-test
   (testing "returns 400 when query parameter empty"
     (let [service (create-mock-service)
           handler (search-http/search-users-handler service)
@@ -208,7 +208,7 @@
 
       (is (= 400 (:status response))))))
 
-(deftest search-users-error-test
+(deftest ^:contract search-users-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
                             (search-users [_this _query _options]
@@ -230,7 +230,7 @@
 ;; Search Items Tests
 ;; ============================================================================
 
-(deftest search-items-basic-test
+(deftest ^:contract search-items-basic-test
   (testing "searches items with query"
     (let [service (create-mock-service)
           handler (search-http/search-items-handler service)
@@ -243,7 +243,7 @@
       (is (= 1 (count (:results body))))
       (is (= 1 (:total body))))))
 
-(deftest search-items-missing-query-test
+(deftest ^:contract search-items-missing-query-test
   (testing "returns 400 when query parameter missing"
     (let [service (create-mock-service)
           handler (search-http/search-items-handler service)
@@ -253,7 +253,7 @@
 
       (is (= 400 (:status response))))))
 
-(deftest search-items-error-test
+(deftest ^:contract search-items-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
                             (search-users [_this _query _options] nil)
@@ -274,7 +274,7 @@
 ;; Suggest Tests
 ;; ============================================================================
 
-(deftest suggest-basic-test
+(deftest ^:contract suggest-basic-test
   (testing "returns suggestions for prefix"
     (let [service (create-mock-service)
           handler (search-http/suggest-handler service)
@@ -288,7 +288,7 @@
       (is (= 3 (:count body)))
       (is (vector? (:suggestions body))))))
 
-(deftest suggest-with-index-test
+(deftest ^:contract suggest-with-index-test
   (testing "accepts custom index parameter"
     (let [service (create-mock-service)
           handler (search-http/suggest-handler service)
@@ -299,7 +299,7 @@
 
       (is (= 200 (:status response))))))
 
-(deftest suggest-with-limit-test
+(deftest ^:contract suggest-with-limit-test
   (testing "accepts custom limit parameter"
     (let [service (create-mock-service)
           handler (search-http/suggest-handler service)
@@ -320,7 +320,7 @@
 
       (is (= 200 (:status response))))))
 
-(deftest suggest-missing-params-test
+(deftest ^:contract suggest-missing-params-test
   (testing "returns 400 when prefix missing"
     (let [service (create-mock-service)
           handler (search-http/suggest-handler service)
@@ -341,7 +341,7 @@
       (is (= 400 (:status response)))
       (is (str/includes? (:detail body) "field")))))
 
-(deftest suggest-error-test
+(deftest ^:contract suggest-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
                             (search-users [_this _query _options] nil)
@@ -363,7 +363,7 @@
 ;; Reindex Tests
 ;; ============================================================================
 
-(deftest reindex-basic-test
+(deftest ^:contract reindex-basic-test
   (testing "reindexes users index"
     (let [service (create-mock-service)
           handler (search-http/reindex-handler service)
@@ -384,7 +384,7 @@
 
       (is (= 201 (:status response))))))
 
-(deftest reindex-invalid-index-test
+(deftest ^:contract reindex-invalid-index-test
   (testing "returns 400 for invalid index"
     (let [service (create-mock-service)
           handler (search-http/reindex-handler service)
@@ -396,7 +396,7 @@
       (is (= "Bad Request" (:title body)))
       (is (contains? body :detail)))))
 
-(deftest reindex-missing-index-test
+(deftest ^:contract reindex-missing-index-test
   (testing "returns 400 when index parameter missing"
     (let [service (create-mock-service)
           handler (search-http/reindex-handler service)
@@ -406,7 +406,7 @@
 
       (is (= 400 (:status response))))))
 
-(deftest reindex-error-test
+(deftest ^:contract reindex-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
                             (search-users [_this _query _options] nil)
@@ -427,7 +427,7 @@
 ;; Stats Tests
 ;; ============================================================================
 
-(deftest stats-basic-test
+(deftest ^:contract stats-basic-test
   (testing "returns search statistics"
     (let [service (create-mock-service)
           handler (search-http/stats-handler service)
@@ -440,7 +440,7 @@
       (is (= 1500 (:total-documents body)))
       (is (= 2 (count (:indices body)))))))
 
-(deftest stats-error-test
+(deftest ^:contract stats-error-test
   (testing "returns 500 on service error"
     (let [failing-service (reify ports/ISearchService
                             (search-users [_this _query _options] nil)
@@ -461,7 +461,7 @@
 ;; Route Structure Tests
 ;; ============================================================================
 
-(deftest normalized-routes-structure-test
+(deftest ^:unit normalized-routes-structure-test
   (testing "returns routes in normalized format"
     (let [service (create-mock-service)
           config {}

@@ -3,7 +3,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [boundary.platform.core.database.query :as query]))
 
-(deftest adapter-dialect->honey-dialect-test
+(deftest ^:unit adapter-dialect->honey-dialect-test
   (testing "sqlite maps to nil (ANSI)"
     (is (nil? (query/adapter-dialect->honey-dialect :sqlite))))
 
@@ -16,7 +16,7 @@
   (testing "mysql passes through"
     (is (= :mysql (query/adapter-dialect->honey-dialect :mysql)))))
 
-(deftest build-pagination-test
+(deftest ^:unit build-pagination-test
   (testing "uses defaults when no options"
     (let [result (query/build-pagination {})]
       (is (= query/default-pagination-limit (:limit result)))
@@ -37,7 +37,7 @@
   (testing "clamps negative offset to 0"
     (is (= 0 (:offset (query/build-pagination {:offset -5}))))))
 
-(deftest build-ordering-test
+(deftest ^:unit build-ordering-test
   (testing "uses default field when not specified"
     (is (= [[:id :asc]]
            (query/build-ordering {} :id))))
@@ -50,7 +50,7 @@
     (is (= [[:name :asc]]
            (query/build-ordering {:sort-by :name :sort-direction :invalid} :id)))))
 
-(deftest build-where-filters-test
+(deftest ^:unit build-where-filters-test
   (testing "returns nil for empty filters"
     (is (nil? (query/build-where-filters {})))
     (is (nil? (query/build-where-filters nil))))
@@ -81,7 +81,7 @@
           result (query/build-where-filters {:id uuid})]
       (is (= [:= :id (str uuid)] result)))))
 
-(deftest format-sql-test
+(deftest ^:unit format-sql-test
   (testing "formats simple select with sqlite dialect"
     (let [[sql] (query/format-sql :sqlite {:select [:*] :from [:users]})]
       (is (string? sql))

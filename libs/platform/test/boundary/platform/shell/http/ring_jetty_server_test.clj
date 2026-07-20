@@ -76,13 +76,13 @@
 ;; Pure Adapter Tests (no socket)
 ;; =============================================================================
 
-(deftest create-server-test
+(deftest ^:unit create-server-test
   (testing "Can create Ring+Jetty server instance implementing IHttpServer"
     (let [server (jetty-server/create-ring-jetty-server)]
       (is (some? server))
       (is (satisfies? ports/IHttpServer server)))))
 
-(deftest server-stop-without-start-test
+(deftest ^:unit server-stop-without-start-test
   (testing "Stopping nil server does not throw"
     (let [server-adapter (jetty-server/create-ring-jetty-server)]
       (is (nil? (ports/stop! server-adapter nil))))))

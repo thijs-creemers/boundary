@@ -132,7 +132,7 @@
 ;; Service Creation Tests
 ;; ============================================================================
 
-(deftest create-search-service-test
+(deftest ^:unit create-search-service-test
   (testing "creates search service with provider and config"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)]
@@ -154,7 +154,7 @@
 ;; User Search Tests
 ;; ============================================================================
 
-(deftest search-users-basic-test
+(deftest ^:unit search-users-basic-test
   (testing "searches users with simple query"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -189,7 +189,7 @@
 
       (is (= {:from 10 :size 5} (:page result))))))
 
-(deftest search-users-highlighting-test
+(deftest ^:unit search-users-highlighting-test
   (testing "applies highlighting by default"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -219,7 +219,7 @@
           first-result (first (:results result))]
       (is (contains? (:_highlights first-result) :email)))))
 
-(deftest search-users-recency-boost-test
+(deftest ^:unit search-users-recency-boost-test
   (testing "applies recency boost by default"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -241,7 +241,7 @@
       ;; Scores should be original from provider
       (is (= 0.95 (:score (first (:results result))))))))
 
-(deftest search-users-error-handling-test
+(deftest ^:unit search-users-error-handling-test
   (testing "handles empty query gracefully"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -274,7 +274,7 @@
 ;; Item Search Tests
 ;; ============================================================================
 
-(deftest search-items-basic-test
+(deftest ^:unit search-items-basic-test
   (testing "searches items with simple query"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -296,7 +296,7 @@
       ;; SKU and location may not match "Widget" in this test
       )))
 
-(deftest search-items-error-handling-test
+(deftest ^:unit search-items-error-handling-test
   (testing "handles item search errors"
     (let [failing-provider (reify ports/ISearchProvider
                              (search [_this _query-map]
@@ -319,7 +319,7 @@
 ;; Suggest (Autocomplete) Tests
 ;; ============================================================================
 
-(deftest suggest-test
+(deftest ^:unit suggest-test
   (testing "returns suggestions for prefix"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -359,7 +359,7 @@
 ;; Reindex Tests
 ;; ============================================================================
 
-(deftest reindex-all-test
+(deftest ^:unit reindex-all-test
   (testing "reindexes all documents in index"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -394,7 +394,7 @@
 ;; Statistics Tests
 ;; ============================================================================
 
-(deftest get-search-stats-test
+(deftest ^:unit get-search-stats-test
   (testing "returns statistics for all indexes"
     (let [provider (create-mock-provider)
           service (svc/create-search-service provider test-config)
@@ -443,7 +443,7 @@
 ;; Configuration Tests
 ;; ============================================================================
 
-(deftest configuration-handling-test
+(deftest ^:unit configuration-handling-test
   (testing "uses default configuration when not provided"
     (let [provider (create-mock-provider)
           minimal-config {}

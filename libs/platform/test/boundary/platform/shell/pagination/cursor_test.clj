@@ -12,7 +12,7 @@
 ;; Encode/Decode Round-Trip Tests
 ;; =============================================================================
 
-(deftest encode-decode-round-trip-test
+(deftest ^:unit encode-decode-round-trip-test
   (testing "Round-trip with UUID and string sort value"
     (let [cursor-data {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                        :sort-value "user@example.com"
@@ -81,7 +81,7 @@
 ;; Encoding Tests
 ;; =============================================================================
 
-(deftest encode-cursor-test
+(deftest ^:unit encode-cursor-test
   (testing "Encode produces non-empty Base64 string"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value "test"
@@ -129,7 +129,7 @@
 ;; Decoding Tests
 ;; =============================================================================
 
-(deftest decode-cursor-test
+(deftest ^:unit decode-cursor-test
   (testing "Decode returns structured data"
     (let [cursor-data {:id (UUID/fromString "123e4567-e89b-12d3-a456-426614174000")
                        :sort-value "test"
@@ -187,7 +187,7 @@
 ;; Validation Tests
 ;; =============================================================================
 
-(deftest valid-cursor-test
+(deftest ^:unit valid-cursor-test
   (testing "Valid cursor returns true"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value "test"
@@ -223,7 +223,7 @@
 ;; Cursor Expiry Tests
 ;; =============================================================================
 
-(deftest cursor-expired-test
+(deftest ^:unit cursor-expired-test
   (testing "Cursor with recent timestamp is not expired"
     (let [cursor-data {:id (UUID/randomUUID)
                        :sort-value "test"
@@ -258,7 +258,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "Encode/decode with very long string"
     (let [long-string (apply str (repeat 1000 "a"))
           cursor-data {:id (UUID/randomUUID)
@@ -324,7 +324,7 @@
 ;; Data Type Preservation Tests
 ;; =============================================================================
 
-(deftest data-type-preservation-test
+(deftest ^:unit data-type-preservation-test
   (testing "UUID type is preserved"
     (let [uuid (UUID/randomUUID)
           cursor-data {:id uuid
@@ -391,7 +391,7 @@
 ;; Concurrent Encoding Tests
 ;; =============================================================================
 
-(deftest concurrent-encoding-test
+(deftest ^:unit concurrent-encoding-test
   (testing "Multiple threads can encode/decode concurrently"
     (let [cursor-data-fn (fn [i]
                            {:id (UUID/randomUUID)

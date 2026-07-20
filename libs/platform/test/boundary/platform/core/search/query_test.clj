@@ -11,7 +11,7 @@
 ;; Basic Query Builders
 ;; ============================================================================
 
-(deftest match-query-test
+(deftest ^:unit match-query-test
   (testing "creates match query with single field"
     (let [q (query/match-query :name "John")]
       (is (= :match (:type q)))
@@ -30,7 +30,7 @@
     (let [q (query/match-query :bio "software engineer")]
       (is (= "software engineer" (:text q))))))
 
-(deftest phrase-query-test
+(deftest ^:unit phrase-query-test
   (testing "creates phrase query"
     (let [q (query/phrase-query :bio "software engineer")]
       (is (= :phrase (:type q)))
@@ -46,7 +46,7 @@
       (is (= :phrase (:type q)))
       (is (= "John" (:text q))))))
 
-(deftest prefix-query-test
+(deftest ^:unit prefix-query-test
   (testing "creates prefix query"
     (let [q (query/prefix-query :email "john@")]
       (is (= :prefix (:type q)))
@@ -61,7 +61,7 @@
     (let [q (query/prefix-query :name "")]
       (is (= "" (:text q))))))
 
-(deftest fuzzy-query-test
+(deftest ^:unit fuzzy-query-test
   (testing "creates fuzzy query with :auto fuzziness"
     (let [q (query/fuzzy-query :name "Jon" :auto)]
       (is (= :fuzzy (:type q)))
@@ -85,7 +85,7 @@
 ;; Boolean Queries
 ;; ============================================================================
 
-(deftest bool-query-test
+(deftest ^:unit bool-query-test
   (testing "creates bool query with must clauses"
     (let [q1 (query/match-query :name "John")
           q2 (query/match-query :role "admin")
@@ -129,7 +129,7 @@
 ;; Query Modifiers
 ;; ============================================================================
 
-(deftest with-limit-test
+(deftest ^:unit with-limit-test
   (testing "adds limit to query"
     (let [q (query/match-query :name "John")
           limited (query/with-limit q 20)]
@@ -152,7 +152,7 @@
       (is (= :name (:field q)))
       (is (= "John" (:text q))))))
 
-(deftest with-offset-test
+(deftest ^:unit with-offset-test
   (testing "adds offset to query"
     (let [q (query/match-query :name "John")
           offset-q (query/with-offset q 20)]
@@ -175,7 +175,7 @@
       (is (= :name (:field q)))
       (is (= "John" (:text q))))))
 
-(deftest filter-query-test
+(deftest ^:unit filter-query-test
   (testing "adds filters to query"
     (let [q (query/match-query :name "John")
           filtered (query/filter-query q {:role "admin" :active true})]
@@ -197,7 +197,7 @@
     (let [q (query/filter-query (query/match-query :name "John") {})]
       (is (= {} (:filters q))))))
 
-(deftest with-highlighting-test
+(deftest ^:unit with-highlighting-test
   (testing "adds highlighting to query"
     (let [q (query/match-query :name "John")
           highlighted (query/with-highlighting q [:name :bio])]
@@ -217,7 +217,7 @@
     (let [q (query/with-highlighting (query/match-query :name "John") [:name])]
       (is (= [:name] (:highlight-fields q))))))
 
-(deftest sort-by-relevance-test
+(deftest ^:unit sort-by-relevance-test
   (testing "adds relevance sort"
     (let [q (query/match-query :name "John")
           sorted (query/sort-by-relevance q)]
@@ -235,7 +235,7 @@
       (is (vector? (:sort q)))
       (is (= :desc (:_score (first (:sort q))))))))
 
-(deftest sort-by-field-test
+(deftest ^:unit sort-by-field-test
   (testing "adds field sort ascending"
     (let [q (query/match-query :name "John")
           sorted (query/sort-by-field q :created-at :asc)]
@@ -258,7 +258,7 @@
 ;; Query Composition
 ;; ============================================================================
 
-(deftest query-composition-test
+(deftest ^:unit query-composition-test
   (testing "chains multiple modifiers"
     (let [q (-> (query/match-query :name "John")
                 (query/filter-query {:role "admin"})
@@ -299,7 +299,7 @@
 ;; Query Combinators
 ;; ============================================================================
 
-(deftest combine-with-and-test
+(deftest ^:unit combine-with-and-test
   (testing "combines two queries with AND"
     (let [q1 (query/match-query :name "John")
           q2 (query/match-query :role "admin")
@@ -321,7 +321,7 @@
       (is (= :bool (:type combined)))
       (is (= 1 (count (get-in combined [:clauses :must])))))))
 
-(deftest combine-with-or-test
+(deftest ^:unit combine-with-or-test
   (testing "combines two queries with OR"
     (let [q1 (query/match-query :name "John")
           q2 (query/match-query :name "Jane")
@@ -347,7 +347,7 @@
 ;; Query Validators
 ;; ============================================================================
 
-(deftest valid-query?-test
+(deftest ^:unit valid-query?-test
   (testing "validates match query"
     (let [result (query/valid-query? (query/match-query :name "John"))]
       (is (true? (:valid? result)))
@@ -402,7 +402,7 @@
 ;; Helper Functions
 ;; ============================================================================
 
-(deftest parse-search-text-test
+(deftest ^:unit parse-search-text-test
   (testing "parses single term"
     (is (= ["John"] (query/parse-search-text "John"))))
 
@@ -424,7 +424,7 @@
   (testing "handles multiple types of whitespace"
     (is (= ["John" "Doe"] (query/parse-search-text "John\tDoe\n")))))
 
-(deftest query->map-test
+(deftest ^:unit query->map-test
   (testing "converts match query to map"
     (let [q (query/match-query :name "John")
           m (query/query->map q)]
@@ -445,7 +445,7 @@
     ;; (into {} nil) returns {}, not nil
     (is (= {} (query/query->map nil)))))
 
-(deftest default-limit-test
+(deftest ^:unit default-limit-test
   (testing "returns default limit when not specified"
     (let [q (query/match-query :name "John")
           limit (query/default-limit q)]
@@ -457,7 +457,7 @@
           limit (query/default-limit q)]
       (is (= 50 limit)))))
 
-(deftest default-offset-test
+(deftest ^:unit default-offset-test
   (testing "returns default offset when not specified"
     (let [q (query/match-query :name "John")
           offset (query/default-offset q)]
@@ -473,7 +473,7 @@
 ;; Edge Cases
 ;; ============================================================================
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "match query with special characters"
     (let [q (query/match-query :name "O'Brien")]
       (is (= "O'Brien" (:text q)))))

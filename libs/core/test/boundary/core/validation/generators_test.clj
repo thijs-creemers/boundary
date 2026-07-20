@@ -28,7 +28,7 @@
 ;; Valid Data Generation Tests
 ;; =============================================================================
 
-(deftest ^:phase3 gen-valid-one-user-test
+(deftest ^:unit ^:phase3 gen-valid-one-user-test
   (testing "Generate valid CreateUserRequest"
     (let [user (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})]
       (is (some? user) "Should generate a user request")
@@ -37,7 +37,7 @@
       (is (string? (:name user)) "User should have name string")
       (is (keyword? (:role user)) "User should have role keyword"))))
 
-(deftest ^:phase3 gen-valid-one-create-request-test
+(deftest ^:unit ^:phase3 gen-valid-one-create-request-test
   (testing "Generate valid CreateUserRequest"
     (let [request (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})]
       (is (some? request) "Should generate a request")
@@ -57,7 +57,7 @@
 ;;       (is (uuid? (:tenant-id session)) "Session should have tenant-id")
 ;;       (is (string? (:session-token session)) "Session should have token"))))
 
-(deftest ^:phase3 gen-valid-determinism-test
+(deftest ^:unit ^:phase3 gen-valid-determinism-test
   (testing "Same seed produces identical data"
     (let [user1 (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})
           user2 (gen/gen-valid-one user-schema/CreateUserRequest {:seed test-seed})]
@@ -68,13 +68,13 @@
           user2 (gen/gen-valid-one user-schema/CreateUserRequest {:seed alt-seed})]
       (is (not= user1 user2) "Different seeds should produce different users"))))
 
-(deftest ^:phase3 gen-valid-sequence-test
+(deftest ^:unit ^:phase3 gen-valid-sequence-test
   (testing "Generate sequence of valid users"
     (let [users (take 3 (gen/gen-valid user-schema/CreateUserRequest {:seed test-seed :count 5}))]
       (is (= 3 (count users)) "Should generate 3 users")
       (is (every? #(m/validate user-schema/CreateUserRequest %) users) "All users should be valid"))))
 
-(deftest ^:phase3 resolve-schema-test
+(deftest ^:unit ^:phase3 resolve-schema-test
   (testing "Resolve schema from keyword via registry"
     (let [schema (gen/resolve-schema :user {:registry schema-registry})]
       (is (some? schema) "Should resolve :user schema")
@@ -92,7 +92,7 @@
 ;; Invalid Data Generation Tests
 ;; =============================================================================
 
-(deftest ^:phase3 gen-invalid-one-missing-required-test
+(deftest ^:unit ^:phase3 gen-invalid-one-missing-required-test
   (testing "Generate user missing required email field"
     (let [invalid-user (gen/gen-invalid-one user-schema/CreateUserRequest
                                             :missing-required
@@ -101,7 +101,7 @@
       (is (not (contains? invalid-user :email)) "Should be missing email field")
       (is (not (m/validate user-schema/CreateUserRequest invalid-user)) "Should fail validation"))))
 
-(deftest ^:phase3 gen-invalid-one-wrong-type-test
+(deftest ^:unit ^:phase3 gen-invalid-one-wrong-type-test
   (testing "Generate user with wrong type for email"
     (let [invalid-user (gen/gen-invalid-one user-schema/CreateUserRequest
                                             :wrong-type
@@ -110,7 +110,7 @@
       (is (not (string? (:email invalid-user))) "Email should not be string")
       (is (not (m/validate user-schema/CreateUserRequest invalid-user)) "Should fail validation"))))
 
-(deftest ^:phase3 gen-invalid-one-wrong-format-test
+(deftest ^:unit ^:phase3 gen-invalid-one-wrong-format-test
   (testing "Generate user with invalid email format"
     (let [invalid-user (gen/gen-invalid-one user-schema/CreateUserRequest
                                             :wrong-format
@@ -120,7 +120,7 @@
       (is (= "not-an-email" (:email invalid-user)) "Email should be invalid format")
       (is (not (m/validate user-schema/CreateUserRequest invalid-user)) "Should fail validation"))))
 
-(deftest ^:phase3 gen-invalid-one-out-of-range-test
+(deftest ^:unit ^:phase3 gen-invalid-one-out-of-range-test
   (testing "Generate user with name too long"
     (let [invalid-user (gen/gen-invalid-one user-schema/CreateUserRequest
                                             :too-long
@@ -130,7 +130,7 @@
       (is (> (count (:name invalid-user)) 255) "Name should exceed max length")
       (is (not (m/validate user-schema/CreateUserRequest invalid-user)) "Should fail validation"))))
 
-(deftest ^:phase3 gen-invalid-one-unknown-key-test
+(deftest ^:unit ^:phase3 gen-invalid-one-unknown-key-test
   (testing "Generate user with unknown extra key"
     ;; NOTE: CreateUserRequest (and most Malli :map schemas) allow extra keys by default
     ;; So :unknown-key violation adds a key but doesn't fail validation
@@ -144,7 +144,7 @@
       (is (some #(re-find #"unknown-field" (name %)) (keys with-extra))
           "Should have unknown-field added"))))
 
-(deftest ^:phase3 gen-invalid-one-enum-outside-test
+(deftest ^:unit ^:phase3 gen-invalid-one-enum-outside-test
   (testing "Generate user with invalid role enum"
     (let [invalid-user (gen/gen-invalid-one user-schema/CreateUserRequest
                                             :enum-outside
@@ -153,7 +153,7 @@
       (is (= :invalid-enum-value (:role invalid-user)) "Role should be invalid enum")
       (is (not (m/validate user-schema/CreateUserRequest invalid-user)) "Should fail validation"))))
 
-(deftest ^:phase3 gen-invalid-sequence-test
+(deftest ^:unit ^:phase3 gen-invalid-sequence-test
   (testing "Generate sequence of invalid users"
     (let [invalid-users (take 3 (gen/gen-invalid user-schema/CreateUserRequest
                                                  :missing-required
@@ -166,7 +166,7 @@
       (is (every? #(not (contains? % :email)) invalid-users)
           "All users should be missing email"))))
 
-(deftest ^:phase3 gen-invalid-determinism-test
+(deftest ^:unit ^:phase3 gen-invalid-determinism-test
   (testing "Same seed produces identical invalid data"
     (let [invalid1 (gen/gen-invalid-one user-schema/CreateUserRequest
                                         :missing-required
@@ -189,7 +189,7 @@
 ;; Boundary Case Generation Tests
 ;; =============================================================================
 
-(deftest ^:phase3 gen-boundaries-test
+(deftest ^:unit ^:phase3 gen-boundaries-test
   (testing "Generate boundary cases for User schema"
     (let [boundaries (gen/gen-boundaries user-schema/CreateUserRequest {:seed test-seed})]
       (is (vector? boundaries) "Should return vector of boundary cases")
@@ -200,7 +200,7 @@
         (is (contains? name-values "a") "Should include single char boundary")
         (is (some #(= 255 (count %)) name-values) "Should include max length boundary")))))
 
-(deftest ^:phase3 gen-boundaries-determinism-test
+(deftest ^:unit ^:phase3 gen-boundaries-determinism-test
   (testing "Same seed produces identical boundaries"
     (let [bounds1 (gen/gen-boundaries user-schema/CreateUserRequest {:seed test-seed})
           bounds2 (gen/gen-boundaries user-schema/CreateUserRequest {:seed test-seed})]
@@ -210,7 +210,7 @@
 ;; Rule-Aware Generation Tests
 ;; =============================================================================
 
-(deftest ^:phase3 gen-for-rule-valid-test
+(deftest ^:unit ^:phase3 gen-for-rule-valid-test
   (testing "Generate valid data for specific rule"
     (let [resolver (fn [rule-id]
                      (case rule-id
@@ -225,7 +225,7 @@
       (is (m/validate user-schema/CreateUserRequest user) "User should be valid")
       (is (contains? user :email) "User should have email field"))))
 
-(deftest ^:phase3 gen-for-rule-invalid-test
+(deftest ^:unit ^:phase3 gen-for-rule-invalid-test
   (testing "Generate invalid data for specific rule"
     (let [resolver (fn [rule-id]
                      (case rule-id
@@ -241,7 +241,7 @@
       (is (not (contains? invalid-user :email)) "User should be missing email")
       (is (not (m/validate user-schema/CreateUserRequest invalid-user)) "User should be invalid"))))
 
-(deftest ^:phase3 gen-for-rule-requires-resolver-test
+(deftest ^:unit ^:phase3 gen-for-rule-requires-resolver-test
   (testing "Throws when resolve-schema function not provided"
     (is (thrown-with-msg? Exception
                           #":resolve-schema function required"
@@ -249,7 +249,7 @@
                                             {:type :valid
                                              :seed test-seed})))))
 
-(deftest ^:phase3 gen-for-rule-requires-violation-test
+(deftest ^:unit ^:phase3 gen-for-rule-requires-violation-test
   (testing "Throws when violation not provided for invalid type"
     (let [resolver (fn [_rule-id] user-schema/CreateUserRequest)]
       (is (thrown-with-msg? Exception
@@ -259,7 +259,7 @@
                                                :seed test-seed
                                                :resolve-schema resolver}))))))
 
-(deftest ^:phase3 gen-for-module-test
+(deftest ^:unit ^:phase3 gen-for-module-test
   (testing "Generate examples for all rules in module"
     (let [list-rules (fn [module-kw]
                        (case module-kw
@@ -284,7 +284,7 @@
       (is (m/validate user-schema/CreateUserRequest (:user.name/required examples))
           "Name rule example should be valid"))))
 
-(deftest ^:phase3 gen-for-module-requires-list-rules-test
+(deftest ^:unit ^:phase3 gen-for-module-requires-list-rules-test
   (testing "Throws when list-rules function not provided"
     (let [resolver (fn [_rule-id] user-schema/CreateUserRequest)]
       (is (thrown-with-msg? Exception
@@ -298,7 +298,7 @@
 ;; Edge Cases and Error Handling Tests
 ;; =============================================================================
 
-(deftest ^:phase3 rng-from-seed-test
+(deftest ^:unit ^:phase3 rng-from-seed-test
   (testing "Create deterministic RNG from seed"
     (let [rng1 (gen/rng-from-seed test-seed)
           rng2 (gen/rng-from-seed test-seed)
@@ -306,17 +306,17 @@
           val2 (.nextInt rng2 100)]
       (is (= val1 val2) "Same seed should produce same random values"))))
 
-(deftest ^:phase3 gen-valid-one-with-nil-schema-test
+(deftest ^:unit ^:phase3 gen-valid-one-with-nil-schema-test
   (testing "Returns nil when schema is nil"
     (let [result (gen/gen-valid-one nil {:seed test-seed})]
       (is (nil? result) "Should return nil for nil schema"))))
 
-(deftest ^:phase3 gen-invalid-one-with-nil-schema-test
+(deftest ^:unit ^:phase3 gen-invalid-one-with-nil-schema-test
   (testing "Returns nil when schema is nil"
     (let [result (gen/gen-invalid-one nil :missing-required {:seed test-seed :field :email})]
       (is (nil? result) "Should return nil for nil schema"))))
 
-(deftest ^:phase3 violation-types-set-test
+(deftest ^:unit ^:phase3 violation-types-set-test
   (testing "Violation types set contains expected types"
     (is (set? gen/violation-types) "Should be a set")
     (is (contains? gen/violation-types :missing-required) "Should contain :missing-required")
@@ -335,7 +335,7 @@
 ;; Integration Tests with All Violation Types
 ;; =============================================================================
 
-(deftest ^:phase3 all-violation-types-test
+(deftest ^:unit ^:phase3 all-violation-types-test
   (testing "All violation types produce data (may or may not be invalid)"
     (doseq [violation-type gen/violation-types]
       ;; Skip :unknown-key as it doesn't fail validation on schemas that allow extra keys

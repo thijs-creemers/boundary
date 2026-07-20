@@ -4,7 +4,7 @@
             [clojure.test :refer [deftest is testing]]
             [clojure.tools.cli :as cli]))
 
-(deftest command-functions-return-exit-codes
+(deftest ^:unit command-functions-return-exit-codes
   (testing "successful commands delegate and return zero"
     (let [calls (atom [])]
       (with-redefs [migrations/migrate (fn [] (swap! calls conj :migrate))
@@ -53,7 +53,7 @@
       (is (= 1 (sut/cmd-reset {})))
       (is (= 1 (sut/cmd-init {}))))))
 
-(deftest main-dispatches-and-exits-with-command-status
+(deftest ^:unit main-dispatches-and-exits-with-command-status
   (testing "help, missing command, parse errors, dispatch, and unknown commands set exit status"
     (let [exits (atom [])]
     (with-redefs [cli/parse-opts (fn [args _opts & _]

@@ -6,7 +6,7 @@
    403 on a bad/absent token for state-changing requests, and `csrf/*token*` bound
    around the handler so forms/`<meta>` can emit it.
 
-   All tests are tagged ^:security ^:unit."
+   All tests are tagged ^:security ^:unit ."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
             [boundary.platform.core.csrf :as csrf]

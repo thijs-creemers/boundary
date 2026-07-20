@@ -7,7 +7,7 @@
 ;; Feature Flag Tests
 ;; =============================================================================
 
-(deftest devex-validation-enabled-test
+(deftest ^:unit devex-validation-enabled-test
   (testing "Feature flag reads from environment"
     ;; By default should be false (unset)
     (is (false? (vr/devex-validation-enabled?)))))
@@ -16,7 +16,7 @@
 ;; Result Constructor Tests
 ;; =============================================================================
 
-(deftest success-result-test
+(deftest ^:unit success-result-test
   (testing "Success result with data only"
     (let [result (vr/success-result {:email "user@example.com" :name "John"})]
       (is (vr/validation-passed? result))
@@ -31,7 +31,7 @@
       (is (= 1 (count (:warnings result))))
       (is (= warning (first (:warnings result)))))))
 
-(deftest failure-result-test
+(deftest ^:unit failure-result-test
   (testing "Failure result with single error"
     (let [error (vr/error-map :email :required "Email is required")
           result (vr/failure-result error)]
@@ -58,7 +58,7 @@
 ;; Error Map Tests
 ;; =============================================================================
 
-(deftest error-map-test
+(deftest ^:unit error-map-test
   (testing "Basic error map"
     (let [error (vr/error-map :email :required "Email is required")]
       (is (= :email (:field error)))
@@ -83,7 +83,7 @@
 ;; Result Utility Tests
 ;; =============================================================================
 
-(deftest get-errors-test
+(deftest ^:unit get-errors-test
   (testing "Get errors from failure result"
     (let [errors [(vr/error-map :email :required "Required")
                   (vr/error-map :name :too-short "Too short")]
@@ -95,7 +95,7 @@
     (let [result (vr/success-result {:email "test@example.com"})]
       (is (empty? (vr/get-errors result))))))
 
-(deftest errors-by-field-test
+(deftest ^:unit errors-by-field-test
   (testing "Group errors by field"
     (let [errors [(vr/error-map :email :required "Required")
                   (vr/error-map :email :invalid-format "Invalid format")
@@ -105,7 +105,7 @@
       (is (= 2 (count (:email by-field))))
       (is (= 1 (count (:name by-field)))))))
 
-(deftest errors-by-code-test
+(deftest ^:unit errors-by-code-test
   (testing "Group errors by code"
     (let [errors [(vr/error-map :email :required "Required")
                   (vr/error-map :name :required "Required")
@@ -119,7 +119,7 @@
 ;; Legacy Compatibility Tests
 ;; =============================================================================
 
-(deftest legacy-compatibility-test
+(deftest ^:unit legacy-compatibility-test
   (testing "Detect legacy result format"
     (let [legacy-result {:valid? true :data {:foo "bar"}}
           modern-result (vr/success-result {:foo "bar"})]
@@ -136,7 +136,7 @@
 ;; Result Combinator Tests
 ;; =============================================================================
 
-(deftest merge-results-test
+(deftest ^:unit merge-results-test
   (testing "Merge all successful results"
     (let [result1 (vr/success-result {:email "test@example.com"})
           result2 (vr/success-result {:name "John"})
@@ -161,7 +161,7 @@
       (is (vr/validation-passed? merged))
       (is (= 2 (count (vr/get-warnings merged)))))))
 
-(deftest add-error-test
+(deftest ^:unit add-error-test
   (testing "Add error to success result"
     (let [result (vr/success-result {:email "test@example.com"})
           error (vr/error-map :name :required "Name is required")
@@ -177,7 +177,7 @@
           updated (vr/add-error result error2)]
       (is (= 2 (vr/error-count updated))))))
 
-(deftest add-warning-test
+(deftest ^:unit add-warning-test
   (testing "Add warning to success result"
     (let [result (vr/success-result {:email "test@example.com"})
           warning (vr/warning-map :email :deprecated "Will be deprecated")

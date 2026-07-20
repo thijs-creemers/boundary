@@ -9,7 +9,7 @@
 ;; Offset Pagination Tests
 ;; =============================================================================
 
-(deftest calculate-offset-pagination-test
+(deftest ^:unit calculate-offset-pagination-test
   (testing "Basic pagination calculation"
     (let [result (pagination/calculate-offset-pagination 100 0 20)]
       (is (= "offset" (:type result)))
@@ -72,7 +72,7 @@
       (is (= 1 (:pages result)))
       (is (= false (:has-next? result))))))
 
-(deftest calculate-next-offset-test
+(deftest ^:unit calculate-next-offset-test
   (testing "Next offset available"
     (is (= 20 (pagination/calculate-next-offset 0 20 100)))
     (is (= 40 (pagination/calculate-next-offset 20 20 100))))
@@ -87,7 +87,7 @@
     (is (= 1 (pagination/calculate-next-offset 0 1 100)))
     (is (nil? (pagination/calculate-next-offset 0 20 10)))))
 
-(deftest calculate-prev-offset-test
+(deftest ^:unit calculate-prev-offset-test
   (testing "Previous offset available"
     (is (= 0 (pagination/calculate-prev-offset 20 20)))
     (is (= 20 (pagination/calculate-prev-offset 40 20))))
@@ -106,7 +106,7 @@
 ;; Cursor Pagination Tests
 ;; =============================================================================
 
-(deftest calculate-cursor-pagination-test
+(deftest ^:unit calculate-cursor-pagination-test
   (testing "With next cursor"
     (let [result (pagination/calculate-cursor-pagination [] 20 "next-cursor" nil)]
       (is (= "cursor" (:type result)))
@@ -133,7 +133,7 @@
       (is (= false (:has-next? result)))
       (is (= false (:has-prev? result))))))
 
-(deftest extract-cursor-value-test
+(deftest ^:unit extract-cursor-value-test
   (testing "Extract ID and sort value"
     (let [item {:id 123 :created-at "2024-01-01" :name "Test"}
           result (pagination/extract-cursor-value item :created-at)]
@@ -156,7 +156,7 @@
 ;; Parameter Validation Tests
 ;; =============================================================================
 
-(deftest validate-pagination-params-test
+(deftest ^:unit validate-pagination-params-test
   (testing "Valid parameters with defaults"
     (let [result (pagination/validate-pagination-params
                   {}
@@ -233,7 +233,7 @@
 ;; Parameter Parsing Tests
 ;; =============================================================================
 
-(deftest parse-limit-test
+(deftest ^:unit parse-limit-test
   (testing "Parse integer"
     (is (= 50 (pagination/parse-limit 50 20))))
 
@@ -249,7 +249,7 @@
   (testing "Parse other type - use default"
     (is (= 20 (pagination/parse-limit {:not :valid} 20)))))
 
-(deftest parse-offset-test
+(deftest ^:unit parse-offset-test
   (testing "Parse integer"
     (is (= 100 (pagination/parse-offset 100))))
 
@@ -269,7 +269,7 @@
 ;; Sort Parameter Tests
 ;; =============================================================================
 
-(deftest parse-sort-test
+(deftest ^:unit parse-sort-test
   (testing "Parse ascending sort"
     (let [result (pagination/parse-sort "created_at")]
       (is (= :created-at (:field result)))
@@ -299,7 +299,7 @@
       (is (= :updated-at (:field result)))
       (is (= :desc (:direction result))))))
 
-(deftest validate-sort-field-test
+(deftest ^:unit validate-sort-field-test
   (testing "Valid sort field"
     (let [result (pagination/validate-sort-field :created-at #{:created-at :name :email})]
       (is (= true (:valid? result)))
@@ -319,7 +319,7 @@
 ;; Response Construction Tests
 ;; =============================================================================
 
-(deftest create-paginated-response-test
+(deftest ^:unit create-paginated-response-test
   (testing "Create paginated response with meta"
     (let [items [{:id 1} {:id 2}]
           pagination-meta {:type "offset" :total 10 :offset 0 :limit 2}
@@ -351,7 +351,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "Very large numbers"
     (let [result (pagination/calculate-offset-pagination 1000000 0 100)]
       (is (= 10000 (:pages result)))

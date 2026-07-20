@@ -10,7 +10,7 @@
    [:age :int]
    [:active :boolean]])
 
-(deftest validate-with-transform-test
+(deftest ^:unit validate-with-transform-test
   (testing "valid data passes"
     (let [result (validation/validate-with-transform
                   TestSchema
@@ -27,7 +27,7 @@
       (is (not (validation/validation-passed? result)))
       (is (some? (validation/get-validation-errors result))))))
 
-(deftest validate-cli-args-test
+(deftest ^:unit validate-cli-args-test
   (testing "delegates to validate-with-transform"
     (let [result (validation/validate-cli-args
                   TestSchema
@@ -36,7 +36,7 @@
       (is (validation/validation-passed? result))
       (is (= 30 (:age (validation/get-validated-data result)))))))
 
-(deftest validate-request-test
+(deftest ^:unit validate-request-test
   (testing "delegates to validate-with-transform"
     (let [result (validation/validate-request
                   TestSchema
@@ -44,7 +44,7 @@
                   (mt/transformer))]
       (is (validation/validation-passed? result)))))
 
-(deftest validation-result-utilities-test
+(deftest ^:unit validation-result-utilities-test
   (testing "validation-passed? returns boolean"
     (is (true? (validation/validation-passed? {:valid? true :data {}})))
     (is (false? (validation/validation-passed? {:valid? false :errors []}))))
@@ -58,7 +58,7 @@
     (is (= {:name "Test"} (validation/get-validated-data {:valid? true :data {:name "Test"}})))
     (is (nil? (validation/get-validated-data {:valid? false :errors []})))))
 
-(deftest valid-uuid?-test
+(deftest ^:unit valid-uuid?-test
   (testing "valid UUID strings"
     (is (true? (validation/valid-uuid? "123e4567-e89b-12d3-a456-426614174000"))))
 
@@ -66,7 +66,7 @@
     (is (false? (validation/valid-uuid? "not-a-uuid")))
     (is (false? (validation/valid-uuid? "")))))
 
-(deftest valid-output-format?-test
+(deftest ^:unit valid-output-format?-test
   (testing "valid formats"
     (is (true? (validation/valid-output-format? "table")))
     (is (true? (validation/valid-output-format? "json"))))

@@ -239,7 +239,7 @@
 ;; Database Setup Tests
 ;; =============================================================================
 
-(deftest verify-users-table-structure
+(deftest ^:integration verify-users-table-structure
   (testing "Users table has search_vector column with GIN index"
     (when (postgres-available?)
       ;; Create a test user to verify search_vector is generated
@@ -251,7 +251,7 @@
       (is (verify-gin-index-exists "users")
           "GIN index should exist for users.search_vector"))))
 
-(deftest verify-items-table-structure
+(deftest ^:integration verify-items-table-structure
   (testing "Items table has search_vector column with GIN index"
     (when (postgres-available?)
       ;; Create a test item to verify search_vector is generated
@@ -263,7 +263,7 @@
       (is (verify-gin-index-exists "items")
           "GIN index should exist for items.search_vector"))))
 
-(deftest verify-tsvector-generation
+(deftest ^:integration verify-tsvector-generation
   (testing "tsvector is automatically generated from text fields"
     (when (postgres-available?)
       (let [user (create-test-user! {:name "Alice Johnson"
@@ -281,7 +281,7 @@
 ;; Search Functionality Tests
 ;; =============================================================================
 
-(deftest basic-user-search
+(deftest ^:integration basic-user-search
   (testing "Basic search returns relevant results"
     (when (postgres-available?)
       ;; Create test users
@@ -300,7 +300,7 @@
                   (str/includes? (:email first-result) "john"))
               "Result should contain 'John'"))))))
 
-(deftest search-with-highlighting
+(deftest ^:integration search-with-highlighting
   (testing "Search returns highlighted snippets"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith"
@@ -320,7 +320,7 @@
                        (str/includes? (:bio highlights) "<mark>")))
               "Highlights should contain <mark> tags"))))))
 
-(deftest search-ranking-by-relevance
+(deftest ^:integration search-ranking-by-relevance
   (testing "Results are ranked by relevance score"
     (when (postgres-available?)
       ;; Create users with different relevance
@@ -337,7 +337,7 @@
           (is (= scores (sort > scores))
               "Results should be sorted by score (highest first)"))))))
 
-(deftest search-with-pagination
+(deftest ^:integration search-with-pagination
   (testing "Search supports pagination"
     (when (postgres-available?)
       ;; Create 5 users with similar names
@@ -361,7 +361,7 @@
             (is (empty? (clojure.set/intersection page1-ids page2-ids))
                 "Pages should have different results")))))))
 
-(deftest empty-query-handling
+(deftest ^:integration empty-query-handling
   (testing "Empty query returns empty results"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
@@ -371,7 +371,7 @@
         (is (zero? (:total results)) "Should have zero results")
         (is (empty? (:results results)) "Results array should be empty")))))
 
-(deftest no-results-handling
+(deftest ^:integration no-results-handling
   (testing "Query with no matches returns empty results"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
@@ -381,7 +381,7 @@
         (is (zero? (:total results)) "Should have zero results")
         (is (empty? (:results results)) "Results array should be empty")))))
 
-(deftest search-with-special-characters
+(deftest ^:integration search-with-special-characters
   (testing "Search handles special characters correctly"
     (when (postgres-available?)
       (create-test-user! {:name "O'Brien" :email "obrien@example.com"})
@@ -397,7 +397,7 @@
         (is (some? results2) "Should handle hyphens")
         (is (pos? (:total results2)) "Should find Smith-Jones")))))
 
-(deftest multi-word-query
+(deftest ^:integration multi-word-query
   (testing "Multi-word queries work correctly"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
@@ -414,7 +414,7 @@
                    (str/includes? (:name first-result) "Smith"))
               "Best match should contain both words"))))))
 
-(deftest phrase-query
+(deftest ^:integration phrase-query
   (testing "Phrase queries (quoted) work correctly"
     (when (postgres-available?)
       (create-test-user! {:name "Software Engineer"
@@ -430,7 +430,7 @@
 ;; Items Search Tests
 ;; =============================================================================
 
-(deftest basic-item-search
+(deftest ^:integration basic-item-search
   (testing "Basic item search returns relevant results"
     (when (postgres-available?)
       (create-test-item! {:name "Widget" :sku "WDG-001" :location "Warehouse A"})
@@ -444,7 +444,7 @@
           (is (str/includes? (:name first-result) "Widget")
               "Result should contain 'Widget'"))))))
 
-(deftest item-search-by-sku
+(deftest ^:integration item-search-by-sku
   (testing "Can search items by SKU"
     (when (postgres-available?)
       (create-test-item! {:name "Widget" :sku "WDG-001" :location "Warehouse A"})
@@ -458,7 +458,7 @@
           (is (= "WDG-001" (:sku first-result))
               "Should find item by exact SKU"))))))
 
-(deftest item-search-by-location
+(deftest ^:integration item-search-by-location
   (testing "Can search items by location"
     (when (postgres-available?)
       (create-test-item! {:name "Widget" :sku "WDG-001" :location "Warehouse A"})
@@ -476,7 +476,7 @@
 ;; Recency Boost Tests
 ;; =============================================================================
 
-(deftest recency-boost-ranking
+(deftest ^:integration recency-boost-ranking
   (testing "Recent documents rank higher with recency boost"
     (when (postgres-available?)
       ;; Create old user
@@ -505,7 +505,7 @@
 ;; Performance Tests
 ;; =============================================================================
 
-(deftest search-performance
+(deftest ^:integration search-performance
   (testing "Search completes in under 100ms for small dataset"
     (when (postgres-available?)
       ;; Create 50 users
@@ -523,7 +523,7 @@
         (is (< duration-ms 100.0)
             (str "Search should complete in under 100ms, took " duration-ms "ms"))))))
 
-(deftest bulk-indexing-performance
+(deftest ^:integration bulk-indexing-performance
   (testing "Can index 100 documents in reasonable time"
     (when (postgres-available?)
       (let [start (System/nanoTime)]
@@ -540,7 +540,7 @@
 ;; Edge Cases
 ;; =============================================================================
 
-(deftest very-long-query
+(deftest ^:integration very-long-query
   (testing "Handles very long queries without error"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
@@ -549,7 +549,7 @@
         (is (some? (ports/search-users @test-search-service long-query {}))
             "Should handle very long query without error")))))
 
-(deftest unicode-characters
+(deftest ^:integration unicode-characters
   (testing "Handles Unicode characters in search"
     (when (postgres-available?)
       (create-test-user! {:name "François Müller" :email "francois@example.com"})
@@ -560,7 +560,7 @@
         ;; so we may or may not find exact Unicode match depending on config
         ))))
 
-(deftest sql-injection-prevention
+(deftest ^:integration sql-injection-prevention
   (testing "Prevents SQL injection in search queries"
     (when (postgres-available?)
       (create-test-user! {:name "John Smith" :email "john@example.com"})
@@ -575,7 +575,7 @@
                                               ["SELECT COUNT(*) as cnt FROM users"])]
           (is (some? count-result) "Users table should still exist"))))))
 
-(deftest concurrent-searches
+(deftest ^:integration concurrent-searches
   (testing "Handles concurrent searches correctly"
     (when (postgres-available?)
       ;; Create test data

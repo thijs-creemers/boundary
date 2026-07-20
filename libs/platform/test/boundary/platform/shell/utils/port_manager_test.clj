@@ -54,7 +54,7 @@
 ;; Environment Detection Tests
 ;; =============================================================================
 
-(deftest test-docker-environment-detection
+(deftest ^:unit test-docker-environment-detection
   (testing "Docker environment detection"
     (with-redefs [pm/docker-environment? (constantly true)]
       (is (pm/docker-environment?)))
@@ -66,7 +66,7 @@
 ;; Port Availability Tests
 ;; =============================================================================
 
-(deftest test-port-available?
+(deftest ^:integration test-port-available?
   (testing "Port availability checking"
     (if (socket-bind-supported?)
       (do
@@ -80,7 +80,7 @@
               #(is (not (pm/port-available? port)))))))
       (is (not (socket-bind-supported?)) "Skipping socket-bind dependent port-availability assertions in sandbox"))))
 
-(deftest test-find-available-port
+(deftest ^:unit test-find-available-port
   (testing "Find available port in range"
     (testing "Returns available port in range"
       (with-redefs [pm/port-available? (fn [port] (>= port 42003))]
@@ -100,7 +100,7 @@
 ;; Port Allocation Tests - Docker Environment
 ;; =============================================================================
 
-(deftest test-allocate-port-docker-environment
+(deftest ^:unit test-allocate-port-docker-environment
   (testing "Port allocation in Docker environment"
     (with-redefs [pm/docker-environment? (constantly true)]
 
@@ -122,7 +122,7 @@
 ;; Port Allocation Tests - Development Environment
 ;; =============================================================================
 
-(deftest test-allocate-port-development-environment
+(deftest ^:unit test-allocate-port-development-environment
   (testing "Port allocation in development environment"
     (with-redefs [pm/docker-environment? (constantly false)
                   pm/development-environment? (constantly true)]
@@ -162,7 +162,7 @@
 ;; Configuration Tests
 ;; =============================================================================
 
-(deftest test-port-allocation-with-different-configs
+(deftest ^:unit test-port-allocation-with-different-configs
   (testing "Port allocation with different configuration scenarios"
     (with-redefs [pm/docker-environment? (constantly false)
                   pm/development-environment? (constantly true)
@@ -196,7 +196,7 @@
 ;; Random Port Tests
 ;; =============================================================================
 
-(deftest test-find-available-port-range
+(deftest ^:unit test-find-available-port-range
   (testing "Random port allocation in ephemeral range"
     (testing "Returns available port in valid range"
       (with-redefs [pm/port-available? (constantly true)]
@@ -225,7 +225,7 @@
 ;; Logging Tests
 ;; =============================================================================
 
-(deftest test-log-port-allocation
+(deftest ^:unit test-log-port-allocation
   (testing "Port allocation logging"
     (testing "Function runs without error for port conflict resolution"
       ;; Just verify the function runs without throwing exceptions
@@ -245,7 +245,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest test-full-port-allocation-workflow
+(deftest ^:unit test-full-port-allocation-workflow
   (testing "Complete port allocation workflow"
     (with-redefs [pm/docker-environment? (constantly false)
                   pm/development-environment? (constantly true)]
@@ -264,7 +264,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest test-edge-cases
+(deftest ^:unit test-edge-cases
   (testing "Edge cases and error conditions"
     (with-redefs [pm/docker-environment? (constantly false)
                   pm/development-environment? (constantly true)]

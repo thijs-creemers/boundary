@@ -40,7 +40,7 @@
 
 ;; Pipeline Runner Tests
 
-(deftest run-pipeline-happy-path-test
+(deftest ^:unit run-pipeline-happy-path-test
   (testing "successful pipeline execution with enter and leave phases"
     (let [shared-log (atom [])
           interceptor1 {:name :int1
@@ -79,7 +79,7 @@
               [:leave :int3] [:leave :int2] [:leave :int1]]
              @shared-log)))))
 
-(deftest run-pipeline-halt-test
+(deftest ^:unit run-pipeline-halt-test
   (testing "pipeline halts when interceptor sets :halt? true"
     (let [shared-log (atom [])
           interceptor1 {:name :int1
@@ -119,7 +119,7 @@
       (is (= [[:enter :int1] [:enter :int2] [:leave :int2] [:leave :int1]]
              @shared-log)))))
 
-(deftest run-pipeline-halt-on-response-test
+(deftest ^:unit run-pipeline-halt-on-response-test
   (testing "pipeline stops the enter chain when an interceptor sets :response
             without :halt? (ZZP-117) — a short-circuiting guard is not bypassed"
     (let [shared-log (atom [])
@@ -155,7 +155,7 @@
       (is (= [[:enter :int1] [:enter :guard] [:leave :guard] [:leave :int1]]
              @shared-log)))))
 
-(deftest run-pipeline-exception-test
+(deftest ^:unit run-pipeline-exception-test
   (testing "pipeline handles exceptions with error phase"
     (let [interceptor1 (create-test-interceptor :int1 :enter true :leave true :error true)
           interceptor2 (create-test-interceptor :int2 :enter true :leave true :error true :fail-on :enter)
@@ -178,7 +178,7 @@
 
 ;; Validation Tests
 
-(deftest validate-interceptor-test
+(deftest ^:unit validate-interceptor-test
   (testing "valid interceptor passes validation"
     (let [valid-interceptor {:name :test
                              :enter (fn [ctx] ctx)
@@ -204,7 +204,7 @@
                             #"Interceptor contains invalid keys"
                             (ic/validate-interceptor invalid-interceptor))))))
 
-(deftest validate-pipeline-test
+(deftest ^:unit validate-pipeline-test
   (testing "valid pipeline passes validation"
     (let [valid-pipeline [{:name :int1 :enter (fn [ctx] ctx)}
                           {:name :int2 :leave (fn [ctx] ctx)}]]
@@ -224,7 +224,7 @@
 
 ;; Utility Function Tests
 
-(deftest halt-pipeline-test
+(deftest ^:unit halt-pipeline-test
   (testing "halt-pipeline sets :halt? flag"
     (let [ctx {:test true}
           halted-ctx (ic/halt-pipeline ctx)]
@@ -238,7 +238,7 @@
       (is (:halt? halted-ctx))
       (is (= response-data (:response halted-ctx))))))
 
-(deftest update-context-test
+(deftest ^:unit update-context-test
   (testing "update-context with simple key"
     (let [ctx {:existing true}
           updated-ctx (ic/update-context ctx :new-key "value")]
@@ -251,7 +251,7 @@
       (is (= "value" (get-in updated-ctx [:existing :new-nested])))
       (is (= true (get-in updated-ctx [:existing :nested]))))))
 
-(deftest get-from-context-test
+(deftest ^:unit get-from-context-test
   (testing "get-from-context with simple key"
     (let [ctx {:test-key "test-value"}]
       (is (= "test-value" (ic/get-from-context ctx :test-key)))
@@ -266,13 +266,13 @@
 
 ;; Error Handling Tests
 
-(deftest empty-pipeline-test
+(deftest ^:unit empty-pipeline-test
   (testing "empty pipeline returns original context"
     (let [ctx {:test true}
           result (ic/run-pipeline ctx [])]
       (is (= ctx result)))))
 
-(deftest single-interceptor-pipeline-test
+(deftest ^:unit single-interceptor-pipeline-test
   (testing "single interceptor pipeline works correctly"
     (let [interceptor (create-test-interceptor :single :enter true :leave true)
           ctx {:test true}

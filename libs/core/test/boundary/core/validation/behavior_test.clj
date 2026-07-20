@@ -44,7 +44,7 @@
 ;; Mutation Helper Tests
 ;; -----------------------------------------------------------------------------
 
-(deftest ^:phase3 remove-field-test
+(deftest ^:unit ^:phase3 remove-field-test
   (testing "remove-field removes top-level field"
     (let [mutation (behavior/remove-field :email)
           data {:name "Test" :email "test@example.com"}
@@ -52,14 +52,14 @@
       (is (= {:name "Test"} result))
       (is (not (contains? result :email))))))
 
-(deftest ^:phase3 set-field-test
+(deftest ^:unit ^:phase3 set-field-test
   (testing "set-field sets top-level field"
     (let [mutation (behavior/set-field :email "new@example.com")
           data {:name "Test" :email "old@example.com"}
           result (mutation data)]
       (is (= {:name "Test" :email "new@example.com"} result)))))
 
-(deftest ^:phase3 replace-type-test
+(deftest ^:unit ^:phase3 replace-type-test
   (testing "replace-type replaces with string"
     (let [mutation (behavior/replace-type :age :string)
           data {:age 25}
@@ -70,7 +70,7 @@
 ;; Scenario Execution Tests
 ;; -----------------------------------------------------------------------------
 
-(deftest ^:phase3 execute-scenario-valid-data-test
+(deftest ^:unit ^:phase3 execute-scenario-valid-data-test
   (testing "Execute scenario with valid data"
     (let [scenario {:name "valid-user"
                     :base {:name "Test User"
@@ -85,7 +85,7 @@
       (is (= :success (get-in result [:result :status])))
       (is (:all-passed? result)))))
 
-(deftest ^:phase3 execute-scenario-missing-field-test
+(deftest ^:unit ^:phase3 execute-scenario-missing-field-test
   (testing "Execute scenario with missing required field"
     (let [scenario {:name "email-required"
                     :base {:name "Test User"
@@ -100,7 +100,7 @@
       (is (= :failure (get-in result [:result :status])))
       (is (:all-passed? result)))))
 
-(deftest ^:phase3 execute-scenario-multiple-mutations-test
+(deftest ^:unit ^:phase3 execute-scenario-multiple-mutations-test
   (testing "Execute scenario with multiple mutations"
     (let [scenario {:name "multiple-mutations"
                     :base {:name "Test User"
@@ -121,13 +121,13 @@
 ;; Scenario Validation Tests
 ;; -----------------------------------------------------------------------------
 
-(deftest ^:phase3 validate-scenario-missing-name-test
+(deftest ^:unit ^:phase3 validate-scenario-missing-name-test
   (testing "Scenario validation fails without name"
     (let [scenario {:action (fn [_] {:status :success})
                     :assertions [{:expect :success}]}]
       (is (thrown? Exception (behavior/execute-scenario scenario {}))))))
 
-(deftest ^:phase3 validate-scenario-missing-action-test
+(deftest ^:unit ^:phase3 validate-scenario-missing-action-test
   (testing "Scenario validation fails without action"
     (let [scenario {:name "test"
                     :assertions [{:expect :success}]}]
@@ -137,7 +137,7 @@
 ;; Scenario Compilation Tests
 ;; -----------------------------------------------------------------------------
 
-(deftest ^:phase3 compile-scenarios-test
+(deftest ^:unit ^:phase3 compile-scenarios-test
   (testing "Compile scenarios produces test function pairs"
     (let [scenarios [{:name "test-1"
                       :base {:name "Test"}
@@ -154,7 +154,7 @@
 ;; Template Tests
 ;; -----------------------------------------------------------------------------
 
-(deftest ^:phase3 missing-required-field-template-test
+(deftest ^:unit ^:phase3 missing-required-field-template-test
   (testing "Missing required field template creates valid scenario"
     (let [base-data {:name "Test"
                      :email "testuser@example.com"
@@ -170,7 +170,7 @@
       (is (not (contains? (:input result) :email)))
       (is (= :failure (get-in result [:result :status]))))))
 
-(deftest ^:phase3 valid-data-template-test
+(deftest ^:unit ^:phase3 valid-data-template-test
   (testing "Valid data template creates valid scenario"
     (let [base-data {:name "Test"
                      :email "testuser@example.com"

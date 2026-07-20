@@ -14,7 +14,7 @@
         (doseq [file (reverse (file-seq dir))]
           (.delete file))))))
 
-(deftest nested-sql-subdirs-detects-sql-in-subdirectories
+(deftest ^:unit nested-sql-subdirs-detects-sql-in-subdirectories
   (testing "flags subdirectory that contains SQL files, not direct children"
     (with-temp-dir
       (fn [root]
@@ -63,7 +63,7 @@
             (is (some #(.endsWith % "tenant/") subdirs))
             (is (some #(.endsWith % "archive/") subdirs))))))))
 
-(deftest discover-migration-dirs-includes-library-manifests
+(deftest ^:unit discover-migration-dirs-includes-library-manifests
   (testing "root migrations and library manifests are merged and de-duplicated"
     (with-temp-dir
       (fn [dir]
@@ -79,7 +79,7 @@
                     "boundary/search/migrations/"]
                    (migrations/discover-migration-dirs)))))))))
 
-(deftest discover-migration-dirs-rejects-invalid-manifests
+(deftest ^:unit discover-migration-dirs-rejects-invalid-manifests
   (testing "invalid manifest shapes fail fast with a clear error"
     (with-temp-dir
       (fn [dir]
@@ -91,7 +91,7 @@
                  #"Invalid migration manifest"
                  (migrations/discover-migration-dirs)))))))))
 
-(deftest create-migratus-config-includes-discovered-dirs-and-datasource
+(deftest ^:unit create-migratus-config-includes-discovered-dirs-and-datasource
   (testing "migratus config keeps datasource and merged migration directories"
     (with-redefs [migrations/discover-migration-dirs (fn [] ["migrations/" "boundary/geo/migrations/"])]
       (is (= {:store :database
@@ -102,7 +102,7 @@
               :db {:datasource ::datasource}}
              (migrations/create-migratus-config {:datasource ::datasource}))))))
 
-(deftest get-migration-config-wraps-config-loading-errors
+(deftest ^:unit get-migration-config-wraps-config-loading-errors
   (testing "configuration failures are rethrown with migration context"
     (with-redefs [db-config/get-active-db-config
                   (fn []
@@ -112,7 +112,7 @@
         (is (= "Migration configuration failed" (ex-message ex)))
         (is (= "db config boom" (:error (ex-data ex))))))))
 
-(deftest migration-operations-delegate-to-migratus
+(deftest ^:unit migration-operations-delegate-to-migratus
   (testing "successful operations use the resolved migratus config"
     (let [config {:migration-dir ["migrations/"]}
           calls (atom [])]
@@ -157,7 +157,7 @@
                 [:init config]]
                @calls))))))
 
-(deftest migration-operations-wrap-failures-consistently
+(deftest ^:unit migration-operations-wrap-failures-consistently
   (testing "migration operations keep useful ex-data on failure"
     (let [config {:migration-dir ["migrations/"]}]
       (with-redefs [migrations/get-migration-config (fn [] config)
@@ -199,7 +199,7 @@
                   :error "completed boom"}
                  (migrations/migration-status))))))))
 
-(deftest print-status-and-auto-migrate-cover-human-facing-branches
+(deftest ^:unit print-status-and-auto-migrate-cover-human-facing-branches
   (testing "print-status renders applied, pending, and error sections"
     (with-redefs [migrations/migration-status (fn []
                                                 {:applied ["20260324090101-bootstrap"]

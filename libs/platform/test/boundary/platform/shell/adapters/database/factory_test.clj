@@ -18,7 +18,7 @@
     (table-exists? [_ _ _] false)
     (get-table-info [_ _ _] [])))
 
-(deftest create-adapter-and-context-delegate-to-core
+(deftest ^:unit create-adapter-and-context-delegate-to-core
   (let [adapter (adapter-stub :sqlite "org.sqlite.JDBC")
         datasource ::datasource]
       (with-redefs [boundary.platform.shell.adapters.database.protocols/validate-db-config (fn [cfg]
@@ -36,7 +36,7 @@
               :datasource datasource}
              (sut/db-context {:adapter :sqlite :database-path "app.db"}))))))
 
-(deftest close-and-with-db-manage-lifecycle
+(deftest ^:unit close-and-with-db-manage-lifecycle
   (testing "close-db-context! only closes valid contexts"
     (let [closed (atom [])]
       (with-redefs [db-core/db-context? (fn [ctx] (= ::valid ctx))
@@ -60,7 +60,7 @@
                    :ok))))
         (is (= [ctx] @closed))))))
 
-(deftest validation-and-managed-context-helpers-cover-common-branches
+(deftest ^:unit validation-and-managed-context-helpers-cover-common-branches
   (testing "validate-connection reports success and failure"
       (with-redefs [boundary.platform.shell.adapters.database.factory/with-db
                     (fn [_ f]

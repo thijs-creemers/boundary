@@ -3,7 +3,7 @@
   (:require [boundary.core.utils.case-conversion :as case-conversion]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest camel-case->kebab-case-map-test
+(deftest ^:unit camel-case->kebab-case-map-test
   (testing "camelCase to kebab-case map conversion"
     (testing "Basic camelCase conversion"
       (let [input {:userId "123" :firstName "John" :lastName "Doe"}
@@ -28,7 +28,7 @@
     (testing "Empty map"
       (is (= {} (case-conversion/camel-case->kebab-case-map {}))))))
 
-(deftest kebab-case->camel-case-map-test
+(deftest ^:unit kebab-case->camel-case-map-test
   (testing "kebab-case to camelCase map conversion"
     (testing "Basic kebab-case conversion"
       (let [input {:user-id "123" :first-name "John" :last-name "Doe"}
@@ -53,7 +53,7 @@
     (testing "Empty map"
       (is (= {} (case-conversion/kebab-case->camel-case-map {}))))))
 
-(deftest string-case-conversions-test
+(deftest ^:unit string-case-conversions-test
   (testing "String case conversions"
     (testing "camelCase to kebab-case string conversion"
       (is (= "user-id" (case-conversion/camel-case->kebab-case-string "userId")))
@@ -69,7 +69,7 @@
       (is (= "alreadyCamel" (case-conversion/kebab-case->camel-case-string "alreadyCamel")))
       (is (nil? (case-conversion/kebab-case->camel-case-string nil))))))
 
-(deftest deep-transform-keys-test
+(deftest ^:unit deep-transform-keys-test
   (testing "Deep transformation of nested structures"
     (testing "Nested maps"
       (let [input {:userId "123"
@@ -130,7 +130,7 @@
                   case-conversion/camel-case->kebab-case-string
                   '()))))))
 
-(deftest roundtrip-conversion-test
+(deftest ^:unit roundtrip-conversion-test
   (testing "Roundtrip conversions preserve data"
     (let [original {:user-id "123" :first-name "John" :contact-info {:email-address "test"}}]
       (is (= original

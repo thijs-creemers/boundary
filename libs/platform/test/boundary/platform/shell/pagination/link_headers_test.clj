@@ -12,7 +12,7 @@
 ;; URL Building Tests
 ;; =============================================================================
 
-(deftest build-query-string-test
+(deftest ^:unit build-query-string-test
   (testing "Build query string with multiple parameters"
     (let [params {:limit 20 :offset 40 :sort "name"}
           result (link-headers/build-query-string params)]
@@ -51,7 +51,7 @@
       (is (string? result))
       (is (str/blank? result)))))
 
-(deftest build-url-test
+(deftest ^:unit build-url-test
   (testing "Build URL with query parameters"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 40}
@@ -87,7 +87,7 @@
 ;; Link Header Format Tests
 ;; =============================================================================
 
-(deftest build-link-header-test
+(deftest ^:unit build-link-header-test
   (testing "Build header with single link"
     (let [links [{:url "/api/v1/users?offset=20&limit=20" :rel :next}]
           result (link-headers/build-link-header links)]
@@ -130,7 +130,7 @@
 ;; Offset Pagination Link Tests
 ;; =============================================================================
 
-(deftest build-offset-links-first-page-test
+(deftest ^:unit build-offset-links-first-page-test
   (testing "First page of offset pagination"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 0 :sort "name"}
@@ -160,7 +160,7 @@
       (let [next-link (first (filter #(= :next (:rel %)) links))]
         (is (str/includes? (:url next-link) "offset=20"))))))
 
-(deftest build-offset-links-middle-page-test
+(deftest ^:unit build-offset-links-middle-page-test
   (testing "Middle page of offset pagination"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 40 :sort "name"}
@@ -188,7 +188,7 @@
         (is (str/includes? (:url self-link) "offset=40"))
         (is (str/includes? (:url next-link) "offset=60"))))))
 
-(deftest build-offset-links-last-page-test
+(deftest ^:unit build-offset-links-last-page-test
   (testing "Last page of offset pagination"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 80 :sort "name"}
@@ -215,7 +215,7 @@
         (is (str/includes? (:url self-link) "offset=80"))
         (is (str/includes? (:url last-link) "offset=80"))))))
 
-(deftest build-offset-links-single-page-test
+(deftest ^:unit build-offset-links-single-page-test
   (testing "Single page (total <= limit)"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 0}
@@ -236,7 +236,7 @@
       (is (not (some #(= :prev (:rel %)) links)))
       (is (not (some #(= :next (:rel %)) links))))))
 
-(deftest build-offset-links-preserves-query-params-test
+(deftest ^:unit build-offset-links-preserves-query-params-test
   (testing "Offset links preserve non-pagination query parameters"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 40 :sort "name" :filter "active" :search "john"}
@@ -259,7 +259,7 @@
 ;; Cursor Pagination Link Tests
 ;; =============================================================================
 
-(deftest build-cursor-links-with-both-cursors-test
+(deftest ^:unit build-cursor-links-with-both-cursors-test
   (testing "Cursor pagination with both prev and next cursors"
     (let [base-path "/api/v1/users"
           params {:limit 20 :cursor "current123" :sort "name"}
@@ -286,7 +286,7 @@
         (is (str/includes? (:url self-link) "cursor=current123"))
         (is (str/includes? (:url next-link) "cursor=next456"))))))
 
-(deftest build-cursor-links-first-page-test
+(deftest ^:unit build-cursor-links-first-page-test
   (testing "First page of cursor pagination (no prev cursor)"
     (let [base-path "/api/v1/users"
           params {:limit 20 :sort "name"}
@@ -303,7 +303,7 @@
       (is (not (some #(= :prev (:rel %)) links)))
       (is (not (some #(= :self (:rel %)) links))))))
 
-(deftest build-cursor-links-last-page-test
+(deftest ^:unit build-cursor-links-last-page-test
   (testing "Last page of cursor pagination (no next cursor)"
     (let [base-path "/api/v1/users"
           params {:limit 20 :cursor "current123" :sort "name"}
@@ -320,7 +320,7 @@
       (is (some #(= :self (:rel %)) links))
       (is (not (some #(= :next (:rel %)) links))))))
 
-(deftest build-cursor-links-preserves-query-params-test
+(deftest ^:unit build-cursor-links-preserves-query-params-test
   (testing "Cursor links preserve non-pagination query parameters"
     (let [base-path "/api/v1/users"
           params {:limit 20 :cursor "current123" :sort "name" :filter "active"}
@@ -342,7 +342,7 @@
 ;; High-Level API Tests
 ;; =============================================================================
 
-(deftest generate-link-header-offset-test
+(deftest ^:unit generate-link-header-offset-test
   (testing "Generate Link header for offset pagination"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 40 :sort "name"}
@@ -365,7 +365,7 @@
       ;; Should be RFC 5988 compliant
       (is (re-find #"<[^>]+>;\s*rel=\"[^\"]+\"" result)))))
 
-(deftest generate-link-header-cursor-test
+(deftest ^:unit generate-link-header-cursor-test
   (testing "Generate Link header for cursor pagination"
     (let [base-path "/api/v1/users"
           params {:limit 20 :cursor "current123" :sort "name"}
@@ -385,7 +385,7 @@
       (is (not (str/includes? result "rel=\"first\"")))
       (is (not (str/includes? result "rel=\"last\""))))))
 
-(deftest generate-link-header-empty-results-test
+(deftest ^:unit generate-link-header-empty-results-test
   (testing "Generate Link header for empty results"
     (let [base-path "/api/v1/users"
           params {:limit 20 :offset 0}
@@ -404,7 +404,7 @@
       (is (str/includes? result "rel=\"self\""))
       (is (str/includes? result "rel=\"last\"")))))
 
-(deftest generate-link-header-unknown-type-test
+(deftest ^:unit generate-link-header-unknown-type-test
   (testing "Generate Link header with unknown pagination type"
     (let [base-path "/api/v1/users"
           params {:limit 20}
@@ -417,7 +417,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "Empty base path"
     (let [pagination-meta {:type "offset"
                            :total 100
@@ -501,7 +501,7 @@
 ;; Integration with Real URLs
 ;; =============================================================================
 
-(deftest realistic-url-examples-test
+(deftest ^:unit realistic-url-examples-test
   (testing "Production-like absolute URL with HTTPS"
     (let [base-path "https://api.example.com/v1/users"
           params {:limit 20 :offset 40 :sort "created_at" :filter "active"}
