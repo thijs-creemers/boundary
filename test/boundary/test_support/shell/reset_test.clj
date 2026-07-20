@@ -71,7 +71,7 @@
     {:user-service user-svc
      :tenant-service tenant-svc}))
 
-(deftest ^:contract truncate-all!-removes-all-rows-test
+(deftest ^:integration truncate-all!-removes-all-rows-test
   (testing "truncate-all! empties a populated tenants table"
     (let [now (Timestamp/from (Instant/now))]
       (jdbc/execute! *datasource*
@@ -87,7 +87,7 @@
     (is (zero? (count-rows *datasource* "tenants"))
         "truncate-all! removed the row from tenants")))
 
-(deftest ^:contract seed-baseline!-creates-entities-test
+(deftest ^:integration seed-baseline!-creates-entities-test
   (testing "seed-baseline! persists baseline entities via production services"
     (let [services (build-services *datasource*)
           _ (sut/truncate-all! *datasource*)

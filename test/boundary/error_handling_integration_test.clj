@@ -211,7 +211,7 @@
 ;; CLI Error Handling End-to-End Tests
 ;; =============================================================================
 
-(deftest ^:contract test-cli-error-handling-end-to-end
+(deftest ^:unit test-cli-error-handling-end-to-end
   (testing "complete CLI error handling flow with context"
     (let [operation-context {:operation "bulk-import-users"
                              :user-id "admin-user"
