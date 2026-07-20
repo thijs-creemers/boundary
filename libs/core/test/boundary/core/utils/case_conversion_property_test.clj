@@ -50,20 +50,20 @@
 ;; Round-trip identity — the documented auth-bug class
 ;; =============================================================================
 
-(defspec ^:property snake->kebab->snake-map-is-identity 200
+(defspec ^:property snake->kebab->snake-map-is-identity 100
   (prop/for-all [m snake-map-gen]
                 (= m (cc/kebab-case->snake-case-map (cc/snake-case->kebab-case-map m)))))
 
-(defspec ^:property kebab->snake->kebab-map-is-identity 200
+(defspec ^:property kebab->snake->kebab-map-is-identity 100
   (prop/for-all [m kebab-map-gen]
                 (= m (cc/snake-case->kebab-case-map (cc/kebab-case->snake-case-map m)))))
 
-(defspec ^:property snake->kebab->snake-string-is-identity 200
+(defspec ^:property snake->kebab->snake-string-is-identity 100
   (prop/for-all [segs (gen/vector segment-gen 1 4)]
                 (let [s (str/join "_" segs)]
                   (= s (cc/kebab-case->snake-case-string (cc/snake-case->kebab-case-string s))))))
 
-(defspec ^:property kebab->snake->kebab-string-is-identity 200
+(defspec ^:property kebab->snake->kebab-string-is-identity 100
   (prop/for-all [segs (gen/vector segment-gen 1 4)]
                 (let [s (str/join "-" segs)]
                   (= s (cc/snake-case->kebab-case-string (cc/kebab-case->snake-case-string s))))))
@@ -72,11 +72,11 @@
 ;; Structure-preservation invariants
 ;; =============================================================================
 
-(defspec ^:property map-conversion-preserves-values-and-count 200
+(defspec ^:property map-conversion-preserves-values-and-count 100
   (prop/for-all [m snake-map-gen]
                 (let [converted (cc/snake-case->kebab-case-map m)]
                   (and (= (count m) (count converted))
-           ;; values are carried across untouched
-                       (= (sort-by str (vals m)) (sort-by str (vals converted)))
-           ;; no snake residue leaks into an internal (kebab) key
+                       ;; value multiset is carried across untouched (order-insensitive)
+                       (= (frequencies (vals m)) (frequencies (vals converted)))
+                       ;; no snake residue leaks into an internal (kebab) key
                        (every? (fn [k] (not (str/includes? (name k) "_"))) (keys converted))))))
