@@ -531,6 +531,7 @@
           repo-state (atom {user-id existing-user})
           service (sut/->UserService
                    (->UserRepoStub repo-state)
+                   #_{:clj-kondo/ignore [:missing-protocol-method]}
                    (reify ports/IUserSessionRepository
                      (invalidate-all-user-sessions [_ _] 0))
                    (->AuditRepoCapture audit-entries)
