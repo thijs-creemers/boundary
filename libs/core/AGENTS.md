@@ -11,7 +11,7 @@ Foundation library providing shared utilities used by all other Boundary modules
 | Namespace | Purpose |
 |-----------|---------|
 | `boundary.core.validation` | Malli-based validation framework with error codes, messages, and "did you mean?" suggestions |
-| `boundary.core.validation.registry` | Central registry for validation rules across modules |
+| `boundary.core.validation.registry` | Pure validation-rule helpers (shape validation, conflict detection). The stateful in-process registry lives in the shell: `boundary.platform.shell.validation-registry` |
 | `boundary.core.validation.behavior` | Validation behavior definitions (cross-field, conditional) |
 | `boundary.core.validation.coverage` | Validation coverage reporting and analysis |
 | `boundary.core.validation.snapshot` | Snapshot-based validation testing |

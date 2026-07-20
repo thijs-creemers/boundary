@@ -6,7 +6,8 @@
    
    New code should use:
      - boundary.core.validation.result
-     - boundary.core.validation.registry
+     - boundary.core.validation.registry (pure rule helpers; the stateful rule
+       registry lives in boundary.platform.shell.validation-registry)
      - boundary.core.validation.codes
    
    This namespace will delegate to new implementations when feature flag is enabled."
