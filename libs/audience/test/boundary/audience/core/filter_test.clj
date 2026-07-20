@@ -19,9 +19,20 @@
       (is (= [:in :country ["NL" "BE"]] result)))))
 
 (deftest ^:unit account-tenure-filter-sql
-  (testing ":account-tenure generates date comparison"
+  (testing ":account-tenure generates a created_at date comparison"
     (let [result (f/filter->sql {:type :account-tenure :op :gte :value 90})]
-      (is (some? result)))))
+      (is (some? result))
+      (is (= :created_at (second result)))))
+  (testing "each op maps to the correct inverted SQL operator"
+    ;; tenure comparison inverts against created_at
+    (let [op-of (fn [op] (first (f/filter->sql {:type :account-tenure :op op :value 30})))]
+      (is (= :<= (op-of :gte)))
+      (is (= :<  (op-of :gt)))
+      (is (= :>= (op-of :lte)))
+      (is (= :>  (op-of :lt)))
+      (is (= :=  (op-of :eq)))
+      ;; BOU-189: :neq previously fell through to :<= (silently "tenure ≥ N")
+      (is (= :<> (op-of :neq))))))
 
 (deftest ^:unit last-active-filter-sql
   (testing ":last-active :within-days generates date window"
