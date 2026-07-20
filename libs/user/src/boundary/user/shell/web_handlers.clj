@@ -500,27 +500,15 @@
   [user-service _config]
   (fn [request]
     (let [session-token (or (get-in request [:cookies "session-token" :value])
-                            (get-in request [:headers "x-session-token"]))
-          token-preview (when session-token
-                          (subs session-token 0 (min 16 (count session-token))))]
-      (spit "/tmp/middleware-debug.log"
-            (str "LOGOUT HANDLER CALLED: has-token=" (boolean session-token)
-                 " token=" (when session-token (subs session-token 0 (min 20 (count session-token)))) "...\n")
-            :append true)
+                            (get-in request [:headers "x-session-token"]))]
       (when session-token
         (try
           ;; Best-effort server-side logout
-          (log/info "Attempting to invalidate session" {:token token-preview})
+          (log/info "Attempting to invalidate session" {:has-token true})
           (let [result (user-ports/logout-user user-service session-token)]
-            (log/info "Session invalidation result" {:result result})
-            (spit "/tmp/middleware-debug.log"
-                  (str "LOGOUT RESULT: " result "\n")
-                  :append true))
+            (log/info "Session invalidation result" {:result result}))
           (catch Exception e
-            (log/error e "Error during logout")
-            (spit "/tmp/middleware-debug.log"
-                  (str "LOGOUT ERROR: " (.getMessage e) "\n")
-                  :append true))))
+            (log/error e "Error during logout"))))
       (-> (response/redirect "/")
           (assoc :cookies {"session-token"
                            {:value "" :max-age 0 :path "/"}})))))
