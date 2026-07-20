@@ -62,9 +62,14 @@
     (let [state  (atom (seed-user))
           config {:max-failed-attempts 3 :lockout-duration-minutes 15}
           svc    (auth-service state config)]
-      (testing "each wrong attempt fails and accrues toward the threshold"
+      (testing "each wrong attempt fails as a plain credential error (no lockout signal yet)"
         (dotimes [_ 3]
-          (is (false? (:success? (login svc "wrong-password"))))))
+          (let [result (login svc "wrong-password")]
+            (is (false? (:success? result)))
+            ;; :retry-after is lockout-specific — proving it is absent here is
+            ;; what lets the locked assertion below distinguish lockout from a
+            ;; mere wrong password.
+            (is (nil? (:retry-after result))))))
       (testing "the account is now locked in persisted state"
         (is (= 3 (:failed-login-count @state)))
         (is (some? (:lockout-until @state)) "lockout-until is set")
