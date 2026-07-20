@@ -6,7 +6,7 @@
 ;; patch-deps-edn
 ;; =============================================================================
 
-(deftest patch-deps-edn-test
+(deftest ^:unit patch-deps-edn-test
   (let [sample-deps (str ":paths [\"src\"\n"
                          "           \"libs/core/src\" \"libs/core/test\"\n"
                          "           \"libs/admin/src\" \"libs/admin/test\"]")]
@@ -26,7 +26,7 @@
 ;; patch-tests-edn
 ;; =============================================================================
 
-(deftest patch-tests-edn-test
+(deftest ^:unit patch-tests-edn-test
   (let [sample-tests (str ":tests [{:id :core\n"
                           "           :test-paths [\"libs/core/test\"]\n"
                           "           :ns-patterns [\"boundary.core.*-test\"]}]")]
@@ -49,7 +49,7 @@
 ;; patch-wiring
 ;; =============================================================================
 
-(deftest patch-wiring-test
+(deftest ^:unit patch-wiring-test
   (let [sample-wiring (str "(ns boundary.platform.shell.system.wiring\n"
                            "  (:require [boundary.admin.shell.module-wiring]\n"
                            "            [boundary.user.shell.module-wiring]))")]
@@ -69,7 +69,7 @@
 ;; generate-config-snippet
 ;; =============================================================================
 
-(deftest generate-config-snippet-test
+(deftest ^:unit generate-config-snippet-test
   (testing "generates basic config snippet"
     (let [snippet (integrate/generate-config-snippet "product" false)]
       (is (re-find #":boundary/product" snippet))

@@ -35,7 +35,7 @@
 ;; upload-file-handler
 ;; ============================================================================
 
-(deftest upload-file-handler-valid-max-size-test
+(deftest ^:contract upload-file-handler-valid-max-size-test
   (let [service (create-test-service)
         handler (sut/upload-file-handler service)
         file (make-multipart-file "test.txt" "text/plain" "hello")]
@@ -50,7 +50,7 @@
                            :query-params {"max-size" "2"}})]
         (is (= 400 (:status resp)))))))
 
-(deftest upload-file-handler-invalid-max-size-test
+(deftest ^:contract upload-file-handler-invalid-max-size-test
   (let [service (create-test-service)
         handler (sut/upload-file-handler service)
         file (make-multipart-file "test.txt" "text/plain" "hello")]
@@ -64,7 +64,7 @@
 ;; upload-image-handler
 ;; ============================================================================
 
-(deftest upload-image-handler-thumbnail-size-test
+(deftest ^:contract upload-image-handler-thumbnail-size-test
   (let [service (create-test-service)
         handler (sut/upload-image-handler service)
         ;; Minimal 1x1 PNG
@@ -93,7 +93,7 @@
 ;; get-file-url-handler
 ;; ============================================================================
 
-(deftest get-file-url-handler-expiration-test
+(deftest ^:contract get-file-url-handler-expiration-test
   (let [service (create-test-service)
         ;; Upload a file first so we have a valid key
         file-data {:bytes (.getBytes "url test")

@@ -11,7 +11,7 @@
 
 (use-fixtures :each fx/with-fresh-seed)
 
-(deftest ^:e2e server-reachable-and-seeded
+(deftest ^:integration ^:e2e server-reachable-and-seeded
   (is (= "admin@acme.test" (-> fx/*seed* :admin :email))
       "baseline seed should contain the acme admin user")
   (let [resp (http/get (str (reset/default-base-url) "/web/login")

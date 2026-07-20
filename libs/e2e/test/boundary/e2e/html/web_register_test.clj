@@ -30,7 +30,7 @@
 ;; Tests
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e get-renders-register-form
+(deftest ^:integration ^:e2e get-renders-register-form
   (testing "GET /web/register renders a visible form with name, email, and password fields"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/register"))
@@ -52,7 +52,7 @@
         (is (loc/is-visible? pw-input)
             "Password input should be present")))))
 
-(deftest ^:e2e happy-creates-user-and-redirects
+(deftest ^:integration ^:e2e happy-creates-user-and-redirects
   (testing "Successful registration redirects away from /web/register with session cookie"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/register"))
@@ -71,7 +71,7 @@
         (is (some? cookie)
             "session-token cookie should be set after registration")))))
 
-(deftest ^:e2e weak-password-shows-validation-errors
+(deftest ^:integration ^:e2e weak-password-shows-validation-errors
   (testing "Weak password stays on /web/register with validation errors"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/register"))

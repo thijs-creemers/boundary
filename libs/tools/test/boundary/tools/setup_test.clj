@@ -16,7 +16,7 @@
    :email        :none
    :admin-ui     false})
 
-(deftest build-config-dev-test
+(deftest ^:unit build-config-dev-test
   (testing "generates valid dev config structure"
     (let [config (setup/build-config minimal-spec "dev")]
       (is (str/includes? config ":active"))
@@ -44,7 +44,7 @@
 ;; build-config — test environment
 ;; =============================================================================
 
-(deftest build-config-test-env-test
+(deftest ^:unit build-config-test-env-test
   (testing "uses H2 for test regardless of database choice"
     (let [config (setup/build-config minimal-spec "test")]
       (is (str/includes? config ":boundary/h2"))
@@ -68,7 +68,7 @@
    :email        :smtp
    :admin-ui     true})
 
-(deftest build-config-full-spec-test
+(deftest ^:unit build-config-full-spec-test
   (testing "includes all enabled providers for dev"
     (let [config (setup/build-config full-spec "dev")]
       (is (str/includes? config ":boundary/ai-service"))
@@ -90,7 +90,7 @@
 ;; build-env-example
 ;; =============================================================================
 
-(deftest build-env-example-test
+(deftest ^:unit build-env-example-test
   (testing "always includes HTTP and JWT vars"
     (let [env (setup/build-env-example minimal-spec)]
       (is (str/includes? env "HTTP_PORT=3000"))
@@ -130,7 +130,7 @@
 ;; Settings template env parameter
 ;; =============================================================================
 
-(deftest settings-template-uses-env-test
+(deftest ^:unit settings-template-uses-env-test
   (testing "project name includes env suffix"
     (let [dev-config  (setup/build-config minimal-spec "dev")
           test-config (setup/build-config minimal-spec "test")]

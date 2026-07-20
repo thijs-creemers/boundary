@@ -59,14 +59,14 @@
 ;; Job Registry Tests
 ;; =============================================================================
 
-(deftest register-handler-test
+(deftest ^:unit register-handler-test
   (testing "Register job handler"
     (let [handler-fn (fn [_args] {:success? true :result "ok"})
           job-type (ports/register-handler! *registry* :send-email handler-fn)]
       (is (= :send-email job-type))
       (is (= handler-fn (ports/get-handler *registry* :send-email))))))
 
-(deftest unregister-handler-test
+(deftest ^:unit unregister-handler-test
   (testing "Unregister job handler"
     (let [handler-fn (fn [_args] {:success? true})]
       (ports/register-handler! *registry* :send-email handler-fn)
@@ -75,7 +75,7 @@
       ;; Unregistering again returns false
       (is (false? (ports/unregister-handler! *registry* :send-email))))))
 
-(deftest list-handlers-test
+(deftest ^:unit list-handlers-test
   (testing "List all registered handlers"
     (ports/register-handler! *registry* :send-email (fn [_] {:success? true}))
     (ports/register-handler! *registry* :generate-report (fn [_] {:success? true}))
@@ -88,7 +88,7 @@
 ;; Worker Tests
 ;; =============================================================================
 
-(deftest worker-processes-jobs-test
+(deftest ^:unit worker-processes-jobs-test
   (testing "Worker processes jobs from queue"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -135,7 +135,7 @@
                  log/warn (constantly nil)]
      ~@body))
 
-(deftest worker-handles-job-failure-test
+(deftest ^:unit worker-handles-job-failure-test
   (with-silent-logging
     (testing "Worker handles job failures and retries"
       (let [queue (:queue *system*)
@@ -170,7 +170,7 @@
               (finally
                 (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))))
 
-(deftest worker-handles-missing-handler-test
+(deftest ^:unit worker-handles-missing-handler-test
   (with-silent-logging
     (testing "A job with no handler is re-enqueued (bounded) then dead-lettered, never silently dropped"
       (let [queue (:queue *system*)
@@ -201,7 +201,7 @@
             (finally
               (ports/stop-worker! worker-instance (:id (:state worker-instance))))))))))
 
-(deftest worker-processes-priority-jobs-test
+(deftest ^:unit worker-processes-priority-jobs-test
   (testing "Worker processes jobs in priority order"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -233,7 +233,7 @@
           (finally
             (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))
 
-(deftest worker-status-test
+(deftest ^:unit worker-status-test
   (testing "Worker status tracking"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -262,7 +262,7 @@
           (finally
             (ports/stop-worker! worker-instance worker-id)))))))
 
-(deftest worker-pool-test
+(deftest ^:unit worker-pool-test
   (testing "Worker pool processes jobs in parallel"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -301,7 +301,7 @@
           (finally
             (worker/stop-worker-pool! workers)))))))
 
-(deftest worker-graceful-shutdown-test
+(deftest ^:unit worker-graceful-shutdown-test
   (testing "Worker shuts down gracefully"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -331,7 +331,7 @@
           (let [status (ports/worker-status worker-instance worker-id)]
             (is (= :stopped (:status status)))))))))
 
-(deftest manual-job-processing-test
+(deftest ^:unit manual-job-processing-test
   (testing "Manual job processing with process-job!"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -355,7 +355,7 @@
           (finally
             (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))
 
-(deftest worker-processes-scheduled-jobs-test
+(deftest ^:unit worker-processes-scheduled-jobs-test
   (testing "Worker processes scheduled jobs when due"
     (let [queue (:queue *system*)
           store (:store *system*)

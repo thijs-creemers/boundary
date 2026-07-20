@@ -6,7 +6,7 @@
 ;; extract-env-refs
 ;; =============================================================================
 
-(deftest extract-env-refs-test
+(deftest ^:unit extract-env-refs-test
   (testing "extracts #env VAR references"
     (is (= #{"POSTGRES_HOST" "POSTGRES_PORT"}
            (doctor/extract-env-refs
@@ -24,7 +24,7 @@
 ;; extract-or-defaults
 ;; =============================================================================
 
-(deftest extract-or-defaults-test
+(deftest ^:unit extract-or-defaults-test
   (testing "extracts env vars with #or defaults"
     (is (= #{"POSTGRES_HOST"}
            (doctor/extract-or-defaults ":host #or [#env POSTGRES_HOST \"localhost\"]"))))
@@ -42,7 +42,7 @@
 ;; extract-fallback-env-refs
 ;; =============================================================================
 
-(deftest extract-fallback-env-refs-test
+(deftest ^:unit extract-fallback-env-refs-test
   (testing "extracts env refs inside :fallback blocks"
     (is (= #{"ANTHROPIC_API_KEY"}
            (doctor/extract-fallback-env-refs
@@ -60,7 +60,7 @@
 ;; check-env-refs
 ;; =============================================================================
 
-(deftest check-env-refs-test
+(deftest ^:unit check-env-refs-test
   (testing "passes when all unprotected env vars are set"
     (let [result (doctor/check-env-refs "#env SECRET_KEY" {"SECRET_KEY" "val"})]
       (is (= :pass (:level (first result))))))
@@ -92,7 +92,7 @@
 ;; check-providers
 ;; =============================================================================
 
-(deftest check-providers-test
+(deftest ^:unit check-providers-test
   (testing "passes for known providers"
     (let [result (doctor/check-providers {:boundary/logging {:provider :slf4j}})]
       (is (= :pass (:level (first result))))))
@@ -118,7 +118,7 @@
 ;; check-jwt-secret
 ;; =============================================================================
 
-(deftest check-jwt-secret-test
+(deftest ^:unit check-jwt-secret-test
   (testing "passes when user module not active"
     (let [result (doctor/check-jwt-secret {:boundary/settings {:name "test"}} {})]
       (is (= :pass (:level (first result))))))
@@ -139,7 +139,7 @@
 ;; check-admin-parity
 ;; =============================================================================
 
-(deftest check-admin-parity-test
+(deftest ^:unit check-admin-parity-test
   (testing "passes when files match"
     (let [dev-files  [(java.io.File. "users.edn") (java.io.File. "tenants.edn")]
           test-files [(java.io.File. "users.edn") (java.io.File. "tenants.edn")]
@@ -164,7 +164,7 @@
 ;; check-prod-placeholders
 ;; =============================================================================
 
-(deftest check-prod-placeholders-test
+(deftest ^:unit check-prod-placeholders-test
   (testing "skips non-production environments"
     (let [result (doctor/check-prod-placeholders "company.com" "dev")]
       (is (= :pass (:level (first result))))))
@@ -232,7 +232,7 @@
 ;; check-wiring-requires
 ;; =============================================================================
 
-(deftest check-wiring-requires-test
+(deftest ^:unit check-wiring-requires-test
   (testing "passes when all modules are wired"
     (let [wiring "(ns ... (:require [boundary.admin.shell.module-wiring]))"
           config {:boundary/admin {:enabled? true}}
@@ -259,7 +259,7 @@
 ;; extract-active-section
 ;; =============================================================================
 
-(deftest extract-active-section-test
+(deftest ^:unit extract-active-section-test
   (testing "extracts only active section text"
     (let [config (str ":active\n"
                       "{:boundary/settings {:name \"test\"}\n"

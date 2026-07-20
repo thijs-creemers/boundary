@@ -4,16 +4,12 @@
 ;; until their lib is backfilled. Remove a prefix once its lib is tagged.
 ;;
 ;; Enforced now (not exempt): user, admin, platform, core, realtime, tenant,
-;; observability, and every already-fully-tagged lib (workflow, search, push,
-;; payments, i18n, geo, external, email, calendar, boundary-mcp).
+;; observability, e2e, tools, jobs, cache, storage, and every already-fully-tagged
+;; lib (workflow, search, push, payments, i18n, geo, external, email, calendar,
+;; boundary-mcp).
 {:allow-untagged
- ["libs/e2e/"
-  "libs/tools/"
-  "libs/jobs/"
-  "libs/cache/"
-  "libs/boundary-cli/"
+ ["libs/boundary-cli/"
   "libs/devtools/"
-  "libs/storage/"
   "libs/scaffolder/"
   "libs/reports/"
   "libs/ui-style/"

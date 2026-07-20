@@ -20,13 +20,13 @@
 ;; Basic Cache Operations
 ;; =============================================================================
 
-(deftest get-set-test
+(deftest ^:unit get-set-test
   (testing "Basic get/set operations"
     (is (nil? (ports/get-value *cache* :key1)))
     (is (true? (ports/set-value! *cache* :key1 "value1")))
     (is (= "value1" (ports/get-value *cache* :key1)))))
 
-(deftest get-set-different-types-test
+(deftest ^:unit get-set-different-types-test
   (testing "Store different value types"
     (ports/set-value! *cache* :string "hello")
     (ports/set-value! *cache* :number 42)
@@ -40,14 +40,14 @@
     (is (= [1 2 3] (ports/get-value *cache* :vector)))
     (is (= true (ports/get-value *cache* :boolean)))))
 
-(deftest delete-key-test
+(deftest ^:unit delete-key-test
   (testing "Delete key"
     (ports/set-value! *cache* :key1 "value1")
     (is (true? (ports/delete-key! *cache* :key1)))
     (is (nil? (ports/get-value *cache* :key1)))
     (is (false? (ports/delete-key! *cache* :key1)))))
 
-(deftest exists-test
+(deftest ^:unit exists-test
   (testing "Check key existence"
     (is (false? (ports/exists? *cache* :key1)))
     (ports/set-value! *cache* :key1 "value1")
@@ -59,14 +59,14 @@
 ;; TTL Tests
 ;; =============================================================================
 
-(deftest ttl-test
+(deftest ^:unit ttl-test
   (testing "Set value with TTL"
     (ports/set-value! *cache* :key1 "value1" 10)
     (is (= "value1" (ports/get-value *cache* :key1)))
     (let [ttl (ports/ttl *cache* :key1)]
       (is (and (>= ttl 9) (<= ttl 10))))))
 
-(deftest expire-test
+(deftest ^:unit expire-test
   (testing "Set expiration on existing key"
     (ports/set-value! *cache* :key1 "value1")
     (is (nil? (ports/ttl *cache* :key1)))
@@ -74,7 +74,7 @@
     (let [ttl (ports/ttl *cache* :key1)]
       (is (and (>= ttl 4) (<= ttl 5))))))
 
-(deftest expiration-test
+(deftest ^:unit expiration-test
   (testing "Value expires after TTL"
     (ports/set-value! *cache* :key1 "value1" 1)
     (is (= "value1" (ports/get-value *cache* :key1)))
@@ -82,7 +82,7 @@
     (is (nil? (ports/get-value *cache* :key1)))
     (is (false? (ports/exists? *cache* :key1)))))
 
-(deftest default-ttl-test
+(deftest ^:unit default-ttl-test
   (testing "Use default TTL from config"
     (let [cache (in-mem/create-in-memory-cache {:default-ttl 10})]
       (ports/set-value! cache :key1 "value1")
@@ -93,7 +93,7 @@
 ;; Batch Operations
 ;; =============================================================================
 
-(deftest get-many-test
+(deftest ^:unit get-many-test
   (testing "Get multiple keys at once"
     (ports/set-value! *cache* :key1 "value1")
     (ports/set-value! *cache* :key2 "value2")
@@ -102,7 +102,7 @@
     (let [result (ports/get-many *cache* [:key1 :key2 :key3 :key4])]
       (is (= {:key1 "value1" :key2 "value2" :key3 "value3"} result)))))
 
-(deftest set-many-test
+(deftest ^:unit set-many-test
   (testing "Set multiple keys at once"
     (let [kvs {:key1 "value1" :key2 "value2" :key3 "value3"}
           count (ports/set-many! *cache* kvs)]
@@ -111,7 +111,7 @@
       (is (= "value2" (ports/get-value *cache* :key2)))
       (is (= "value3" (ports/get-value *cache* :key3))))))
 
-(deftest set-many-with-ttl-test
+(deftest ^:unit set-many-with-ttl-test
   (testing "Set multiple keys with TTL"
     (let [kvs {:key1 "value1" :key2 "value2"}
           count (ports/set-many! *cache* kvs 10)]
@@ -121,7 +121,7 @@
         (is (and (>= ttl1 9) (<= ttl1 10)))
         (is (and (>= ttl2 9) (<= ttl2 10)))))))
 
-(deftest delete-many-test
+(deftest ^:unit delete-many-test
   (testing "Delete multiple keys at once"
     (ports/set-value! *cache* :key1 "value1")
     (ports/set-value! *cache* :key2 "value2")
@@ -137,14 +137,14 @@
 ;; Atomic Operations
 ;; =============================================================================
 
-(deftest increment-test
+(deftest ^:unit increment-test
   (testing "Increment numeric value"
     (is (= 1 (ports/increment! *cache* :counter)))
     (is (= 2 (ports/increment! *cache* :counter)))
     (is (= 7 (ports/increment! *cache* :counter 5)))
     (is (= 7 (ports/get-value *cache* :counter)))))
 
-(deftest decrement-test
+(deftest ^:unit decrement-test
   (testing "Decrement numeric value"
     (ports/set-value! *cache* :counter 10)
     (is (= 9 (ports/decrement! *cache* :counter)))
@@ -152,14 +152,14 @@
     (is (= 5 (ports/decrement! *cache* :counter 3)))
     (is (= 5 (ports/get-value *cache* :counter)))))
 
-(deftest set-if-absent-test
+(deftest ^:unit set-if-absent-test
   (testing "Set only if key doesn't exist"
     (is (true? (ports/set-if-absent! *cache* :key1 "value1")))
     (is (= "value1" (ports/get-value *cache* :key1)))
     (is (false? (ports/set-if-absent! *cache* :key1 "value2")))
     (is (= "value1" (ports/get-value *cache* :key1)))))
 
-(deftest compare-and-swap-test
+(deftest ^:unit compare-and-swap-test
   (testing "Compare and swap atomic operation"
     (ports/set-value! *cache* :key1 "old-value")
     (is (true? (ports/compare-and-swap! *cache* :key1 "old-value" "new-value")))
@@ -171,7 +171,7 @@
 ;; Pattern Operations
 ;; =============================================================================
 
-(deftest keys-matching-test
+(deftest ^:unit keys-matching-test
   (testing "Get keys matching pattern"
     (ports/set-value! *cache* :user:1 "Alice")
     (ports/set-value! *cache* :user:2 "Bob")
@@ -184,7 +184,7 @@
       (is (contains? user-keys "user:2"))
       (is (contains? user-keys "user:3")))))
 
-(deftest delete-matching-test
+(deftest ^:unit delete-matching-test
   (testing "Delete keys matching pattern"
     (ports/set-value! *cache* :user:1 "Alice")
     (ports/set-value! *cache* :user:2 "Bob")
@@ -196,7 +196,7 @@
       (is (nil? (ports/get-value *cache* :user:2)))
       (is (= "abc123" (ports/get-value *cache* :session:1))))))
 
-(deftest count-matching-test
+(deftest ^:unit count-matching-test
   (testing "Count keys matching pattern"
     (ports/set-value! *cache* :product:1 "Widget")
     (ports/set-value! *cache* :product:2 "Gadget")
@@ -208,7 +208,7 @@
 ;; Namespace Operations
 ;; =============================================================================
 
-(deftest with-namespace-test
+(deftest ^:unit with-namespace-test
   (testing "Use namespaced cache view"
     (let [user-cache (ports/with-namespace *cache* "user")
           session-cache (ports/with-namespace *cache* "session")]
@@ -219,7 +219,7 @@
       (is (= {:name "Alice"} (ports/get-value user-cache :123)))
       (is (= {:token "abc"} (ports/get-value session-cache :123))))))
 
-(deftest clear-namespace-test
+(deftest ^:unit clear-namespace-test
   (testing "Clear all keys in a namespace"
     (let [user-cache (ports/with-namespace *cache* "user")]
       (ports/set-value! user-cache :1 "Alice")
@@ -236,7 +236,7 @@
 ;; Statistics Tests
 ;; =============================================================================
 
-(deftest cache-stats-test
+(deftest ^:unit cache-stats-test
   (testing "Track cache statistics"
     (let [cache (in-mem/create-in-memory-cache {:track-stats? true})]
       (ports/set-value! cache :key1 "value1")
@@ -254,7 +254,7 @@
         (is (= 2 (:misses stats)))
         (is (= 0.5 (:hit-rate stats)))))))
 
-(deftest clear-stats-test
+(deftest ^:unit clear-stats-test
   (testing "Clear cache statistics"
     (let [cache (in-mem/create-in-memory-cache {:track-stats? true})]
       (ports/set-value! cache :key1 "value1")
@@ -271,7 +271,7 @@
 ;; Cache Management Tests
 ;; =============================================================================
 
-(deftest flush-all-test
+(deftest ^:unit flush-all-test
   (testing "Flush entire cache"
     (ports/set-value! *cache* :key1 "value1")
     (ports/set-value! *cache* :key2 "value2")
@@ -281,11 +281,11 @@
       (is (nil? (ports/get-value *cache* :key1)))
       (is (nil? (ports/get-value *cache* :key2))))))
 
-(deftest ping-test
+(deftest ^:unit ping-test
   (testing "Check cache health"
     (is (true? (ports/ping *cache*)))))
 
-(deftest close-test
+(deftest ^:unit close-test
   (testing "Close cache connection"
     (is (true? (ports/close! *cache*)))))
 
@@ -293,7 +293,7 @@
 ;; Eviction Tests
 ;; =============================================================================
 
-(deftest lru-eviction-test
+(deftest ^:unit lru-eviction-test
   (testing "LRU eviction when max-size is reached"
     (let [cache (in-mem/create-in-memory-cache {:max-size 3})]
       ;; Fill cache
@@ -316,7 +316,7 @@
 ;; Concurrency Tests
 ;; =============================================================================
 
-(deftest concurrent-increment-test
+(deftest ^:unit concurrent-increment-test
   (testing "Concurrent increments are atomic"
     (let [cache (in-mem/create-in-memory-cache)
           futures (doall
@@ -327,7 +327,7 @@
 
       (is (= 100 (ports/get-value cache :counter))))))
 
-(deftest concurrent-set-get-test
+(deftest ^:unit concurrent-set-get-test
   (testing "Concurrent set/get operations"
     (let [cache (in-mem/create-in-memory-cache)
           futures (doall

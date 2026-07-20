@@ -7,7 +7,7 @@
 ;; parse-version
 ;; =============================================================================
 
-(deftest parse-version-test
+(deftest ^:unit parse-version-test
   (testing "parses Java version strings"
     (is (= 21 (#'doctor-env/parse-version
                "openjdk version \"21.0.2\" 2024-01-16"
@@ -24,7 +24,7 @@
 ;; Argument parsing
 ;; =============================================================================
 
-(deftest parse-args-test
+(deftest ^:unit parse-args-test
   (testing "defaults when no args"
     (let [opts (#'doctor-env/parse-args [])]
       (is (false? (:ci opts)))
@@ -40,7 +40,7 @@
 ;; Check functions (these hit real system state, so we verify structure)
 ;; =============================================================================
 
-(deftest check-functions-return-valid-maps
+(deftest ^:unit check-functions-return-valid-maps
   (testing "each check returns a map with :id, :level, :msg"
     (doseq [[check-name check-fn] {"java"       doctor-env/check-java
                                    "clojure"    doctor-env/check-clojure-cli
@@ -59,7 +59,7 @@
 ;; Doctor --all flag
 ;; =============================================================================
 
-(deftest doctor-parse-args-all-flag
+(deftest ^:unit doctor-parse-args-all-flag
   (testing "doctor parses --all flag"
     (let [opts (#'boundary.tools.doctor/parse-args ["--all"])]
       (is (true? (:all opts)))))

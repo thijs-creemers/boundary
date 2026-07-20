@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [boundary.storage.core.validation :as sut]))
 
-(deftest get-file-extension-test
+(deftest ^:unit get-file-extension-test
   (testing "extracts file extension correctly"
     (is (= "jpg" (sut/get-file-extension "photo.jpg")))
     (is (= "png" (sut/get-file-extension "image.PNG")))
@@ -15,7 +15,7 @@
     (is (nil? (sut/get-file-extension "README")))
     (is (nil? (sut/get-file-extension nil)))))
 
-(deftest mime-type-from-extension-test
+(deftest ^:unit mime-type-from-extension-test
   (testing "returns correct MIME type for common extensions"
     (is (= "image/jpeg" (sut/mime-type-from-extension "photo.jpg")))
     (is (= "image/png" (sut/mime-type-from-extension "image.png")))
@@ -24,7 +24,7 @@
   (testing "returns nil for unknown extensions"
     (is (nil? (sut/mime-type-from-extension "file.xyz")))))
 
-(deftest validate-file-size-test
+(deftest ^:unit validate-file-size-test
   (testing "accepts files within size limit"
     (let [result (sut/validate-file-size 1024 (* 10 1024 1024))]
       (is (:valid? result))))
@@ -38,7 +38,7 @@
     (let [result (sut/validate-file-size 1024 nil)]
       (is (:valid? result)))))
 
-(deftest validate-content-type-test
+(deftest ^:unit validate-content-type-test
   (testing "accepts allowed content types"
     (let [result (sut/validate-content-type "image/jpeg" ["image/jpeg" "image/png"])]
       (is (:valid? result))))
@@ -52,7 +52,7 @@
     (is (:valid? (sut/validate-content-type "application/pdf" nil)))
     (is (:valid? (sut/validate-content-type "application/pdf" [])))))
 
-(deftest validate-extension-test
+(deftest ^:unit validate-extension-test
   (testing "accepts allowed extensions"
     (let [result (sut/validate-extension "photo.jpg" ["jpg" "png"])]
       (is (:valid? result))))
@@ -66,7 +66,7 @@
     (is (:valid? (sut/validate-extension "file.xyz" nil)))
     (is (:valid? (sut/validate-extension "file.xyz" [])))))
 
-(deftest is-image-mime-type?-test
+(deftest ^:unit is-image-mime-type?-test
   (testing "recognizes image MIME types"
     (is (sut/is-image-mime-type? "image/jpeg"))
     (is (sut/is-image-mime-type? "image/png"))
@@ -76,7 +76,7 @@
     (is (not (sut/is-image-mime-type? "application/pdf")))
     (is (not (sut/is-image-mime-type? "text/plain")))))
 
-(deftest validate-file-test
+(deftest ^:unit validate-file-test
   (let [valid-file-data {:bytes (.getBytes "test content")
                          :content-type "image/jpeg"
                          :size 12}
@@ -111,7 +111,7 @@
         (is (not (:valid? result)))
         (is (= 3 (count (:errors result))))))))
 
-(deftest sanitize-filename-test
+(deftest ^:unit sanitize-filename-test
   (testing "removes path separators"
     (is (= "file.txt" (sut/sanitize-filename "../file.txt")))
     (is (= "file.txt" (sut/sanitize-filename "..\\file.txt")))
@@ -131,7 +131,7 @@
       (is (< (count result) 256))
       (is (re-find #"\.txt$" result)))))
 
-(deftest generate-unique-filename-test
+(deftest ^:unit generate-unique-filename-test
   (testing "generates unique filename with explicit suffix"
     (let [result (sut/generate-unique-filename* "photo.jpg" "1712745600000-abc12345")]
       (is (= "1712745600000-abc12345.jpg" result))))

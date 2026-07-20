@@ -15,7 +15,7 @@
 ;; List overview
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e list-shows-data-table
+(deftest ^:integration ^:e2e list-shows-data-table
   (testing "Admin users list page loads and shows table.data-table with expected columns"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -31,7 +31,7 @@
         (is (some #(str/includes? % "role") headers)
             "Table should have a role column")))))
 
-(deftest ^:e2e list-hides-sensitive-fields
+(deftest ^:integration ^:e2e list-hides-sensitive-fields
   (testing "Sensitive fields (password-hash, mfa-secret) are not shown in the table"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -45,7 +45,7 @@
         (is (not (some #(str/includes? % "backup") headers))
             "mfa-backup-codes should not be a table column")))))
 
-(deftest ^:e2e search-filters-by-email
+(deftest ^:integration ^:e2e search-filters-by-email
   (testing "Search input filters the users table via HTMX"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -60,7 +60,7 @@
       (is (admin/has-empty-state? pg)
           "Search for nonexistent user should show empty state"))))
 
-(deftest ^:e2e search-htmx-no-full-reload
+(deftest ^:integration ^:e2e search-htmx-no-full-reload
   (testing "Search triggers HTMX fragment update, not a full page reload"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -79,7 +79,7 @@
 ;; Detail & edit
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e detail-shows-field-groups
+(deftest ^:integration ^:e2e detail-shows-field-groups
   (testing "User detail page shows field groups 'identity' and 'access'"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -90,7 +90,7 @@
       (is (admin/field-group-visible? pg "access")
           "Field group 'access' (role, active) should be visible"))))
 
-(deftest ^:e2e detail-readonly-fields
+(deftest ^:integration ^:e2e detail-readonly-fields
   (testing "Readonly fields (id, created-at, updated-at) are not editable inputs in the form"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -103,7 +103,7 @@
       (is (zero? (loc/count-elements (page/locator pg "form.entity-form input[name='created-at']")))
           "created-at should not be an editable input in the form"))))
 
-(deftest ^:e2e edit-role-via-dropdown
+(deftest ^:integration ^:e2e edit-role-via-dropdown
   (testing "Changing the role dropdown and submitting updates the user's role"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -122,7 +122,7 @@
         (is (= "viewer" role-value)
             "Role should be updated to 'viewer' after form submission")))))
 
-(deftest ^:e2e edit-form-submit-preserves-values
+(deftest ^:integration ^:e2e edit-form-submit-preserves-values
   (testing "Editing a field and submitting preserves the new value on the re-rendered form"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -140,7 +140,7 @@
         (is (= "Changed Name" name-value)
             "Name should be preserved as 'Changed Name' after form submission")))))
 
-(deftest ^:e2e edit-success-shows-notification
+(deftest ^:integration ^:e2e edit-success-shows-notification
   (testing "Successful edit shows a success notification"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -159,7 +159,7 @@
 ;; Access control
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e unauthenticated-redirects-to-login
+(deftest ^:integration ^:e2e unauthenticated-redirects-to-login
   (testing "Visiting admin without a session redirects to /web/login"
     (spel/with-testing-page [pg]
       (page/navigate pg (admin/admin-url "/users"))
@@ -167,7 +167,7 @@
       (is (str/includes? (page/url pg) "/web/login")
           "Unauthenticated user should be redirected to /web/login"))))
 
-(deftest ^:e2e regular-user-denied-admin
+(deftest ^:integration ^:e2e regular-user-denied-admin
   (testing "Regular user cannot access admin UI"
     (spel/with-testing-page [pg]
       (admin/login-as-user! pg fx/*seed*)

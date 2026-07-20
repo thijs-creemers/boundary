@@ -53,7 +53,7 @@
 ;; Tests
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e get-renders-login-form
+(deftest ^:integration ^:e2e get-renders-login-form
   (testing "GET /web/login renders a visible login form with email, password, and remember fields"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))
@@ -75,7 +75,7 @@
         (is (loc/is-visible? remember)
             "Remember-me checkbox should be present")))))
 
-(deftest ^:e2e happy-user-redirects-to-dashboard
+(deftest ^:integration ^:e2e happy-user-redirects-to-dashboard
   (testing "Valid user credentials set session-token cookie and land on dashboard"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))
@@ -95,7 +95,7 @@
         (is (true? (:httpOnly cookie))
             "session-token cookie should be HttpOnly")))))
 
-(deftest ^:e2e happy-admin-redirects-to-admin-users
+(deftest ^:integration ^:e2e happy-admin-redirects-to-admin-users
   (testing "Admin credentials set session cookie and land on /web/admin/users"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))
@@ -111,7 +111,7 @@
       (is (some? (find-cookie pg "session-token"))
           "session-token cookie should be set after admin login"))))
 
-(deftest ^:e2e return-to-honoured
+(deftest ^:integration ^:e2e return-to-honoured
   (testing "return-to query param is honoured after successful login"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login?return-to=/web/dashboard/settings"))
@@ -130,7 +130,7 @@
       (is (str/includes? (page/url pg) "/web/dashboard/settings")
           "Should redirect to the return-to URL"))))
 
-(deftest ^:e2e remember-me-checkbox-sets-cookie
+(deftest ^:integration ^:e2e remember-me-checkbox-sets-cookie
   (testing "Checking remember-me sets the remembered-email cookie after login"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))
@@ -153,7 +153,7 @@
                  (url-decoded (:value cookie)))
               "remembered-email cookie value should match the login email"))))))
 
-(deftest ^:e2e remembered-email-prefills-form-via-http
+(deftest ^:integration ^:e2e remembered-email-prefills-form-via-http
   (testing "When remembered-email cookie is set, revisiting /web/login prefills the email field"
     ;; Set the remembered-email cookie manually via JavaScript and verify
     ;; the prefill behavior.
@@ -171,7 +171,7 @@
           (is (= user-email email-val)
               "Email field should be prefilled from remembered-email cookie"))))))
 
-(deftest ^:e2e invalid-credentials-show-error-no-session
+(deftest ^:integration ^:e2e invalid-credentials-show-error-no-session
   (testing "Wrong password stays on /web/login with error feedback and no session cookie"
     (spel/with-testing-page [pg]
       (page/navigate pg (str base-url "/web/login"))

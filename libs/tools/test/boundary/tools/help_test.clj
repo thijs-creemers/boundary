@@ -8,7 +8,7 @@
 ;; Error catalog
 ;; =============================================================================
 
-(deftest error-catalog-completeness
+(deftest ^:unit error-catalog-completeness
   (testing "all error codes have required fields"
     (doseq [[code entry] @help/error-catalog]
       (is (string? (:title entry)) (str code " missing :title"))
@@ -33,7 +33,7 @@
 
 ;; BOU-76: namespace-load must not depend on the catalogue resource, so that a
 ;; consumer project depending on boundary-tools alone can run any bb task.
-(deftest read-catalog-degrades-gracefully
+(deftest ^:unit read-catalog-degrades-gracefully
   (testing "missing resource yields {} instead of throwing (consumer w/o devtools)"
     (is (= {} (#'help/read-catalog nil))))
 
@@ -52,7 +52,7 @@
 ;; Topic functions
 ;; =============================================================================
 
-(deftest topic-fns-cover-all-documented-topics
+(deftest ^:unit topic-fns-cover-all-documented-topics
   (testing "expected topics are registered"
     (let [topics (set (keys help/topic-fns))]
       (is (contains? topics "scaffold"))
@@ -65,12 +65,12 @@
 ;; State analysis (pure functions via #')
 ;; =============================================================================
 
-(deftest integrated?-test
+(deftest ^:unit integrated?-test
   (testing "detects module path in deps.edn text"
     (is (#'help/integrated? "\"libs/admin/src\"" "admin"))
     (is (not (#'help/integrated? "\"libs/admin/src\"" "user")))))
 
-(deftest non-module-libs-excludes-infrastructure
+(deftest ^:unit non-module-libs-excludes-infrastructure
   (testing "tools, devtools, and e2e are excluded"
     (let [libs @#'help/non-module-libs]
       (is (contains? libs "tools"))
@@ -81,7 +81,7 @@
 ;; General help output
 ;; =============================================================================
 
-(deftest help-general-includes-new-commands
+(deftest ^:unit help-general-includes-new-commands
   (testing "general help lists all new Phase 1 commands"
     (let [output (with-out-str ((var help/help-general)))]
       (is (re-find #"bb quickstart" output) "missing quickstart")
