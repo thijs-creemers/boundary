@@ -185,10 +185,17 @@
   #{"unit" "integration" "contract"})
 
 (def ^:private deftest-meta-pattern
-  "Matches a top-level (deftest <^:kw ...> name), capturing the keyword-shorthand
-   metadata region (group 1) and the test name (group 2). A deftest with no
-   metadata yields an empty group 1."
-  #"(?m)^\(deftest((?:\s+\^:[a-zA-Z][\w?*!+<>='-]*)*)\s+([a-zA-Z][^\s()]*)")
+  "Matches a top-level (deftest <meta ...> name), capturing the metadata region
+   (group 1) and the test name (group 2). The anchor `^\\(deftest` is deliberate:
+   real registered tests are top-level (column 0); an indented (deftest …) is
+   inside a (comment …), let, or docstring and is not a live test.
+
+   The metadata region accepts both keyword shorthand (`^:unit`) and map form
+   (`^{:kaocha.testable/meta {:unit true}}`, one level of nesting), so a deftest
+   using the map form is still scanned — it counts zero *keyword* pyramid tags
+   and is therefore flagged to use the `^:keyword` shorthand the gate and
+   `--focus-meta` rely on."
+  #"(?m)^\(deftest((?:\s+(?:\^:[a-zA-Z][\w?*!+<>='-]*|\^\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}))*)\s+([a-zA-Z][^\s()]*)")
 
 (defn read-tags-config
   "Read the optional .boundary/check-test-tags.edn allowlist. Returns a set of

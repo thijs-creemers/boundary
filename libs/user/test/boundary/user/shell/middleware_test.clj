@@ -2,7 +2,7 @@
   (:require [boundary.user.shell.middleware :as sut]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest ^:contract extract-session-token-test
+(deftest ^:unit extract-session-token-test
   (testing "decodes percent-encoded session token from cookie"
     (is (= "abc/def=="
            (sut/extract-session-token

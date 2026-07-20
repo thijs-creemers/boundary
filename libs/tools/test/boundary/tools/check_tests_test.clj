@@ -69,3 +69,11 @@
   (testing "a commented-out or string-embedded deftest is not scanned"
     (is (empty? (scan-tags "(ns x)\n;; (deftest foo (is true))\n(deftest ^:unit real (is true))\n")))
     (is (empty? (scan-tags "(ns x)\n(def s \"(deftest foo ...)\")\n(deftest ^:unit real (is true))\n")))))
+
+(deftest ^:unit tag-scan-handles-map-form-metadata
+  (testing "a deftest with a keyword tag + a trailing kaocha map is validated (1 pyramid), not skipped"
+    (is (empty? (scan-tags "(ns x)\n(deftest ^:unit ^{:kaocha.testable/meta {:unit true}} a (is true))\n"))))
+  (testing "a deftest with ONLY map-form meta counts zero keyword pyramid tags -> flagged (use ^:keyword)"
+    (let [vs (scan-tags "(ns x)\n(deftest ^{:kaocha.testable/meta {:unit true}} a (is true))\n")]
+      (is (= 1 (count vs)))
+      (is (= 0 (:count (first vs)))))))

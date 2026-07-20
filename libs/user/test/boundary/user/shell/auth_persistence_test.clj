@@ -58,7 +58,7 @@
 
 (use-fixtures :each (fn [f] (clean-test-database!) (f)))
 
-(deftest ^:unit auth-user-crud-operations
+(deftest ^:contract auth-user-crud-operations
   (testing "Create and find auth user"
     (let [repo @test-auth-repository
           auth-user {:email "test@example.com"
@@ -82,7 +82,7 @@
         (is (some? found-by-email))
         (is (= (:id created) (:id found-by-email)))))))
 
-(deftest ^:unit auth-user-update-operations
+(deftest ^:contract auth-user-update-operations
   (testing "Update auth user fields"
     (let [repo @test-auth-repository
           auth-user {:email "update-test@example.com"
@@ -104,7 +104,7 @@
         (is (= false (:active found)))
         (is (= 3 (:failed-login-count found)))))))
 
-(deftest ^:unit auth-user-mfa-operations
+(deftest ^:contract auth-user-mfa-operations
   (testing "Enable and disable MFA"
     (let [repo @test-auth-repository
           auth-user {:email "mfa-test@example.com"
@@ -138,7 +138,7 @@
         (is (= false (:mfa-enabled found)))
         (is (nil? (:mfa-secret found)))))))
 
-(deftest ^:unit auth-user-lockout-operations
+(deftest ^:contract auth-user-lockout-operations
   (testing "Increment failed logins and lockout operations"
     (let [repo @test-auth-repository
           auth-user {:email "lockout-test@example.com"
@@ -171,7 +171,7 @@
       (let [found (.find-auth-user-by-id repo (:id created))]
         (is (= 0 (:failed-login-count found)) "Failed login count should be reset to 0")))))
 
-(deftest ^:unit auth-user-soft-delete
+(deftest ^:contract auth-user-soft-delete
   (testing "Soft delete auth user"
     (let [repo @test-auth-repository
           auth-user {:email "delete-test@example.com"

@@ -630,7 +630,7 @@
                                           :where [:= :id original-id]})]
             (is (= original-id (:id updated)))))))))
 
-(deftest ^:unit ^:security create-entity-error-flash-no-leak-test
+(deftest ^:contract ^:security create-entity-error-flash-no-leak-test
   (testing "raw exception during create never echoes its message to the client (BOU-182)"
     (let [secret          "SECRET-DB-DETAIL-XYZ-123"
           stub-service    (reify admin-ports/IAdminService
