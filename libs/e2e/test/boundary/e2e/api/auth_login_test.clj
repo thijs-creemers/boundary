@@ -28,7 +28,7 @@
 ;; Tests
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e login-happy-returns-authenticated-session
+(deftest ^:integration ^:e2e login-happy-returns-authenticated-session
   (testing "Valid credentials yield authenticated:true with session data and no password-hash leak"
     (let [resp (users/login {:email    (-> fx/*seed* :admin :email)
                              :password (-> fx/*seed* :admin :password)})
@@ -52,7 +52,7 @@
         (is (not (str/includes? s "passwordHash")))
         (is (not (str/includes? s "password_hash")))))))
 
-(deftest ^:e2e login-wrong-password-returns-unauthenticated
+(deftest ^:integration ^:e2e login-wrong-password-returns-unauthenticated
   (testing "Wrong password yields authenticated:false with no session data"
     (let [resp (users/login {:email    (-> fx/*seed* :admin :email)
                              :password "Wrong-Pass-1234!"})
@@ -64,7 +64,7 @@
       (is (nil? (:sessionToken body)))
       (is (nil? (:session body))))))
 
-(deftest ^:e2e login-unknown-email-no-enumeration
+(deftest ^:integration ^:e2e login-unknown-email-no-enumeration
   (testing "Nonexistent email yields a generic failure — no user-enumeration clues"
     (let [resp (users/login {:email    "nonexistent@acme.test"
                              :password "Wrong-Pass-1234!"})

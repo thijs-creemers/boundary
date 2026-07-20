@@ -26,7 +26,7 @@
 ;; Gap 1 — missing-handler fail-fast (bounded re-enqueue → dead-letter)
 ;; =============================================================================
 
-(deftest missing-handler-requeues-then-dead-letters
+(deftest ^:unit missing-handler-requeues-then-dead-letters
   (testing "no local handler: delayed re-enqueue, then terminal DLQ once aged out"
     (let [{:keys [queue store]} (in-memory/create-in-memory-jobs-system)
           registry (worker/create-job-registry)        ; empty — no handlers
@@ -59,7 +59,7 @@
           "job landed in the dead-letter queue, not silently dropped")
       (is (zero? (ports/queue-size queue :default)) "not left on the queue"))))
 
-(deftest handlerless-worker-does-not-dead-letter-within-age-window
+(deftest ^:unit handlerless-worker-does-not-dead-letter-within-age-window
   (testing "repeated wrong-worker misses don't dead-letter a job while inside the age window"
     (let [{:keys [queue store]} (in-memory/create-in-memory-jobs-system)
           registry (worker/create-job-registry)        ; empty — no handlers
@@ -83,7 +83,7 @@
             "not in the dead-letter queue")
         (is (>= (get-in j [:metadata :requeue-count]) 20) "kept being re-enqueued, never DLQ'd")))))
 
-(deftest handlerless-worker-does-not-reacquire-parked-job-on-idle-polls
+(deftest ^:unit handlerless-worker-does-not-reacquire-parked-job-on-idle-polls
   (testing "a parked re-enqueue is not reacquired by the same worker's subsequent polls"
     (let [{:keys [queue store]} (in-memory/create-in-memory-jobs-system)
           registry (worker/create-job-registry)        ; empty — no handlers
@@ -104,7 +104,7 @@
         (is (= 1 (get-in j [:metadata :requeue-count])) "not reacquired by idle polls")
         (is (not= :failed (:status j)) "job not prematurely dead-lettered")))))
 
-(deftest handler-present-still-processes
+(deftest ^:unit handler-present-still-processes
   (testing "a job whose type has a handler is processed normally (no requeue path)"
     (let [{:keys [queue store]} (in-memory/create-in-memory-jobs-system)
           registry (worker/create-job-registry)
@@ -120,7 +120,7 @@
 ;; Gap 2 — scheduled-job atomic claim across concurrent workers
 ;; =============================================================================
 
-(deftest scheduled-jobs-claimed-exactly-once-under-concurrency
+(deftest ^:unit scheduled-jobs-claimed-exactly-once-under-concurrency
   (testing "concurrent process-scheduled-jobs! promotes each due job exactly once"
     (let [{:keys [queue]} (in-memory/create-in-memory-jobs-system)
           n-jobs   200

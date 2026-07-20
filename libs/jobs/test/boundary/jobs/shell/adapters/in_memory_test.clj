@@ -42,7 +42,7 @@
 ;; Job Queue Tests
 ;; =============================================================================
 
-(deftest enqueue-and-dequeue-test
+(deftest ^:unit enqueue-and-dequeue-test
   (testing "Enqueue and dequeue immediate job"
     (let [queue (:queue *system*)
           test-job (create-test-job)]
@@ -54,7 +54,7 @@
         (is (= :test-job (:job-type dequeued)))
         (is (zero? (ports/queue-size queue :default)))))))
 
-(deftest priority-queue-test
+(deftest ^:unit priority-queue-test
   (testing "Jobs are dequeued by priority"
     (let [queue (:queue *system*)
           low-job (create-test-job {:priority :low})
@@ -77,7 +77,7 @@
       (is (= (:id low-job) (:id (ports/dequeue-job! queue :default "test-worker"))))
       (is (zero? (ports/queue-size queue :default))))))
 
-(deftest peek-job-test
+(deftest ^:unit peek-job-test
   (testing "Peek returns next job without removing it"
     (let [queue (:queue *system*)
           test-job (create-test-job)]
@@ -90,7 +90,7 @@
         ;; Dequeue should return same job
         (is (= (:id test-job) (:id (ports/dequeue-job! queue :default "test-worker"))))))))
 
-(deftest delete-job-test
+(deftest ^:unit delete-job-test
   (testing "Delete removes job from queue"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -101,7 +101,7 @@
       (is (true? (ports/delete-job! queue (:id test-job))))
       (is (nil? (ports/find-job store (:id test-job)))))))
 
-(deftest multiple-queues-test
+(deftest ^:unit multiple-queues-test
   (testing "Different queues are independent"
     (let [queue (:queue *system*)
           job1 (create-test-job {:queue :queue1})
@@ -116,7 +116,7 @@
       (is (= (:id job1) (:id (ports/dequeue-job! queue :queue1 "test-worker"))))
       (is (= (:id job2) (:id (ports/dequeue-job! queue :queue2 "test-worker")))))))
 
-(deftest list-queues-test
+(deftest ^:unit list-queues-test
   (testing "List all queues"
     (let [queue (:queue *system*)]
       (ports/enqueue-job! queue :queue1 (create-test-job {:queue :queue1}))
@@ -130,7 +130,7 @@
 ;; Scheduled Jobs Tests
 ;; =============================================================================
 
-(deftest schedule-job-test
+(deftest ^:unit schedule-job-test
   (testing "Schedule job for future execution"
     (let [queue (:queue *system*)
           future-time (.plusSeconds (Instant/now) 60)
@@ -146,7 +146,7 @@
         (is (= 1 (count scheduled)))
         (is (= (:id test-job) (:job-id (first scheduled))))))))
 
-(deftest process-scheduled-jobs-test
+(deftest ^:unit process-scheduled-jobs-test
   (testing "Process due scheduled jobs"
     (let [queue (:queue *system*)
           past-time (.minusSeconds (Instant/now) 10)
@@ -175,7 +175,7 @@
 ;; Job Store Tests
 ;; =============================================================================
 
-(deftest save-and-find-job-test
+(deftest ^:unit save-and-find-job-test
   (testing "Save and retrieve job"
     (let [store (:store *system*)
           test-job (create-test-job)]
@@ -186,7 +186,7 @@
         (is (= (:id test-job) (:id found)))
         (is (= :test-job (:job-type found)))))))
 
-(deftest update-job-status-test
+(deftest ^:unit update-job-status-test
   (testing "Update job status to running"
     (let [store (:store *system*)
           test-job (create-test-job)]
@@ -225,7 +225,7 @@
         (is (= :failed (:status updated)))
         (is (= "Test error" (get-in updated [:error :message])))))))
 
-(deftest find-jobs-by-status-test
+(deftest ^:unit find-jobs-by-status-test
   (testing "Find jobs by status"
     (let [store (:store *system*)
           pending-job (create-test-job)
@@ -244,7 +244,7 @@
         (is (= (:id pending-job) (:id (first pending-jobs))))
         (is (= (:id completed-job) (:id (first completed-jobs))))))))
 
-(deftest find-jobs-by-type-test
+(deftest ^:unit find-jobs-by-type-test
   (testing "Find jobs by job-type"
     (let [store (:store *system*)
           email-job (create-test-job {:job-type :send-email})
@@ -257,7 +257,7 @@
         (is (= 1 (count email-jobs)))
         (is (= (:id email-job) (:id (first email-jobs))))))))
 
-(deftest find-jobs-by-queue-test
+(deftest ^:unit find-jobs-by-queue-test
   (testing "Find jobs by queue"
     (let [store (:store *system*)
           default-job (create-test-job {:queue :default})
@@ -270,7 +270,7 @@
         (is (= 1 (count default-jobs)))
         (is (= (:id default-job) (:id (first default-jobs))))))))
 
-(deftest failed-jobs-test
+(deftest ^:unit failed-jobs-test
   (testing "Track failed jobs in dead letter queue"
     (let [store (:store *system*)
           job1 (create-test-job {:max-retries 0})
@@ -289,7 +289,7 @@
         (is (= 2 (count failed)))
         (is (every? #(= :failed (:status %)) failed))))))
 
-(deftest retry-job-test
+(deftest ^:unit retry-job-test
   (testing "Retry failed job"
     (let [store (:store *system*)
           test-job (create-test-job {:max-retries 3})]
@@ -313,7 +313,7 @@
 ;; Job Statistics Tests
 ;; =============================================================================
 
-(deftest queue-stats-test
+(deftest ^:unit queue-stats-test
   (testing "Get queue statistics"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -333,7 +333,7 @@
         (is (= 1 (:size queue-stats)))  ; One still in queue
         (is (= 1 (:succeeded-total queue-stats)))))))
 
-(deftest job-stats-test
+(deftest ^:unit job-stats-test
   (testing "Get overall job statistics"
     (let [store (:store *system*)
           stats (:stats *system*)
@@ -356,7 +356,7 @@
         (is (= 1 (:total-succeeded overall-stats)))
         (is (= 1 (:total-failed overall-stats)))))))
 
-(deftest job-history-test
+(deftest ^:unit job-history-test
   (testing "Get job history by type"
     (let [store (:store *system*)
           stats (:stats *system*)
@@ -381,7 +381,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest full-job-lifecycle-test
+(deftest ^:unit full-job-lifecycle-test
   (testing "Complete job lifecycle from enqueue to completion"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -420,7 +420,7 @@
           (is (= 1 (:total-succeeded overall-stats)))
           (is (zero? (:total-failed overall-stats))))))))
 
-(deftest job-retry-lifecycle-test
+(deftest ^:unit job-retry-lifecycle-test
   (testing "Job retry after failure"
     (let [queue (:queue *system*)
           store (:store *system*)
@@ -453,7 +453,7 @@
 ;; Concurrency Tests
 ;; =============================================================================
 
-(deftest concurrent-enqueue-test
+(deftest ^:unit concurrent-enqueue-test
   (testing "Concurrent enqueue operations"
     (let [queue (:queue *system*)
           num-jobs 100
@@ -470,7 +470,7 @@
         (is (= num-jobs (count (filter some? dequeued))))
         (is (zero? (ports/queue-size queue :default)))))))
 
-(deftest concurrent-dequeue-test
+(deftest ^:unit concurrent-dequeue-test
   (testing "Concurrent dequeue operations"
     (let [queue (:queue *system*)
           num-jobs 50

@@ -6,7 +6,7 @@
 ;; Preset resolution
 ;; =============================================================================
 
-(deftest presets-contain-all-database-options
+(deftest ^:unit presets-contain-all-database-options
   (testing "all supported databases are represented"
     (let [db-values (set (map :database (vals quickstart/presets)))]
       (is (contains? db-values "h2"))
@@ -14,13 +14,13 @@
       (is (contains? db-values "sqlite"))
       (is (contains? db-values "mysql")))))
 
-(deftest presets-have-required-fields
+(deftest ^:unit presets-have-required-fields
   (testing "every preset has :database and :description"
     (doseq [[name preset] quickstart/presets]
       (is (string? (:database preset)) (str "preset " name " missing :database"))
       (is (string? (:description preset)) (str "preset " name " missing :description")))))
 
-(deftest resolve-preset-returns-preset-map
+(deftest ^:unit resolve-preset-returns-preset-map
   (testing "known presets resolve to maps"
     (is (= {:database "h2" :description "H2 in-memory, no extras"}
            (#'quickstart/resolve-preset "minimal")))
@@ -36,7 +36,7 @@
 ;; Config injection
 ;; =============================================================================
 
-(deftest inject-module-config-test
+(deftest ^:unit inject-module-config-test
   (testing "injects :boundary/tasks into single-module :active section"
     (let [tmp (java.io.File/createTempFile "config" ".edn")
           path (.getAbsolutePath tmp)]

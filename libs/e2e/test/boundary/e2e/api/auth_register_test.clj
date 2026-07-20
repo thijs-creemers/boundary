@@ -20,7 +20,7 @@
 ;; Tests
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e register-happy-creates-user
+(deftest ^:integration ^:e2e register-happy-creates-user
   (testing "New email via /web/register returns 303 redirect with session cookie, no password-hash leak"
     (let [resp (users/register {:email    "newuser@acme.test"
                                 :password "Strong-Pass-1234!"
@@ -38,7 +38,7 @@
       (is (not (str/includes? body "passwordHash")))
       (is (not (str/includes? body "password_hash"))))))
 
-(deftest ^:e2e register-duplicate-email-rejected
+(deftest ^:integration ^:e2e register-duplicate-email-rejected
   (testing "Registering with an existing email returns an error"
     (let [resp (users/register {:email    (-> fx/*seed* :admin :email)
                                 :password "Strong-Pass-1234!"
@@ -50,7 +50,7 @@
       (is (str/includes? (str/lower-case body) "already exists")
           "Response should mention the user already exists"))))
 
-(deftest ^:e2e register-weak-password-rejected
+(deftest ^:integration ^:e2e register-weak-password-rejected
   (testing "Weak password returns 400 with password validation feedback"
     (let [resp (users/register {:email    "weak@acme.test"
                                 :password "abc"

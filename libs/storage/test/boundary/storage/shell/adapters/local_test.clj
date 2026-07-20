@@ -20,7 +20,7 @@
 
 (use-fixtures :each test-fixture)
 
-(deftest create-local-storage-test
+(deftest ^:integration create-local-storage-test
   (testing "creates storage with valid config"
     (let [storage (sut/create-local-storage {:base-path test-dir
                                              :create-directories? true})]
@@ -31,7 +31,7 @@
     (is (thrown? Exception
                  (sut/create-local-storage {})))))
 
-(deftest store-and-retrieve-file-test
+(deftest ^:integration store-and-retrieve-file-test
   (let [storage (sut/create-local-storage {:base-path test-dir
                                            :url-base "http://localhost/files"})
         test-content (.getBytes "Hello, World!")
@@ -59,7 +59,7 @@
     (testing "returns nil for non-existent file"
       (is (nil? (ports/retrieve-file storage "non-existent-key"))))))
 
-(deftest file-exists-test
+(deftest ^:integration file-exists-test
   (let [storage (sut/create-local-storage {:base-path test-dir})
         file-data {:bytes (.getBytes "test")
                    :content-type "text/plain"}
@@ -72,7 +72,7 @@
       (let [result (ports/store-file storage file-data metadata)]
         (is (true? (ports/file-exists? storage (:key result))))))))
 
-(deftest delete-file-test
+(deftest ^:integration delete-file-test
   (let [storage (sut/create-local-storage {:base-path test-dir})
         file-data {:bytes (.getBytes "test")
                    :content-type "text/plain"}
@@ -88,7 +88,7 @@
     (testing "returns false when deleting non-existent file"
       (is (false? (ports/delete-file storage "non-existent"))))))
 
-(deftest generate-signed-url-test
+(deftest ^:integration generate-signed-url-test
   (let [storage (sut/create-local-storage {:base-path test-dir
                                            :url-base "http://localhost/files"})
         file-data {:bytes (.getBytes "test")
@@ -108,7 +108,7 @@
         ;; Local storage without url-base still returns URL if configured
         (is (or (nil? url) (string? url)))))))
 
-(deftest custom-path-test
+(deftest ^:integration custom-path-test
   (let [storage (sut/create-local-storage {:base-path test-dir})
         file-data {:bytes (.getBytes "test")
                    :content-type "text/plain"}
@@ -120,7 +120,7 @@
         (is (some? result))
         (is (re-find #"custom" (:key result)))))))
 
-(deftest concurrent-uploads-test
+(deftest ^:integration concurrent-uploads-test
   (let [storage (sut/create-local-storage {:base-path test-dir})
         file-data {:bytes (.getBytes "test content")
                    :content-type "text/plain"}]

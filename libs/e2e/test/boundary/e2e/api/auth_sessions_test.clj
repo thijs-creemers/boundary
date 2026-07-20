@@ -31,7 +31,7 @@
 ;; Tests
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e create-session-returns-token
+(deftest ^:integration ^:e2e create-session-returns-token
   (testing "POST /api/v1/sessions with valid creds returns authenticated:true with session"
     (let [resp (login-resp)
           body (:body resp)]
@@ -42,7 +42,7 @@
       (is (string? (get-in body [:session :id]))
           "Session should have a UUID id"))))
 
-(deftest ^:e2e session-validate-with-token-returns-200
+(deftest ^:integration ^:e2e session-validate-with-token-returns-200
   (testing "GET /api/v1/sessions/:token with actual session token returns 200"
     (let [resp      (login-resp)
           token     (:sessionToken (:body resp))
@@ -52,7 +52,7 @@
       (is (true? (get-in val-resp [:body :valid]))
           "Validated session should be marked valid"))))
 
-(deftest ^:e2e delete-session-with-token-returns-204
+(deftest ^:integration ^:e2e delete-session-with-token-returns-204
   (testing "DELETE /api/v1/sessions/:token with actual session token returns 204"
     (let [resp      (login-resp)
           token     (:sessionToken (:body resp))
@@ -60,14 +60,14 @@
       (is (= 204 (:status del-resp))
           "Session invalidation with URL-safe token should return 204"))))
 
-(deftest ^:e2e protected-endpoint-without-token-is-401
+(deftest ^:integration ^:e2e protected-endpoint-without-token-is-401
   (testing "GET /api/v1/auth/mfa/status without any credentials returns 401"
     (let [resp (http/get (str (reset/default-base-url) "/api/v1/auth/mfa/status")
                          {:accept           :json
                           :throw-exceptions false})]
       (is (= 401 (:status resp))))))
 
-(deftest ^:e2e password-hash-never-appears-in-auth-responses
+(deftest ^:integration ^:e2e password-hash-never-appears-in-auth-responses
   (testing "Neither login nor register responses contain password-hash variants"
     ;; Login response
     (let [login-body (pr-str (:body (users/login
@@ -89,7 +89,7 @@
 ;; Lockout — enforced at service level
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e lockout-enforced-after-threshold
+(deftest ^:integration ^:e2e lockout-enforced-after-threshold
   (testing "Account is locked out after 5 failed login attempts"
     ;; Fire 6 failed login attempts (threshold is 5)
     (dotimes [_ 6]

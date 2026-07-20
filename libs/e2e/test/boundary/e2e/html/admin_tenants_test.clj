@@ -15,7 +15,7 @@
 ;; List overview
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e list-shows-data-table
+(deftest ^:integration ^:e2e list-shows-data-table
   (testing "Admin tenants list page loads and shows table.data-table with expected columns"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -31,7 +31,7 @@
         (is (some #(str/includes? % "status") headers)
             "Table should have a status column")))))
 
-(deftest ^:e2e list-hides-internal-fields
+(deftest ^:integration ^:e2e list-hides-internal-fields
   (testing "Internal fields (schema-name, settings, deleted-at) are not shown in the table"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -45,7 +45,7 @@
         (is (not (some #(str/includes? % "deleted") headers))
             "deleted-at should not be a table column")))))
 
-(deftest ^:e2e search-filters-by-name
+(deftest ^:integration ^:e2e search-filters-by-name
   (testing "Search input filters the tenants table via HTMX"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -60,7 +60,7 @@
       (is (admin/has-empty-state? pg)
           "Search for nonexistent tenant should show empty state"))))
 
-(deftest ^:e2e search-htmx-no-full-reload
+(deftest ^:integration ^:e2e search-htmx-no-full-reload
   (testing "Search triggers HTMX fragment update, not a full page reload"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -76,7 +76,7 @@
 ;; Detail & edit
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e detail-shows-field-groups
+(deftest ^:integration ^:e2e detail-shows-field-groups
   (testing "Tenant detail page shows field groups 'identity' and 'state'"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -87,7 +87,7 @@
       (is (admin/field-group-visible? pg "state")
           "Field group 'state' (status, schema-name) should be visible"))))
 
-(deftest ^:e2e detail-shows-editable-fields
+(deftest ^:integration ^:e2e detail-shows-editable-fields
   (testing "Tenant detail page shows editable fields and excludes readonly fields"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -106,7 +106,7 @@
       (is (zero? (loc/count-elements (page/locator pg "form.entity-form [name='created-at']")))
           "Readonly field 'created-at' should not be in the editable form"))))
 
-(deftest ^:e2e edit-name-change
+(deftest ^:integration ^:e2e edit-name-change
   (testing "Changing tenant name and submitting persists correctly"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)
@@ -125,7 +125,7 @@
         (is (= "Updated Acme" name-value)
             "Name should be updated to 'Updated Acme' after form submission")))))
 
-(deftest ^:e2e soft-delete-removes-from-list
+(deftest ^:integration ^:e2e soft-delete-removes-from-list
   (testing "Soft-deleting a tenant via the detail page delete button removes it from the list"
     (spel/with-testing-page [pg]
       (admin/login-as-admin! pg fx/*seed*)

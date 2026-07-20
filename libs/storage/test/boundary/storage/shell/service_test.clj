@@ -30,7 +30,7 @@
      (sut/create-storage-service {:storage storage
                                   :image-processor image-processor}))))
 
-(deftest upload-file-test
+(deftest ^:integration upload-file-test
   (let [service (create-test-service)
         file-data {:bytes (.getBytes "Test content")
                    :content-type "text/plain"
@@ -68,7 +68,7 @@
         (is (not (:success result)))
         (is (some #(= :invalid-extension (:code %)) (:errors result)))))))
 
-(deftest download-file-test
+(deftest ^:integration download-file-test
   (let [service (create-test-service)
         file-data {:bytes (.getBytes "Download test")
                    :content-type "text/plain"}
@@ -85,7 +85,7 @@
     (testing "returns nil for non-existent file"
       (is (nil? (sut/download-file service "non-existent-key"))))))
 
-(deftest remove-file-test
+(deftest ^:integration remove-file-test
   (let [service (create-test-service)
         file-data {:bytes (.getBytes "Remove test")
                    :content-type "text/plain"}
@@ -100,7 +100,7 @@
     (testing "returns false for non-existent file"
       (is (false? (sut/remove-file service "non-existent"))))))
 
-(deftest get-file-url-test
+(deftest ^:integration get-file-url-test
   (let [service (create-test-service)
         file-data {:bytes (.getBytes "URL test")
                    :content-type "text/plain"}
@@ -113,7 +113,7 @@
         ;; URL may be nil for local storage without url-base
         (is (or (nil? url) (string? url)))))))
 
-(deftest upload-image-test
+(deftest ^:integration upload-image-test
   (testing "uploads image without image processor"
     (let [service (create-test-service)
           ;; Simple 1x1 PNG image
@@ -141,7 +141,7 @@
               ;; Or succeed if validation is lenient
               (:success result))))))
 
-(deftest multiple-file-operations-test
+(deftest ^:integration multiple-file-operations-test
   (let [service (create-test-service)
         files (for [i (range 5)]
                 {:data {:bytes (.getBytes (str "Content " i))
@@ -166,7 +166,7 @@
               deletions (map #(sut/remove-file service %) keys)]
           (is (every? true? deletions)))))))
 
-(deftest error-handling-test
+(deftest ^:integration error-handling-test
   (let [service (create-test-service)]
 
     (testing "handles missing filename gracefully"

@@ -48,7 +48,7 @@
 ;; Tests
 ;; ---------------------------------------------------------------------------
 
-(deftest ^:e2e mfa-setup-authenticated-user
+(deftest ^:integration ^:e2e mfa-setup-authenticated-user
   (testing "POST /api/v1/auth/mfa/setup with valid session token returns 200 or 401 (cookie encoding), never 500"
     (let [token (login-token)
           resp  (mfa-api-post "/api/v1/auth/mfa/setup" {} token)]
@@ -63,7 +63,7 @@
         (is (vector? (get-in resp [:body :backupCodes]))
             "Response should contain backup codes")))))
 
-(deftest ^:e2e mfa-status-authenticated-user
+(deftest ^:integration ^:e2e mfa-status-authenticated-user
   (testing "GET /api/v1/auth/mfa/status with valid session token returns 200 or 401, never 500"
     (let [token (login-token)
           resp  (mfa-api-get "/api/v1/auth/mfa/status" token)]
@@ -75,7 +75,7 @@
         (is (false? (:enabled (:body resp)))
             "MFA should be disabled by default")))))
 
-(deftest ^:e2e mfa-enable-wrong-code-rejected
+(deftest ^:integration ^:e2e mfa-enable-wrong-code-rejected
   (testing "POST /api/v1/auth/mfa/enable with wrong code should not succeed"
     (let [token (login-token)
           resp  (mfa-api-post "/api/v1/auth/mfa/enable"
@@ -87,7 +87,7 @@
       (is (not= 200 (:status resp))
           "Enabling MFA with a wrong code must not succeed"))))
 
-(deftest ^:e2e mfa-unauthenticated-returns-401
+(deftest ^:integration ^:e2e mfa-unauthenticated-returns-401
   (testing "GET /api/v1/auth/mfa/status without any credentials returns 401"
     (let [resp (http/get (str (reset/default-base-url) "/api/v1/auth/mfa/status")
                          {:accept           :json

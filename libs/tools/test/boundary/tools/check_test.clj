@@ -8,7 +8,7 @@
 ;; Check definitions
 ;; =============================================================================
 
-(deftest all-checks-have-required-fields
+(deftest ^:unit all-checks-have-required-fields
   (testing "every check has :id, :label, :cmd"
     (doseq [c check/all-checks]
       (is (keyword? (:id c)) (str "check missing :id"))
@@ -19,13 +19,13 @@
 ;; Linting command — glob expansion (BOU-103)
 ;; =============================================================================
 
-(deftest linting-cmd-contains-no-unexpanded-glob
+(deftest ^:unit linting-cmd-contains-no-unexpanded-glob
   (testing "no path contains a literal '*' wildcard"
     (doseq [arg (check/linting-cmd)]
       (is (not (str/includes? arg "*"))
           (str "linting cmd arg still contains an unexpanded glob: " arg)))))
 
-(deftest linting-cmd-paths-all-exist
+(deftest ^:unit linting-cmd-paths-all-exist
   (testing "every lint path beyond the leading clojure invocation is an existing directory"
     ;; cmd = ["clojure" "-M:clj-kondo" "--lint" <path>...]
     (let [paths (drop 4 (check/linting-cmd))]
@@ -33,7 +33,7 @@
         (is (.isDirectory (io/file p))
             (str "lint path does not exist: " p))))))
 
-(deftest lib-lint-paths-enumerates-existing-lib-dirs
+(deftest ^:unit lib-lint-paths-enumerates-existing-lib-dirs
   (testing "returns concrete libs/<lib>/src and libs/<lib>/test dirs when libs/ present"
     (let [paths (check/lib-lint-paths)]
       (when (.isDirectory (io/file "libs"))
@@ -41,7 +41,7 @@
         (is (every? #(str/starts-with? % "libs/") paths))
         (is (every? #(.isDirectory (io/file %)) paths))))))
 
-(deftest quick-check-ids-are-subset-of-all-checks
+(deftest ^:unit quick-check-ids-are-subset-of-all-checks
   (testing "all quick-check-ids exist in all-checks"
     (let [all-ids (set (map :id check/all-checks))]
       (doseq [qid check/quick-check-ids]
@@ -52,7 +52,7 @@
 ;; Argument parsing
 ;; =============================================================================
 
-(deftest parse-args-test
+(deftest ^:unit parse-args-test
   (testing "defaults when no args"
     (let [opts (#'check/parse-args [])]
       (is (false? (:quick opts)))
