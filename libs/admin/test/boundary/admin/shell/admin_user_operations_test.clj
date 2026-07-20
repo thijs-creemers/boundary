@@ -168,7 +168,7 @@
 ;; Update tests
 ;; =============================================================================
 
-(deftest update-primary-field-persists-to-users-table
+(deftest ^:integration update-primary-field-persists-to-users-table
   (testing "Updating :name (primary field) writes to users table"
     (let [id (insert-user! "primary@test.com" "OldName")]
       (ports/update-entity *admin-service* :admin-users id {:name "NewName"})
@@ -181,7 +181,7 @@
       (is (= "admin" (:role (fetch-profile id)))
           "role must be updated in users table"))))
 
-(deftest update-secondary-field-persists-to-auth-users-table
+(deftest ^:integration update-secondary-field-persists-to-auth-users-table
   (testing "Updating :email (secondary field) writes to auth_users table"
     (let [id (insert-user! "old@test.com" "EmailUser")]
       (ports/update-entity *admin-service* :admin-users id {:email "new@test.com"})
@@ -194,7 +194,7 @@
       (is (false? (:active (fetch-auth id)))
           "active must be updated in auth_users table"))))
 
-(deftest update-mixed-fields-updates-both-tables-atomically
+(deftest ^:integration update-mixed-fields-updates-both-tables-atomically
   (testing "Updating fields across both tables in one call"
     (let [id (insert-user! "mixed@test.com" "MixedUser")]
       (ports/update-entity *admin-service* :admin-users id
@@ -206,7 +206,7 @@
       (is (false? (:active (fetch-auth id)))
           "active must persist to auth_users"))))
 
-(deftest update-returns-full-joined-record
+(deftest ^:integration update-returns-full-joined-record
   (testing "update-entity return value includes fields from both tables"
     (let [id     (insert-user! "return@test.com" "ReturnUser")
           result (ports/update-entity *admin-service* :admin-users id {:name "ReturnNew"})]
@@ -214,7 +214,7 @@
       (is (= "ReturnNew" (:name result)) "returned record must reflect updated name")
       (is (some? (:email result)) "returned record must include email from auth_users"))))
 
-(deftest inline-edit-secondary-field-routes-to-auth-users
+(deftest ^:integration inline-edit-secondary-field-routes-to-auth-users
   (testing "update-entity-field for :email writes to auth_users"
     (let [id (insert-user! "inline-email@test.com" "InlineUser")]
       (ports/update-entity-field *admin-service* :admin-users id :email "inline-new@test.com")
@@ -227,14 +227,14 @@
       (is (false? (:active (fetch-auth id)))
           "active must persist to auth_users via inline edit"))))
 
-(deftest inline-edit-primary-field-routes-to-users
+(deftest ^:integration inline-edit-primary-field-routes-to-users
   (testing "update-entity-field for :name writes to users"
     (let [id (insert-user! "inline-name@test.com" "Before")]
       (ports/update-entity-field *admin-service* :admin-users id :name "After")
       (is (= "After" (:name (fetch-profile id)))
           "name must persist to users via inline edit"))))
 
-(deftest transaction-rollback-on-secondary-failure
+(deftest ^:integration transaction-rollback-on-secondary-failure
   (with-silent-logging
     (testing "When secondary UPDATE fails, primary UPDATE rolls back"
       (let [id-a (insert-user! "tx-a@test.com" "User A")
@@ -251,7 +251,7 @@
 ;; Soft-delete and list tests
 ;; =============================================================================
 
-(deftest list-excludes-soft-deleted-users
+(deftest ^:integration list-excludes-soft-deleted-users
   (testing "Soft-deleted users do not appear in list"
     (let [live-id    (insert-user! "live@test.com" "Live User")
           deleted-id (insert-user! "deleted@test.com" "Deleted User")]
@@ -265,7 +265,7 @@
         (is (not (contains? ids deleted-id))
             "soft-deleted user must NOT appear in list")))))
 
-(deftest delete-entity-soft-deletes-on-auth-users
+(deftest ^:integration delete-entity-soft-deletes-on-auth-users
   (testing "delete-entity sets deleted_at on auth_users, not users"
     (let [id (insert-user! "softdel@test.com" "SoftDel")]
       (ports/delete-entity *admin-service* :admin-users id)
@@ -278,7 +278,7 @@
         (is (some? profile-row)
             "users row must still exist after soft-delete")))))
 
-(deftest delete-entity-sets-active-false-on-soft-delete
+(deftest ^:integration delete-entity-sets-active-false-on-soft-delete
   (testing "delete-entity sets active=false on auth_users during soft-delete"
     (let [id (insert-user! "deactivate@test.com" "ActiveUser" true "user")]
       (ports/delete-entity *admin-service* :admin-users id)
@@ -290,7 +290,7 @@
 ;; Bulk-delete tests
 ;; =============================================================================
 
-(deftest bulk-delete-soft-deletes-on-auth-users
+(deftest ^:integration bulk-delete-soft-deletes-on-auth-users
   (testing "bulk-delete-entities sets deleted_at on auth_users rows"
     (let [id-1 (insert-user! "bulk1@test.com" "Bulk One")
           id-2 (insert-user! "bulk2@test.com" "Bulk Two")
@@ -307,7 +307,7 @@
         (is (nil? (:deleted-at auth-3))
             "auth_users.deleted_at must NOT be set for kept user")))))
 
-(deftest bulk-delete-does-not-delete-users-rows
+(deftest ^:integration bulk-delete-does-not-delete-users-rows
   (testing "bulk-delete-entities does not hard-delete users table rows"
     (let [id-1 (insert-user! "nodelbulk1@test.com" "NoDel One")
           id-2 (insert-user! "nodelbulk2@test.com" "NoDel Two")]
@@ -318,7 +318,7 @@
       (is (some? (fetch-profile id-2))
           "users row must still exist after bulk soft-delete"))))
 
-(deftest bulk-deleted-users-excluded-from-list
+(deftest ^:integration bulk-deleted-users-excluded-from-list
   (testing "Users bulk-deleted do not appear in list"
     (let [id-1 (insert-user! "bulklist1@test.com" "BulkList One")
           id-2 (insert-user! "bulklist2@test.com" "BulkList Two")

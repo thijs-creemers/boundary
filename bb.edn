@@ -92,6 +92,8 @@
                            :task (check-tests/-main)}
   check:test-meta {:doc "Detect deftest metadata placed after the name (breaks --focus-meta) (bb check:test-meta)"
                    :task (check-tests/check-deftest-metadata)}
+  check:test-tags {:doc "Enforce exactly one pyramid tag (^:unit/^:integration/^:contract) per deftest (bb check:test-tags)"
+                   :task (check-tests/check-test-tags)}
   check:deps {:doc "Verify library dependency direction and detect cycles (bb check:deps)"
               :task (check-deps/-main)}
   check:ports {:doc "Hexagonal boundary enforcement — modules must define ports.clj; shell/web must not bypass protocols (bb check:ports)"

@@ -5,7 +5,7 @@
             [clojure.test :refer [deftest is testing]])
   (:import (java.util UUID)))
 
-(deftest ^:security ^:unit jwt-secret-validation-test
+(deftest ^:unit ^:security jwt-secret-validation-test
   (testing "a missing or blank secret is rejected"
     (is (thrown? clojure.lang.ExceptionInfo (#'auth/validate-jwt-secret* nil)))
     (is (thrown? clojure.lang.ExceptionInfo (#'auth/validate-jwt-secret* ""))))
@@ -16,7 +16,7 @@
       (is (= 32 (count secret)))
       (is (= secret (#'auth/validate-jwt-secret* secret))))))
 
-(deftest ^:security ^:unit jwt-algorithm-pinning-test
+(deftest ^:unit ^:security jwt-algorithm-pinning-test
   ;; Relies on JWT_SECRET being set for the test run (>= 32 chars).
   (let [user {:id (UUID/randomUUID) :email "user@example.com" :role :user}]
     (testing "a token this service issued round-trips"

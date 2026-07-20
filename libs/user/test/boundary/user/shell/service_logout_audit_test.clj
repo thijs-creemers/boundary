@@ -47,7 +47,7 @@
 
 (use-fixtures :once (fn [f] (setup-test-db) (try (f) (finally (teardown-test-db)))))
 
-(deftest logout-creates-audit-entry-test
+(deftest ^:integration logout-creates-audit-entry-test
   (testing "logout writes a :logout audit record for the session user"
     (let [service @test-service
           user-repo @test-user-repository

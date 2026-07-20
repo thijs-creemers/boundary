@@ -38,7 +38,7 @@
 ;; Email Validation Snapshots
 ;; =============================================================================
 
-(deftest email-validation-success-snapshot
+(deftest ^:unit email-validation-success-snapshot
   (testing "Valid email produces success result"
     (let [request (assoc valid-user-request :email "valid@example.com")
           result (user-core/validate-user-creation-request request vh/test-validation-config)]
@@ -48,7 +48,7 @@
         :test 'email-validation-success
         :seed 42}))))
 
-(deftest email-validation-invalid-format-snapshot
+(deftest ^:unit email-validation-invalid-format-snapshot
   (testing "Invalid email format produces structured error"
     (let [request (assoc valid-user-request :email "not-an-email")
           result (user-core/validate-user-creation-request request vh/test-validation-config)]
@@ -58,7 +58,7 @@
         :test 'email-validation-invalid-format
         :seed 43}))))
 
-(deftest email-validation-missing-snapshot
+(deftest ^:unit email-validation-missing-snapshot
   (testing "Missing email produces required field error"
     (let [request (dissoc valid-user-request :email)
           result (user-core/validate-user-creation-request request vh/test-validation-config)]
@@ -72,7 +72,7 @@
 ;; Name Validation Snapshots
 ;; =============================================================================
 
-(deftest name-validation-too-short-snapshot
+(deftest ^:unit name-validation-too-short-snapshot
   (testing "Empty name produces length validation error"
     (let [request (assoc valid-user-request :name "")
           result (user-core/validate-user-creation-request request vh/test-validation-config)]
@@ -82,7 +82,7 @@
         :test 'name-validation-too-short
         :seed 45}))))
 
-(deftest name-validation-too-long-snapshot
+(deftest ^:unit name-validation-too-long-snapshot
   (testing "Name over 255 characters produces length validation error"
     (let [too-long-name (apply str (repeat 256 "a"))
           request (assoc valid-user-request :name too-long-name)
@@ -93,7 +93,7 @@
         :test 'name-validation-too-long
         :seed 46}))))
 
-(deftest name-validation-boundary-snapshot
+(deftest ^:unit name-validation-boundary-snapshot
   (testing "Name at exactly 255 characters passes validation"
     (let [max-length-name (apply str (repeat 255 "a"))
           request (assoc valid-user-request :name max-length-name)
@@ -108,7 +108,7 @@
 ;; Multiple Field Validation Snapshots
 ;; =============================================================================
 
-(deftest multiple-validation-errors-snapshot
+(deftest ^:unit multiple-validation-errors-snapshot
   (testing "Multiple missing fields produce aggregated errors"
     (let [request {:role :user} ; missing email, name
           result (user-core/validate-user-creation-request request vh/test-validation-config)]
@@ -118,7 +118,7 @@
         :test 'multiple-validation-errors
         :seed 48}))))
 
-(deftest complete-valid-user-snapshot
+(deftest ^:unit complete-valid-user-snapshot
   (testing "All valid fields pass validation"
     (let [result (user-core/validate-user-creation-request valid-user-request vh/test-validation-config)]
       (snapshot-io/check-snapshot!
@@ -131,7 +131,7 @@
 ;; Business Rule Validation Snapshots
 ;; =============================================================================
 
-(deftest email-change-forbidden-snapshot
+(deftest ^:unit email-change-forbidden-snapshot
   (testing "Email change produces business rule error"
     (let [current-user {:id fixed-user-id
                         :email "old@example.com"
@@ -154,7 +154,7 @@
 ;; User Preparation Snapshots
 ;; =============================================================================
 
-(deftest prepare-user-for-creation-snapshot
+(deftest ^:unit prepare-user-for-creation-snapshot
   (testing "User preparation adds required fields with business defaults"
     (let [result (user-core/prepare-user-for-creation
                   valid-user-request
@@ -166,7 +166,7 @@
         :test 'prepare-user-for-creation
         :seed 52}))))
 
-(deftest prepare-user-for-soft-deletion-snapshot
+(deftest ^:unit prepare-user-for-soft-deletion-snapshot
   (testing "Soft deletion sets deleted-at and active flags"
     (let [user {:id fixed-user-id
                 :email "test@example.com"

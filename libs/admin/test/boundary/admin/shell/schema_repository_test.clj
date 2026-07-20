@@ -106,7 +106,7 @@
 ;; Table Metadata Fetching Tests
 ;; =============================================================================
 
-(deftest fetch-table-metadata-test
+(deftest ^:integration fetch-table-metadata-test
   (testing "Fetch table metadata from H2 database"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:simple-table}}
@@ -147,7 +147,7 @@
 ;; Entity Configuration Building Tests
 ;; =============================================================================
 
-(deftest get-entity-config-auto-detection-test
+(deftest ^:integration get-entity-config-auto-detection-test
   (testing "Auto-detect entity configuration from database schema"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:complex-table}}
@@ -243,7 +243,7 @@
         ;; complex_table has deleted_at column
         (is (true? (:soft-delete entity-config)))))))
 
-(deftest get-entity-config-manual-overrides-test
+(deftest ^:integration get-entity-config-manual-overrides-test
   (testing "Manual configuration overrides auto-detected values"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:complex-table}}
@@ -289,7 +289,7 @@
       ;; Should have auto-detected fields
       (is (map? (:fields entity-config))))))
 
-(deftest get-entity-config-soft-vs-hard-delete-test
+(deftest ^:integration get-entity-config-soft-vs-hard-delete-test
   (testing "Soft delete detection based on deleted_at column"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:complex-table :hard-delete-table}}
@@ -304,7 +304,7 @@
         (let [hard-delete-config (ports/get-entity-config repo :hard-delete-table)]
           (is (false? (:soft-delete hard-delete-config))))))))
 
-(deftest get-entity-config-nullable-fields-test
+(deftest ^:integration get-entity-config-nullable-fields-test
   (testing "Nullable vs required field detection"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:nullable-table}}
@@ -324,7 +324,7 @@
 ;; Entity Discovery Tests
 ;; =============================================================================
 
-(deftest list-available-entities-allowlist-test
+(deftest ^:integration list-available-entities-allowlist-test
   (testing "Entity discovery with allowlist mode"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:simple-table :complex-table}}
@@ -348,7 +348,7 @@
           entities (ports/list-available-entities repo)]
       (is (= 0 (count entities))))))
 
-(deftest list-available-entities-unsupported-modes-test
+(deftest ^:integration list-available-entities-unsupported-modes-test
   (testing "Denylist mode not yet implemented (Week 2+)"
     (let [config {:entity-discovery {:mode :denylist
                                      :denylist #{:simple-table}}
@@ -374,7 +374,7 @@
 ;; Entity Validation Tests
 ;; =============================================================================
 
-(deftest validate-entity-exists-test
+(deftest ^:integration validate-entity-exists-test
   (testing "Validate entity is in allowlist"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:simple-table :complex-table}}
@@ -393,7 +393,7 @@
 ;; Entity Label Tests
 ;; =============================================================================
 
-(deftest get-entity-label-test
+(deftest ^:integration get-entity-label-test
   (testing "Get entity label"
     (testing "With manual label in config"
       (let [config {:entity-discovery {:mode :allowlist
@@ -416,7 +416,7 @@
 ;; Multi-Database Support Tests
 ;; =============================================================================
 
-(deftest multi-database-support-test
+(deftest ^:integration multi-database-support-test
   (testing "Schema repository works with different database adapters"
     ;; Week 1: Only H2 tested
     ;; Week 2+: Test with PostgreSQL, MySQL, SQLite
@@ -435,7 +435,7 @@
 ;; UI Config Merging Tests
 ;; =============================================================================
 
-(deftest get-entity-config-ui-merging-test
+(deftest ^:integration get-entity-config-ui-merging-test
   (testing "Global and entity-level :ui config merging"
     (testing "Entity :ui overrides global :ui"
       (let [config {:entity-discovery {:mode :allowlist
@@ -494,7 +494,7 @@
 ;; Field Order Tests
 ;; =============================================================================
 
-(deftest get-entity-config-field-order-test
+(deftest ^:integration get-entity-config-field-order-test
   (testing "Field order reorders editable-fields and detail-fields via get-entity-config"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:complex-table}}
@@ -552,7 +552,7 @@
 ;; Error Handling Tests
 ;; =============================================================================
 
-(deftest error-handling-test
+(deftest ^:integration error-handling-test
   (testing "Fetch metadata for non-existent table"
     (let [config {:entity-discovery {:mode :allowlist
                                      :allowlist #{:nonexistent}}

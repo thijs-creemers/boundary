@@ -200,7 +200,7 @@
 ;; Page Handler Tests
 ;; =============================================================================
 
-(deftest users-page-handler-test
+(deftest ^:contract users-page-handler-test
   (testing "renders users page with users list"
     (let [user1 (create-test-user {:name "Alice" :email "alice@example.com"})
           user2 (create-test-user {:name "Bob" :email "bob@example.com"})
@@ -267,7 +267,7 @@
       (is (= 500 (:status response)))
       (is (html-contains? response "Database connection failed")))))
 
-(deftest web-root-page-handler-test
+(deftest ^:contract web-root-page-handler-test
   (testing "renders translated public landing page through html-response"
     (let [service (create-mock-service)
           handler (web-handlers/web-root-page-handler service {})
@@ -295,7 +295,7 @@
       (is (= 302 (:status response)))
       (is (= "/web/dashboard" (get-in response [:headers "Location"]))))))
 
-(deftest user-detail-page-handler-test
+(deftest ^:contract user-detail-page-handler-test
   (testing "renders user detail page for existing user"
     (let [user (create-test-user {:name "Alice" :email "alice@example.com"})
           service (create-mock-service {(:id user) user})
@@ -358,7 +358,7 @@
       (is (= 500 (:status response)))
       (is (html-contains? response "Database error")))))
 
-(deftest create-user-page-handler-test
+(deftest ^:contract create-user-page-handler-test
   (testing "renders create user page"
     (let [config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
           handler (web-handlers/create-user-page-handler config)
@@ -382,7 +382,7 @@
 ;; HTMX Fragment Handler Tests
 ;; =============================================================================
 
-(deftest users-table-fragment-handler-test
+(deftest ^:contract users-table-fragment-handler-test
   (testing "returns users table fragment"
     (let [user1 (create-test-user {:name "Alice"})
           user2 (create-test-user {:name "Bob"})
@@ -427,7 +427,7 @@
       (is (= 500 (:status response)))
       (is (html-contains? response "Connection timeout")))))
 
-(deftest create-user-htmx-handler-test
+(deftest ^:contract create-user-htmx-handler-test
   (testing "creates user successfully and instructs HTMX to navigate to return-to"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
@@ -552,7 +552,7 @@
       (is (html-contains? response "User Fail User created"))
       (is (not (html-contains? response "welcome email sent"))))))
 
-(deftest update-user-htmx-handler-test
+(deftest ^:contract update-user-htmx-handler-test
   (testing "updates user successfully and re-renders form with success banner"
     (let [user (create-test-user {:name "Original Name"})
           service (create-mock-service {(:id user) user})
@@ -631,7 +631,7 @@
       (is (= 500 (:status response)))
       (is (html-contains? response "Database error")))))
 
-(deftest delete-user-htmx-handler-test
+(deftest ^:contract delete-user-htmx-handler-test
   (testing "deactivates user successfully and returns success message"
     (let [user (create-test-user {})
           service (create-mock-service {(:id user) user})
@@ -689,7 +689,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest web-handlers-integration-test
+(deftest ^:contract web-handlers-integration-test
   (testing "complete workflow: list -> create -> view -> update -> delete"
     (let [service (create-mock-service)
           config {:active {:boundary/settings {:user-limits {:max-users 1000}}}}
@@ -737,7 +737,7 @@
       (is (= 200 (:status delete-response)))
       (is (has-header? delete-response "HX-Trigger" "userDeleted")))))
 
-(deftest ^:security login-cookie-secure-attribute-test
+(deftest ^:contract ^:security login-cookie-secure-attribute-test
   (testing "session-token cookie :secure follows config :secure-cookies?"
     (let [auth-svc (reify ports/IUserService
                      (authenticate-user [_ _]

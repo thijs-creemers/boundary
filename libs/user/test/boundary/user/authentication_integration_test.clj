@@ -40,7 +40,7 @@
 ;; Authentication Core Tests
 ;; =============================================================================
 
-(deftest test-authentication-core-functions
+(deftest ^:unit test-authentication-core-functions
   (testing "validate-login-credentials"
     (let [valid-credentials {:email "test@example.com" :password "password123"}
           invalid-credentials {:email "test@example.com"}]
@@ -117,7 +117,7 @@
 ;; Authentication Shell Tests  
 ;; =============================================================================
 
-(deftest test-authentication-shell-functions
+(deftest ^:unit test-authentication-shell-functions
   (testing "password hashing and verification"
     (let [plain-password "test-password-123"
           hashed-password (auth-shell/hash-password plain-password)]
@@ -159,7 +159,7 @@
 ;; Schema Validation Tests
 ;; =============================================================================
 
-(deftest test-authentication-schemas
+(deftest ^:unit test-authentication-schemas
   (testing "LoginRequest schema"
     (let [valid-login {:email "test@example.com" :password "password123"}
           invalid-login {:email "not-an-email" :password "123"}]
@@ -183,7 +183,7 @@
 ;; Password Policy Tests
 ;; =============================================================================
 
-(deftest test-password-policies
+(deftest ^:unit test-password-policies
   (testing "meets-password-policy?"
     (let [policy {:min-length 8 :require-uppercase true :require-lowercase true :require-numbers true}
           user-context {:email "test@example.com"}]

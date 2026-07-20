@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest ^:security ^:unit totp-secret-encryption-test
+(deftest ^:unit ^:security totp-secret-encryption-test
   (let [secret "JBSWY3DPEHPK3PXP"
         enc    (sut/encrypt-secret secret)]
     (testing "the stored value is not the plaintext secret"
@@ -23,7 +23,7 @@
       (is (nil? (sut/encrypt-secret nil)))
       (is (nil? (sut/decrypt-secret nil))))))
 
-(deftest ^:security ^:unit backup-code-hashing-test
+(deftest ^:unit ^:security backup-code-hashing-test
   (let [code "ABCD-1234-EFGH"
         hash (sut/hash-backup-code code)]
     (testing "the stored value is a bcrypt hash, not the plaintext code"

@@ -84,7 +84,7 @@
   (ttl [_ _key] nil)
   (expire! [_ _key _ttl-seconds] true))
 
-(deftest validate-session-survives-nil-update-test
+(deftest ^:unit validate-session-survives-nil-update-test
   (testing "a valid session is returned even when update-session returns nil"
     (let [user-id (UUID/randomUUID)
           session {:id (UUID/randomUUID)
@@ -106,7 +106,7 @@
       (is (= user-id
              (:user-id (ports/validate-session service "token-123")))))))
 
-(deftest register-or-authenticate-user-test
+(deftest ^:unit register-or-authenticate-user-test
   (testing "registers a brand new user when email does not exist yet"
     (let [state (atom {})
           service (sut/->UserService
@@ -177,7 +177,7 @@
           (is (= user-id (get-in result [:user :id])))
           (is (= "session-123" (get-in result [:auth-result :session :session-token]))))))))
 
-(deftest claim-user-identity-test
+(deftest ^:unit claim-user-identity-test
   (testing "registers a new user and returns an authenticated session"
     (let [state (atom {})
           service (sut/->UserService
@@ -305,7 +305,7 @@
           (is (= :internal-error (:type (ex-data ex))))
           (is (= "new@example.nl" (:email (ex-data ex)))))))))
 
-(deftest permanently-delete-user-blocks-tenant-references-test
+(deftest ^:unit permanently-delete-user-blocks-tenant-references-test
   (testing "hard delete is blocked when tenant references still exist"
     (let [user-id (UUID/randomUUID)
           user {:id user-id :email "existing@example.nl"}
@@ -333,7 +333,7 @@
         (catch clojure.lang.ExceptionInfo ex
           (is (= :hard-deletion-not-allowed (:type (ex-data ex)))))))))
 
-(deftest user-query-operations-test
+(deftest ^:unit user-query-operations-test
   (testing "get-user-by-id strips password hash and caches the safe user"
     (let [user-id (UUID/randomUUID)
           repo-state (atom {user-id {:id user-id
@@ -396,7 +396,7 @@
       (is (= {:users [(dissoc user :password-hash)] :total-count 1}
              (ports/list-users service {:limit 10}))))))
 
-(deftest user-mutation-operations-test
+(deftest ^:unit user-mutation-operations-test
   (testing "logout invalidates cache and writes an audit entry for an existing session"
     (let [user-id (UUID/randomUUID)
           session-id (UUID/randomUUID)
@@ -515,7 +515,7 @@
       (is (some #(= [:delete (str "user:" user-id)] %) @cache-ops))
       (is (= 1 (count @audit-entries))))))
 
-(deftest change-password-test
+(deftest ^:unit change-password-test
   (testing "change-password updates the stored hash and records an audit entry"
     (let [user-id (UUID/randomUUID)
           now (Instant/parse "2026-03-25T11:00:00Z")

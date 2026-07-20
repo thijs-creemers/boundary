@@ -7,7 +7,7 @@
 ;; Tag this namespace for Kaocha metadata-based filters
 (alter-meta! *ns* assoc :user true)
 
-(deftest test-validate-user-creation-request
+(deftest ^:unit test-validate-user-creation-request
   (testing "Valid user creation request"
     (let [user-data {:email "test@example.com"
                      :name "Test User"
@@ -17,7 +17,7 @@
       (is (:valid? result))
       (is (= user-data (:data result))))))
 
-(deftest test-can-delete-user
+(deftest ^:unit test-can-delete-user
   (testing "Regular user can be deleted"
     (let [user {:email "test@example.com" :role :user}
           result (user-core/can-delete-user? user)]
@@ -29,7 +29,7 @@
       (is (not (:allowed? result)))
       (is (= :system-user (:reason result))))))
 
-(deftest test-basic-functions-exist
+(deftest ^:unit test-basic-functions-exist
   (testing "Core functions exist and can be called"
     (is (fn? user-core/validate-user-creation-request))
     (is (fn? user-core/can-delete-user?))

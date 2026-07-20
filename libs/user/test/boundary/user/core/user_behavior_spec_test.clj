@@ -91,7 +91,7 @@
     :action validate-create-user
     :assertions [{:expect :failure}]}])
 
-(deftest user-create-behavior-suite
+(deftest ^:unit user-create-behavior-suite
   (testing "User Create behavior scenarios"
     (doseq [sc scenarios]
       (let [[_test-name f] (first (behavior/compile-scenarios [sc] {}))

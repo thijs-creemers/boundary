@@ -12,7 +12,7 @@
    :user-id (java.util.UUID/randomUUID)
    :created-at (java.time.Instant/now)})
 
-(deftest validate-user-test
+(deftest ^:unit validate-user-test
   (testing "validates complete valid user"
     (is (true? (schema/validate-user valid-user))))
 

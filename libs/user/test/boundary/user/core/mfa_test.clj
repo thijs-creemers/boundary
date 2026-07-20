@@ -11,7 +11,7 @@
 ;; MFA Requirement Tests
 ;; =============================================================================
 
-(deftest should-require-mfa-test
+(deftest ^:unit ^:security should-require-mfa-test
   (testing "MFA requirement determination"
     (testing "requires MFA when enabled for user"
       (let [user {:mfa-enabled true}
@@ -37,7 +37,7 @@
             result (mfa/should-require-mfa? user risk-analysis)]
         (is (or (false? result) (nil? result)))))))
 
-(deftest determine-mfa-requirement-test
+(deftest ^:unit ^:security determine-mfa-requirement-test
   (testing "MFA requirement logic for login"
     (testing "requires MFA when enabled and password valid"
       (let [user {:mfa-enabled true}
@@ -78,7 +78,7 @@
 ;; MFA Enablement Tests
 ;; =============================================================================
 
-(deftest can-enable-mfa-test
+(deftest ^:unit ^:security can-enable-mfa-test
   (testing "MFA enablement business rules"
     (testing "can enable when not already enabled and user is active"
       (let [user {:mfa-enabled false :active true}
@@ -119,7 +119,7 @@
         (is (false? (:can-enable? result)))
         (is (= "User not found" (:reason result)))))))
 
-(deftest prepare-mfa-enablement-test
+(deftest ^:unit ^:security prepare-mfa-enablement-test
   (testing "Prepare user data for MFA enablement"
     (let [user {:id "user-123" :email "test@example.com" :mfa-enabled false}
           secret "ABCDEFGH12345678"
@@ -149,7 +149,7 @@
 ;; MFA Disablement Tests
 ;; =============================================================================
 
-(deftest can-disable-mfa-test
+(deftest ^:unit ^:security can-disable-mfa-test
   (testing "MFA disablement business rules"
     (testing "can disable when enabled"
       (let [user {:mfa-enabled true}
@@ -178,7 +178,7 @@
         (is (false? (:can-disable? result)))
         (is (= "User not found" (:reason result)))))))
 
-(deftest prepare-mfa-disablement-test
+(deftest ^:unit ^:security prepare-mfa-disablement-test
   (testing "Prepare user data for MFA disablement"
     (let [user {:id "user-123"
                 :email "test@example.com"
@@ -215,7 +215,7 @@
 ;; boundary.user.shell.mfa-test. The former pure plaintext-compare tests are
 ;; removed with the functions they covered.
 
-(deftest count-remaining-backup-codes-test
+(deftest ^:unit ^:security count-remaining-backup-codes-test
   (testing "Count remaining backup codes"
     (testing "counts correctly when all codes available"
       (let [user {:mfa-backup-codes ["CODE1" "CODE2" "CODE3"]

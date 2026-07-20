@@ -78,7 +78,7 @@
 ;; Utility Function Tests
 ;; =============================================================================
 
-(deftest format-field-label-test
+(deftest ^:unit format-field-label-test
   (testing "Format field names as human-readable labels"
     (is (= "Email" (ui/format-field-label :email)))
     (is (= "Created at" (ui/format-field-label :created-at)))
@@ -87,7 +87,7 @@
     (is (= "First name" (ui/format-field-label :first-name)))
     (is (= "Id" (ui/format-field-label :id)))))
 
-(deftest get-field-errors-test
+(deftest ^:unit get-field-errors-test
   (testing "Extract errors for specific field from validation result"
     (testing "Errors as map (field -> vector of messages)"
       (let [errors {:email ["Required field" "Invalid format"]
@@ -116,7 +116,7 @@
       (is (= [] (ui/get-field-errors [] :email)))
       (is (= [] (ui/get-field-errors nil :email))))))
 
-(deftest build-table-url-test
+(deftest ^:unit build-table-url-test
   (testing "Build table URL with query parameters"
     (testing "Base URL with no parameters"
       (let [url (ui/build-table-url :users {})]
@@ -149,7 +149,7 @@
         (is (str/includes? url "page=1"))
         (is (str/includes? url "page-size=20"))))))
 
-(deftest entity-create-url-test
+(deftest ^:unit entity-create-url-test
   (testing "Default generic admin create URL when no delegate configured"
     (is (= "/web/admin/users/new"
            (ui/entity-create-url :users {:label "Users"})))
@@ -188,7 +188,7 @@
 ;; Field Rendering Tests
 ;; =============================================================================
 
-(deftest render-field-value-test
+(deftest ^:unit render-field-value-test
   (testing "Render field values for display in tables/detail views"
     (testing "Nil values"
       (let [result (ui/render-field-value :email nil {:type :string})]
@@ -254,7 +254,7 @@
 ;; Form Widget Tests
 ;; =============================================================================
 
-(deftest render-field-widget-test
+(deftest ^:unit render-field-widget-test
   (testing "Render form input widgets based on field configuration"
     (testing "Text input widget"
       (let [widget (ui/render-field-widget :name "John"
@@ -375,7 +375,7 @@
 ;; Layout Component Tests
 ;; =============================================================================
 
-(deftest admin-sidebar-test
+(deftest ^:unit admin-sidebar-test
   (testing "Admin sidebar with entity navigation"
     (let [entities [:users :orders :products]
           sidebar (ui/admin-sidebar entities sample-entity-configs :users)]
@@ -398,7 +398,7 @@
       ;; Current entity should have active class
       (is (str/includes? (str sidebar) "active")))))
 
-(deftest admin-shell-test
+(deftest ^:unit admin-shell-test
   (testing "Admin shell layout with sidebar and topbar"
     (let [content [:div "Main content"]
           opts {:user sample-user
@@ -435,7 +435,7 @@
       ;; Shell should have Alpine state bindings
       (is (str/includes? (str shell) "$store.sidebar.state")))))
 
-(deftest admin-layout-test
+(deftest ^:unit admin-layout-test
   (testing "Complete admin page layout"
     (let [content [:div "Page content"]
           opts {:user sample-user
@@ -451,7 +451,7 @@
       ;; The layout/page-layout function wraps everything
       (is (str/includes? (str layout) "Page content")))))
 
-(deftest admin-home-test
+(deftest ^:unit admin-home-test
   (testing "Admin dashboard home page"
     (let [entities [:users :orders :products]
           stats {:users {:count 42}
@@ -484,7 +484,7 @@
 ;; Entity List Component Tests
 ;; =============================================================================
 
-(deftest entity-search-form-test
+(deftest ^:unit entity-search-form-test
   (testing "Entity search form for filtering"
     (testing "Entity with search fields"
       (let [form (ui/entity-search-form :users sample-entity-config "test" nil)]
@@ -507,7 +507,7 @@
         ;; Should return nil when no search fields
         (is (nil? form))))))
 
-(deftest entity-table-row-test
+(deftest ^:unit entity-table-row-test
   (testing "Entity table row generation"
     (let [row (ui/entity-table-row :users sample-record sample-entity-config sample-permissions)]
 
@@ -548,7 +548,7 @@
       ;; Chevron nav hint is also hidden when the row isn't navigable
       (is (not (str/includes? row-str "row-nav-hint"))))))
 
-(deftest entity-edit-form-return-to-encoding-test
+(deftest ^:unit entity-edit-form-return-to-encoding-test
   (testing "return_to is URL-encoded on the edit form action"
     ;; When an edit page is reached from a contextual list URL that
     ;; already carries query parameters (filters, pagination, etc.), the
@@ -566,7 +566,7 @@
       (is (not (str/includes? form-str "return_to=/web/admin/users?page=2&"))
           "edit form action must not contain the raw unencoded return_to value"))))
 
-(deftest entity-table-test
+(deftest ^:unit entity-table-test
   (testing "Complete entity table with records"
     (let [records [sample-record]
           table-query {:page 1 :page-size 20 :sort :email :dir :asc}
@@ -604,7 +604,7 @@
         ;; Should show create button if can-create (i18n key)
         (is (str/includes? (str table) ":admin/button-create-first-record"))))))
 
-(deftest entity-list-page-test
+(deftest ^:unit entity-list-page-test
   (testing "Complete entity list page"
     (let [records [sample-record]
           table-query {:page 1 :page-size 20}
@@ -629,7 +629,7 @@
       ;; Should have the table
       (is (str/includes? (str page) "user@example.com")))))
 
-(deftest entity-list-page-delegated-create-preserves-context-test
+(deftest ^:unit entity-list-page-delegated-create-preserves-context-test
   (testing "Delegated create button on list page preserves caller filter/pagination context"
     ;; When the entity delegates creation via :create-redirect-url, the hero
     ;; "New" button and the empty-state create button must carry the current
@@ -653,7 +653,7 @@
       (is (not (str/includes? page-str "/web/admin/users/new"))
           "must not fall through to the generic admin create URL"))))
 
-(deftest entity-table-empty-state-delegated-create-preserves-context-test
+(deftest ^:unit entity-table-empty-state-delegated-create-preserves-context-test
   (testing "Delegated empty-state create button preserves caller context"
     (let [delegated-config (assoc sample-entity-config
                                   :create-redirect-url "/web/users/new")
@@ -670,7 +670,7 @@
 ;; Column Width Tests
 ;; =============================================================================
 
-(deftest list-column-weight-test
+(deftest ^:unit list-column-weight-test
   (testing "Explicit :width overrides any type-based default"
     (is (= 9 (ui/list-column-weight :anything {:type :boolean :width 9})))
     (is (= 2 (ui/list-column-weight :name {:type :string :width 2}))))
@@ -719,7 +719,7 @@
   [[_ {:keys [style]}]]
   (-> style (str/replace #"[^0-9.]" "") Double/parseDouble))
 
-(deftest list-column-styles-test
+(deftest ^:unit list-column-styles-test
   (let [cfg {:fields {:name        {:type :string}
                       :active      {:type :boolean}
                       :description {:type :text}
@@ -762,7 +762,7 @@
 ;; Entity Form Tests
 ;; =============================================================================
 
-(deftest entity-form-test
+(deftest ^:unit entity-form-test
   (testing "Entity create/edit form generation"
     (testing "Create form (new record)"
       (let [form (ui/entity-form :users sample-entity-config nil nil sample-permissions)]
@@ -806,7 +806,7 @@
         (is (str/includes? (str form) "Required field"))
         (is (str/includes? (str form) "Too short"))))))
 
-(deftest entity-detail-page-test
+(deftest ^:unit entity-detail-page-test
   (testing "Entity detail/edit page"
     (testing "Edit existing record"
       (let [page (ui/entity-detail-page :users sample-entity-config sample-record
@@ -832,7 +832,7 @@
         ;; Should have create title i18n key
         (is (str/includes? (str page) ":admin/page-create-title"))))))
 
-(deftest entity-new-page-test
+(deftest ^:unit entity-new-page-test
   (testing "Entity creation page (convenience wrapper)"
     (let [page (ui/entity-new-page :users sample-entity-config nil sample-permissions nil)]
       (is (vector? page))
@@ -845,7 +845,7 @@
 ;; Dialog Component Tests
 ;; =============================================================================
 
-(deftest confirm-delete-dialog-test
+(deftest ^:unit confirm-delete-dialog-test
   (testing "Confirmation dialog for delete operations"
     (let [dialog (ui/confirm-delete-dialog :users "123")]
       (is (vector? dialog))
@@ -866,7 +866,7 @@
 ;; Error Page Tests
 ;; =============================================================================
 
-(deftest admin-forbidden-page-test
+(deftest ^:unit admin-forbidden-page-test
   (testing "403 Forbidden error page"
     (let [page (ui/admin-forbidden-page "You must be an admin" sample-user)]
       (is (vector? page))
@@ -888,7 +888,7 @@
         ;; Should have link to login (i18n key)
         (is (str/includes? (str page) ":admin/button-login"))))))
 
-(deftest admin-not-found-page-test
+(deftest ^:unit admin-not-found-page-test
   (testing "404 Not Found error page for admin entities"
     (let [page (ui/admin-not-found-page :users sample-user)]
       (is (vector? page))
@@ -907,7 +907,7 @@
 ;; HTMX Integration Tests
 ;; =============================================================================
 
-(deftest htmx-attributes-test
+(deftest ^:unit htmx-attributes-test
   (testing "HTMX attributes are correctly generated"
     (testing "Table has HTMX trigger for entity events"
       (let [table (ui/entity-table :users [sample-record] sample-entity-config
@@ -931,7 +931,7 @@
 ;; Permission-Based UI Tests
 ;; =============================================================================
 
-(deftest permission-based-ui-test
+(deftest ^:unit permission-based-ui-test
   (testing "UI elements shown/hidden based on permissions"
     (testing "Create button shown when can-create"
       (let [page (ui/entity-list-page :users [] sample-entity-config
@@ -963,7 +963,7 @@
 ;; Accessibility Tests
 ;; =============================================================================
 
-(deftest accessibility-form-labels-test
+(deftest ^:unit accessibility-form-labels-test
   (testing "Form inputs have associated labels"
     (testing "Text input has label with for attribute"
       (let [widget (ui/render-field-widget :name "John"
@@ -991,7 +991,7 @@
             (is (str/includes? widget-str ":label")
                 (str "Missing label for field: " field-name))))))))
 
-(deftest accessibility-aria-labels-test
+(deftest ^:unit accessibility-aria-labels-test
   (testing "Interactive elements have aria-label attributes"
     (testing "Icon buttons have aria-label"
       (let [page (ui/entity-list-page :users [sample-record] sample-entity-config
@@ -1017,7 +1017,7 @@
         (is (str/includes? row-str "clickable-row"))
         (is (str/includes? row-str "row-nav-hint"))))))
 
-(deftest accessibility-semantic-html-test
+(deftest ^:unit accessibility-semantic-html-test
   (testing "Pages use semantic HTML elements"
     (testing "Sidebar uses nav element"
       (let [sidebar (ui/admin-sidebar [:users] sample-entity-configs :users)]
@@ -1038,7 +1038,7 @@
       (let [form (ui/entity-form :users sample-entity-config nil nil sample-permissions)]
         (is (= :form.entity-form (first form)))))))
 
-(deftest accessibility-required-fields-test
+(deftest ^:unit accessibility-required-fields-test
   (testing "Required fields are properly marked"
     (testing "Required indicator in label"
       (let [widget (ui/render-field-widget :email "test@example.com"
@@ -1060,7 +1060,7 @@
         ;; Should have required attribute
         (is (str/includes? widget-str ":required true"))))))
 
-(deftest accessibility-error-messages-test
+(deftest ^:unit accessibility-error-messages-test
   (testing "Validation errors are properly associated with fields"
     (testing "Error messages displayed near field"
       (let [widget (ui/render-field-widget :email ""
@@ -1084,7 +1084,7 @@
         (is (str/includes? page-str "Required"))
         (is (str/includes? page-str "Too short"))))))
 
-(deftest accessibility-color-contrast-test
+(deftest ^:unit accessibility-color-contrast-test
   (testing "Status indicators use both color and text"
     (testing "Boolean field shows text (not just color)"
       (let [active-result (ui/render-field-value :active true {:type :boolean})
@@ -1116,7 +1116,7 @@
             :active {:type :boolean :label "Active"}
             :bio {:type :text :label "Biography"}}})
 
-(deftest entity-form-grouped-rendering-test
+(deftest ^:unit entity-form-grouped-rendering-test
   (testing "Entity form renders field groups when :field-groups is configured"
     (let [form (ui/entity-form :users sample-grouped-entity-config nil nil sample-permissions)
           form-str (str form)]
@@ -1139,7 +1139,7 @@
         (is (str/includes? form-str "active"))
         (is (str/includes? form-str "bio"))))))
 
-(deftest entity-form-flat-rendering-test
+(deftest ^:unit entity-form-flat-rendering-test
   (testing "Entity form renders flat fields when no :field-groups configured"
     (let [form (ui/entity-form :users sample-entity-config nil nil sample-permissions)
           form-str (str form)]
@@ -1153,7 +1153,7 @@
         (is (str/includes? form-str "name"))
         (is (str/includes? form-str "active"))))))
 
-(deftest field-grouping-other-label-test
+(deftest ^:unit field-grouping-other-label-test
   (testing "Other group uses configured label"
     (testing "Uses entity-level override"
       (let [config (assoc sample-grouped-entity-config
@@ -1172,7 +1172,7 @@
         ;; Should use default "Other" (i18n marker)
         (is (str/includes? form-str ":admin/fieldgroup-other"))))))
 
-(deftest field-grouping-filters-non-editable-test
+(deftest ^:unit field-grouping-filters-non-editable-test
   (testing "Groups only contain editable fields"
     (let [;; Config where :role is in a group but NOT in editable-fields
           config (-> sample-grouped-entity-config
@@ -1188,7 +1188,7 @@
       ;; The word "role" might appear elsewhere (like in the :role keyword as data)
       (is (not (str/includes? form-str ":name \"role\""))))))
 
-(deftest field-grouping-empty-groups-excluded-test
+(deftest ^:unit field-grouping-empty-groups-excluded-test
   (testing "Groups with no editable fields are not rendered"
     (let [;; Config where Access Control group's fields are not editable
           config (-> sample-grouped-entity-config

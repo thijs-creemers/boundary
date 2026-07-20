@@ -41,7 +41,7 @@
 ;; validate-login-credentials
 ;; =============================================================================
 
-(deftest validate-login-credentials-test
+(deftest ^:unit validate-login-credentials-test
   (testing "valid credentials pass schema"
     (let [result (auth/validate-login-credentials
                   {:email "user@example.com" :password "password123"})]
@@ -65,7 +65,7 @@
 ;; should-allow-login-attempt?
 ;; =============================================================================
 
-(deftest should-allow-login-attempt?-test
+(deftest ^:unit should-allow-login-attempt?-test
   (testing "returns false when user is nil"
     (let [result (auth/should-allow-login-attempt? nil login-config now)]
       (is (false? (:allowed? result)))
@@ -102,7 +102,7 @@
 ;; calculate-failed-login-consequences
 ;; =============================================================================
 
-(deftest calculate-failed-login-consequences-test
+(deftest ^:unit calculate-failed-login-consequences-test
   (testing "increments failed-login-count"
     (let [result (auth/calculate-failed-login-consequences active-user login-config now)]
       (is (= 1 (:failed-login-count result)))))
@@ -130,7 +130,7 @@
 ;; prepare-successful-login-updates
 ;; =============================================================================
 
-(deftest prepare-successful-login-updates-test
+(deftest ^:unit prepare-successful-login-updates-test
   (testing "resets security counters and sets last-login"
     (let [user (assoc active-user :failed-login-count 3 :login-count 5)
           updates (auth/prepare-successful-login-updates user now)]
@@ -143,7 +143,7 @@
 ;; analyze-login-risk
 ;; =============================================================================
 
-(deftest analyze-login-risk-test
+(deftest ^:unit analyze-login-risk-test
   (testing "zero risk for known IP and user-agent, recent activity"
     (let [recent-sessions [{:ip-address "1.2.3.4" :user-agent "Chrome/120"}]
           user (assoc active-user :last-login recent :role :user)
@@ -187,7 +187,7 @@
 ;; should-create-session?
 ;; =============================================================================
 
-(deftest should-create-session?-test
+(deftest ^:unit should-create-session?-test
   (testing "always creates session"
     (is (true? (:create-session? (auth/should-create-session? active-user low-risk {})))))
 
@@ -214,7 +214,7 @@
 ;; meets-password-policy?
 ;; =============================================================================
 
-(deftest meets-password-policy?-test
+(deftest ^:unit meets-password-policy?-test
   (testing "valid password passes"
     (let [result (auth/meets-password-policy? "Str0ng!P@ss" strict-policy nil)]
       (is (true? (:valid? result)))
@@ -251,7 +251,7 @@
 ;; should-require-password-reset?
 ;; =============================================================================
 
-(deftest should-require-password-reset?-test
+(deftest ^:unit should-require-password-reset?-test
   (testing "requires reset when no password hash"
     (let [user (dissoc active-user :password-hash)
           result (auth/should-require-password-reset? user now policy)]
@@ -278,7 +278,7 @@
 ;; calculate-password-strength
 ;; =============================================================================
 
-(deftest calculate-password-strength-test
+(deftest ^:unit calculate-password-strength-test
   (testing "weak password scores low"
     (let [result (auth/calculate-password-strength "abc")]
       (is (= :weak (:strength-level result)))

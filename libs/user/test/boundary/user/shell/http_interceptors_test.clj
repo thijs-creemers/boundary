@@ -37,7 +37,7 @@
 ;; Authentication Interceptor Tests
 ;; =============================================================================
 
-(deftest require-authenticated-test
+(deftest ^:contract require-authenticated-test
   (testing "allows authenticated requests"
     (let [request {:session {:user {:id "user-123" :role "user"}}}
           ctx (create-test-context request)
@@ -60,7 +60,7 @@
       (is (= "Authentication required" (get-in result [:response :body :message]))
           "Should have error message"))))
 
-(deftest error-response-lets-muuntaja-encode-body-test
+(deftest ^:contract error-response-lets-muuntaja-encode-body-test
   ;; ZZP-120: create-error-response used to hardcode a "Content-Type" header.
   ;; muuntaja's format-response middleware SKIPS encoding when the response
   ;; already carries a Content-Type, so the Clojure-map :body was handed to
@@ -84,7 +84,7 @@
       (is (not (contains? headers "Content-Type"))
           "must not hardcode Content-Type — it suppresses muuntaja encoding"))))
 
-(deftest require-authenticated-halts-pipeline-test
+(deftest ^:contract require-authenticated-halts-pipeline-test
   ;; ZZP-117: require-authenticated short-circuits by setting only :response.
   ;; Run it through the real pipeline (guard then a would-be handler) and assert
   ;; the handler never executes — the engine must halt on :response, so the 401
@@ -115,7 +115,7 @@
 ;; Authorization Interceptor Tests
 ;; =============================================================================
 
-(deftest require-admin-test
+(deftest ^:contract require-admin-test
   (testing "allows admin users"
     (let [request {:session {:user {:id "admin-123" :role "admin"}}}
           ctx (create-test-context request)
@@ -145,7 +145,7 @@
       (is (= 403 (get-in result [:response :status]))
           "Should return 403 Forbidden"))))
 
-(deftest require-platform-admin-test
+(deftest ^:contract require-platform-admin-test
   (testing "allows platform admins"
     (let [request {:session {:user {:id "admin-123" :role :admin}}}
           ctx (create-test-context request)
@@ -167,7 +167,7 @@
       (is (= 403 (get-in result [:response :status])))
       (is (= "Platform admin required" (get-in result [:response :body :message]))))))
 
-(deftest require-unauthenticated-test
+(deftest ^:contract require-unauthenticated-test
   (testing "allows anonymous requests"
     (let [ctx (create-test-context {:session {}})
           result ((:enter http-int/require-unauthenticated) ctx)]
@@ -179,7 +179,7 @@
       (is (= 403 (get-in result [:response :status])))
       (is (= "Already authenticated" (get-in result [:response :body :message]))))))
 
-(deftest require-role-test
+(deftest ^:contract require-role-test
   (testing "supports keyword and string role normalization"
     (let [manager-check (http-int/require-role "manager")
           keyword-check (http-int/require-role :manager)]
@@ -195,7 +195,7 @@
       (is (= 403 (get-in result [:response :status])))
       (is (= "Role required: manager" (get-in result [:response :body :message]))))))
 
-(deftest require-self-or-admin-test
+(deftest ^:contract require-self-or-admin-test
   (testing "allows users to access their own resource"
     (let [ctx (assoc (create-test-context {:session {:user {:id #uuid "00000000-0000-0000-0000-000000000123"
                                                             :role :user}}})
@@ -220,7 +220,7 @@
 ;; Audit Logging Interceptor Tests
 ;; =============================================================================
 
-(deftest log-action-test
+(deftest ^:contract log-action-test
   (testing "logs successful actions (2xx)"
     (let [request {:uri "/api/users"
                    :request-method :post
@@ -245,7 +245,7 @@
       (is (= 400 (get-in result [:response :status]))
           "Should preserve error response"))))
 
-(deftest log-all-actions-test
+(deftest ^:contract log-all-actions-test
   (testing "preserves successful responses"
     (let [ctx (create-test-context {:uri "/api/admin/users"
                                     :request-method :delete
@@ -266,7 +266,7 @@
 ;; Interceptor Composition Tests
 ;; =============================================================================
 
-(deftest admin-endpoint-stack-test
+(deftest ^:contract admin-endpoint-stack-test
   (testing "admin-endpoint-stack has correct interceptors"
     (is (= 3 (count http-int/admin-endpoint-stack))
         "Should have 3 interceptors")
@@ -277,7 +277,7 @@
     (is (= :log-action (:name (nth http-int/admin-endpoint-stack 2)))
         "Third interceptor should be log-action")))
 
-(deftest user-endpoint-stack-test
+(deftest ^:contract user-endpoint-stack-test
   (testing "user-endpoint-stack has correct interceptors"
     (is (= 2 (count http-int/user-endpoint-stack))
         "Should have 2 interceptors")
@@ -290,7 +290,7 @@
 ;; Integration: Multiple Interceptors
 ;; =============================================================================
 
-(deftest multiple-interceptors-integration-test
+(deftest ^:contract multiple-interceptors-integration-test
   (testing "authentication + authorization chain"
     (let [request {:session {:user {:id "user-123" :role "user"}}}
           ctx (create-test-context request)
@@ -336,7 +336,7 @@
 ;; Tenant Membership Interceptor Tests (ADR-016)
 ;; =============================================================================
 
-(deftest require-web-tenant-admin-test
+(deftest ^:contract require-web-tenant-admin-test
   (let [active-admin-membership {:status :active :role :admin}
         active-member-membership {:status :active :role :member}]
 

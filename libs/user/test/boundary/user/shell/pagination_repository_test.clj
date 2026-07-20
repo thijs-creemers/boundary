@@ -109,7 +109,7 @@
       (:login-count user)])
     user))
 
-(deftest repository-pagination-test
+(deftest ^:contract repository-pagination-test
   (testing "Repository returns paginated results"
     (let [repo @test-repository]
       ;; Create 25 test users

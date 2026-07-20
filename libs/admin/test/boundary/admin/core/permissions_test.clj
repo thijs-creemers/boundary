@@ -52,7 +52,7 @@
 ;; Role-Based Permission Checks
 ;; =============================================================================
 
-(deftest has-role?-test
+(deftest ^:unit has-role?-test
   (testing "Check if user has specific role"
     (testing "Admin user"
       (is (permissions/has-role? admin-user :admin))
@@ -77,7 +77,7 @@
       (is (not (permissions/has-role? user-without-role :admin)))
       (is (not (permissions/has-role? user-without-role :user))))))
 
-(deftest is-admin?-test
+(deftest ^:unit is-admin?-test
   (testing "Check if user is admin"
     (is (permissions/is-admin? admin-user))
     (is (not (permissions/is-admin? regular-user)))
@@ -85,7 +85,7 @@
     (is (not (permissions/is-admin? nil)))
     (is (not (permissions/is-admin? user-without-role)))))
 
-(deftest is-authenticated?-test
+(deftest ^:unit is-authenticated?-test
   (testing "Check if user is authenticated"
     (testing "Users with roles are authenticated"
       (is (permissions/is-authenticated? admin-user))
@@ -105,7 +105,7 @@
 ;; Admin Access Control
 ;; =============================================================================
 
-(deftest can-access-admin?-test
+(deftest ^:unit can-access-admin?-test
   (testing "Week 1: Admin access requires :admin role"
     (testing "Admin user can access"
       (is (permissions/can-access-admin? admin-user))
@@ -122,7 +122,7 @@
     (testing "User without role cannot access"
       (is (not (permissions/can-access-admin? user-without-role))))))
 
-(deftest explain-admin-access-denial-test
+(deftest ^:unit explain-admin-access-denial-test
   (testing "Explanation for admin access denial"
     (testing "Nil user"
       (let [explanation (permissions/explain-admin-access-denial nil)]
@@ -153,7 +153,7 @@
 ;; Entity-Level Permissions
 ;; =============================================================================
 
-(deftest can-view-entity?-test
+(deftest ^:unit can-view-entity?-test
   (testing "Week 1: Admin can view all entities"
     (testing "Admin user"
       (is (permissions/can-view-entity? admin-user :users))
@@ -169,14 +169,14 @@
     (testing "Nil user cannot view"
       (is (not (permissions/can-view-entity? nil :users))))))
 
-(deftest can-create-entity?-test
+(deftest ^:unit can-create-entity?-test
   (testing "Week 1: Admin can create in all entities"
     (is (permissions/can-create-entity? admin-user :users))
     (is (permissions/can-create-entity? admin-user :orders))
     (is (not (permissions/can-create-entity? regular-user :users)))
     (is (not (permissions/can-create-entity? nil :users)))))
 
-(deftest can-edit-entity?-test
+(deftest ^:unit can-edit-entity?-test
   (testing "Week 1: Admin can edit all entities"
     (testing "Admin user"
       (is (permissions/can-edit-entity? admin-user :users))
@@ -190,7 +190,7 @@
     (testing "Nil user cannot edit"
       (is (not (permissions/can-edit-entity? nil :users))))))
 
-(deftest can-delete-entity?-test
+(deftest ^:unit can-delete-entity?-test
   (testing "Week 1: Admin can delete from all entities"
     (testing "Admin user"
       (is (permissions/can-delete-entity? admin-user :users))
@@ -204,7 +204,7 @@
     (testing "Nil user cannot delete"
       (is (not (permissions/can-delete-entity? nil :users))))))
 
-(deftest can-bulk-delete-entity?-test
+(deftest ^:unit can-bulk-delete-entity?-test
   (testing "Week 1: Bulk delete same as single delete"
     (is (permissions/can-bulk-delete-entity? admin-user :users))
     (is (permissions/can-bulk-delete-entity? admin-user :users {}))
@@ -215,7 +215,7 @@
 ;; Entity Filtering
 ;; =============================================================================
 
-(deftest filter-visible-entities-test
+(deftest ^:unit filter-visible-entities-test
   (testing "Filter entities based on view permissions"
     (let [all-entities #{:users :orders :products}]
 
@@ -245,7 +245,7 @@
               visible (permissions/filter-visible-entities admin-user all-entities configs)]
           (is (= 3 (count visible))))))))
 
-(deftest get-accessible-entities-count-test
+(deftest ^:unit get-accessible-entities-count-test
   (testing "Count accessible entities"
     (let [entities #{:users :orders :products}]
       (is (= 3 (permissions/get-accessible-entities-count admin-user entities)))
@@ -256,7 +256,7 @@
 ;; Permission Metadata
 ;; =============================================================================
 
-(deftest get-entity-permissions-test
+(deftest ^:unit get-entity-permissions-test
   (testing "Get all permission flags for entity"
     (testing "Admin user permissions"
       (let [perms (permissions/get-entity-permissions admin-user :users)]
@@ -287,7 +287,7 @@
         (is (true? (:can-view perms)))
         (is (true? (:can-delete perms)))))))
 
-(deftest get-admin-permissions-test
+(deftest ^:unit get-admin-permissions-test
   (testing "Get global admin permissions"
     (testing "Admin user"
       (let [perms (permissions/get-admin-permissions admin-user)]

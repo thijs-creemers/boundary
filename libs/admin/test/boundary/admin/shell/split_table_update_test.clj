@@ -180,7 +180,7 @@
 ;; Tests
 ;; =============================================================================
 
-(deftest split-update-updates-both-tables
+(deftest ^:integration split-update-updates-both-tables
   (testing "Updating email (auth) and name (profile) touches both tables"
     (let [id (insert-split-user! "original@example.com" "OriginalName")
           _  (ports/update-entity *admin-service* :test-profiles id
@@ -188,21 +188,21 @@
       (is (= "new@example.com" (:email (fetch-auth-row id))))
       (is (= "Alice" (:name (fetch-profile-row id)))))))
 
-(deftest primary-only-update-leaves-auth-untouched
+(deftest ^:integration primary-only-update-leaves-auth-untouched
   (testing "Updating only name (profile) leaves test_auth row unchanged"
     (let [id (insert-split-user! "keep@example.com" "OldName")]
       (ports/update-entity *admin-service* :test-profiles id {:name "Bob"})
       (is (= "keep@example.com" (:email (fetch-auth-row id))))
       (is (= "Bob" (:name (fetch-profile-row id)))))))
 
-(deftest secondary-only-update-leaves-profile-untouched
+(deftest ^:integration secondary-only-update-leaves-profile-untouched
   (testing "Updating only email (auth) leaves test_profiles row unchanged"
     (let [id (insert-split-user! "change-me@example.com" "Unchanged")]
       (ports/update-entity *admin-service* :test-profiles id {:email "changed@example.com"})
       (is (= "changed@example.com" (:email (fetch-auth-row id))))
       (is (= "Unchanged" (:name (fetch-profile-row id)))))))
 
-(deftest transaction-rolls-back-primary-on-secondary-failure
+(deftest ^:integration transaction-rolls-back-primary-on-secondary-failure
   (with-silent-logging
     (testing "When secondary UPDATE fails, primary UPDATE is rolled back"
       ;; Arrange: two users; B's email will be the duplicate target
@@ -218,7 +218,7 @@
         ;; Assert: A's email is still its original value
         (is (= "user-a@example.com" (:email (fetch-auth-row id-a))))))))
 
-(deftest inline-edit-secondary-field-routes-to-correct-table
+(deftest ^:integration inline-edit-secondary-field-routes-to-correct-table
   (testing "update-entity-field for a secondary field writes to the secondary table"
     (let [id (insert-split-user! "inline@example.com" "Inline User")]
       (ports/update-entity-field *admin-service* :test-profiles id :email "inline-new@example.com")
@@ -235,7 +235,7 @@
       ;; test_auth.email must be untouched
       (is (= "inline2@example.com" (:email (fetch-auth-row id)))))))
 
-(deftest non-split-entity-unchanged
+(deftest ^:integration non-split-entity-unchanged
   (testing "Single-table entities still work after split-table code path was added"
     (let [id  (UUID/randomUUID)
           now (.toString (Instant/now))]

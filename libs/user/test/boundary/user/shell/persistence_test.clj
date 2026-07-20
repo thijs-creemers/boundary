@@ -28,7 +28,7 @@
     (table-exists? [_ _ _] false)
     (get-table-info [_ _ _] [])))
 
-(deftest db->user-entity-normalizes-types-and-preferences
+(deftest ^:contract db->user-entity-normalizes-types-and-preferences
   (let [ctx {:adapter (adapter-stub {:dialect :sqlite
                                      :jdbc-driver "org.sqlite.JDBC"})}
         user-id (str (UUID/randomUUID))
@@ -67,7 +67,7 @@
     (is (= ["abc" "def"] (:mfa-backup-codes result)))
     (is (= ["abc"] (:mfa-backup-codes-used result)))))
 
-(deftest session-and-audit-transformations-handle-serialized-fields
+(deftest ^:contract session-and-audit-transformations-handle-serialized-fields
   (testing "session entities are converted to DB field names"
     (let [session-id (UUID/randomUUID)
           user-id (UUID/randomUUID)
@@ -120,7 +120,7 @@
       (is (= "Unexpected JSON field type" (ex-message ex)))
       (is (= java.lang.Long (type (:value (ex-data ex))))))))
 
-(deftest schema-upgrade-helpers-add-only-missing-columns
+(deftest ^:contract schema-upgrade-helpers-add-only-missing-columns
   (testing "auth_users audit columns use sqlite text columns when missing"
     (let [ddl-statements (atom [])
           ctx {:adapter (adapter-stub {:dialect :sqlite
@@ -151,7 +151,7 @@
                 "ALTER TABLE users ADD COLUMN timezone VARCHAR(255)"]
                @ddl-statements))))))
 
-(deftest business-specific-queries-are-bounded
+(deftest ^:contract business-specific-queries-are-bounded
   (let [ctx {:adapter (adapter-stub {:dialect :sqlite
                                      :jdbc-driver "org.sqlite.JDBC"})}
         repo (sut/->DatabaseUserRepository ctx)
@@ -184,7 +184,7 @@
         (is (= core-query/max-pagination-limit (:limit @captured)))
         (is (= 0 (:offset @captured)))))))
 
-(deftest create-user-repository-runs-preference-upgrade
+(deftest ^:contract create-user-repository-runs-preference-upgrade
   (let [ctx {:adapter (adapter-stub {:dialect :postgresql
                                      :jdbc-driver "org.postgresql.Driver"})}
         called? (atom false)

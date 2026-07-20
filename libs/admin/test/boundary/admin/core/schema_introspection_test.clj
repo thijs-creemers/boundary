@@ -16,7 +16,7 @@
 ;; SQL Type Normalization and Inference Tests
 ;; =============================================================================
 
-(deftest normalize-sql-type-test
+(deftest ^:unit normalize-sql-type-test
   (testing "SQL type normalization handles various database type formats"
     (testing "PostgreSQL types"
       (is (= "varchar" (introspection/normalize-sql-type "VARCHAR")))
@@ -41,7 +41,7 @@
       (is (= "varchar" (introspection/normalize-sql-type "VarChar")))
       (is (= "text" (introspection/normalize-sql-type "text"))))))
 
-(deftest infer-field-type-test
+(deftest ^:unit infer-field-type-test
   (testing "Field type inference from SQL types"
     (testing "String types"
       (is (= :string (introspection/infer-field-type "VARCHAR")))
@@ -93,7 +93,7 @@
 ;; Widget Inference Tests
 ;; =============================================================================
 
-(deftest infer-widget-for-field-test
+(deftest ^:unit infer-widget-for-field-test
   (testing "Widget inference based on field names and types"
     (testing "Special field name patterns"
       (is (= :email-input (introspection/infer-widget-for-field :email :string "VARCHAR")))
@@ -177,7 +177,7 @@
     :default nil
     :primary-key false}])
 
-(deftest parse-table-metadata-test
+(deftest ^:unit parse-table-metadata-test
   (testing "Parse users table metadata into entity config"
     (let [config (introspection/parse-table-metadata :users sample-users-table-metadata)]
 
@@ -264,7 +264,7 @@
 ;; Entity Config Merging Tests
 ;; =============================================================================
 
-(deftest build-entity-config-test
+(deftest ^:unit build-entity-config-test
   (testing "Merge auto-detected config with manual overrides"
     (let [auto-config (introspection/parse-table-metadata :users sample-users-table-metadata)
           manual-config {:label "System Users"
@@ -308,7 +308,7 @@
 ;; Relationship Detection Tests (Week 1 Stub)
 ;; =============================================================================
 
-(deftest detect-relationships-test
+(deftest ^:unit detect-relationships-test
   (testing "Week 1: Relationship detection is a stub"
     (let [config (introspection/parse-table-metadata :users sample-users-table-metadata)
           with-relationships (introspection/detect-relationships config)]
@@ -328,14 +328,14 @@
 ;; Entity Name Humanization Tests
 ;; =============================================================================
 
-(deftest humanize-entity-name-test
+(deftest ^:unit humanize-entity-name-test
   (testing "Humanize entity names for display"
     (is (= "Users" (introspection/humanize-entity-name :users)))
     (is (= "User profiles" (introspection/humanize-entity-name :user-profiles)))
     (is (= "Order items" (introspection/humanize-entity-name :order-items)))
     (is (= "Products" (introspection/humanize-entity-name :products)))))
 
-(deftest humanize-field-name-test
+(deftest ^:unit humanize-field-name-test
   (testing "Humanize field names for display"
     (is (= "Email" (introspection/humanize-field-name :email)))
     (is (= "Password hash" (introspection/humanize-field-name :password-hash)))
@@ -346,7 +346,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest parse-table-metadata-edge-cases-test
+(deftest ^:unit parse-table-metadata-edge-cases-test
   (testing "Empty table metadata"
     (let [config (introspection/parse-table-metadata :empty [])]
       (is (= :empty (:table-name config)))
@@ -375,7 +375,7 @@
 ;; Field Ordering Tests
 ;; =============================================================================
 
-(deftest apply-field-order-test
+(deftest ^:unit apply-field-order-test
   (testing "Field ordering with :field-order"
     (testing "Reorders fields according to :field-order"
       (is (= [:a :b :c :d]
@@ -405,7 +405,7 @@
       (is (= []
              (introspection/apply-field-order [] [:a :b :c]))))))
 
-(deftest apply-field-order-to-config-test
+(deftest ^:unit apply-field-order-to-config-test
   (testing "Applying field order to entity config"
     (testing "Reorders :editable-fields and :detail-fields"
       (let [config {:editable-fields [:c :a :b]
@@ -441,7 +441,7 @@
 ;; Malli Schema Enum Extraction Tests
 ;; =============================================================================
 
-(deftest extract-enum-fields-from-malli-schema-test
+(deftest ^:unit extract-enum-fields-from-malli-schema-test
   (testing "Extracts enum fields from a simple :map schema"
     (let [schema [:map {}
                   [:id :uuid]
@@ -507,13 +507,13 @@
 ;; tsvector Column Hiding Tests
 ;; =============================================================================
 
-(deftest tsvector-hidden-by-common-hidden-fields-test
+(deftest ^:unit tsvector-hidden-by-common-hidden-fields-test
   (testing "Common tsvector field names are in hidden set"
     (is (introspection/should-be-hidden? :search-vector))
     (is (introspection/should-be-hidden? :tsv))
     (is (introspection/should-be-hidden? :fts-vector))))
 
-(deftest tsvector-hidden-by-sql-type-test
+(deftest ^:unit tsvector-hidden-by-sql-type-test
   (testing "Column with TSVECTOR SQL type is hidden regardless of name"
     (let [col-meta {:name "content_search"
                     :type "TSVECTOR"
