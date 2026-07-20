@@ -1,4 +1,4 @@
-(ns boundary.platform.core.search.highlighting-test
+(ns boundary.search.core.highlighting-test
   "Unit tests for search highlighting and snippet extraction.
    
    Tests all highlighting, snippet extraction, and helper functions.
@@ -6,7 +6,7 @@
   {:kaocha.testable/meta {:unit true :search true}}
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.string :as str]
-            [boundary.platform.core.search.highlighting :as hl]))
+            [boundary.search.core.highlighting :as hl]))
 
 ;; ============================================================================
 ;; Highlighting
