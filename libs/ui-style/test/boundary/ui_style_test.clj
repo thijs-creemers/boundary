@@ -2,7 +2,7 @@
   (:require [boundary.ui-style :as sut]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest css-bundle-selection-test
+(deftest ^:unit css-bundle-selection-test
   (testing "known bundle keys return configured stacks"
     (is (= sut/base-css (sut/bundle :base)))
     (is (= sut/pilot-css (sut/bundle :pilot)))
@@ -10,7 +10,7 @@
   (testing "unknown bundle key falls back to base"
     (is (= sut/base-css (sut/bundle :unknown)))))
 
-(deftest js-bundle-selection-test
+(deftest ^:unit js-bundle-selection-test
   (testing "known bundle keys return configured stacks"
     (is (= sut/base-js (sut/js-bundle :base)))
     (is (= sut/pilot-js (sut/js-bundle :pilot)))

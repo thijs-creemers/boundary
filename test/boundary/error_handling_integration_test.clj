@@ -98,7 +98,7 @@
 ;; HTTP Error Handling End-to-End Tests
 ;; =============================================================================
 
-(deftest test-http-error-handling-end-to-end
+(deftest ^:contract test-http-error-handling-end-to-end
   (testing "complete HTTP error handling flow with context and reporting"
     (let [user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)
@@ -214,7 +214,7 @@
 ;; CLI Error Handling End-to-End Tests
 ;; =============================================================================
 
-(deftest test-cli-error-handling-end-to-end
+(deftest ^:unit test-cli-error-handling-end-to-end
   (testing "complete CLI error handling flow with context"
     (let [operation-context {:operation "bulk-import-users"
                              :user-id "admin-user"
@@ -287,7 +287,7 @@
 ;; Error Reporting Integration Tests
 ;; =============================================================================
 
-(deftest test-error-reporting-integration
+(deftest ^:contract test-error-reporting-integration
   (testing "HTTP errors are automatically reported with full context"
     (let [mock-error-service (create-mock-error-service)
           user-id (UUID/randomUUID)
@@ -381,7 +381,7 @@
 ;; Cross-Context Error Correlation Tests
 ;; =============================================================================
 
-(deftest test-cross-context-error-correlation
+(deftest ^:contract test-cross-context-error-correlation
   (testing "errors can be correlated across HTTP and CLI contexts"
     (let [mock-error-service (create-mock-error-service)
           trace-id "cross-context-trace-999"

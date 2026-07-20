@@ -26,7 +26,7 @@
 
 (use-fixtures :each test-fixture)
 
-(deftest generate-customer-module-test
+(deftest ^:unit generate-customer-module-test
   (testing "generates complete customer module"
     (let [svc (service/create-scaffolder-service)
 
@@ -97,7 +97,7 @@
         (is (str/includes? (:content migration-file) "phone VARCHAR(255)"))
         (is (str/includes? (:content migration-file) "active BOOLEAN NOT NULL"))))))
 
-(deftest generate-module-dry-run-test
+(deftest ^:unit generate-module-dry-run-test
   (testing "dry run does not write files"
     (let [svc (service/create-scaffolder-service)
 
@@ -114,7 +114,7 @@
       (is (= 12 (count (:files result))))
       (is (some #(str/includes? % "Dry run") (:warnings result))))))
 
-(deftest generate-module-validation-test
+(deftest ^:unit generate-module-validation-test
   (testing "validates request schema"
     (let [svc (service/create-scaffolder-service)
 
@@ -131,7 +131,7 @@
 ;; add-field command tests
 ;; =============================================================================
 
-(deftest add-field-test
+(deftest ^:unit add-field-test
   (testing "generates migration for adding a field"
     (let [svc (service/create-scaffolder-service)
 
@@ -157,7 +157,7 @@
         (is (str/includes? (:content migration-file) "ALTER TABLE"))
         (is (str/includes? (:content migration-file) "ADD COLUMN description"))))))
 
-(deftest add-field-dry-run-test
+(deftest ^:unit add-field-dry-run-test
   (testing "dry run does not write migration file"
     (let [svc (service/create-scaffolder-service)
 
@@ -178,7 +178,7 @@
 ;; add-endpoint command tests
 ;; =============================================================================
 
-(deftest add-endpoint-test
+(deftest ^:unit add-endpoint-test
   (testing "generates endpoint instructions"
     (let [svc (service/create-scaffolder-service)
 
@@ -205,7 +205,7 @@
 ;; add-adapter command tests
 ;; =============================================================================
 
-(deftest add-adapter-test
+(deftest ^:unit add-adapter-test
   (testing "generates adapter implementation file"
     (let [svc (service/create-scaffolder-service)
 
@@ -233,7 +233,7 @@
         (is (str/includes? (:content adapter-file) "send-notification"))
         (is (str/includes? (:content adapter-file) "send-bulk"))))))
 
-(deftest add-adapter-dry-run-test
+(deftest ^:unit add-adapter-dry-run-test
   (testing "dry run does not write adapter file"
     (let [svc (service/create-scaffolder-service)
 
@@ -252,7 +252,7 @@
 ;; generate-project command tests (boundary new)
 ;; =============================================================================
 
-(deftest generate-project-test
+(deftest ^:unit generate-project-test
   (testing "generates new project structure"
     (let [svc (service/create-scaffolder-service)
 
@@ -284,7 +284,7 @@
         (is (str/includes? (:content agents-file) "ports.clj"))
         (is (str/includes? (:content agents-file) "bb scaffold"))))))
 
-(deftest generate-project-output-dir-test
+(deftest ^:unit generate-project-output-dir-test
   (testing "respects output-dir parameter"
     (let [svc (service/create-scaffolder-service)
 
@@ -298,7 +298,7 @@
       (let [file-paths (map :path (:files result))]
         (is (every? #(str/starts-with? % "/tmp/test-app/") file-paths))))))
 
-(deftest generate-project-default-output-dir-test
+(deftest ^:unit generate-project-default-output-dir-test
   (testing "uses current directory as default"
     (let [svc (service/create-scaffolder-service)
 
@@ -312,7 +312,7 @@
       (let [file-paths (map :path (:files result))]
         (is (every? #(str/starts-with? % "myproject/") file-paths))))))
 
-(deftest generate-project-dry-run-test
+(deftest ^:unit generate-project-dry-run-test
   (testing "dry run does not write files"
     (let [svc (service/create-scaffolder-service)
 
@@ -325,7 +325,7 @@
       (is (true? (:success result)))
       (is (some #(str/includes? % "Dry run") (:warnings result))))))
 
-(deftest generate-project-conflict-test
+(deftest ^:integration generate-project-conflict-test
   (testing "handles existing directory conflict"
     (let [svc (service/create-scaffolder-service)
 

@@ -8,13 +8,13 @@
   (:require [clojure.test :refer [deftest is testing]]
             [boundary.config :as config]))
 
-(deftest ^:integration reset-endpoint-enabled-in-test-profile
+(deftest ^:unit reset-endpoint-enabled-in-test-profile
   (testing ":test profile has :test/reset-endpoint-enabled? true"
     (let [cfg (config/load-config {:profile :test})]
       (is (true? (:test/reset-endpoint-enabled? cfg)))
       (is (= :test (:boundary/profile cfg))))))
 
-(deftest ^:integration reset-endpoint-disabled-in-prod
+(deftest ^:unit reset-endpoint-disabled-in-prod
   (testing ":prod profile does not enable the reset flag"
     (let [cfg (config/load-config {:profile :prod})]
       (is (not (true? (:test/reset-endpoint-enabled? cfg))))

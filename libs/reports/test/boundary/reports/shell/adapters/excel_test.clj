@@ -80,7 +80,7 @@
           result (ports/generate! gen multi-sheet-report nil {})]
       (is (xlsx-magic? (:bytes result))))))
 
-(deftest excel-supported-type-test
+(deftest ^:unit excel-supported-type-test
   (testing "supported-type? returns true for :excel"
     (is (ports/supported-type? (sut/create-excel-generator) :excel)))
   (testing "supported-type? returns false for :pdf"

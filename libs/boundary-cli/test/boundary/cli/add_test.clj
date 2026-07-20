@@ -17,7 +17,7 @@
   (spit (io/file dir "AGENTS.md")
         "# Test\n<!-- boundary:available-modules -->\n| payments | desc | boundary add payments |\n<!-- /boundary:available-modules -->\n<!-- boundary:installed-modules -->\n- core\n<!-- /boundary:installed-modules -->\n"))
 
-(deftest boundary-project-detection-test
+(deftest ^:integration boundary-project-detection-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-add-detect-" (System/currentTimeMillis))]
     (try
       (testing "detects a boundary project by deps.edn content"
@@ -33,7 +33,7 @@
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
 
-(deftest patch-deps-test
+(deftest ^:integration patch-deps-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-add-deps-" (System/currentTimeMillis))]
     (try
       (make-boundary-project! tmp)
@@ -50,7 +50,7 @@
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
 
-(deftest patch-config-test
+(deftest ^:integration patch-config-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-add-cfg-" (System/currentTimeMillis))]
     (try
       (make-boundary-project! tmp)
@@ -70,7 +70,7 @@
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
 
-(deftest email-writes-smtp-to-test-config-test
+(deftest ^:integration email-writes-smtp-to-test-config-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-add-email-" (System/currentTimeMillis))]
     (try
       (make-boundary-project! tmp)
@@ -90,7 +90,7 @@
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
 
-(deftest patch-agents-md-test
+(deftest ^:integration patch-agents-md-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-add-agents-" (System/currentTimeMillis))]
     (try
       (make-boundary-project! tmp)

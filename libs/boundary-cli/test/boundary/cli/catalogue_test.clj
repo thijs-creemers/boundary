@@ -4,7 +4,7 @@
             [clojure.java.io :as io]
             [boundary.cli.catalogue :as cat]))
 
-(deftest load-catalogue-test
+(deftest ^:unit load-catalogue-test
   (testing "catalogue loads without error"
     (let [c (cat/load-catalogue)]
       (is (map? c))
@@ -26,7 +26,7 @@
     (doseq [m (:modules (cat/load-catalogue))]
       (is (symbol? (:clojars m)) (str ":clojars is not a symbol in " (:name m))))))
 
-(deftest find-module-test
+(deftest ^:unit find-module-test
   (testing "finds a module by name"
     (let [m (cat/find-module "payments")]
       (is (= "payments" (:name m)))))
@@ -42,13 +42,13 @@
     (is (cat/find-module "payments"))
     (is (cat/find-module "storage"))))
 
-(deftest optional-modules-test
+(deftest ^:unit optional-modules-test
   (testing "optional-modules returns only :optional category"
     (let [opts (cat/optional-modules)]
       (is (every? #(= :optional (:category %)) opts))
       (is (seq opts)))))
 
-(deftest core-modules-test
+(deftest ^:unit core-modules-test
   (testing "core-modules returns only :core category"
     (let [cores (cat/core-modules)]
       (is (every? #(= :core (:category %)) cores))
@@ -79,7 +79,7 @@
   []
   (parse-deploy-all-libs "libs/tools/src/boundary/tools/deploy.clj"))
 
-(deftest deploy-lib-registry-drift-test
+(deftest ^:integration deploy-lib-registry-drift-test
   (let [all-libs (parse-all-libs)]
     (if-not all-libs
       ;; Run outside the monorepo root (e.g. `clojure -M:test` from libs/boundary-cli):
