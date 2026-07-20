@@ -495,6 +495,14 @@
            (when (and updated-user cache)
              (cache-ports/delete-key! cache (str "user:" (:id updated-user))))
 
+           ;; Privilege change (BOU-191): if the user's role changed, invalidate
+           ;; their sessions so any active session must re-establish under the new
+           ;; role — a demotion must not retain elevated access, and a promotion
+           ;; forces a fresh session rather than silently upgrading a live one.
+           (when (and updated-user old-user
+                      (not= (:role old-user) (:role updated-user)))
+             (.invalidate-all-user-sessions session-repository (:id updated-user)))
+
            ;; Remove sensitive data before returning
            (when updated-user
              (dissoc updated-user :password-hash)))))
@@ -677,6 +685,11 @@
                                           (assoc user
                                                  :password-hash new-password-hash
                                                  :updated-at current-time))]
+         ;; 5b. Invalidate every session for this user (BOU-191): a credential
+         ;;     change must not leave older sessions authenticated. The caller
+         ;;     re-authenticates with the new password.
+           (.invalidate-all-user-sessions session-repository user-id)
+
          ;; 6. Create audit log entry
            (try
              (let [{:keys [actor-id actor-email ip-address user-agent]}

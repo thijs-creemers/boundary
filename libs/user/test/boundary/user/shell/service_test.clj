@@ -531,15 +531,16 @@
           repo-state (atom {user-id existing-user})
           service (sut/->UserService
                    (->UserRepoStub repo-state)
-                   nil
+                   (reify ports/IUserSessionRepository
+                     (invalidate-all-user-sessions [_ _] 0))
                    (->AuditRepoCapture audit-entries)
                    {:password-policy {:min-length 8}}
                    nil
                    nil)]
       (with-redefs [sut/current-timestamp (fn [] now)
                     auth-shell/verify-password (fn [plain hashed]
-                                                               (and (= "Current123!" plain)
-                                                                    (= "old-hash" hashed)))
+                                                 (and (= "Current123!" plain)
+                                                      (= "old-hash" hashed)))
                     auth-shell/hash-password (fn [_] "new-hash")]
         (is (= true
                (ports/change-password service user-id "Current123!" "BetterPass123!")))
