@@ -47,7 +47,9 @@
 (defspec ^:property occurrences-strictly-ascending 100
   (prop/for-all [freq freq-gen, iv interval-gen, cnt count-gen]
                 (let [os (occs (rrule freq iv cnt))]
-                  (= os (sort os)))))
+                  ;; sorted AND no duplicates == strictly increasing
+                  (and (= os (sort os))
+                       (or (< (count os) 2) (apply distinct? os))))))
 
 (defspec ^:property first-occurrence-at-or-after-start 100
   (prop/for-all [freq freq-gen, iv interval-gen, cnt count-gen]
