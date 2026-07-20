@@ -134,7 +134,9 @@
 (defmethod filter->sql :account-tenure [{:keys [op value]}]
   ;; tenure >= N days means created_at <= now - N days (inverted comparison)
   (let [days         (long value)
-        sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=} op :<=)]
+        ;; Comparison is inverted (tenure ≥ N days ⇔ created_at ≤ now - N days);
+        ;; every op in supported-ops is mapped explicitly so none falls through.
+        sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=, :neq :<>} op :<=)]
     [sql-operator :created_at [:raw (str "CURRENT_DATE - INTERVAL '" days " days'")]]))
 
 (defmethod filter->predicate :account-tenure [{:keys [op value now]}]
