@@ -173,47 +173,84 @@
 ;; DDL Generation
 ;; =============================================================================
 
+(defn- enum-field-values
+  "Return the enum value strings for a field whose schema is [:enum ...], else nil.
+
+   Handles both [:enum :a :b] and [:enum {props} :a :b] forms and coerces
+   keyword/string/number values to their SQL literal string form."
+  [{:keys [schema]}]
+  (when (and (vector? schema) (= :enum (first schema)))
+    (let [schema-rest (rest schema)
+          ;; Skip a leading properties map: [:enum {...} :val1 :val2]
+          raw-values (if (and (seq schema-rest) (map? (first schema-rest)))
+                       (rest schema-rest)
+                       schema-rest)]
+      (->> raw-values
+           (filter #(or (keyword? %) (string? %) (number? %)))
+           (map (fn [v]
+                  (cond
+                    (keyword? v) (clojure.core/name v) ; :admin -> "admin"
+                    (string? v) v ; already a string
+                    :else (str v)))) ; fallback to str
+           (into [])))))
+
+(defn- enum-check-clause
+  "SQL CHECK clause body for an enum column, e.g. \"role IN ('admin', 'user')\"."
+  [column-name values]
+  (str column-name " IN (" (str/join ", " (map #(str "'" % "'") values)) ")"))
+
+(defn- enum-constraint-name
+  "Deterministic, stable name for an enum column's CHECK constraint.
+
+   Named (rather than inline/anonymous) so it can be dropped and re-added
+   idempotently — see enum-constraint-repair-ddls."
+  [table-name column-name]
+  (str "chk_" table-name "_" column-name))
+
 (defn- generate-column-definition
   "Generate SQL column definition from field info and context.
-   
+
+   Enum CHECK constraints are emitted separately as *named table-level*
+   constraints (see generate-table-ddl / enum-constraint-repair-ddls), not
+   inline here, so schema initialization can repair them idempotently.
+
    Args:
      ctx: Database context
      field-info: Field info map from extract-field-info
-     
+
    Returns:
      String column definition"
-  [ctx {:keys [name type optional? schema properties]}]
+  [ctx {:keys [name type optional? properties]}]
   (let [column-name (col-name name) ; Convert kebab-case to snake_case
         column-type (or (:db-type properties)
                         (malli-type->column-type ctx type))
         not-null (if optional? "" " NOT NULL")
         primary-key (if (= name "id") " PRIMARY KEY" "")
-        ; Handle enum constraints
-        enum-constraint (if (and (vector? schema) (= :enum (first schema)))
-                          (let [; Skip properties map if present: [:enum {...} :val1 :val2] or [:enum :val1 :val2]
-                                schema-rest (rest schema)
-                                enum-raw-values (if (and (seq schema-rest) (map? (first schema-rest)))
-                                                  (rest schema-rest) ; Skip properties map
-                                                  schema-rest) ; No properties, use as-is
-                                ; Filter out non-value items (maps, vectors, functions)
-                                enum-values (->> enum-raw-values
-                                                 (filter #(or (keyword? %) (string? %) (number? %)))
-                                                 (map (fn [v]
-                                                        (cond
-                                                          (keyword? v) (clojure.core/name v) ; :admin -> "admin"
-                                                          (string? v) v ; already a string
-                                                          :else (str v)))) ; fallback to str
-                                                 (into []))
-                                values-str (str/join ", " (map #(str "'" % "'") enum-values))]
-                            (str " CHECK(" column-name " IN (" values-str "))"))
-                          "")
         ; Handle boolean defaults for active fields
         boolean-default (if (and (= type :boolean) (= name "active") (not optional?))
                           (case (or (protocols/dialect (:adapter ctx)) :postgresql)
                             :sqlite " DEFAULT 1"
                             " DEFAULT true")
                           "")]
-    (str column-name " " column-type not-null primary-key enum-constraint boolean-default)))
+    (str column-name " " column-type not-null primary-key boolean-default)))
+
+(defn- generate-enum-constraints
+  "Generate named table-level CHECK constraint definitions for enum fields.
+
+   Args:
+     table-name: String name of the table
+     field-infos: Vector of field info maps
+
+   Returns:
+     Vector of \"CONSTRAINT <name> CHECK(<col> IN (...))\" definition strings"
+  [table-name field-infos]
+  (->> field-infos
+       (keep (fn [{:keys [name] :as field-info}]
+               (when-let [values (enum-field-values field-info)]
+                 (let [column-name (col-name name)]
+                   (str "CONSTRAINT " (enum-constraint-name table-name column-name)
+                        " CHECK(" (enum-check-clause column-name values) ")")))))
+       (into [])))
 
 (defn- generate-table-constraints
   "Generate table-level constraints (unique, foreign keys) based on table name and fields.
@@ -270,11 +307,12 @@
         ; Generate column definitions
         column-defs (map #(generate-column-definition ctx %) field-infos)
 
-        ; Generate constraints
+        ; Generate constraints (named enum CHECK constraints + table-specific unique/FK)
+        enum-constraints (generate-enum-constraints table-name field-infos)
         constraints (generate-table-constraints table-name field-infos)
 
         ; Combine all definitions
-        all-definitions (concat column-defs constraints)
+        all-definitions (concat column-defs enum-constraints constraints)
         definitions-str (str/join ",\n  " all-definitions)]
 
     (str "CREATE TABLE IF NOT EXISTS " table-name " (\n  "
@@ -352,6 +390,66 @@
     (generate-table-indexes table-name field-infos)))
 
 ;; =============================================================================
+;; Idempotent Enum-Constraint Repair
+;; =============================================================================
+
+(def ^:private constraint-repair-dialects
+  "Dialects that need — and support — idempotent re-application of named enum
+   CHECK constraints on re-init.
+
+   Only :ansi (H2) qualifies: it is the sole dialect that corrupts CHECK
+   constraint clauses when a fresh pool re-opens a persisted in-memory DB.
+   PostgreSQL and MySQL keep their constraints intact across reconnects and
+   treat a repeat CREATE TABLE IF NOT EXISTS as a no-op, so re-adding
+   constraints on every boot would only churn table locks for no benefit;
+   SQLite cannot ALTER add/drop CHECK constraints at all."
+  #{:ansi})
+
+(defn- enum-constraint-repair-ddls
+  "DROP-then-ADD DDL pairs that idempotently (re)establish named enum CHECK
+   constraints on an already-existing table.
+
+   This repairs a corruption H2 exhibits for in-memory `DB_CLOSE_DELAY=-1`
+   databases: when a fresh connection pool re-opens a persisted in-memory DB,
+   CHECK constraint clauses are reloaded empty and reject even valid values
+   (`Check constraint invalid: \"chk_...: \"`). Re-running CREATE TABLE
+   IF NOT EXISTS is a no-op and does not repair them; dropping and re-adding
+   the *named* constraint does.
+
+   Args:
+     table-name: String name of the table
+     field-infos: Vector of field info maps
+
+   Returns:
+     Vector of DDL statement strings (drop, add, drop, add, ...)"
+  [table-name field-infos]
+  (->> field-infos
+       (mapcat (fn [{:keys [name] :as field-info}]
+                 (when-let [values (enum-field-values field-info)]
+                   (let [column-name (col-name name)
+                         constraint-name (enum-constraint-name table-name column-name)]
+                     [(str "ALTER TABLE " table-name
+                           " DROP CONSTRAINT IF EXISTS " constraint-name)
+                      (str "ALTER TABLE " table-name
+                           " ADD CONSTRAINT " constraint-name
+                           " CHECK(" (enum-check-clause column-name values) ")")]))))
+       (into [])))
+
+(defn- repair-enum-constraints!
+  "Re-apply named enum CHECK constraints for `table-name` when the dialect
+   supports it. Called only for tables that already existed before this init,
+   making schema initialization idempotent and healing H2 reconnect corruption."
+  [ctx table-name malli-schema]
+  (let [dialect (or (protocols/dialect (:adapter ctx)) :postgresql)]
+    (when (contains? constraint-repair-dialects dialect)
+      (let [field-infos (->> (rest malli-schema)
+                             (map extract-field-info)
+                             (filter some?))]
+        (doseq [ddl (enum-constraint-repair-ddls table-name field-infos)]
+          (log/debug "Repairing enum constraint" {:table table-name :ddl ddl})
+          (db-core/execute-ddl! ctx ddl))))))
+
+;; =============================================================================
 ;; Schema Initialization
 ;; =============================================================================
 
@@ -378,11 +476,16 @@
              :tables (keys schema-definitions)})
 
   (try
-    ; Create tables
+    ; Create tables. For tables that already exist, CREATE TABLE IF NOT EXISTS is
+    ; a no-op, so re-apply named enum CHECK constraints to keep initialization
+    ; idempotent (and to heal H2's in-memory reconnect corruption).
     (doseq [[table-name malli-schema] schema-definitions]
-      (let [ddl (generate-table-ddl ctx table-name malli-schema)]
-        (log/debug "Creating table" {:table table-name :ddl ddl})
-        (db-core/execute-ddl! ctx ddl)))
+      (let [existed? (db-core/table-exists? ctx table-name)
+            ddl (generate-table-ddl ctx table-name malli-schema)]
+        (log/debug "Creating table" {:table table-name :ddl ddl :existed? existed?})
+        (db-core/execute-ddl! ctx ddl)
+        (when existed?
+          (repair-enum-constraints! ctx table-name malli-schema))))
 
     ; Create indexes
     (doseq [[table-name malli-schema] schema-definitions]
