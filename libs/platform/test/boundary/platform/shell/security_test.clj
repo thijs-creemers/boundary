@@ -364,3 +364,34 @@
     (doseq [field [:email :name :id :role :created-at]]
       (is (false? (schema-intro/should-be-hidden? field))
           (str field " should not be hidden")))))
+
+;; =============================================================================
+;; Security response headers (BOU-168)
+;; =============================================================================
+
+(defn- apply-security-headers
+  "Run the http-security-headers interceptor :leave over a bare 200 response."
+  []
+  (let [interceptor (interceptors/http-security-headers)
+        ctx         {:response {:status 200 :headers {} :body ""}}]
+    (get-in ((:leave interceptor) ctx) [:response :headers])))
+
+(deftest ^:security ^:unit security-response-headers-test
+  (let [headers (apply-security-headers)]
+    (testing "clickjacking + framing protection"
+      (is (= "DENY" (get headers "X-Frame-Options")))
+      (is (str/includes? (get headers "Content-Security-Policy") "frame-ancestors 'none'")))
+    (testing "transport security (HSTS forces HTTPS for a year, with preload)"
+      (is (= "max-age=31536000; includeSubDomains; preload"
+             (get headers "Strict-Transport-Security"))))
+    (testing "MIME-sniffing protection"
+      (is (= "nosniff" (get headers "X-Content-Type-Options"))))
+    (testing "CSP restricts default + object sources"
+      (let [csp (get headers "Content-Security-Policy")]
+        (is (str/includes? csp "default-src 'self'"))
+        (is (str/includes? csp "object-src 'none'"))
+        (is (str/includes? csp "base-uri 'self'"))))
+    (testing "referrer, cross-origin isolation, and feature policy are locked down"
+      (is (= "strict-origin-when-cross-origin" (get headers "Referrer-Policy")))
+      (is (= "same-origin" (get headers "Cross-Origin-Opener-Policy")))
+      (is (= "geolocation=(), microphone=(), camera=()" (get headers "Permissions-Policy"))))))
