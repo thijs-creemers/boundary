@@ -852,7 +852,14 @@
                                :entity-configs entity-configs
                                :logo-url (:logo-url config)
                                :flash {:type :error
-                                       :message (.getMessage e)}})))))
+                                       ;; Typed domain errors carry client-safe
+                                       ;; messages; anything untyped is internal —
+                                       ;; logged above, generic flash to the client
+                                       ;; (BOU-182: never echo raw exception text).
+                                       :message (if (:type (ex-data e))
+                                                  (ex-message e)
+                                                  [:t :admin/flash-create-failed
+                                                   {:label (:label entity-config)}])}})))))
 
         ; Validation errors - re-render form
         (let [entities (ports/list-available-entities schema-provider)

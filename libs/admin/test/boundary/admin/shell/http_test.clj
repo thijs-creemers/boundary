@@ -12,7 +12,8 @@
    - Query parameters (pagination, sorting, search, filters)
    - Error responses (403, 404, 422, 500)
    - Form validation"
-  (:require [boundary.admin.shell.http :as admin-http]
+  (:require [boundary.admin.ports :as admin-ports]
+            [boundary.admin.shell.http :as admin-http]
             [boundary.admin.shell.service :as service]
             [boundary.admin.shell.schema-repository :as schema-repo]
             [boundary.platform.shell.adapters.database.factory :as db-factory]
@@ -165,9 +166,11 @@
                              :body "Not Found"}
 
                             :else
+                            ;; Mirror the platform error path (BOU-161/BOU-182):
+                            ;; 5xx bodies are generic — never echo (.getMessage e).
                             {:status 500
                              :headers {"Content-Type" "text/html"}
-                             :body (str "Internal Server Error: " (.getMessage e))}))))))]
+                             :body "Internal Server Error"}))))))]
 
     (create-test-table! db-ctx)
 
@@ -626,6 +629,45 @@
                                           :from [:test-users]
                                           :where [:= :id original-id]})]
             (is (= original-id (:id updated)))))))))
+
+(deftest ^:security ^:unit create-entity-error-flash-no-leak-test
+  (testing "raw exception during create never echoes its message to the client (BOU-182)"
+    (let [secret          "SECRET-DB-DETAIL-XYZ-123"
+          stub-service    #_{:clj-kondo/ignore [:missing-protocol-method]}
+          (reify admin-ports/IAdminService
+            (validate-entity-data [_ _ data] {:valid? true :data data})
+            (create-entity [_ _ _] (throw (RuntimeException. secret))))
+          schema-provider (schema-repo/create-schema-repository *db-ctx* admin-config)
+          handler         (admin-http/create-entity-handler stub-service schema-provider admin-config)
+          request         (make-request :post "/web/admin/test-users" admin-user
+                                        {:path {:entity "test-users"}
+                                         :form {"email" "leak@example.com"
+                                                "name" "Leak Test"
+                                                "password-hash" "hash123"}})
+          response        (handler request)
+          body            (let [b (:body response)]
+                            (if (vector? b) (ui-components/render-html b) (str b)))]
+      (is (not (str/includes? body secret))
+          "raw exception message must not reach the client")))
+
+  (testing "typed domain errors still surface their client-safe message"
+    (let [stub-service    #_{:clj-kondo/ignore [:missing-protocol-method]}
+          (reify admin-ports/IAdminService
+            (validate-entity-data [_ _ data] {:valid? true :data data})
+            (create-entity [_ _ _]
+              (throw (ex-info "Email already in use" {:type :conflict}))))
+          schema-provider (schema-repo/create-schema-repository *db-ctx* admin-config)
+          handler         (admin-http/create-entity-handler stub-service schema-provider admin-config)
+          request         (make-request :post "/web/admin/test-users" admin-user
+                                        {:path {:entity "test-users"}
+                                         :form {"email" "dup@example.com"
+                                                "name" "Dup Test"
+                                                "password-hash" "hash123"}})
+          response        (handler request)
+          body            (let [b (:body response)]
+                            (if (vector? b) (ui-components/render-html b) (str b)))]
+      (is (str/includes? body "Email already in use")
+          "typed domain errors keep their client-safe message"))))
 
 ;; =============================================================================
 ;; Integration: Full CRUD Workflow
