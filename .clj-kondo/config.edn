@@ -13,6 +13,8 @@
                                          (com.blockether.spel.core/with-testing-page [pg])]}}
  :config-in-ns {boundary.search.shell.registry-test {:linters {:inline-def {:level :off}}}
                 boundary.audience.shell.registry-test {:linters {:inline-def {:level :off}}}
+                ;; test stubs intentionally reify only the protocol methods they exercise
+                boundary.admin.shell.http-test {:linters {:missing-protocol-method {:level :off}}}
                 boundary.user.ports {:linters {:redefined-var {:level :off}}}
                 build {:linters {:redefined-var {:level :off}}}
                 hooks.com.github.seancorfield.next-jdbc {:linters {:redefined-var {:level :off}}}
