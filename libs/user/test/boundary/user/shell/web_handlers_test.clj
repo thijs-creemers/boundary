@@ -756,3 +756,19 @@
         (is (false? (cookie-secure {:boundary/settings {:secure-cookies? false}}))))
       (testing "defaults to secure when unset (fail-secure)"
         (is (true? (cookie-secure {})))))))
+
+(deftest ^:contract ^:security login-cookie-hardening-test
+  (testing "session-token cookie is HttpOnly and SameSite=Strict (XSS/CSRF hardening)"
+    (let [auth-svc (reify ports/IUserService
+                     (authenticate-user [_ _]
+                       {:authenticated true
+                        :user    {:role :user}
+                        :session {:session-token "session-token-value"}}))
+          request  {:form-params {"email" "user@example.com" "password" "password123"}
+                    :remote-addr "127.0.0.1"
+                    :headers {"user-agent" "test-agent"}}
+          cookie   (-> ((web-handlers/login-submit-handler auth-svc {}) request)
+                       (get-in [:cookies "session-token"]))]
+      (is (true? (:http-only cookie)) "HttpOnly blocks JS access to the session token")
+      (is (= :strict (:same-site cookie)) "SameSite=Strict mitigates CSRF")
+      (is (= "/" (:path cookie)) "cookie scoped to the whole app"))))
