@@ -173,7 +173,7 @@
  ;;   ^:unit        → clojure -M:test --focus-meta :unit
  ;;   ^:integration → clojure -M:test --focus-meta :integration
  ;;   ^:user        → clojure -M:test --focus-meta :user
-  :kaocha.plugin.filter/focus-meta [:unit :integration :contract :e2e :user :billing :phase3]
+  :kaocha.plugin.filter/focus-meta [:unit :integration :contract :property :e2e :user :billing :phase3]
 
   :kaocha.plugin.randomize/randomize? true
   :kaocha/reporter [boundary.test.reporter/reporter]
