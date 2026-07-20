@@ -38,13 +38,21 @@
   (gen/fmap (fn [segs] (keyword (str/join "-" segs)))
             (gen/vector segment-gen 1 4)))
 
+(def ^:private value-gen
+  "Values for the maps under test. Deliberately `=`-stable: the conversions only
+   touch keys, so any value type works, but `gen/any-printable` can emit `##NaN`
+   (and `(= ##NaN ##NaN)` is false), which would make identity assertions flaky
+   for reasons unrelated to case conversion. These types are all self-equal."
+  (gen/one-of [gen/string-ascii gen/small-integer gen/keyword
+               gen/boolean (gen/return nil)]))
+
 (def ^:private snake-map-gen
-  "Map with snake_case keyword keys and arbitrary values."
-  (gen/map snake-key-gen gen/any-printable {:max-elements 12}))
+  "Map with snake_case keyword keys and `=`-stable values."
+  (gen/map snake-key-gen value-gen {:max-elements 12}))
 
 (def ^:private kebab-map-gen
-  "Map with kebab-case keyword keys and arbitrary values."
-  (gen/map kebab-key-gen gen/any-printable {:max-elements 12}))
+  "Map with kebab-case keyword keys and `=`-stable values."
+  (gen/map kebab-key-gen value-gen {:max-elements 12}))
 
 ;; =============================================================================
 ;; Round-trip identity — the documented auth-bug class
