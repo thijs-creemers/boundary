@@ -6,7 +6,8 @@
 ;; string literals like (is (some? "...")), and (is (not nil/false)).
 
 (ns boundary.tools.check-tests
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [boundary.tools.ansi :as ansi]
             [boundary.tools.parsing :as parsing]))
@@ -170,4 +171,85 @@
         (System/exit 1))
       (do
         (println (ansi/green "No misplaced deftest metadata.") (str (count files) " test file(s) scanned."))
+        (System/exit 0)))))
+
+;; ---------------------------------------------------------------------------
+;; Pyramid tag gate (BOU-166): every deftest carries exactly one of
+;; ^:unit / ^:integration / ^:contract. Cross-cutting tags (^:security, ^:e2e,
+;; …) may coexist. Not-yet-backfilled test files are exempted via
+;; .boundary/check-test-tags.edn until they are tagged.
+;; ---------------------------------------------------------------------------
+
+(def ^:private pyramid-tags
+  "The mutually-exclusive test-pyramid metadata keywords."
+  #{"unit" "integration" "contract"})
+
+(def ^:private deftest-meta-pattern
+  "Matches a top-level (deftest <^:kw ...> name), capturing the keyword-shorthand
+   metadata region (group 1) and the test name (group 2). A deftest with no
+   metadata yields an empty group 1."
+  #"(?m)^\(deftest((?:\s+\^:[a-zA-Z][\w?*!+<>='-]*)*)\s+([a-zA-Z][^\s()]*)")
+
+(defn read-tags-config
+  "Read the optional .boundary/check-test-tags.edn allowlist. Returns a set of
+   repo-relative path prefixes; any test file under one is exempt from the
+   pyramid-tag requirement (gradual backfill)."
+  []
+  (let [f (io/file (System/getProperty "user.dir") ".boundary" "check-test-tags.edn")]
+    (if (.exists f)
+      (try (set (map str (:allow-untagged (edn/read-string (slurp f)))))
+           (catch Exception _ #{}))
+      #{})))
+
+(defn- relative-path
+  "File path relative to the repo root (user.dir), for stable prefix matching."
+  [file]
+  (let [root (str (System/getProperty "user.dir") "/")
+        p    (str file)]
+    (if (str/starts-with? p root) (subs p (count root)) p)))
+
+(defn- exempt-file? [allow file]
+  (let [rel (relative-path file)]
+    (some #(str/starts-with? rel %) allow)))
+
+(defn- scan-file-tags
+  "Return {:file :line :name :count} for each deftest whose pyramid-tag count is
+   not exactly 1."
+  [file]
+  (let [raw     (slurp file)
+        cleaned (parsing/strip-comments-and-strings raw)
+        matcher (re-matcher deftest-meta-pattern cleaned)]
+    (loop [violations []]
+      (if (.find matcher)
+        (let [meta-region (.group matcher 1)
+              n (count (filter pyramid-tags (re-seq #"(?<=\^:)[a-zA-Z][\w?*!+<>='-]*" meta-region)))]
+          (recur (if (= 1 n)
+                   violations
+                   (conj violations {:file  (str file)
+                                     :line  (offset->line-number raw (.start matcher))
+                                     :name  (.group matcher 2)
+                                     :count n}))))
+        violations))))
+
+(defn check-test-tags
+  "Enforce exactly one pyramid tag (^:unit / ^:integration / ^:contract) per
+   deftest. Files listed in .boundary/check-test-tags.edn :allow-untagged are
+   skipped (gradual backfill, BOU-166)."
+  [& _args]
+  (let [allow    (read-tags-config)
+        files    (remove #(exempt-file? allow %) (test-clj-files))
+        matches  (mapcat scan-file-tags files)]
+    (if (seq matches)
+      (do
+        (println (ansi/red "Deftests missing exactly one pyramid tag (^:unit/^:integration/^:contract):"))
+        (println)
+        (doseq [{:keys [file line name count]} matches]
+          (println (str "  " file ":" line ": (deftest " name " …) has " count " pyramid tag(s)")))
+        (println)
+        (println (str (clojure.core/count matches)
+                      " deftest(s) need exactly one pyramid tag. Add ^:unit, ^:integration, or ^:contract."))
+        (System/exit 1))
+      (do
+        (println (ansi/green "All deftests carry exactly one pyramid tag.")
+                 (str (clojure.core/count files) " enforced test file(s) scanned."))
         (System/exit 0)))))

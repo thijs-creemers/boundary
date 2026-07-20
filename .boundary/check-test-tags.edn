@@ -1,0 +1,27 @@
+;; check:test-tags allowlist — libs whose deftests are not yet backfilled with a
+;; pyramid tag (^:unit / ^:integration / ^:contract). BOU-166 enforces exactly
+;; one pyramid tag per deftest; these repo-relative path prefixes are exempt
+;; until their lib is backfilled. Remove a prefix once its lib is tagged.
+;;
+;; Enforced now (not exempt): libs/user/, libs/admin/, and every already-fully-
+;; tagged lib (workflow, search, push, payments, i18n, geo, external, email,
+;; calendar, boundary-mcp).
+{:allow-untagged
+ ["libs/platform/"
+  "libs/core/"
+  "libs/realtime/"
+  "libs/tenant/"
+  "libs/observability/"
+  "libs/e2e/"
+  "libs/tools/"
+  "libs/jobs/"
+  "libs/cache/"
+  "libs/boundary-cli/"
+  "libs/devtools/"
+  "libs/storage/"
+  "libs/scaffolder/"
+  "libs/reports/"
+  "libs/ui-style/"
+  "libs/audience/"
+  "libs/ai/"
+  "test/"]}

@@ -22,7 +22,7 @@
 ;; Create User Audit Entry Tests
 ;; =============================================================================
 
-(deftest create-user-audit-entry-test
+(deftest ^:unit create-user-audit-entry-test
   (testing "Creates audit entry for user creation with all fields"
     (let [target-user {:id test-target-id
                        :email test-target-email
@@ -68,7 +68,7 @@
 ;; Update User Audit Entry Tests
 ;; =============================================================================
 
-(deftest update-user-audit-entry-test
+(deftest ^:unit update-user-audit-entry-test
   (testing "Creates audit entry with field changes"
     (let [old-values {:role :user :name "Old Name" :active true}
           new-values {:role :admin :name "New Name" :active true}
@@ -140,7 +140,7 @@
 ;; Deactivate User Audit Entry Tests
 ;; =============================================================================
 
-(deftest deactivate-user-audit-entry-test
+(deftest ^:unit deactivate-user-audit-entry-test
   (testing "Creates audit entry for user deactivation"
     (let [entry (audit/deactivate-user-audit-entry
                  test-actor-id
@@ -172,7 +172,7 @@
 ;; Activate User Audit Entry Tests
 ;; =============================================================================
 
-(deftest activate-user-audit-entry-test
+(deftest ^:unit activate-user-audit-entry-test
   (testing "Creates audit entry for user activation"
     (let [entry (audit/activate-user-audit-entry
                  test-actor-id
@@ -192,7 +192,7 @@
 ;; Delete User Audit Entry Tests
 ;; =============================================================================
 
-(deftest delete-user-audit-entry-test
+(deftest ^:unit delete-user-audit-entry-test
   (testing "Creates audit entry for hard delete"
     (let [entry (audit/delete-user-audit-entry
                  test-actor-id
@@ -223,7 +223,7 @@
 ;; Role Change Audit Entry Tests
 ;; =============================================================================
 
-(deftest role-change-audit-entry-test
+(deftest ^:unit role-change-audit-entry-test
   (testing "Creates audit entry for role change from user to admin"
     (let [entry (audit/role-change-audit-entry
                  test-actor-id
@@ -259,7 +259,7 @@
 ;; Bulk Action Audit Entry Tests
 ;; =============================================================================
 
-(deftest bulk-action-audit-entry-test
+(deftest ^:unit bulk-action-audit-entry-test
   (testing "Creates audit entry for bulk action"
     (let [user-ids [(UUID/randomUUID) (UUID/randomUUID) (UUID/randomUUID)]
           entry (audit/bulk-action-audit-entry
@@ -296,7 +296,7 @@
 ;; Login Audit Entry Tests
 ;; =============================================================================
 
-(deftest login-audit-entry-test
+(deftest ^:unit login-audit-entry-test
   (testing "Creates audit entry for successful login"
     (let [entry (audit/login-audit-entry
                  test-target-id
@@ -344,7 +344,7 @@
 ;; Logout Audit Entry Tests
 ;; =============================================================================
 
-(deftest logout-audit-entry-test
+(deftest ^:unit logout-audit-entry-test
   (testing "Creates audit entry for logout"
     (let [entry (audit/logout-audit-entry
                  test-target-id
@@ -372,7 +372,7 @@
 ;; Sanitize Audit Metadata Tests
 ;; =============================================================================
 
-(deftest sanitize-audit-metadata-test
+(deftest ^:unit sanitize-audit-metadata-test
   (testing "Removes sensitive fields from metadata"
     (let [metadata {:username "testuser"
                     :password "secret123"

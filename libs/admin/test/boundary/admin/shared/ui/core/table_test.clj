@@ -3,7 +3,7 @@
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))
 
-(deftest sortable-th-direction-toggle-test
+(deftest ^:unit sortable-th-direction-toggle-test
   (testing "active asc sort toggles to desc and renders ascending icon"
     (let [th (table-ui/sortable-th {:label "Email"
                                     :field :email

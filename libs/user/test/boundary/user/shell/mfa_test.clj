@@ -79,7 +79,7 @@
 ;; TOTP Secret Generation Tests
 ;; =============================================================================
 
-(deftest generate-totp-secret-test
+(deftest ^:unit ^:security generate-totp-secret-test
   (testing "TOTP secret generation"
     (let [secret (mfa-shell/generate-totp-secret)]
 
@@ -103,7 +103,7 @@
 ;; TOTP Code Verification Tests
 ;; =============================================================================
 
-(deftest verify-totp-code-test
+(deftest ^:unit ^:security verify-totp-code-test
   (testing "TOTP code verification"
     (let [secret (mfa-shell/generate-totp-secret)]
 
@@ -126,7 +126,7 @@
 ;; Backup Code Generation Tests
 ;; =============================================================================
 
-(deftest generate-backup-codes-test
+(deftest ^:unit ^:security generate-backup-codes-test
   (testing "Backup code generation"
     (let [codes (mfa-shell/generate-backup-codes 10)]
 
@@ -150,7 +150,7 @@
 ;; TOTP URI Generation Tests
 ;; =============================================================================
 
-(deftest generate-totp-uri-test
+(deftest ^:unit ^:security generate-totp-uri-test
   (testing "TOTP URI generation"
     (let [secret "JBSWY3DPEHPK3PXP"
           email "test@example.com"
@@ -179,7 +179,7 @@
 ;; QR Code Generation Tests
 ;; =============================================================================
 
-(deftest generate-qr-code-data-url-test
+(deftest ^:unit ^:security generate-qr-code-data-url-test
   (testing "QR code data URL generation"
     (let [secret "JBSWY3DPEHPK3PXP"
           email "test@example.com"
@@ -201,7 +201,7 @@
 ;; MFA Service Integration Tests
 ;; =============================================================================
 
-(deftest setup-mfa-service-test
+(deftest ^:unit ^:security setup-mfa-service-test
   (testing "MFA setup flow"
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
@@ -228,7 +228,7 @@
         (let [user (ports/find-user-by-id mock-repo (:id test-user))]
           (is (false? (:mfa-enabled user))))))))
 
-(deftest enable-mfa-invalid-code-test
+(deftest ^:unit ^:security enable-mfa-invalid-code-test
   (testing "MFA enable with invalid code"
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
@@ -251,7 +251,7 @@
         (let [user (ports/find-user-by-id mock-repo (:id test-user))]
           (is (false? (:mfa-enabled user))))))))
 
-(deftest get-mfa-status-service-test
+(deftest ^:unit ^:security get-mfa-status-service-test
   (testing "MFA status retrieval when disabled"
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
@@ -264,7 +264,7 @@
         (is (nil? (:enabled-at status)))
         (is (= 0 (:backup-codes-remaining status)))))))
 
-(deftest verify-mfa-code-invalid-test
+(deftest ^:unit ^:security verify-mfa-code-invalid-test
   (testing "MFA code verification with invalid codes"
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
@@ -302,7 +302,7 @@
         (let [user-with-used-code (update user-with-mfa :mfa-backup-codes-used conj (first hashed-codes))
               result (mfa-shell/verify-mfa-code service user-with-used-code (first backup-codes))]
           (is (false? (:valid? result))))))))
-(deftest setup-mfa-user-not-found-test
+(deftest ^:unit ^:security setup-mfa-user-not-found-test
   (testing "MFA setup with non-existent user"
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
@@ -314,7 +314,7 @@
         (is (false? (:success? result)))
         (is (= "User not found" (:error result)))))))
 
-(deftest enable-mfa-without-setup-test
+(deftest ^:unit ^:security enable-mfa-without-setup-test
   (testing "MFA enable without prior setup (missing secret/codes)"
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}
@@ -327,7 +327,7 @@
         (is (false? (:success? result)))
         (is (some? (:error result)))))))
 
-(deftest disable-mfa-when-not-enabled-test
+(deftest ^:unit ^:security disable-mfa-when-not-enabled-test
   (testing "MFA disable when not enabled"
     (let [mock-repo (create-mock-repository)
           config {:issuer "TestApp"}

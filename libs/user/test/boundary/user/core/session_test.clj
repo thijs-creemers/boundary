@@ -34,7 +34,7 @@
 ;; validate-session-creation-request
 ;; =============================================================================
 
-(deftest validate-session-creation-request-test
+(deftest ^:unit validate-session-creation-request-test
   (testing "valid request with user-id"
     (let [result (session/validate-session-creation-request {:user-id user-id})]
       (is (true? (:valid? result)))))
@@ -51,7 +51,7 @@
 ;; is-session-valid?
 ;; =============================================================================
 
-(deftest is-session-valid?-test
+(deftest ^:unit is-session-valid?-test
   (testing "nil session is not valid"
     (let [result (session/is-session-valid? nil now)]
       (is (false? (:valid? result)))
@@ -78,7 +78,7 @@
 ;; generate-session-token
 ;; =============================================================================
 
-(deftest generate-session-token-test
+(deftest ^:unit generate-session-token-test
   (testing "produces deterministic token string"
     (let [token (session/generate-session-token 1000 42)]
       (is (= "token-1000-42" token))))
@@ -94,7 +94,7 @@
 ;; calculate-session-expiry
 ;; =============================================================================
 
-(deftest calculate-session-expiry-test
+(deftest ^:unit calculate-session-expiry-test
   (testing "standard session expires in 24 hours"
     (let [expiry (session/calculate-session-expiry now false)]
       (is (= (.plusSeconds now (* 24 3600)) expiry))))
@@ -111,7 +111,7 @@
 ;; prepare-session-for-creation
 ;; =============================================================================
 
-(deftest prepare-session-for-creation-test
+(deftest ^:unit prepare-session-for-creation-test
   (testing "sets all required fields"
     (let [data {:user-id user-id
                 :remember-me false
@@ -135,7 +135,7 @@
 ;; should-extend-session?
 ;; =============================================================================
 
-(deftest should-extend-session?-test
+(deftest ^:unit should-extend-session?-test
   (testing "session near expiry should be extended"
     ;; expires in 1 hour, threshold is 2 hours → should extend
     (let [expires-soon (Instant/parse "2026-01-15T13:00:00Z")  ; 1h from now
@@ -154,7 +154,7 @@
 ;; update-session-access
 ;; =============================================================================
 
-(deftest update-session-access-test
+(deftest ^:unit update-session-access-test
   (testing "updates last-accessed-at"
     (let [sess (make-session)
           updated (session/update-session-access sess later)]
@@ -171,7 +171,7 @@
 ;; should-cleanup-session?
 ;; =============================================================================
 
-(deftest should-cleanup-session?-test
+(deftest ^:unit should-cleanup-session?-test
   (testing "session expired beyond grace period should be cleaned up"
     ;; now is Jan 15, expires-at is Jan 1 (14 days ago > 7-day grace)
     (let [old-expiry (Instant/parse "2026-01-01T00:00:00Z")
@@ -190,13 +190,13 @@
 ;; mark-session-for-cleanup / filter-sessions-for-cleanup
 ;; =============================================================================
 
-(deftest mark-session-for-cleanup-test
+(deftest ^:unit mark-session-for-cleanup-test
   (testing "sets revoked-at to current-time"
     (let [sess (make-session)
           marked (session/mark-session-for-cleanup sess now)]
       (is (= now (:revoked-at marked))))))
 
-(deftest filter-sessions-for-cleanup-test
+(deftest ^:unit filter-sessions-for-cleanup-test
   (testing "returns only sessions past grace period"
     (let [old-expiry (Instant/parse "2026-01-01T00:00:00Z")
           new-expiry (Instant/parse "2026-01-13T12:00:00Z")
@@ -210,7 +210,7 @@
 ;; detect-suspicious-activity?
 ;; =============================================================================
 
-(deftest detect-suspicious-activity?-test
+(deftest ^:unit detect-suspicious-activity?-test
   (testing "IP change is suspicious"
     (let [sess (make-session {:ip-address "9.9.9.9"})
           prev [(make-session {:ip-address "1.2.3.4"})]
@@ -228,7 +228,7 @@
 ;; calculate-session-risk-score
 ;; =============================================================================
 
-(deftest calculate-session-risk-score-test
+(deftest ^:unit calculate-session-risk-score-test
   (testing "base score is present"
     (let [sess (make-session)
           score (session/calculate-session-risk-score sess [])]
@@ -245,7 +245,7 @@
 ;; should-require-additional-verification?
 ;; =============================================================================
 
-(deftest should-require-additional-verification?-test
+(deftest ^:unit should-require-additional-verification?-test
   (testing "returns false for low-risk session"
     (let [sess (make-session)
           prev [(make-session)]]
@@ -260,7 +260,7 @@
 ;; analyze-session-duration
 ;; =============================================================================
 
-(deftest analyze-session-duration-test
+(deftest ^:unit analyze-session-duration-test
   (testing "returns session-id and duration in hours"
     (let [sess (make-session {:created-at (Instant/parse "2026-01-15T10:00:00Z")
                               :last-accessed-at (Instant/parse "2026-01-15T12:00:00Z")})
@@ -272,7 +272,7 @@
 ;; group-sessions-by-device-type
 ;; =============================================================================
 
-(deftest group-sessions-by-device-type-test
+(deftest ^:unit group-sessions-by-device-type-test
   (let [mobile-sess (make-session {:user-agent "iPhone Mobile/15"})
         desktop-sess (make-session {:user-agent "Chrome/120 Desktop" :id (UUID/randomUUID)})
         other-sess (make-session {:user-agent "curl/7.0" :id (UUID/randomUUID)})
@@ -291,7 +291,7 @@
 ;; calculate-user-session-stats
 ;; =============================================================================
 
-(deftest calculate-user-session-stats-test
+(deftest ^:unit calculate-user-session-stats-test
   (let [id2 (UUID/randomUUID)
         id3 (UUID/randomUUID)
         other-user (UUID/randomUUID)
@@ -313,7 +313,7 @@
 ;; extract-device-info
 ;; =============================================================================
 
-(deftest extract-device-info-test
+(deftest ^:unit extract-device-info-test
   (testing "detects iPhone as mobile"
     (let [info (session/extract-device-info "iPhone/15" "1.2.3.4")]
       (is (= :mobile (:device-type info)))))
@@ -335,7 +335,7 @@
 ;; is-same-device?
 ;; =============================================================================
 
-(deftest is-same-device?-test
+(deftest ^:unit is-same-device?-test
   (testing "same IP and user-agent is same device"
     (let [d1 {:ip-address "1.1.1.1" :user-agent "Chrome/120"}
           d2 {:ip-address "1.1.1.1" :user-agent "Chrome/120"}]
@@ -355,7 +355,7 @@
 ;; should-update-access-time?
 ;; =============================================================================
 
-(deftest should-update-access-time?-test
+(deftest ^:unit should-update-access-time?-test
   (testing "returns true when enough time has passed"
     (let [last-access (Instant/parse "2026-01-15T11:50:00Z") ; 10 min ago
           sess (make-session {:last-accessed-at last-access})
@@ -372,13 +372,13 @@
 ;; prepare-session-for-access-update / prepare-session-for-invalidation
 ;; =============================================================================
 
-(deftest prepare-session-for-access-update-test
+(deftest ^:unit prepare-session-for-access-update-test
   (testing "sets last-accessed-at to current-time"
     (let [sess (make-session)
           updated (session/prepare-session-for-access-update sess later)]
       (is (= later (:last-accessed-at updated))))))
 
-(deftest prepare-session-for-invalidation-test
+(deftest ^:unit prepare-session-for-invalidation-test
   (testing "sets revoked-at to current-time"
     (let [sess (make-session)
           invalidated (session/prepare-session-for-invalidation sess later)]

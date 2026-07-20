@@ -22,7 +22,7 @@
    :role :user
    :active true})
 
-(deftest assert-can-access-admin!-test
+(deftest ^:unit assert-can-access-admin!-test
   (testing "Assert admin access permission"
     (testing "Admin user passes"
       (is (= true (shell-permissions/assert-can-access-admin! admin-user)))
@@ -47,7 +47,7 @@
         (catch clojure.lang.ExceptionInfo e
           (is (= :forbidden (:type (ex-data e)))))))))
 
-(deftest assert-can-view-entity!-test
+(deftest ^:unit assert-can-view-entity!-test
   (testing "Assert entity view permission"
     (testing "Admin user passes"
       (is (= true (shell-permissions/assert-can-view-entity! admin-user :users))))
@@ -69,7 +69,7 @@
             (is (= :user (:user-role data)))
             (is (= :admin (:required-role data)))))))))
 
-(deftest assert-can-edit-entity!-test
+(deftest ^:unit assert-can-edit-entity!-test
   (testing "Assert entity edit permission"
     (testing "Admin user passes"
       (is (= true (shell-permissions/assert-can-edit-entity! admin-user :users)))
@@ -91,7 +91,7 @@
             (is (= :forbidden (:type data)))
             (is (= 123 (:record-id data)))))))))
 
-(deftest assert-can-delete-entity!-test
+(deftest ^:unit assert-can-delete-entity!-test
   (testing "Assert entity delete permission"
     (testing "Admin user passes"
       (is (= true (shell-permissions/assert-can-delete-entity! admin-user :users)))

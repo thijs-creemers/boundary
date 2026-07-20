@@ -253,7 +253,7 @@
 ;; Authentication and Authorization Tests
 ;; =============================================================================
 
-(deftest admin-home-authorization-test
+(deftest ^:contract admin-home-authorization-test
   (testing "Admin home page requires authentication"
     (testing "Admin user can access"
       (let [request (make-request :get "/web/admin" admin-user)
@@ -279,7 +279,7 @@
 ;; Entity List Endpoint Tests
 ;; =============================================================================
 
-(deftest entity-list-endpoint-test
+(deftest ^:contract entity-list-endpoint-test
   (testing "GET /web/admin/:entity - List entities"
     ;; Create test data
     (create-test-user! "alice@example.com" "Alice" true)
@@ -307,7 +307,7 @@
         ;; Should be denied
         (is (some? response))))))
 
-(deftest entity-list-pagination-test
+(deftest ^:contract entity-list-pagination-test
   (testing "Entity list with pagination query parameters"
     ;; Create 10 test users
     (doseq [i (range 10)]
@@ -330,7 +330,7 @@
             response (*handler* request)]
         (is (= 200 (:status response)))))))
 
-(deftest entity-list-sorting-test
+(deftest ^:contract entity-list-sorting-test
   (testing "Entity list with sorting query parameters"
     (create-test-user! "charlie@example.com" "Charlie" true)
     (create-test-user! "alice@example.com" "Alice" true)
@@ -353,7 +353,7 @@
             response (*handler* request)]
         (is (= 200 (:status response)))))))
 
-(deftest entity-list-search-test
+(deftest ^:contract entity-list-search-test
   (testing "Entity list with search query parameter"
     (create-test-user! "alice@example.com" "Alice Smith" true)
     (create-test-user! "bob@gmail.com" "Bob Jones" true)
@@ -379,7 +379,7 @@
         (let [body (:body response)]
           (is (str/includes? body "Charlie Brown")))))))
 
-(deftest entity-list-nonexistent-entity-test
+(deftest ^:contract entity-list-nonexistent-entity-test
   (testing "List non-existent entity returns error"
     (let [request (make-request :get "/web/admin/nonexistent" admin-user
                                 {:path {:entity "nonexistent"}})
@@ -391,7 +391,7 @@
 ;; HTMX Fragment Endpoint Tests
 ;; =============================================================================
 
-(deftest entity-table-fragment-test
+(deftest ^:contract entity-table-fragment-test
   (testing "GET /web/admin/:entity/table - HTMX table fragment"
     (create-test-user! "test@example.com" "Test User" true)
 
@@ -417,7 +417,7 @@
 ;; Entity Detail/Edit Endpoint Tests
 ;; =============================================================================
 
-(deftest entity-detail-endpoint-test
+(deftest ^:contract entity-detail-endpoint-test
   (testing "GET /web/admin/:entity/:id - Entity detail/edit page"
     (let [user (create-test-user! "detail@example.com" "Detail User" true)
           user-id (:id user)]
@@ -442,7 +442,7 @@
           ;; Should return error or throw
           (is (some? response)))))))
 
-(deftest new-entity-form-endpoint-test
+(deftest ^:contract new-entity-form-endpoint-test
   (testing "GET /web/admin/:entity/new - New entity form"
     (testing "Admin can view create form"
       (let [request (make-request :get "/web/admin/test-users/new" admin-user
@@ -462,7 +462,7 @@
 ;; Create Entity Endpoint Tests
 ;; =============================================================================
 
-(deftest create-entity-endpoint-test
+(deftest ^:contract create-entity-endpoint-test
   (testing "POST /web/admin/:entity - Create new entity"
     (testing "Admin can create entity with valid data"
       (let [request (make-request :post "/web/admin/test-users" admin-user
@@ -493,7 +493,7 @@
 ;; Update Entity Endpoint Tests
 ;; =============================================================================
 
-(deftest update-entity-endpoint-test
+(deftest ^:contract update-entity-endpoint-test
   (testing "PUT /web/admin/:entity/:id - Update existing entity"
     (let [user (create-test-user! "update@example.com" "Update User" true)
           user-id (:id user)]
@@ -523,7 +523,7 @@
 ;; Delete Entity Endpoint Tests
 ;; =============================================================================
 
-(deftest delete-entity-endpoint-test
+(deftest ^:contract delete-entity-endpoint-test
   (testing "DELETE /web/admin/:entity/:id - Delete entity"
     (let [user (create-test-user! "delete@example.com" "Delete User" true)
           user-id (:id user)]
@@ -552,7 +552,7 @@
 ;; Bulk Delete Endpoint Tests
 ;; =============================================================================
 
-(deftest bulk-delete-endpoint-test
+(deftest ^:contract bulk-delete-endpoint-test
   (testing "POST /web/admin/:entity/bulk-delete - Bulk delete entities"
     (let [user1 (create-test-user! "bulk1@example.com" "Bulk 1" true)
           user2 (create-test-user! "bulk2@example.com" "Bulk 2" true)
@@ -573,7 +573,7 @@
 ;; Error Response Tests
 ;; =============================================================================
 
-(deftest error-response-formats-test
+(deftest ^:contract error-response-formats-test
   (testing "Error responses use correct HTTP status codes"
     (testing "403 Forbidden for unauthorized access"
       (let [request (make-request :get "/web/admin/test-users" regular-user
@@ -594,7 +594,7 @@
 ;; Security Tests
 ;; =============================================================================
 
-(deftest security-tests
+(deftest ^:contract security-tests
   (testing "Security: Hidden fields not exposed in responses"
     (let [user (create-test-user! "secure@example.com" "Secure User" true)
           user-id (:id user)]
@@ -630,12 +630,12 @@
                                           :where [:= :id original-id]})]
             (is (= original-id (:id updated)))))))))
 
-(deftest ^:security ^:unit create-entity-error-flash-no-leak-test
+(deftest ^:unit ^:security create-entity-error-flash-no-leak-test
   (testing "raw exception during create never echoes its message to the client (BOU-182)"
     (let [secret          "SECRET-DB-DETAIL-XYZ-123"
           stub-service    (reify admin-ports/IAdminService
-            (validate-entity-data [_ _ data] {:valid? true :data data})
-            (create-entity [_ _ _] (throw (RuntimeException. secret))))
+                            (validate-entity-data [_ _ data] {:valid? true :data data})
+                            (create-entity [_ _ _] (throw (RuntimeException. secret))))
           schema-provider (schema-repo/create-schema-repository *db-ctx* admin-config)
           handler         (admin-http/create-entity-handler stub-service schema-provider admin-config)
           request         (make-request :post "/web/admin/test-users" admin-user
@@ -651,9 +651,9 @@
 
   (testing "typed domain errors still surface their client-safe message"
     (let [stub-service    (reify admin-ports/IAdminService
-            (validate-entity-data [_ _ data] {:valid? true :data data})
-            (create-entity [_ _ _]
-              (throw (ex-info "Email already in use" {:type :conflict}))))
+                            (validate-entity-data [_ _ data] {:valid? true :data data})
+                            (create-entity [_ _ _]
+                              (throw (ex-info "Email already in use" {:type :conflict}))))
           schema-provider (schema-repo/create-schema-repository *db-ctx* admin-config)
           handler         (admin-http/create-entity-handler stub-service schema-provider admin-config)
           request         (make-request :post "/web/admin/test-users" admin-user
@@ -672,10 +672,10 @@
     ;; with the driver message embedded — typed, but internal.
     (let [secret          "INTERNAL-SCHEMA-DETAIL-456"
           stub-service    (reify admin-ports/IAdminService
-            (validate-entity-data [_ _ data] {:valid? true :data data})
-            (create-entity [_ _ _]
-              (throw (ex-info (str "Failed to fetch table metadata: " secret)
-                              {:type :schema-fetch-error}))))
+                            (validate-entity-data [_ _ data] {:valid? true :data data})
+                            (create-entity [_ _ _]
+                              (throw (ex-info (str "Failed to fetch table metadata: " secret)
+                                              {:type :schema-fetch-error}))))
           schema-provider (schema-repo/create-schema-repository *db-ctx* admin-config)
           handler         (admin-http/create-entity-handler stub-service schema-provider admin-config)
           request         (make-request :post "/web/admin/test-users" admin-user
@@ -693,7 +693,7 @@
 ;; Integration: Full CRUD Workflow
 ;; =============================================================================
 
-(deftest full-crud-workflow-test
+(deftest ^:contract full-crud-workflow-test
   (testing "Complete CRUD workflow via HTTP"
     (let [create-request (make-request :post "/web/admin/test-users" admin-user
                                        {:path {:entity "test-users"}

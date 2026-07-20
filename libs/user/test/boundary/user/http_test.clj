@@ -194,7 +194,7 @@
 ;; User Handler Tests
 ;; =============================================================================
 
-(deftest test-create-user-handler
+(deftest ^:contract test-create-user-handler
   (testing "POST /users - Create user successfully"
     (let [service (create-mock-service)
           handler (user-http/create-user-handler service)
@@ -229,7 +229,7 @@
       (is (= 201 (:status response)))
       (is (true? (get-in response [:body :active]))))))
 
-(deftest test-get-user-handler
+(deftest ^:contract test-get-user-handler
   (testing "GET /users/:id - Get existing user"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
@@ -267,7 +267,7 @@
       ;; Extension member from ex-data
       (is (= (str non-existent-id) (get-in response [:body :user-id]))))))
 
-(deftest test-list-users-handler
+(deftest ^:contract test-list-users-handler
   (testing "GET /users - List users with pagination"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
@@ -317,7 +317,7 @@
       ;; Note: Mock service doesn't implement filtering, would be 1 in real implementation
       (is (number? (get-in response [:body :pagination :total]))))))
 
-(deftest test-update-user-handler
+(deftest ^:contract test-update-user-handler
   (testing "PUT /users/:id - Update user successfully"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
@@ -357,7 +357,7 @@
       ;; Extension member from ex-data
       (is (= (str non-existent-id) (get-in response [:body :user-id]))))))
 
-(deftest test-delete-user-handler
+(deftest ^:contract test-delete-user-handler
   (testing "DELETE /users/:id - Soft delete user successfully"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
@@ -382,7 +382,7 @@
 ;; Session Handler Tests
 ;; =============================================================================
 
-(deftest test-create-session-handler
+(deftest ^:contract test-create-session-handler
   (testing "POST /sessions - Create session successfully"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
@@ -398,7 +398,7 @@
       (is (some? (get-in response [:body :expiresAt])))
       (is (= (str user-id) (get-in response [:body :userId]))))))
 
-(deftest test-validate-session-handler
+(deftest ^:contract test-validate-session-handler
   (testing "GET /sessions/:token - Valid session"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)
@@ -435,7 +435,7 @@
       (is (false? (get-in response [:body :valid])))
       (is (= invalid-token (get-in response [:body :token]))))))
 
-(deftest test-invalidate-session-handler
+(deftest ^:contract test-invalidate-session-handler
   (testing "DELETE /sessions/:token - Invalidate session successfully"
     (let [service (create-mock-service)
           user-id (UUID/randomUUID)

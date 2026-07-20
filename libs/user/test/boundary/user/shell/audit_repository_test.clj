@@ -125,7 +125,7 @@
 ;; Create Audit Log Tests
 ;; =============================================================================
 
-(deftest create-audit-log-test
+(deftest ^:contract create-audit-log-test
   (testing "Creates audit log entry in database"
     (let [entry (create-test-audit-entry)
           created (.create-audit-log @test-audit-repo entry)]
@@ -161,7 +161,7 @@
 ;; Find Audit Logs Tests
 ;; =============================================================================
 
-(deftest find-audit-logs-test
+(deftest ^:contract find-audit-logs-test
   (testing "Finds audit logs with default options"
     ;; Create test entries
     (dotimes [_ 5]
@@ -214,7 +214,7 @@
 ;; Find Audit Logs By User Tests
 ;; =============================================================================
 
-(deftest find-audit-logs-by-user-test
+(deftest ^:contract find-audit-logs-by-user-test
   (testing "Finds audit logs for specific target user"
     (let [target-user-id (UUID/randomUUID)
           other-user-id (UUID/randomUUID)]
@@ -243,7 +243,7 @@
 ;; Find Audit Logs By Actor Tests
 ;; =============================================================================
 
-(deftest find-audit-logs-by-actor-test
+(deftest ^:contract find-audit-logs-by-actor-test
   (testing "Finds audit logs performed by specific actor"
     (let [actor-id (UUID/randomUUID)
           other-actor-id (UUID/randomUUID)]
@@ -279,7 +279,7 @@
 ;; Count Audit Logs Tests
 ;; =============================================================================
 
-(deftest count-audit-logs-test
+(deftest ^:contract count-audit-logs-test
   (testing "Counts all audit logs"
     ;; Create test entries
     (dotimes [_ 7]
@@ -308,7 +308,7 @@
 ;; JSONB Metadata Tests
 ;; =============================================================================
 
-(deftest jsonb-metadata-test
+(deftest ^:contract jsonb-metadata-test
   (testing "Stores and retrieves complex metadata"
     (let [complex-metadata {:field-count 3
                             :fields [{:field "role" :old "user" :new "admin"}

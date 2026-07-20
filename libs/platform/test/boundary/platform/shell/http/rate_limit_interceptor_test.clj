@@ -34,7 +34,7 @@
    {:request-method :get :uri "/api/v1/thing" :remote-addr client-ip}
    system))
 
-(deftest disabled-is-a-noop
+(deftest ^:unit ^:security disabled-is-a-noop
   (testing "with :enabled? false the interceptor never limits and adds no headers"
     (let [system {:rate-limit {:enabled? false :limit 1 :window-ms 60000}}]
       (dotimes [_ 5]
@@ -42,11 +42,11 @@
           (is (= 200 (:status resp)))
           (is (nil? (get-in resp [:headers "X-RateLimit-Limit"]))))))))
 
-(deftest absent-config-is-a-noop
+(deftest ^:unit ^:security absent-config-is-a-noop
   (testing "no :rate-limit in system → opt-in default off, never limits"
     (is (= 200 (:status (run {} "10.0.0.2"))))))
 
-(deftest in-memory-fallback-enforces-limit
+(deftest ^:unit ^:security in-memory-fallback-enforces-limit
   (testing "enabled with no cache: allow up to limit, then 429 (single-node)"
     (let [system {:rate-limit {:enabled? true :limit 3 :window-ms 60000}}
           ip     "10.0.0.99"
@@ -54,7 +54,7 @@
       (is (= [200 200 200 429 429] codes)
           "first 3 allowed, rest rejected"))))
 
-(deftest exceeding-limit-returns-429-shape
+(deftest ^:unit ^:security exceeding-limit-returns-429-shape
   (testing "429 carries Retry-After + rate-limit headers and typed body"
     (let [system {:rate-limit {:enabled? true :limit 1 :window-ms 60000}}
           ip     "10.0.0.50"]
@@ -65,7 +65,7 @@
         (is (= "1" (get-in resp [:headers "X-RateLimit-Limit"])))
         (is (= :rate-limit-exceeded (get-in resp [:body :type])))))))
 
-(deftest allowed-response-carries-remaining-header
+(deftest ^:unit ^:security allowed-response-carries-remaining-header
   (testing "allowed requests expose X-RateLimit-Remaining on the way out (Redis path)"
     (let [system {:rate-limit {:enabled? true :limit 5 :window-ms 60000}
                   :cache      (shared-counter-cache)}
@@ -75,7 +75,7 @@
       ;; fixed-window counter includes this request → 5 - 1 = 4 remaining
       (is (= "4" (get-in resp [:headers "X-RateLimit-Remaining"]))))))
 
-(deftest shared-cache-enforces-limit-across-replicas
+(deftest ^:unit ^:security shared-cache-enforces-limit-across-replicas
   (testing "two pipelines sharing one cache enforce a single combined limit"
     (let [cache  (shared-counter-cache)
           policy {:enabled? true :limit 4 :window-ms 60000}
@@ -92,7 +92,7 @@
       (is (= [200 200 200 200 429 429] codes)
           "combined limit of 4 enforced regardless of which replica served the request"))))
 
-(deftest wired-into-default-stack
+(deftest ^:unit ^:security wired-into-default-stack
   (testing "the config-driven limiter is part of the default HTTP interceptor stack"
     (is (some #(= % itc/http-rate-limit-protection) itc/default-http-interceptors))))
 
@@ -103,7 +103,7 @@
 (def ^:private prune-stale-clients #'itc/prune-stale-clients)
 (def ^:private check-rate-limit-memory #'itc/check-rate-limit-memory)
 
-(deftest prune-stale-clients-drops-out-of-window-and-empty
+(deftest ^:unit ^:security prune-stale-clients-drops-out-of-window-and-empty
   (testing "prune keeps only clients with at least one in-window timestamp"
     (let [now    1000000
           cutoff (- now 60000)
@@ -115,7 +115,7 @@
       (is (= #{"recent" "mixed"} (set (keys pruned))) "stale and empty clients removed")
       (is (= [(- now 50)] (get pruned "mixed")) "mixed client trimmed to in-window timestamps"))))
 
-(deftest in-memory-limiter-bounds-tracked-clients
+(deftest ^:unit ^:security in-memory-limiter-bounds-tracked-clients
   (testing "exceeding the client cap sweeps out stale clients instead of growing unbounded"
     (let [window-ms 60000
           ;; Seed the global state with more than the cap of clients whose only
@@ -131,7 +131,7 @@
         (is (<= (count @@#'itc/rate-limit-state) 1)
             "stale clients swept; only the fresh client remains")))))
 
-(deftest in-memory-limiter-hard-caps-when-all-clients-in-window
+(deftest ^:unit ^:security in-memory-limiter-hard-caps-when-all-clients-in-window
   (testing "a stream of fresh clients can't grow the map past the cap even when every client is in-window"
     (let [window-ms 60000
           cap       @#'itc/max-tracked-clients

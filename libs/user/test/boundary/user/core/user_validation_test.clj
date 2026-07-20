@@ -28,7 +28,7 @@
 ;; Email Validation Tests
 ;; =============================================================================
 
-(deftest email-validation-accepts-valid-emails
+(deftest ^:unit email-validation-accepts-valid-emails
   (testing "Standard email formats are accepted"
     (let [valid-emails ["user@example.com"
                         "john.doe@company.co.uk"
@@ -44,7 +44,7 @@
           (is (nil? (:errors result))
               (str "No errors expected for valid email: " email)))))))
 
-(deftest email-validation-rejects-invalid-emails
+(deftest ^:unit email-validation-rejects-invalid-emails
   (testing "Invalid email formats are rejected"
     (let [invalid-emails ["notanemail"
                           "@example.com"
@@ -63,7 +63,7 @@
           (is (some? (:errors result))
               (str "Errors expected for invalid email: " email)))))))
 
-(deftest email-validation-schema-direct-test
+(deftest ^:unit email-validation-schema-direct-test
   (testing "Malli schema directly validates email format"
     (is (m/validate [:re schema/email-regex] "valid@example.com")
         "Valid email passes regex")
@@ -82,7 +82,7 @@
 ;; Required Field Validation Tests
 ;; =============================================================================
 
-(deftest email-field-required-validation
+(deftest ^:unit email-field-required-validation
   (testing "Missing email field causes validation failure"
     (let [request-without-email (dissoc valid-user-creation-request :email)
           result (user-core/validate-user-creation-request request-without-email vh/test-validation-config)]
@@ -103,7 +103,7 @@
       (is (some? (:errors result))
           "Errors should be present for nil email"))))
 
-(deftest all-required-fields-validation
+(deftest ^:unit all-required-fields-validation
   (testing "All required fields must be present"
     (let [required-fields [:email :name :role]]
       (doseq [field required-fields]
@@ -118,7 +118,7 @@
 ;; Name Length Validation Tests
 ;; =============================================================================
 
-(deftest name-length-validation-too-short
+(deftest ^:unit name-length-validation-too-short
   (testing "Empty name is rejected"
     (let [request (assoc valid-user-creation-request :name "")
           result (user-core/validate-user-creation-request request vh/test-validation-config)]
@@ -137,7 +137,7 @@
       (is (not (:valid? result))
           "Names shorter than 1 character should be invalid"))))
 
-(deftest name-length-validation-too-long
+(deftest ^:unit name-length-validation-too-long
   (testing "Name exceeding maximum length is rejected"
     (let [too-long-name (apply str (repeat 256 "a"))
           request (assoc valid-user-creation-request :name too-long-name)
@@ -160,7 +160,7 @@
       (is (nil? (:errors result))
           "No errors for name at maximum allowed length"))))
 
-(deftest name-length-validation-valid-boundaries
+(deftest ^:unit name-length-validation-valid-boundaries
   (testing "Valid name lengths are accepted"
     (let [valid-names ["A"
                        "John Doe"
@@ -182,7 +182,7 @@
 ;; Integration Tests - Multiple Validation Rules
 ;; =============================================================================
 
-(deftest multiple-validation-errors
+(deftest ^:unit multiple-validation-errors
   (testing "Multiple invalid fields produce multiple errors"
     (let [invalid-request {:email "notanemail"
                            :name ""
@@ -197,7 +197,7 @@
         (is (>= error-count 2)
             "At least 2 validation errors expected")))))
 
-(deftest complete-valid-user-creation-flow
+(deftest ^:unit complete-valid-user-creation-flow
   (testing "Valid user creation request passes all validations"
     (let [valid-request {:email "john.doe@company.com"
                          :name "John Doe"

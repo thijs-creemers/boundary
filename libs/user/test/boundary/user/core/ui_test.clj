@@ -41,7 +41,7 @@
 ;; User Table Component Tests
 ;; =============================================================================
 
-(deftest user-row-test
+(deftest ^:unit user-row-test
   (testing "generates correct table row for active user"
     (let [row (ui/user-row sample-user)]
       (is (vector? row))
@@ -85,7 +85,7 @@
       ;; Capitalized label for viewer role
       (is (= "Viewer" (nth role-cell 2))))))
 
-(deftest users-table-test
+(deftest ^:unit users-table-test
   (testing "generates table with users wrapped in container"
     (let [table (ui/users-table sample-users)]
       (is (vector? table))
@@ -108,7 +108,7 @@
       (is (= "#users-table-container" (:hx-target attrs)))
       (is (= "userCreated from:body, userUpdated from:body, userDeleted from:body" (:hx-trigger attrs))))))
 
-(deftest audit-logs-table-test
+(deftest ^:unit audit-logs-table-test
   (testing "renders non-empty audit table without throwing and keeps wrapper container"
     (let [audit-log {:action :login
                      :result :success
@@ -129,7 +129,7 @@
         (is (re-find #"audit-table" html))
         (is (re-find #"audit-action-badge" html))))))
 
-(deftest session-row-test
+(deftest ^:unit session-row-test
   (testing "posts revoke action to stable endpoint with token in hidden field"
     (let [session  {:session-token    "abc/def+ghi=="
                     :user-agent       "Mozilla/5.0 Chrome"
@@ -145,7 +145,7 @@
       (is (re-find #"abc/def\+ghi==" row-html))
       (is (re-find #"2 hours ago" row-html)))))
 
-(deftest format-relative-time-explicit-zone-test
+(deftest ^:unit format-relative-time-explicit-zone-test
   (testing "long-range relative formatting uses explicit zone id"
     (let [result (ui/format-relative-time* (java.time.Instant/parse "2026-03-01T08:00:00Z")
                                            (java.time.Instant/parse "2026-03-19T10:00:00Z")
@@ -154,7 +154,7 @@
       (is (re-find #"1" result))
       (is (not= "2026-03-01" result)))))
 
-(deftest dashboard-page-relative-time-test
+(deftest ^:unit dashboard-page-relative-time-test
   (testing "dashboard page renders relative last-login from explicit current time"
     (let [user (assoc sample-user
                       :last-login (java.time.Instant/parse "2026-03-19T08:00:00Z")
@@ -173,7 +173,7 @@
 ;; User Form Component Tests
 ;; =============================================================================
 
-(deftest user-detail-form-test
+(deftest ^:unit user-detail-form-test
   (testing "generates form with correct structure"
     (let [form (ui/user-detail-form sample-user)]
       (is (vector? form))
@@ -204,7 +204,7 @@
       (is (re-find #"label-role" form-content))
       (is (re-find #"field-active" form-content)))))
 
-(deftest create-user-form-test
+(deftest ^:unit create-user-form-test
   (testing "generates form with correct structure"
     (let [form (ui/create-user-form)]
       (is (vector? form))
@@ -240,7 +240,7 @@
 ;; Success Message Component Tests  
 ;; =============================================================================
 
-(deftest user-created-success-test
+(deftest ^:unit user-created-success-test
   (testing "generates success page with user details"
     (let [page (ui/user-created-success sample-user)]
       (is (vector? page))
@@ -257,7 +257,7 @@
       (is (re-find #"/web/login" content))
       (is (re-find #"button-signin" content)))))
 
-(deftest user-updated-success-test
+(deftest ^:unit user-updated-success-test
   (testing "generates success message with user details"
     (let [message (ui/user-updated-success sample-user)]
       (is (vector? message))
@@ -273,7 +273,7 @@
       (is (re-find #"/web/users/123" content))
       (is (re-find #"button-view-user" content)))))
 
-(deftest user-deleted-success-test
+(deftest ^:unit user-deleted-success-test
   (testing "generates success message with user ID"
     (let [message (ui/user-deleted-success 123)]
       (is (vector? message))
@@ -293,7 +293,7 @@
 ;; Validation Error Component Tests
 ;; =============================================================================
 
-(deftest user-validation-errors-test
+(deftest ^:unit user-validation-errors-test
   (testing "delegates to shared validation errors component"
     (let [errors-display (ui/user-validation-errors validation-errors)]
       (is (vector? errors-display))
@@ -307,7 +307,7 @@
 ;; Page Template Component Tests
 ;; =============================================================================
 
-(deftest users-page-test
+(deftest ^:unit users-page-test
   (testing "generates complete users page"
     (let [page (ui/users-page sample-users)]
       (is (vector? page))
@@ -328,7 +328,7 @@
       (is (re-find #"john@example.com" content))
       (is (re-find #"jane@example.com" content)))))
 
-(deftest user-detail-page-test
+(deftest ^:unit user-detail-page-test
   (testing "generates complete user detail page"
     (let [page (ui/user-detail-page sample-user)]
       (is (vector? page))
@@ -348,7 +348,7 @@
       (is (re-find #"form-detail-title" content))
       (is (re-find #"john@example.com" content)))))
 
-(deftest create-user-page-test
+(deftest ^:unit create-user-page-test
   (testing "generates complete create user page with no params"
     (let [page (ui/create-user-page)]
       (is (vector? page))
@@ -380,7 +380,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest ui-component-integration-test
+(deftest ^:unit ui-component-integration-test
   (testing "all components return valid Hiccup structures"
     (is (vector? (ui/user-row sample-user)))
     (is (vector? (ui/users-table sample-users)))

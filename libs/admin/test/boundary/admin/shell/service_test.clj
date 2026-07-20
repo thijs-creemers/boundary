@@ -175,7 +175,7 @@
 ;; Schema Provider Integration Tests
 ;; =============================================================================
 
-(deftest schema-provider-integration-test
+(deftest ^:integration schema-provider-integration-test
   (testing "Schema provider with real H2 database"
     (testing "List available entities from allowlist"
       (let [entities (ports/list-available-entities *schema-provider*)]
@@ -230,7 +230,7 @@
 ;; List Entities Tests (Pagination, Sorting, Search)
 ;; =============================================================================
 
-(deftest list-entities-basic-test
+(deftest ^:integration list-entities-basic-test
   (testing "List entities with basic options"
     ;; Create test data
     (create-test-user! "alice@example.com" "Alice Smith" true)
@@ -255,7 +255,7 @@
         (is (= 3 (:total-count result)))
         (is (= 2 (count (:records result))))))))
 
-(deftest list-entities-sorting-test
+(deftest ^:integration list-entities-sorting-test
   (testing "List entities with sorting"
     ;; Create users in specific order
     (create-test-user! "charlie@example.com" "Charlie" true)
@@ -282,7 +282,7 @@
         (is (= "Alice" (first names)))
         (is (= "Charlie" (last names)))))))
 
-(deftest list-entities-search-test
+(deftest ^:integration list-entities-search-test
   (testing "List entities with text search"
     ;; Create diverse test data
     (create-test-user! "alice@example.com" "Alice Smith" true)
@@ -310,7 +310,7 @@
         (is (= 0 (:total-count result)))
         (is (= 0 (count (:records result))))))))
 
-(deftest list-entities-filters-test
+(deftest ^:integration list-entities-filters-test
   (testing "List entities with field filters"
     (create-test-user! "alice@example.com" "Alice" true)
     (create-test-user! "bob@example.com" "Bob" false)
@@ -326,7 +326,7 @@
         (is (= 1 (:total-count result)))
         (is (= "Bob" (-> result :records first :name)))))))
 
-(deftest list-entities-combined-test
+(deftest ^:integration list-entities-combined-test
   (testing "List entities with search + sort + pagination"
     ;; Create 10 users
     (doseq [i (range 10)]
@@ -350,7 +350,7 @@
 ;; Get Entity Tests
 ;; =============================================================================
 
-(deftest get-entity-test
+(deftest ^:integration get-entity-test
   (testing "Get single entity by ID"
     (let [user (create-test-user! "alice@example.com" "Alice Smith" true)
           user-id (:id user)]
@@ -371,7 +371,7 @@
 ;; Create Entity Tests
 ;; =============================================================================
 
-(deftest create-entity-test
+(deftest ^:integration create-entity-test
   (testing "Create new entity"
     (let [user-data {:email "newuser@example.com"
                      :name "New User"
@@ -419,7 +419,7 @@
 ;; Update Entity Tests
 ;; =============================================================================
 
-(deftest update-entity-test
+(deftest ^:integration update-entity-test
   (testing "Update existing entity"
     (let [user (create-test-user! "original@example.com" "Original Name" true)
           user-id (:id user)
@@ -457,7 +457,7 @@
 ;; Delete Entity Tests
 ;; =============================================================================
 
-(deftest delete-entity-soft-delete-test
+(deftest ^:integration delete-entity-soft-delete-test
   (testing "Soft delete entity (test-users has deleted-at column)"
     (let [user (create-test-user! "todelete@example.com" "To Delete" true)
           user-id (:id user)
@@ -478,7 +478,7 @@
         (let [result (ports/list-entities *admin-service* :test-users {})]
           (is (= 0 (:total-count result))))))))
 
-(deftest delete-entity-hard-delete-test
+(deftest ^:integration delete-entity-hard-delete-test
   (testing "Hard delete entity (test-items has no deleted-at column)"
     (let [item (create-test-item! "To Delete" 10 9.99)
           item-id (:id item)
@@ -494,7 +494,7 @@
               record (db/execute-one! *db-ctx* query)]
           (is (nil? record)))))))
 
-(deftest delete-nonexistent-entity-test
+(deftest ^:integration delete-nonexistent-entity-test
   (testing "Delete non-existent entity"
     (let [fake-id (UUID/randomUUID)
           deleted? (ports/delete-entity *admin-service* :test-users fake-id)]
@@ -504,7 +504,7 @@
 ;; Bulk Delete Tests
 ;; =============================================================================
 
-(deftest bulk-delete-entities-test
+(deftest ^:integration bulk-delete-entities-test
   (testing "Bulk delete multiple entities"
     (let [user1 (create-test-user! "bulk1@example.com" "Bulk 1" true)
           user2 (create-test-user! "bulk2@example.com" "Bulk 2" true)
@@ -534,7 +534,7 @@
 ;; Count Entities Tests
 ;; =============================================================================
 
-(deftest count-entities-test
+(deftest ^:integration count-entities-test
   (testing "Count entities without filters"
     (create-test-user! "count1@example.com" "Count 1" true)
     (create-test-user! "count2@example.com" "Count 2" false)
@@ -554,7 +554,7 @@
 ;; Validation Tests
 ;; =============================================================================
 
-(deftest validate-entity-data-test
+(deftest ^:integration validate-entity-data-test
   (testing "Validation with valid data"
     (let [valid-data {:email "valid@example.com"
                       :name "Valid User"
@@ -590,7 +590,7 @@
 
 (def ^:private resolve-query-config #'service/resolve-query-config)
 
-(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-no-overrides-test
+(deftest ^:unit ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-no-overrides-test
   (testing "Without query-overrides, returns table-name as from and [:*] as select"
     (let [config {:table-name :products}
           result (resolve-query-config config)]
@@ -599,7 +599,7 @@
       (is (nil? (:join-clause result)))
       (is (= {} (:field-aliases result))))))
 
-(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-simple-overrides-test
+(deftest ^:unit ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-simple-overrides-test
   (testing "With query-overrides but no split-table, uses overrides as-is"
     (let [config {:table-name :products
                   :query-overrides {:from [[:products :p]]
@@ -608,7 +608,7 @@
       (is (= [[:products :p]] (:from-clause result)))
       (is (= [:p.id :p.name] (:select-clause result))))))
 
-(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-split-table-expands-select-test
+(deftest ^:unit ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-split-table-expands-select-test
   (testing "Split-table config auto-expands SELECT for missing fields"
     (let [config {:table-name :auth-users
                   :split-table-update {:secondary-table :user-profiles
@@ -631,7 +631,7 @@
       (is (some #{:p.avatar_url} (:select-clause result))
           "Secondary field :avatar-url should use join table alias :p (snake_case in SQL)"))))
 
-(deftest ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-split-table-no-duplicate-test
+(deftest ^:unit ^{:kaocha.testable/meta {:unit true :admin true}} resolve-query-config-split-table-no-duplicate-test
   (testing "Fields already in explicit select are not duplicated"
     (let [config {:table-name :auth-users
                   :split-table-update {:secondary-table :user-profiles

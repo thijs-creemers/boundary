@@ -61,6 +61,9 @@
    {:id    :test-meta
     :label "Deftest metadata placement"
     :cmd   ["bb" "check:test-meta"]}
+   {:id    :test-tags
+    :label "Deftest pyramid tags"
+    :cmd   ["bb" "check:test-tags"]}
    {:id    :hygiene
     :label "Repo hygiene (no backup files)"
     :cmd   ["bb" "check:hygiene"]}
