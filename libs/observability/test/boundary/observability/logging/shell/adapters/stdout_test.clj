@@ -5,7 +5,7 @@
             [clojure.string :as str]
             [cheshire.core :as json]))
 
-(deftest text-format-simple
+(deftest ^:unit text-format-simple
   (let [logger (stdout/create-stdout-logger {:level :debug
                                              :format :text
                                              :include-timestamp false
@@ -25,7 +25,7 @@
     (is (str/includes? line "hello world"))
     (is (str/includes? line "foo=\"bar\""))))
 
-(deftest json-format-parseable
+(deftest ^:unit json-format-parseable
   (let [logger (stdout/create-stdout-logger {:level :debug
                                              :format :json
                                              :include-timestamp false
@@ -40,7 +40,7 @@
     (is (= "info" (:level parsed)))
     (is (= {:x 1 :y 2 :svc "tst"} (:context parsed)))))
 
-(deftest level-filtering
+(deftest ^:unit level-filtering
   (let [logger (stdout/create-stdout-logger {:level :info
                                              :format :text
                                              :include-timestamp false
@@ -54,7 +54,7 @@
     (is (= 1 (count lines)))
     (is (some #(str/includes? % "should appear") lines))))
 
-(deftest with-context-merges
+(deftest ^:unit with-context-merges
   (let [logger (stdout/create-stdout-logger {:level :debug
                                              :format :json
                                              :include-timestamp false
@@ -69,7 +69,7 @@
     (is (= "r1" (get-in parsed [:context :request-id])))
     (is (= "u1" (get-in parsed [:context :user])))))
 
-(deftest exception-logging-includes-stacktrace
+(deftest ^:unit exception-logging-includes-stacktrace
   (let [logger (stdout/create-stdout-logger {:level :error
                                              :format :json
                                              :include-timestamp false
@@ -89,7 +89,7 @@
     (is (= "Exception" (:exception-type ctx)))
     (is (<= (count (:stack-trace ctx)) 2))))
 
-(deftest sanitizes-sensitive-context-keys
+(deftest ^:unit sanitizes-sensitive-context-keys
   (let [logger (stdout/create-stdout-logger {:level :info
                                              :format :json
                                              :include-timestamp false
@@ -109,7 +109,7 @@
     (doseq [k [:password :token :secret :api-key]]
       (is (= "***REDACTED***" (get ctx k))))))
 
-(deftest json-format-via-json-flag
+(deftest ^:unit json-format-via-json-flag
   (let [logger (stdout/create-stdout-logger {:level :debug
                                              :json true
                                              :include-timestamp false
@@ -124,7 +124,7 @@
     (is (= "info" (:level parsed)))
     (is (= {:k 1 :svc "tst"} (:context parsed)))))
 
-(deftest stdout-logger-implements-protocols
+(deftest ^:unit stdout-logger-implements-protocols
   (let [logger (stdout/create-stdout-logger {:level :info})]
     (is (satisfies? ports/ILogger logger))
     (is (satisfies? ports/IAuditLogger logger))
@@ -134,7 +134,7 @@
     (is (nil? (ports/audit-event logger :user-action "actor" "resource" :create :success {})))
     (is (nil? (ports/security-event logger :login-attempt :high {} {})))))
 
-(deftest stdout-logger-level-and-config-management
+(deftest ^:unit stdout-logger-level-and-config-management
   (let [logger (stdout/create-stdout-logger {:level :info
                                              :format :text})]
     ;; level management

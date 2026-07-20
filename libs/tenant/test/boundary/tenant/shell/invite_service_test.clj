@@ -146,7 +146,7 @@
    mock-metrics-emitter
    mock-error-reporter))
 
-(deftest invite-external-member-test
+(deftest ^:unit invite-external-member-test
   (testing "creates a pending invite with a delivery token"
     (let [service (make-service)
           tenant-id (UUID/randomUUID)
@@ -174,7 +174,7 @@
                             #"Pending invite already exists"
                             (ports/invite-external-member service tenant-id "contractor@example.nl" :contractor {}))))))
 
-(deftest get-and-accept-external-invite-test
+(deftest ^:unit get-and-accept-external-invite-test
   (testing "resolves invite by raw token and accepts it for a user"
     (let [service (make-service)
           tenant-id (UUID/randomUUID)
@@ -214,7 +214,7 @@
                             #"Membership already exists"
                             (ports/accept-external-invite service (:invite-token second) user-id))))))
 
-(deftest acceptance-api-test
+(deftest ^:unit acceptance-api-test
   (testing "load-external-invite-for-acceptance resolves the same pending invite"
     (let [service (make-service)
           tenant-id (UUID/randomUUID)
@@ -271,7 +271,7 @@
                                                                    :ok)}}))
       (is (= tx-context @seen-tx)))))
 
-(deftest revoke-external-invite-test
+(deftest ^:unit revoke-external-invite-test
   (testing "revokes a pending invite"
     (let [service (make-service)
           tenant-id (UUID/randomUUID)
@@ -296,7 +296,7 @@
                             #"Invite not found"
                             (ports/revoke-external-invite service (UUID/randomUUID)))))))
 
-(deftest expired-invites-are-not-accepted-test
+(deftest ^:unit expired-invites-are-not-accepted-test
   (testing "expired invites are rejected when resolving by token"
     (let [service (make-service)
           tenant-id (UUID/randomUUID)
@@ -306,7 +306,7 @@
                             #"Invite has expired"
                             (ports/get-external-invite-by-token service (:invite-token created)))))))
 
-(deftest list-tenant-invites-test
+(deftest ^:unit list-tenant-invites-test
   (testing "lists and filters invites by tenant and status"
     (let [service (make-service)
           tenant-a (UUID/randomUUID)

@@ -62,8 +62,7 @@
 ;; Unit Tests (Database-Agnostic Logic)
 ;; =============================================================================
 
-^{:unit true}
-(deftest provision-tenant-validation-test
+(deftest ^:unit provision-tenant-validation-test
   (testing "rejects nil tenant entity"
     (let [mock-adapter (reify protocols/DBAdapter
                          (dialect [_] :postgresql)
@@ -158,8 +157,7 @@
                :datasource nil}]
       (is (true? (#'sut/postgresql-context? ctx))))))
 
-^{:unit true}
-(deftest provision-tenant-existing-schema-and-failure-paths-test
+(deftest ^:unit provision-tenant-existing-schema-and-failure-paths-test
   (testing "already provisioned schemas return success when validation passes"
     (let [ctx {:adapter (postgres-adapter-stub) :datasource nil}
           tenant {:schema-name "tenant_existing"}]
@@ -206,8 +204,7 @@
           (is (= "tenant_cleanup" (:schema-name (ex-data ex))))
           (is (= ["DROP SCHEMA IF EXISTS tenant_cleanup CASCADE"] @executed-ddl)))))))
 
-^{:unit true}
-(deftest get-public-tables-filters-shared-tables-test
+(deftest ^:unit get-public-tables-filters-shared-tables-test
   (testing "only tenant-scoped tables are copied into tenant schemas"
     (with-redefs [db/execute-query! (fn [_ _]
                                       [{:table-name "assignments"}
@@ -223,8 +220,7 @@
       (is (= ["assignments" "contractors" "contracts" "invoices" "timesheets"]
              (#'sut/get-public-tables {:adapter nil :datasource nil}))))))
 
-^{:unit true}
-(deftest deprovision-tenant-validation-test
+(deftest ^:unit deprovision-tenant-validation-test
   (testing "rejects nil tenant entity"
     (let [mock-adapter (reify protocols/DBAdapter
                          (dialect [_] :postgresql)
@@ -297,8 +293,7 @@
                (sut/deprovision-tenant! ctx tenant)))
         (is (= ["DROP SCHEMA tenant_drop_me CASCADE"] @executed-ddl))))))
 
-^{:unit true}
-(deftest provisioning-helper-functions-test
+(deftest ^:unit provisioning-helper-functions-test
   (testing "create-schema! only issues DDL when schema is missing"
     (let [executed-ddl (atom [])]
       (with-redefs [boundary.tenant.shell.provisioning/schema-exists? (constantly false)
@@ -349,8 +344,7 @@
         (is (= "tenant_boom" (:schema-name result)))
         (is (= ["Validation failed: validation boom"] (:errors result)))))))
 
-^{:unit true}
-(deftest with-tenant-schema-test
+(deftest ^:unit with-tenant-schema-test
   (testing "rejects non-PostgreSQL contexts"
     (let [ctx {:adapter (reify protocols/DBAdapter
                           (dialect [_] :sqlite)
@@ -418,8 +412,7 @@
           (is (= "tenant_alpha" (:schema-name (ex-data ex))))
           (is (= "callback boom" (:cause (ex-data ex)))))))))
 
-^{:unit true}
-(deftest tenant-provisioned?-test
+(deftest ^:integration tenant-provisioned?-test
   (testing "returns false for non-PostgreSQL (H2) context"
     (with-h2-database
       (fn []
@@ -441,8 +434,7 @@
         (is (true? (sut/tenant-provisioned? ctx {:schema-name "tenant_found"})))
         (is (false? (sut/tenant-provisioned? ctx {:schema-name "tenant_missing"})))))))
 
-^{:unit true}
-(deftest list-tenant-schemas-test
+(deftest ^:integration list-tenant-schemas-test
   (testing "returns empty vector for non-PostgreSQL (H2) context"
     (with-h2-database
       (fn []
@@ -467,8 +459,7 @@
 ;; Integration Tests (Real Database - H2 with PostgreSQL Mode)
 ;; =============================================================================
 
-^{:integration true}
-(deftest provision-tenant-integration-test
+(deftest ^:integration provision-tenant-integration-test
   (testing "provisions tenant schema successfully"
     (with-h2-database
       (fn []
@@ -621,14 +612,14 @@
 ;; tenant-scoped-tables membership (ZZP-86)
 ;; =============================================================================
 
-(deftest tenant-scoped-tables-includes-added-entities
+(deftest ^:unit tenant-scoped-tables-includes-added-entities
   (testing "compliance/vbar/import tables are provisioned per-tenant (ZZP-86)"
     (is (= #{"contractors" "contracts" "assignments" "timesheets" "invoices"
              "compliance_snapshots" "compliance_changes" "vbar_assessments"
              "import_batches"}
            @#'sut/tenant-scoped-tables))))
 
-(deftest sync-tenant-schemas-noop-on-non-postgresql-test
+(deftest ^:integration sync-tenant-schemas-noop-on-non-postgresql-test
   (testing "sync-tenant-schemas! is a no-op with empty result on non-PostgreSQL (ZZP-86)"
     (with-h2-database
       (fn []
@@ -639,7 +630,7 @@
 ;; with-tenant-schema error classification (ZZP-99)
 ;; =============================================================================
 
-(deftest rethrow-tenant-body-error-preserves-domain-type-test
+(deftest ^:unit rethrow-tenant-body-error-preserves-domain-type-test
   (let [classify #'sut/rethrow-tenant-body-error!]
     (testing "a domain-typed ex-info is rethrown UNWRAPPED (its :type reaches the caller)"
       (doseq [t [:not-found :forbidden :validation-error :conflict :unauthorized]]

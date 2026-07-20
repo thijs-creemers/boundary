@@ -24,7 +24,7 @@
 ;; Subscribe/Unsubscribe Tests
 ;; =============================================================================
 
-(deftest subscribe-to-topic-test
+(deftest ^:unit subscribe-to-topic-test
   (testing "subscribing to a topic"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -44,7 +44,7 @@
       (testing "subscription count increases"
         (is (= 1 (ports/subscription-count manager)))))))
 
-(deftest subscribe-multiple-connections-to-same-topic-test
+(deftest ^:unit subscribe-multiple-connections-to-same-topic-test
   (testing "multiple connections subscribing to same topic"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -69,7 +69,7 @@
       (testing "topic count is still 1"
         (is (= 1 (ports/topic-count manager)))))))
 
-(deftest subscribe-one-connection-to-multiple-topics-test
+(deftest ^:unit subscribe-one-connection-to-multiple-topics-test
   (testing "one connection subscribing to multiple topics"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -93,7 +93,7 @@
       (testing "subscription count reflects all subscriptions"
         (is (= 3 (ports/subscription-count manager)))))))
 
-(deftest subscribe-idempotent-test
+(deftest ^:unit subscribe-idempotent-test
   (testing "subscribing same connection to same topic multiple times is idempotent"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -108,7 +108,7 @@
         (let [subscribers (ports/get-topic-subscribers manager test-topic-1)]
           (is (= #{test-connection-id-1} subscribers)))))))
 
-(deftest unsubscribe-from-topic-test
+(deftest ^:unit unsubscribe-from-topic-test
   (testing "unsubscribing from a topic"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -134,7 +134,7 @@
       (testing "subscription count decreases"
         (is (= 1 (ports/subscription-count manager)))))))
 
-(deftest unsubscribe-from-all-topics-test
+(deftest ^:unit unsubscribe-from-all-topics-test
   (testing "unsubscribing connection from all topics"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -168,28 +168,28 @@
 ;; Query Tests
 ;; =============================================================================
 
-(deftest get-topic-subscribers-empty-test
+(deftest ^:unit get-topic-subscribers-empty-test
   (testing "getting subscribers for non-existent topic"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
       (testing "returns empty set"
         (is (= #{} (ports/get-topic-subscribers manager "non-existent-topic")))))))
 
-(deftest get-connection-subscriptions-empty-test
+(deftest ^:unit get-connection-subscriptions-empty-test
   (testing "getting subscriptions for non-subscribed connection"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
       (testing "returns empty set"
         (is (= #{} (ports/get-connection-subscriptions manager test-connection-id-1)))))))
 
-(deftest topic-count-empty-test
+(deftest ^:unit topic-count-empty-test
   (testing "topic count when no topics exist"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
       (testing "returns 0"
         (is (= 0 (ports/topic-count manager)))))))
 
-(deftest subscription-count-empty-test
+(deftest ^:unit subscription-count-empty-test
   (testing "subscription count when no subscriptions exist"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -200,7 +200,7 @@
 ;; Edge Cases
 ;; =============================================================================
 
-(deftest unsubscribe-from-non-existent-topic-test
+(deftest ^:unit unsubscribe-from-non-existent-topic-test
   (testing "unsubscribing from topic that connection is not subscribed to"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -211,7 +211,7 @@
         (is (= 0 (ports/subscription-count manager)))
         (is (= 0 (ports/topic-count manager)))))))
 
-(deftest unsubscribe-all-for-never-subscribed-connection-test
+(deftest ^:unit unsubscribe-all-for-never-subscribed-connection-test
   (testing "unsubscribing all topics for connection that never subscribed"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -226,7 +226,7 @@
 ;; Integration Scenarios
 ;; =============================================================================
 
-(deftest complex-subscription-scenario-test
+(deftest ^:unit complex-subscription-scenario-test
   (testing "complex multi-connection multi-topic scenario"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       
@@ -269,7 +269,7 @@
         (testing "subscription count decreases"
           (is (= 3 (ports/subscription-count manager))))))))
 
-(deftest subscription-cleanup-scenario-test
+(deftest ^:unit subscription-cleanup-scenario-test
   (testing "subscription cleanup removes empty topics"
     (let [manager (pubsub-mgr/create-pubsub-manager)]
       

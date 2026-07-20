@@ -10,14 +10,14 @@
             ;; Loading this namespace must register the init/halt defmethods.
             [boundary.realtime.shell.module-wiring]))
 
-(deftest init-key-registered-test
+(deftest ^:integration init-key-registered-test
   (testing ":boundary/realtime has registered Integrant init and halt methods"
     (is (contains? (methods ig/init-key) :boundary/realtime)
         "init-key defmethod must be registered (else system startup fails with 'no method for key')")
     (is (contains? (methods ig/halt-key!) :boundary/realtime)
         "halt-key! defmethod must be registered")))
 
-(deftest in-memory-init-halt-roundtrip-test
+(deftest ^:integration in-memory-init-halt-roundtrip-test
   (testing "in-memory provider boots a working service and halts cleanly"
     (let [jwt-verifier (jwt/create-test-jwt-adapter
                         {:expected-token "t"

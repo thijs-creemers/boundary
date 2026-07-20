@@ -47,7 +47,7 @@
 ;; Error Reporter Tests
 ;; =============================================================================
 
-(deftest create-sentry-error-reporter-test
+(deftest ^:unit create-sentry-error-reporter-test
   (testing "Creating Sentry error reporter"
     (testing "requires DSN"
       (is (thrown-with-msg? Exception #"Sentry DSN is required"
@@ -58,7 +58,7 @@
       (let [reporter (sentry-adapter/create-sentry-error-reporter test-config)]
         (is (satisfies? ports/IErrorReporter reporter))))))
 
-(deftest error-reporter-protocol-test
+(deftest ^:unit error-reporter-protocol-test
   (testing "Error reporter implements IErrorReporter protocol"
     ;; We'll test the protocol implementation structure without actual Sentry calls
     (let [methods (-> ports/IErrorReporter :sigs keys set)]
@@ -70,13 +70,13 @@
 ;; Error Context Tests
 ;; =============================================================================
 
-(deftest create-sentry-error-context-test
+(deftest ^:unit create-sentry-error-context-test
   (testing "Creating Sentry error context"
     (let [context (sentry-adapter/create-sentry-error-context test-config)]
       (is (satisfies? ports/IErrorContext context))
       (is (instance? boundary.observability.errors.shell.adapters.sentry.SentryErrorContext context)))))
 
-(deftest error-context-protocol-test
+(deftest ^:unit error-context-protocol-test
   (testing "Error context implements IErrorContext protocol"
     (let [context (sentry-adapter/create-sentry-error-context test-config)]
       (testing "current-context returns context map initially"
@@ -105,13 +105,13 @@
 ;; Error Filter Tests
 ;; =============================================================================
 
-(deftest create-sentry-error-filter-test
+(deftest ^:unit create-sentry-error-filter-test
   (testing "Creating Sentry error filter"
     (let [filter (sentry-adapter/create-sentry-error-filter test-config)]
       (is (satisfies? ports/IErrorFilter filter))
       (is (instance? boundary.observability.errors.shell.adapters.sentry.SentryErrorFilter filter)))))
 
-(deftest error-filter-protocol-test
+(deftest ^:unit error-filter-protocol-test
   (testing "Error filter implements IErrorFilter protocol"
     (let [filter (sentry-adapter/create-sentry-error-filter test-config)
           test-exception (Exception. "Test exception")]
@@ -133,13 +133,13 @@
 ;; Error Reporting Configuration Tests
 ;; =============================================================================
 
-(deftest create-sentry-error-reporting-config-test
+(deftest ^:unit create-sentry-error-reporting-config-test
   (testing "Creating Sentry error reporting configuration"
     (let [config (sentry-adapter/create-sentry-error-reporting-config test-config)]
       (is (satisfies? ports/IErrorReportingConfig config))
       (is (instance? boundary.observability.errors.shell.adapters.sentry.SentryErrorReportingConfig config)))))
 
-(deftest error-reporting-config-protocol-test
+(deftest ^:unit error-reporting-config-protocol-test
   (testing "Error reporting config implements IErrorReportingConfig protocol"
     (let [config (sentry-adapter/create-sentry-error-reporting-config test-config)]
 
@@ -169,14 +169,14 @@
 ;; Component Integration Tests
 ;; =============================================================================
 
-(deftest create-sentry-error-reporting-component-test
+(deftest ^:unit create-sentry-error-reporting-component-test
   (testing "Creating complete Sentry error reporting component"
     ;; Test that component creation works with fake DSN for testing
     (let [component (sentry-adapter/create-sentry-error-reporting-component test-config)]
       (is (satisfies? ports/IErrorReporter (:error-reporter component)))
       (is (satisfies? ports/IErrorContext (:error-context component))))))
 
-(deftest create-sentry-error-reporting-components-test
+(deftest ^:unit create-sentry-error-reporting-components-test
   (testing "Creating map of Sentry error reporting components"
     ;; Test that components creation works with fake DSN for testing
     (let [components (sentry-adapter/create-sentry-error-reporting-components test-config)]
@@ -201,7 +201,7 @@
         (f reporter)
         @captured))))
 
-(deftest utility-function-tests
+(deftest ^:unit utility-function-tests
   (testing "Private utility functions through public interface"
     (let [context (sentry-adapter/create-sentry-error-context test-config)]
 
@@ -222,7 +222,7 @@
 ;; PII Redaction Tests
 ;; =============================================================================
 
-(deftest pii-redaction-default-extra-test
+(deftest ^:unit pii-redaction-default-extra-test
   (testing "Default redaction applies to :extra fields when :redact is present"
     (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
                   :environment "test"
@@ -246,7 +246,7 @@
       (testing "non-sensitive fields are preserved"
         (is (= "ok" (get-in event [:extra :safe])))))))
 
-(deftest pii-redaction-default-tags-test
+(deftest ^:unit pii-redaction-default-tags-test
   (testing "Default redaction applies to :tags as well when :redact is present"
     (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
                   :environment "test"
@@ -267,7 +267,7 @@
       ;; non-sensitive tag should remain
       (is (= "tenant-1" (get-in event [:tags :tenant-id]))))))
 
-(deftest pii-redaction-additional-keys-test
+(deftest ^:unit pii-redaction-additional-keys-test
   (testing "Custom additional keys are redacted"
     (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
                   :environment "test"
@@ -284,7 +284,7 @@
       (is (= "[REDACTED]" (get-in event [:extra :custom-field])))
       (is (= "keep" (get-in event [:extra :other]))))))
 
-(deftest pii-redaction-disable-email-masking-test
+(deftest ^:unit pii-redaction-disable-email-masking-test
   (testing "Email is not masked when :mask-email? is false"
     (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
                   :environment "test"
@@ -299,7 +299,7 @@
       (is (some? event))
       (is (= "user@example.com" (get-in event [:extra :email]))))))
 
-(deftest pii-redaction-disabled-when-no-redact-config-test
+(deftest ^:unit pii-redaction-disabled-when-no-redact-config-test
   (testing "When :redact is not present, default PII redaction still applies"
     (let [config {:dsn "https://fake-key@fake-sentry.io/fake-project"
                   :environment "test"}
@@ -320,7 +320,7 @@
 ;; Integration with Error Reporting Ports Tests
 ;; =============================================================================
 
-(deftest protocol-compatibility-test
+(deftest ^:unit protocol-compatibility-test
   (testing "All created components satisfy the expected protocols"
     (let [context (sentry-adapter/create-sentry-error-context test-config)
           filter (sentry-adapter/create-sentry-error-filter test-config)
@@ -339,7 +339,7 @@
       (is (ifn? ports/get-environment))
       (is (ifn? ports/set-environment!)))))
 
-(deftest error-handling-test
+(deftest ^:unit error-handling-test
   (testing "Adapter handles errors gracefully"
     (let [context (sentry-adapter/create-sentry-error-context test-config)]
 

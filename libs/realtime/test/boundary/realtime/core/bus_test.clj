@@ -5,7 +5,7 @@
 
 (def msg {:type :notification :payload {:x 1}})
 
-(deftest envelope-constructors-test
+(deftest ^:unit envelope-constructors-test
   (testing "user envelope"
     (is (= {:route :user :target #uuid "00000000-0000-0000-0000-000000000001" :message msg}
            (bus/user-envelope #uuid "00000000-0000-0000-0000-000000000001" msg))))

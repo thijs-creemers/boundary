@@ -39,7 +39,7 @@
 ;; Logger Protocol Tests
 ;; =============================================================================
 
-(deftest create-datadog-logger-test
+(deftest ^:unit create-datadog-logger-test
   (testing "creates Datadog logger with valid config"
     (let [logger (datadog-adapter/create-datadog-logger test-config)]
       (is (satisfies? ports/ILogger logger))
@@ -53,7 +53,7 @@
     (is (thrown? Exception (datadog-adapter/create-datadog-logger {})))
     (is (thrown? Exception (datadog-adapter/create-datadog-logger {:api-key "test"})))))
 
-(deftest logger-protocol-test
+(deftest ^:unit logger-protocol-test
   (testing "implements ILogger protocol methods"
     (let [logger (datadog-adapter/create-datadog-logger test-config)
           test-message "Test log message"
@@ -93,13 +93,13 @@
 ;; Audit Logger Protocol Tests
 ;; =============================================================================
 
-(deftest create-datadog-audit-logger-test
+(deftest ^:unit create-datadog-audit-logger-test
   (testing "creates Datadog audit logger with valid config"
     (let [audit-logger (datadog-adapter/create-datadog-audit-logger test-config)]
       (is (satisfies? ports/IAuditLogger audit-logger))
       (is (instance? boundary.observability.logging.shell.adapters.datadog.DatadogAuditLogger audit-logger)))))
 
-(deftest audit-logger-protocol-test
+(deftest ^:unit audit-logger-protocol-test
   (testing "implements IAuditLogger protocol methods"
     (let [audit-logger (datadog-adapter/create-datadog-audit-logger test-config)]
 
@@ -115,13 +115,13 @@
 ;; Logging Context Protocol Tests
 ;; =============================================================================
 
-(deftest create-datadog-logging-context-test
+(deftest ^:unit create-datadog-logging-context-test
   (testing "creates Datadog logging context with valid config"
     (let [context (datadog-adapter/create-datadog-logging-context test-config)]
       (is (satisfies? ports/ILoggingContext context))
       (is (instance? boundary.observability.logging.shell.adapters.datadog.DatadogLoggingContext context)))))
 
-(deftest logging-context-protocol-test
+(deftest ^:unit logging-context-protocol-test
   (testing "implements ILoggingContext protocol methods"
     (let [context (datadog-adapter/create-datadog-logging-context test-config)
           test-context {:user-id "456" :session-id "session-789"}]
@@ -151,13 +151,13 @@
 ;; Logging Config Protocol Tests
 ;; =============================================================================
 
-(deftest create-datadog-logging-config-test
+(deftest ^:unit create-datadog-logging-config-test
   (testing "creates Datadog logging config with valid config"
     (let [config-manager (datadog-adapter/create-datadog-logging-config test-config)]
       (is (satisfies? ports/ILoggingConfig config-manager))
       (is (instance? boundary.observability.logging.shell.adapters.datadog.DatadogLoggingConfig config-manager)))))
 
-(deftest logging-config-protocol-test
+(deftest ^:unit logging-config-protocol-test
   (testing "implements ILoggingConfig protocol methods"
     (let [config-manager (datadog-adapter/create-datadog-logging-config test-config)
           updated-config {:api-key "new-key-32chars-long123456789"
@@ -190,7 +190,7 @@
 ;; Component Tests
 ;; =============================================================================
 
-(deftest create-datadog-logging-component-test
+(deftest ^:unit create-datadog-logging-component-test
   (testing "creates Datadog logging component with all protocols"
     (let [component (datadog-adapter/create-datadog-logging-component test-config)]
       (is (satisfies? ports/ILogger component))
@@ -199,7 +199,7 @@
       (is (satisfies? ports/ILoggingConfig component))
       (is (instance? boundary.observability.logging.shell.adapters.datadog.DatadogLoggingComponent component)))))
 
-(deftest create-datadog-logging-components-test
+(deftest ^:unit create-datadog-logging-components-test
   (testing "creates separate Datadog logging components"
     (let [components (datadog-adapter/create-datadog-logging-components test-config)]
       (is (map? components))
@@ -212,7 +212,7 @@
 ;; Utility Function Tests
 ;; =============================================================================
 
-(deftest utility-function-tests
+(deftest ^:unit utility-function-tests
   (testing "datadog log level mapping"
     ;; These would test internal functions if they were made public
     ;; For now, we'll test through the public API
@@ -228,7 +228,7 @@
 ;; Protocol Compatibility Tests
 ;; =============================================================================
 
-(deftest protocol-compatibility-test
+(deftest ^:unit protocol-compatibility-test
   (testing "all components implement expected protocols"
     (let [logger (datadog-adapter/create-datadog-logger test-config)
           audit-logger (datadog-adapter/create-datadog-audit-logger test-config)
@@ -252,7 +252,7 @@
 ;; Error Handling Tests
 ;; =============================================================================
 
-(deftest error-handling-test
+(deftest ^:unit error-handling-test
   (testing "gracefully handles error conditions"
     (let [logger (datadog-adapter/create-datadog-logger test-config)]
 

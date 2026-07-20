@@ -26,7 +26,7 @@
 ;; TestJWTAdapter Tests
 ;; =============================================================================
 
-(deftest test-adapter-verify-valid-token-test
+(deftest ^:unit test-adapter-verify-valid-token-test
   (testing "verifying valid token with test adapter"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "valid-token"))
@@ -42,7 +42,7 @@
       (testing "does not include expected-token in claims"
         (is (nil? (:expected-token claims)))))))
 
-(deftest test-adapter-verify-invalid-token-test
+(deftest ^:unit test-adapter-verify-invalid-token-test
   (testing "verifying invalid token with test adapter"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "valid-token"))]
@@ -61,7 +61,7 @@
               (is (= :unauthorized (:type data)))
               (is (some? (:message data))))))))))
 
-(deftest test-adapter-verify-nil-token-test
+(deftest ^:unit test-adapter-verify-nil-token-test
   (testing "verifying nil token with test adapter"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "valid-token"))]
@@ -72,7 +72,7 @@
              #"Unauthorized"
              (ports/verify-jwt adapter nil)))))))
 
-(deftest test-adapter-verify-empty-token-test
+(deftest ^:unit test-adapter-verify-empty-token-test
   (testing "verifying empty token with test adapter"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "valid-token"))]
@@ -83,7 +83,7 @@
              #"Unauthorized"
              (ports/verify-jwt adapter "")))))))
 
-(deftest test-adapter-multiple-verify-calls-test
+(deftest ^:unit test-adapter-multiple-verify-calls-test
   (testing "multiple verification calls with test adapter"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "valid-token"))]
@@ -96,7 +96,7 @@
           (is (= claims-1 claims-2 claims-3))
           (is (= test-user-id (:user-id claims-1))))))))
 
-(deftest test-adapter-with-multiple-roles-test
+(deftest ^:unit test-adapter-with-multiple-roles-test
   (testing "test adapter with user having multiple roles"
     (let [multi-role-claims (assoc test-claims :roles #{:user :admin :moderator})
           adapter (jwt/create-test-jwt-adapter
@@ -106,7 +106,7 @@
       (testing "returns all roles"
         (is (= #{:user :admin :moderator} (:roles claims)))))))
 
-(deftest test-adapter-with-permissions-test
+(deftest ^:unit test-adapter-with-permissions-test
   (testing "test adapter with permissions"
     (let [claims-with-perms (assoc test-claims
                                    :permissions #{:read :write :delete})
@@ -117,7 +117,7 @@
       (testing "returns all permissions"
         (is (= #{:read :write :delete} (:permissions claims)))))))
 
-(deftest test-adapter-claims-structure-test
+(deftest ^:unit test-adapter-claims-structure-test
   (testing "test adapter claims structure"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "token"))
@@ -147,7 +147,7 @@
 ;; and properly configured. They test the integration between realtime
 ;; and user modules.
 
-(deftest user-adapter-creation-test
+(deftest ^:unit user-adapter-creation-test
   (testing "creating user JWT adapter"
     (let [adapter (jwt/create-user-jwt-adapter)]
       
@@ -184,7 +184,7 @@
 ;; Factory Function Tests
 ;; =============================================================================
 
-(deftest create-test-jwt-adapter-test
+(deftest ^:unit create-test-jwt-adapter-test
   (testing "creating test JWT adapter"
     (let [test-claims {:expected-token "token"
                        :user-id test-user-id
@@ -199,7 +199,7 @@
         (is (some? (:test-claims adapter)))
         (is (instance? clojure.lang.Atom (:test-claims adapter)))))))
 
-(deftest create-user-jwt-adapter-test
+(deftest ^:unit create-user-jwt-adapter-test
   (testing "creating user JWT adapter"
     (let [adapter (jwt/create-user-jwt-adapter)]
       
@@ -210,7 +210,7 @@
 ;; Error Handling Tests
 ;; =============================================================================
 
-(deftest test-adapter-error-data-structure-test
+(deftest ^:unit test-adapter-error-data-structure-test
   (testing "error data structure for invalid tokens"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "valid-token"))]
@@ -227,7 +227,7 @@
               (is (string? (:message data)))
               (is (seq (:message data))))))))))
 
-(deftest test-adapter-consistent-errors-test
+(deftest ^:unit test-adapter-consistent-errors-test
   (testing "test adapter produces consistent errors"
     (let [adapter (jwt/create-test-jwt-adapter
                    (assoc test-claims :expected-token "valid-token"))]
@@ -245,7 +245,7 @@
 ;; Claims Transformation Tests
 ;; =============================================================================
 
-(deftest test-adapter-claims-transformation-test
+(deftest ^:unit test-adapter-claims-transformation-test
   (testing "test adapter does not transform claims"
     (let [original-claims {:user-id test-user-id
                            :email "test@example.com"

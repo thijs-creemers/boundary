@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.realtime.core.auth :as auth]))
 
-(deftest parse-query-string-test
+(deftest ^:unit parse-query-string-test
   (testing "parsing valid query string"
     (is (= {"token" "abc123" "foo" "bar"}
            (auth/parse-query-string "token=abc123&foo=bar"))))
@@ -17,7 +17,7 @@
   (testing "parsing empty query string"
     (is (nil? (auth/parse-query-string "")))))
 
-(deftest extract-token-from-query-test
+(deftest ^:unit extract-token-from-query-test
   (testing "extracting token from query params"
     (is (= "abc123"
            (auth/extract-token-from-query {"token" "abc123"}))))
@@ -28,7 +28,7 @@
   (testing "extracting from nil params"
     (is (nil? (auth/extract-token-from-query nil)))))
 
-(deftest extract-token-from-query-string-test
+(deftest ^:unit extract-token-from-query-string-test
   (testing "extracting token from query string"
     (is (= "abc123"
            (auth/extract-token-from-query-string "token=abc123&foo=bar"))))
@@ -36,7 +36,7 @@
   (testing "extracting when token not in query string"
     (is (nil? (auth/extract-token-from-query-string "foo=bar")))))
 
-(deftest token-expired?-test
+(deftest ^:unit token-expired?-test
   (let [claims-with-exp {:exp 1609459200} ;; 2021-01-01 00:00:00 UTC
         claims-without-exp {}]
     
@@ -49,7 +49,7 @@
     (testing "token with no expiry is never expired"
       (is (not (auth/token-expired? claims-without-exp 9999999999))))))
 
-(deftest has-permission?-test
+(deftest ^:unit has-permission?-test
   (let [claims {:permissions #{:read :write}}]
     
     (testing "has required permission"
@@ -59,7 +59,7 @@
     (testing "does not have required permission"
       (is (not (auth/has-permission? claims :delete))))))
 
-(deftest has-any-permission?-test
+(deftest ^:unit has-any-permission?-test
   (let [claims {:permissions #{:read}}]
     
     (testing "has at least one permission"
@@ -69,7 +69,7 @@
     (testing "has no required permissions"
       (is (not (auth/has-any-permission? claims #{:write :delete}))))))
 
-(deftest has-all-permissions?-test
+(deftest ^:unit has-all-permissions?-test
   (let [claims {:permissions #{:read :write :delete}}]
     
     (testing "has all required permissions"
@@ -79,7 +79,7 @@
     (testing "missing some required permissions"
       (is (not (auth/has-all-permissions? claims #{:read :admin}))))))
 
-(deftest has-role?-test
+(deftest ^:unit has-role?-test
   (let [claims {:roles #{:user :admin}}]
     
     (testing "has required role"
@@ -89,7 +89,7 @@
     (testing "does not have required role"
       (is (not (auth/has-role? claims :superuser))))))
 
-(deftest has-any-role?-test
+(deftest ^:unit has-any-role?-test
   (let [claims {:roles #{:user}}]
     
     (testing "has at least one role"
@@ -99,7 +99,7 @@
     (testing "has no required roles"
       (is (not (auth/has-any-role? claims #{:admin :moderator}))))))
 
-(deftest connection-authorized?-test
+(deftest ^:unit connection-authorized?-test
   (let [valid-claims {:user-id #uuid "550e8400-e29b-41d4-a716-446655440000"
                       :roles #{:user}
                       :permissions #{:read :write}
@@ -149,7 +149,7 @@
                                                 now-seconds)]
         (is (:authorized? result))))))
 
-(deftest extract-token-from-request-test
+(deftest ^:unit extract-token-from-request-test
   (testing "extract from query params"
     (let [request {:query-params {"token" "abc123"}}]
       (is (= "abc123" (auth/extract-token-from-request request)))))
@@ -171,7 +171,7 @@
     (let [request {:query-params {}}]
       (is (nil? (auth/extract-token-from-request request))))))
 
-(deftest auth-error-test
+(deftest ^:unit auth-error-test
   (testing "create auth error with reason only"
     (let [error (auth/auth-error "Invalid token")]
       (is (= :unauthorized (:error error)))
@@ -184,7 +184,7 @@
       (is (= "Invalid token" (:reason error)))
       (is (= {:code 401} (:details error))))))
 
-(deftest valid-jwt-claims?-test
+(deftest ^:unit valid-jwt-claims?-test
   (testing "valid JWT claims pass validation"
     (let [claims {:user-id #uuid "550e8400-e29b-41d4-a716-446655440000"
                   :roles #{:user}}]

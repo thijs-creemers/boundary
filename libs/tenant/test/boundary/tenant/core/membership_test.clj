@@ -16,7 +16,7 @@
 ;; prepare-invitation
 ;; =============================================================================
 
-(deftest prepare-invitation-test
+(deftest ^:unit prepare-invitation-test
   (testing "creates a membership map with invited status"
     (let [m (sut/prepare-invitation* membership-id user-id tenant-id :member now)]
       (is (= membership-id (:id m)))
@@ -34,7 +34,7 @@
           m2 (sut/prepare-invitation* alt-membership-id user-id tenant-id :admin now)]
       (is (not= (:id m1) (:id m2))))))
 
-(deftest prepare-active-membership-test
+(deftest ^:unit prepare-active-membership-test
   (testing "creates an active membership with explicit id"
     (let [m (sut/prepare-active-membership* membership-id user-id tenant-id :admin now)]
       (is (= membership-id (:id m)))
@@ -46,7 +46,7 @@
 ;; accept-invitation
 ;; =============================================================================
 
-(deftest accept-invitation-test
+(deftest ^:unit accept-invitation-test
   (testing "transitions status to :active and sets accepted-at"
     (let [membership (sut/prepare-invitation* membership-id user-id tenant-id :member now)
           later      (Instant/parse "2099-01-01T00:00:00Z")
@@ -67,7 +67,7 @@
 ;; suspend-membership
 ;; =============================================================================
 
-(deftest suspend-membership-test
+(deftest ^:unit suspend-membership-test
   (testing "sets status to :suspended"
     (let [m       (-> (sut/prepare-invitation* membership-id user-id tenant-id :member now)
                       (sut/accept-invitation now))
@@ -80,7 +80,7 @@
 ;; revoke-membership
 ;; =============================================================================
 
-(deftest revoke-membership-test
+(deftest ^:unit revoke-membership-test
   (testing "sets status to :revoked"
     (let [m      (sut/prepare-invitation* membership-id user-id tenant-id :viewer now)
           result (sut/revoke-membership m now)]
@@ -91,7 +91,7 @@
 ;; update-role
 ;; =============================================================================
 
-(deftest update-role-test
+(deftest ^:unit update-role-test
   (testing "updates role and updated-at"
     (let [m      (-> (sut/prepare-invitation* membership-id user-id tenant-id :member now)
                      (sut/accept-invitation now))
@@ -109,7 +109,7 @@
 ;; active-member?
 ;; =============================================================================
 
-(deftest active-member-test
+(deftest ^:unit active-member-test
   (testing "returns true for :active membership"
     (let [m (-> (sut/prepare-invitation* membership-id user-id tenant-id :member now)
                 (sut/accept-invitation now))]
@@ -134,7 +134,7 @@
 ;; has-role?
 ;; =============================================================================
 
-(deftest has-role-test
+(deftest ^:unit has-role-test
   (testing "returns true when membership role is in allowed set"
     (let [m (-> (sut/prepare-invitation* membership-id user-id tenant-id :admin now)
                 (sut/accept-invitation now))]

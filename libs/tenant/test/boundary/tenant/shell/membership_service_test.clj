@@ -115,7 +115,7 @@
 ;; Tests
 ;; =============================================================================
 
-(deftest invite-user-test
+(deftest ^:unit invite-user-test
   (testing "creates a membership in :invited status"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)
@@ -137,7 +137,7 @@
                             #"Membership already exists"
                             (ports/invite-user service tenant-id user-id :admin))))))
 
-(deftest bootstrap-first-member-test
+(deftest ^:unit bootstrap-first-member-test
   (testing "creates the first membership directly in :active status"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)
@@ -158,7 +158,7 @@
                             #"Tenant already has an active admin"
                             (ports/bootstrap-first-member service tenant-id (UUID/randomUUID) :admin))))))
 
-(deftest bootstrap-open-test
+(deftest ^:unit bootstrap-open-test
   (testing "returns true when tenant has no active admin"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)]
@@ -176,7 +176,7 @@
       (ports/bootstrap-first-member service tenant-id (UUID/randomUUID) :admin)
       (is (false? (ports/bootstrap-open? service tenant-id))))))
 
-(deftest accept-invitation-test
+(deftest ^:unit accept-invitation-test
   (testing "transitions membership to :active"
     (let [service      (make-service)
           tenant-id    (UUID/randomUUID)
@@ -202,7 +202,7 @@
                             #"not in invited status"
                             (ports/accept-invitation service (:id invited)))))))
 
-(deftest update-member-role-test
+(deftest ^:unit update-member-role-test
   (testing "changes role on an existing membership"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)
@@ -218,7 +218,7 @@
                             #"Membership not found"
                             (ports/update-member-role service (UUID/randomUUID) :admin))))))
 
-(deftest suspend-member-test
+(deftest ^:unit suspend-member-test
   (testing "suspends an active membership"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)
@@ -238,7 +238,7 @@
                             #"Cannot suspend a revoked"
                             (ports/suspend-member service (:id invited)))))))
 
-(deftest revoke-member-test
+(deftest ^:unit revoke-member-test
   (testing "revokes a membership"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)
@@ -247,7 +247,7 @@
           result    (ports/revoke-member service (:id invited))]
       (is (= :revoked (:status result))))))
 
-(deftest get-membership-test
+(deftest ^:unit get-membership-test
   (testing "retrieves existing membership"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)
@@ -262,7 +262,7 @@
                             #"Membership not found"
                             (ports/get-membership service (UUID/randomUUID)))))))
 
-(deftest get-active-membership-test
+(deftest ^:unit get-active-membership-test
   (testing "returns active membership for user+tenant"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)
@@ -285,7 +285,7 @@
           result    (ports/get-active-membership service (UUID/randomUUID) (UUID/randomUUID))]
       (is (nil? result)))))
 
-(deftest list-tenant-members-test
+(deftest ^:unit list-tenant-members-test
   (testing "lists all members of a tenant"
     (let [service   (make-service)
           tenant-id (UUID/randomUUID)]

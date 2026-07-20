@@ -115,7 +115,7 @@
     (f)
     (teardown-mock-repository)))
 
-(deftest create-new-tenant-test
+(deftest ^:unit create-new-tenant-test
   (testing "creates new tenant successfully"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
           result (ports/create-new-tenant service
@@ -154,7 +154,7 @@
                             (ports/create-new-tenant service {:slug "broken" :name "Broken"})))
       (is (empty? (ports/find-all-tenants repository {:limit 100}))))))
 
-(deftest get-tenant-test
+(deftest ^:unit get-tenant-test
   (testing "retrieves existing tenant by ID"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
           created (ports/create-new-tenant service {:slug "test-tenant" :name "Test"})
@@ -178,7 +178,7 @@
                             #"Tenant not found"
                             (ports/get-tenant-by-slug service "missing-slug"))))))
 
-(deftest update-existing-tenant-test
+(deftest ^:unit update-existing-tenant-test
   (testing "updates tenant name and status"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
           created (ports/create-new-tenant service {:slug "update-test" :name "Old Name"})
@@ -199,7 +199,7 @@
                           (ports/update-existing-tenant service (:id created) {:status :archived})))]
       (is (= :validation-error (:type (ex-data ex)))))))
 
-(deftest suspend-and-activate-tenant-test
+(deftest ^:unit suspend-and-activate-tenant-test
   (testing "suspends active tenant"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
           created (ports/create-new-tenant service {:slug "suspend-test" :name "Test"})
@@ -213,7 +213,7 @@
           activated (ports/activate-tenant service (:id created))]
       (is (= :active (:status activated))))))
 
-(deftest delete-existing-tenant-test
+(deftest ^:unit delete-existing-tenant-test
   (testing "soft deletes tenant"
     (let [service (sut/create-tenant-service *tenant-repository* {} mock-logger mock-metrics-emitter mock-error-reporter)
           created (ports/create-new-tenant service {:slug "delete-test" :name "Test"})]
