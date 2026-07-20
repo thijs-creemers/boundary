@@ -182,7 +182,7 @@ today, but the architecture is positioned for it.
 * *Generic remote-port adapter* — a `clj-http` client that implements a module's protocol, serializes via Malli, propagates correlation-id / tenant / auth, unwraps errors. None exists yet; all cross-module calls are in-process.
 * *Network resilience* — timeouts, retries, circuit breaker, service discovery (hardcoded URLs for MVP). External adapters use `:throw-exceptions false` but no retry/breaker.
 * *Break the allowlisted dependency cycles* — `check_deps.clj` allows `admin↔user`, `platform↔{user,tenant,admin,workflow,search}`. A cycle means two modules can't be cleanly separated; these must be broken (e.g. extract the shared auth check behind a port) before slicing.
-* *Async option* — `IEventBus` is defined in `libs/user/ports.clj` but *has no implementation*. Event-driven decoupling needs a real adapter (Redis Streams / Kafka / RabbitMQ).
+* *Async option* — there is no event-bus port today (the dead `IEventBus` stub in `libs/user/ports.clj` was removed in BOU-170). Event-driven decoupling needs a dedicated port plus a real adapter (Redis Streams / Kafka / RabbitMQ).
 * *Data ownership decision* — schema-per-tenant assumes co-located modules in one Postgres. Across services either share the DB (pragmatic) or give each service its own; there are no distributed transactions, so split writes become eventual-consistency.
 * *Service launch mode* — `boundary.main` exposes only `server` and `cli`; slicing needs an entrypoint that boots a named module subset as a service.
 
@@ -232,4 +232,4 @@ For *functional decomposition* (the bigger bet):
 . *Generic remote-port adapter + RPC envelope* — `clj-http` client implementing a module protocol, Malli (de)serialization, context propagation, error unwrap, retry/circuit-breaker. Pilot by extracting `payments`.
 . *Service launch mode* — `boundary.main` entrypoint that boots a named module subset as an independent service.
 . *Break allowlisted dependency cycles* — `admin↔user`, `platform↔{user,tenant,admin,workflow,search}` — prerequisite for slicing those modules.
-. *`IEventBus` implementation* — Redis Streams / Kafka adapter for async, event-driven inter-service decoupling (port already defined, unimplemented).
+. *Event-bus port + adapter* — define an event-bus port and a Redis Streams / Kafka adapter for async, event-driven inter-service decoupling (no port exists today).

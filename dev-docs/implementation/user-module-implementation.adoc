@@ -251,90 +251,15 @@ The ports implementation embodies hexagonal architecture principles:
 - `find-sessions-by-user`: Security monitoring and device management
 - `cleanup-expired-sessions`: Maintenance and storage optimization
 
-=== Communication Ports
-
-==== IEmailService
-
-**Transactional Email Capabilities**
-
-*Generic Email Operations:*
-- Template-based email generation
-- Multi-format support (HTML, plain text)
-- Attachment handling
-- Delivery tracking and error reporting
-
-*Specialized User Emails:*
-- Welcome email automation
-- Password reset security workflows
-- Account notification system
-
-==== INotificationService
-
-**Multi-Channel Notification System**
-
-*Notification Delivery:*
-- Channel preferences: email, push, SMS, in-app
-- Priority-based routing
-- Bulk notification efficiency
-- Delivery result tracking
-
-*Preference Management:*
-- User-controlled notification settings
-- Channel-specific configurations
-- Type-based notification filtering
-
-=== System Service Ports
-
-==== IEventBus
-
-**Inter-Module Communication**
-
-*Event Publishing:*
-- Structured domain events with metadata
-- Correlation ID tracking for request tracing
-- User context propagation
-- Synchronous/asynchronous processing support
-
-*Event Subscription:*
-- Module-level event subscriptions
-- Handler function registration
-- Subscription management
-
-*Event History:*
-- Event replay capabilities
-- Debugging and audit support
-- Filtered event retrieval
-
-==== IAuditService
-
-**Compliance and Security Logging**
-
-*Audit Logging:*
-- User action tracking with full context
-- System event logging
-- Immutable audit trails
-- Change tracking (before/after states)
-
-*Audit Queries:*
-- Compliance reporting
-- Security incident investigation
-- Filtered audit trail retrieval
-- Multi-dimensional filtering support
-
-==== ITimeService
-
-**Deterministic Time Operations**
-
-*Time Management:*
-- Current timestamp generation
-- Timezone-aware date operations
-- Duration calculations
-- Business hours validation
-
-*Testing Support:*
-- Time mocking capabilities
-- Deterministic time operations
-- Consistent temporal logic
+[NOTE]
+====
+Cross-cutting ports (`IEmailService`, `INotificationService`, `IEventBus`,
+`IAuditService`, `ITimeService`) were previously declared here but never
+implemented or consumed. They were removed in BOU-170 to keep the user port
+surface focused on the four live user ports above. Email lives in `libs/email`;
+logging/metrics/audit belong to observability; there is no event-bus port today
+(see the scaling guide's async-decoupling note).
+====
 
 === Port Implementation Benefits
 
