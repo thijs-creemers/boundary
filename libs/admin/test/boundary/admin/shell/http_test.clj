@@ -633,8 +633,7 @@
 (deftest ^:security ^:unit create-entity-error-flash-no-leak-test
   (testing "raw exception during create never echoes its message to the client (BOU-182)"
     (let [secret          "SECRET-DB-DETAIL-XYZ-123"
-          stub-service    #_{:clj-kondo/ignore [:missing-protocol-method]}
-          (reify admin-ports/IAdminService
+          stub-service    (reify admin-ports/IAdminService
             (validate-entity-data [_ _ data] {:valid? true :data data})
             (create-entity [_ _ _] (throw (RuntimeException. secret))))
           schema-provider (schema-repo/create-schema-repository *db-ctx* admin-config)
@@ -651,8 +650,7 @@
           "raw exception message must not reach the client")))
 
   (testing "typed domain errors still surface their client-safe message"
-    (let [stub-service    #_{:clj-kondo/ignore [:missing-protocol-method]}
-          (reify admin-ports/IAdminService
+    (let [stub-service    (reify admin-ports/IAdminService
             (validate-entity-data [_ _ data] {:valid? true :data data})
             (create-entity [_ _ _]
               (throw (ex-info "Email already in use" {:type :conflict}))))
@@ -673,8 +671,7 @@
     ;; e.g. schema-repository wraps raw DB errors as {:type :schema-fetch-error}
     ;; with the driver message embedded — typed, but internal.
     (let [secret          "INTERNAL-SCHEMA-DETAIL-456"
-          stub-service    #_{:clj-kondo/ignore [:missing-protocol-method]}
-          (reify admin-ports/IAdminService
+          stub-service    (reify admin-ports/IAdminService
             (validate-entity-data [_ _ data] {:valid? true :data data})
             (create-entity [_ _ _]
               (throw (ex-info (str "Failed to fetch table metadata: " secret)
