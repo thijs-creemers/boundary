@@ -12,7 +12,9 @@
      (routes)    ; Show all HTTP routes
      (commands)  ; Show all available commands"
   (:require [boundary.config :as config]
-            [boundary.platform.shell.system.wiring]  ;; Load Integrant init/halt methods
+            ;; platform Integrant init/halt methods load via the :as wiring
+            ;; require below; user's load here (app layer, not platform — BOU-171).
+            [boundary.user.shell.module-wiring]
             [boundary.devtools.core.guidance :as guidance]
             [boundary.devtools.core.introspection :as introspection]
             [boundary.devtools.core.schema-tools :as schema-tools]

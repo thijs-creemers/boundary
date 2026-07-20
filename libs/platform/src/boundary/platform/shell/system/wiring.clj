@@ -35,7 +35,9 @@
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
             [boundary.cache.shell.module-wiring] ;; Load cache module init/halt methods
-            [boundary.user.shell.module-wiring] ;; Load user module init/halt methods
+            ;; NOTE: user module-wiring is loaded by the application entry point
+            ;; (boundary.main), NOT here — platform must not depend on the user
+            ;; feature lib (BOU-171: dissolves the platform<->user cycle).
             [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
             [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods
             [boundary.workflow.shell.module-wiring] ;; Load workflow module init/halt methods
