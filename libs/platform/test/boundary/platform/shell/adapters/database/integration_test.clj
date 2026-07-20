@@ -1,28 +1,13 @@
 (ns boundary.platform.shell.adapters.database.integration-test
   "Integration tests for the complete multi-database adapter system."
-  (:require [boundary.platform.shell.adapters.database.integration-example :as integration]
-            [clojure.test :refer [deftest is testing use-fixtures]])
-  (:import (java.sql DriverManager)))
+  (:require [boundary.platform.shell.adapters.database.config :as db-config]
+            [boundary.platform.shell.adapters.database.integration-example :as integration]
+            [clojure.test :refer [deftest is testing use-fixtures]]
+            [support.embedded-pg :as epg]))
 
 ;; =============================================================================
 ;; Test Fixtures and Setup
 ;; =============================================================================
-
-(defn postgres-available?
-  "Check if PostgreSQL is available for testing.
-   Returns true if we can connect to PostgreSQL with default test credentials."
-  []
-  (try
-    (let [conn-spec {:jdbcUrl  "jdbc:postgresql://localhost:5432/postgres"
-                     :user     "postgres"
-                     :password "postgres"}]
-      (with-open [_conn (DriverManager/getConnection
-                         (:jdbcUrl conn-spec)
-                         (:user conn-spec)
-                         (:password conn-spec))]
-        true))
-    (catch Exception _e
-      false)))
 
 (defn reset-system-fixture
   "Fixture to reset the integration system before each test."
@@ -41,43 +26,65 @@
 ;; System Initialization Tests
 ;; =============================================================================
 
-(deftest test-system-initialization-dev
-  (testing "System initialization for development environment"
-    (if (postgres-available?)
-      ;; PostgreSQL is available, run the full test
-      (do
-        (System/setProperty "env" "dev")
-        (try
-          (let [initialized-dbs (integration/initialize-databases!)]
-            (is (map? initialized-dbs) "Should return map of initialized databases")
-            (is (seq initialized-dbs) "Should have at least one initialized database")
+(def ^:private embedded-env
+  "Synthetic environment name used to seed the config cache with a config
+   pointing at the embedded PostgreSQL instance (no config file involved)."
+  "embedded-pg")
 
-            ;; Check application state is updated
-            (let [state (integration/current-state)]
-              (is (:config-loaded? state) "Config should be loaded")
-              (is (seq (:active-databases state)) "Should have active databases"))
+(defn- embedded-pg-config
+  "Minimal system config with PostgreSQL active, pointed at the embedded
+   instance. Mirrors the :boundary/postgresql shape of the real dev config."
+  [pg]
+  {:active
+   {:boundary/postgresql
+    {:host        "localhost"
+     :port        (epg/port pg)
+     :dbname      "postgres"
+     :user        "postgres"
+     :password    "postgres"
+     :auto-commit true
+     :pool        {:minimum-idle          1
+                   :maximum-pool-size     3
+                   :connection-timeout-ms 30000}}}})
 
-            ;; Verify we can list active databases
-            (let [active-dbs (integration/list-active-databases)]
-              (is (seq active-dbs) "Should have active databases")
-              (doseq [[adapter-key db-info] active-dbs]
-                (is (keyword? adapter-key) "Adapter key should be keyword")
-                (is (map? db-info) "DB info should be a map")
-                (is (contains? db-info :adapter) "Should contain adapter")
-                (is (contains? db-info :pool) "Should contain connection pool"))))
-          (catch Exception e
-            ;; Handle case where PostgreSQL is running but dev user/database doesn't exist
-            (is (or (.contains (.getMessage e) "Database initialization failed")
-                    (.contains (.getMessage e) "password authentication failed")
-                    (.contains (.getMessage e) "database \"boundary_dev\" does not exist"))
-                (str "Expected database credential/config error, got: " (.getMessage e)))
-            (println "Note: Dev initialization failed - PostgreSQL running but dev database/user not configured"))
-          (finally
-            (System/clearProperty "env"))))
-      ;; PostgreSQL not available, skip test
-      (do
-        (println "SKIPPED: test-system-initialization-dev (PostgreSQL not available)")
-        (is (not (postgres-available?)) "Skipped because PostgreSQL is not available")))))
+(deftest ^:integration test-system-initialization-postgres
+  (testing "Full system initialization against real (embedded) PostgreSQL"
+    ;; BOU-183: this test used to self-skip when no PostgreSQL listened on
+    ;; localhost:5432. It now boots the full init path (config -> driver
+    ;; loading -> pool creation -> query) against support.embedded-pg, so the
+    ;; PG boot path is always exercised instead of skipped.
+    (let [pg (epg/start!)]
+      (try
+        ;; Seed the (dynamic) config cache so load-config resolves the
+        ;; synthetic env to the embedded instance instead of a config file.
+        (swap! db-config/*config-cache* assoc embedded-env (embedded-pg-config pg))
+        (let [initialized-dbs (integration/initialize-databases! embedded-env)]
+          (is (map? initialized-dbs) "Should return map of initialized databases")
+          (is (contains? initialized-dbs :boundary/postgresql)
+              "PostgreSQL context should be initialized")
+
+          ;; Check application state is updated
+          (let [state (integration/current-state)]
+            (is (:config-loaded? state) "Config should be loaded")
+            (is (seq (:active-databases state)) "Should have active databases"))
+
+          ;; Verify the initialized context shape
+          (let [active-dbs (integration/list-active-databases)]
+            (doseq [[adapter-key db-info] active-dbs]
+              (is (keyword? adapter-key) "Adapter key should be keyword")
+              (is (contains? db-info :adapter) "Should contain adapter")
+              (is (contains? db-info :pool) "Should contain connection pool")))
+
+          ;; The booted system serves a query against real PostgreSQL
+          (let [result (integration/execute-query :boundary/postgresql
+                                                  {:select [[1 :test]]})]
+            (is (coll? result) "Query should return a collection")
+            (is (= 1 (:test (first result)))
+                "Query should return the selected value from PostgreSQL")))
+        (finally
+          (integration/shutdown-databases!)
+          (swap! db-config/*config-cache* dissoc embedded-env)
+          (epg/stop! pg))))))
 
 (deftest test-system-initialization-test
   (testing "System initialization for test environment"
