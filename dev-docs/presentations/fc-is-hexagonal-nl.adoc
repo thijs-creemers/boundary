@@ -444,7 +444,7 @@ flowchart LR
     CORE["🧠 Bedrijfslogica\npure functies"]
 
     REPO(["IUserRepository\n— output port —"])
-    MAIL(["IEmailService\n— output port —"])
+    MAIL(["EmailSenderProtocol\n— output port —"])
 
     PG[("PostgreSQL")]
     H2[("H2")]
@@ -620,7 +620,7 @@ flowchart LR
 
     subgraph ports["Ports (interfaces waarvan de service afhankelijk is)"]
         REPO(["IUserRepository"])
-        MAIL(["IEmailService"])
+        MAIL(["EmailSenderProtocol"])
         CACHE(["ICache"])
         JOBS(["IJobQueue"])
     end
@@ -661,7 +661,7 @@ flowchart LR
     class H2,FAKE_MAIL,FAKE_CACHE,INLINE test_a
 ....
 
-De `user`-module kent `IEmailService`. Het heeft *geen idee* of dat SMTP of AWS SES is.
+De applicatie verstuurt e-mail via `EmailSenderProtocol` (in `libs/email`). De aanroeper heeft *geen idee* of dat SMTP of AWS SES is.
 
 [.notes]
 --
