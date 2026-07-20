@@ -102,8 +102,8 @@
   (let [field-groups (group-by (fn [r] [(:category r) (set (:fields r))]) rules)]
     (->> field-groups
          (filter #(> (count (val %)) 1))
-         (mapv (fn [[k rules]]
-                 {:rule-ids (mapv :rule-id rules)
-                  :category (first k)
-                  :fields   (second k)
+         (mapv (fn [[[category fields] group]]
+                 {:rule-ids (mapv :rule-id group)
+                  :category category
+                  :fields   fields
                   :reason   "Multiple rules with same category and fields"})))))
