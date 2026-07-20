@@ -36,7 +36,7 @@
 
 (def ^:private substitutions {:project-name "shop" :project-ns "shop"})
 
-(deftest update-refreshes-stale-blocks-test
+(deftest ^:unit update-refreshes-stale-blocks-test
   (let [{:keys [content updated missing]} (agents-update/update-agents-content project-agents template substitutions)]
     (testing "stale blocks are refreshed with rendered template content"
       (is (str/includes? content "NEW fc-is rules for shop"))
@@ -47,7 +47,7 @@
     (testing "no markers are missing in a generated project"
       (is (empty? missing)))))
 
-(deftest update-preserves-user-content-and-project-state-test
+(deftest ^:unit update-preserves-user-content-and-project-state-test
   (let [{:keys [content]} (agents-update/update-agents-content project-agents template substitutions)]
     (testing "text outside markers is untouched"
       (is (str/includes? content "## My custom team notes\ndo not lose this")))
@@ -60,19 +60,19 @@
       (is (str/includes? content "never run `boundary add payments` twice")
           "row removal must be scoped to the available-modules block"))))
 
-(deftest update-is-idempotent-test
+(deftest ^:unit update-is-idempotent-test
   (let [first-pass  (:content (agents-update/update-agents-content project-agents template substitutions))
         second-pass (agents-update/update-agents-content first-pass template substitutions)]
     (is (= first-pass (:content second-pass)))
     (is (empty? (:updated second-pass)))))
 
-(deftest missing-markers-are-reported-not-fatal-test
+(deftest ^:unit missing-markers-are-reported-not-fatal-test
   (let [no-markers "# shop — Developer Reference\nhand-rolled file\n"
         {:keys [content missing]} (agents-update/update-agents-content no-markers template substitutions)]
     (is (= content no-markers))
     (is (= ["gen:fc-is" "gen:naming" "gen:pitfalls" "boundary:available-modules"] missing))))
 
-(deftest duplicated-markers-touch-first-pair-only-test
+(deftest ^:unit duplicated-markers-touch-first-pair-only-test
   (let [doubled (str project-agents
                      "\n## user copy\n"
                      "<!-- gen:naming -->\nUSER COPY of naming\n<!-- /gen:naming -->\n")
@@ -80,7 +80,7 @@
     (is (str/includes? content "NEW naming") "first pair refreshed")
     (is (str/includes? content "USER COPY of naming") "user-duplicated pair untouched")))
 
-(deftest template-missing-marker-never-empties-project-block-test
+(deftest ^:unit template-missing-marker-never-empties-project-block-test
   ;; If the shipped template ever drops a marker pair, the project's block
   ;; must be skipped (reported missing) — not spliced empty.
   (let [template-sans-naming (str/replace template
@@ -92,15 +92,15 @@
     (is (some #{"gen:naming"} missing))
     (is (not (some #{"gen:naming"} updated)))))
 
-(deftest project-name-parsing-test
+(deftest ^:unit project-name-parsing-test
   (is (= "shop" (agents-update/project-name-from-agents project-agents)))
   (is (nil? (agents-update/project-name-from-agents "no title here"))))
 
-(deftest installed-module-names-parsing-test
+(deftest ^:unit installed-module-names-parsing-test
   (is (= #{"core" "payments"} (agents-update/installed-module-names project-agents)))
   (is (= #{} (agents-update/installed-module-names "no blocks"))))
 
-(deftest module-row-pattern-word-boundary-test
+(deftest ^:unit module-row-pattern-word-boundary-test
   (let [row          "| search | Full-text | boundary add search |\n"
         advanced-row "| search-advanced | Fancy | boundary add search-advanced |\n"]
     (testing "matches the module's own row"

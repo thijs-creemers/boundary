@@ -11,7 +11,7 @@
 ;; Input Components Tests
 ;; =============================================================================
 
-(deftest text-input-test
+(deftest ^:unit text-input-test
   (testing "Basic text input generation"
     (let [result (components/text-input :name "John Doe")]
       (is (= [:input {:type "text" :name "name" :id "name" :value "John Doe"
@@ -31,7 +31,7 @@
                       :class "form-control ui-input"}]
              result)))))
 
-(deftest email-input-test
+(deftest ^:unit email-input-test
   (testing "Email input generation"
     (let [result (components/email-input :user-email "user@domain.com")]
       (is (= [:input {:type "email" :name "user-email" :id "user-email"
@@ -44,7 +44,7 @@
                       :required true :pattern ".*@.*" :class "form-control ui-input"}]
              result)))))
 
-(deftest password-input-test
+(deftest ^:unit password-input-test
   (testing "Password input generation"
     (let [result (components/password-input :password "secret123")]
       (is (= [:input {:type "password" :name "password" :id "password"
@@ -59,7 +59,7 @@
                       :class "form-control ui-input"}]
              result)))))
 
-(deftest textarea-test
+(deftest ^:unit textarea-test
   (testing "Basic textarea generation"
     (let [result (components/textarea :description "Long description text")]
       (is (= [:textarea {:name "description" :id "description" :rows 4 :cols 50
@@ -73,7 +73,7 @@
                          :class "form-control ui-input"} ""]
              result)))))
 
-(deftest select-field-test
+(deftest ^:unit select-field-test
   (testing "Basic select field generation"
     (let [options [[:admin "Administrator"] [:user "Regular User"]]
           result (components/select-field :role options :user)]
@@ -93,7 +93,7 @@
       (is (vector? result))
       (is (= :select (first result))))))
 
-(deftest checkbox-test
+(deftest ^:unit checkbox-test
   (testing "Checked checkbox generation"
     (let [result (components/checkbox :active true)]
       (is (list? result))
@@ -128,7 +128,7 @@
 ;; Form Structure Tests
 ;; =============================================================================
 
-(deftest form-field-test
+(deftest ^:unit form-field-test
   (testing "Form field with label and input"
     (let [input-html [:input {:type "text" :name "name" :id "name"}]
           result (components/form-field :name "Full Name" input-html nil)]
@@ -147,7 +147,7 @@
                                    (rest result))]
         (is (seq error-elements))))))
 
-(deftest button-test
+(deftest ^:unit button-test
   (testing "Basic button generation"
     (let [result (components/button "Click Me")]
       (is (= [:button {:type "button"} "Click Me"]
@@ -158,7 +158,7 @@
       (is (= [:button {:type "button" :class "btn-primary" :disabled true} "Save"]
              result)))))
 
-(deftest submit-button-test
+(deftest ^:unit submit-button-test
   (testing "Submit button generation"
     (let [result (components/submit-button "Submit Form")]
       (is (= [:button {:type "submit" :class "button primary"} "Submit Form"]
@@ -169,7 +169,7 @@
       (is (= [:button {:type "submit" :class "btn-success"} "Create User"]
              result)))))
 
-(deftest link-button-test
+(deftest ^:unit link-button-test
   (testing "Link button generation"
     (let [result (components/link-button "View Details" "/users/123")]
       (is (= [:a {:href "/users/123" :class "button"} "View Details"]
@@ -184,7 +184,7 @@
 ;; Data Display Tests
 ;; =============================================================================
 
-(deftest data-table-test
+(deftest ^:unit data-table-test
   (testing "Basic data table generation"
     (let [headers ["ID" "Name" "Email"]
           rows [["1" "John Doe" "john@example.com"]
@@ -212,7 +212,7 @@
       (is (vector? result))
       (is (= :div.empty-state (first result))))))
 
-(deftest table-wrapper-test
+(deftest ^:unit table-wrapper-test
   (testing "Wraps table with default wrapper classes"
     (let [table [:table [:tbody [:tr [:td "x"]]]]
           result (components/table-wrapper table)]
@@ -241,7 +241,7 @@
 ;; Message Components Tests
 ;; =============================================================================
 
-(deftest success-message-test
+(deftest ^:unit success-message-test
   (testing "Success message generation"
     (let [result (components/success-message "Operation completed successfully")]
       (is (vector? result))
@@ -255,7 +255,7 @@
       (is (vector? result))
       (is (str/includes? (get-in result [1 :class]) "custom")))))
 
-(deftest error-message-test
+(deftest ^:unit error-message-test
   (testing "Error message generation"
     (let [result (components/error-message "Something went wrong")]
       (is (vector? result))
@@ -264,7 +264,7 @@
       (is (str/includes? (get-in result [1 :class]) "error"))
       (is (= "Something went wrong" (nth result 2))))))
 
-(deftest info-message-test
+(deftest ^:unit info-message-test
   (testing "Info message generation"
     (let [result (components/info-message "Please note this information")]
       (is (vector? result))
@@ -273,7 +273,7 @@
       (is (str/includes? (get-in result [1 :class]) "info"))
       (is (= "Please note this information" (nth result 2))))))
 
-(deftest validation-errors-test
+(deftest ^:unit validation-errors-test
   (testing "Validation errors list generation"
     (let [errors ["Name is required" "Email format is invalid" "Password too short"]
           result (components/validation-errors errors)]
@@ -300,7 +300,7 @@
 ;; HTML Rendering Tests
 ;; =============================================================================
 
-(deftest render-html-test
+(deftest ^:unit render-html-test
   (testing "Hiccup to HTML string conversion"
     (let [hiccup [:div {:class "container"} [:p "Hello World"]]
           result (components/render-html hiccup)]
@@ -324,7 +324,7 @@
 ;; HTMX Integration Tests
 ;; =============================================================================
 
-(deftest htmx-attrs-test
+(deftest ^:unit htmx-attrs-test
   (testing "HTMX attributes extraction"
     (let [opts {:hx-get "/api/users" :hx-trigger "click" :class "btn"}
           result (components/htmx-attrs opts)]

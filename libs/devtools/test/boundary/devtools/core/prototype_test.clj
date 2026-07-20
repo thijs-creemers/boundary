@@ -9,7 +9,7 @@
             :due-date :date}
    :endpoints [:crud :list]})
 
-(deftest build-scaffold-context-test
+(deftest ^:unit build-scaffold-context-test
   (testing "maps prototype spec to scaffolder-compatible context"
     (let [ctx (prototype/build-scaffold-context "invoice" sample-spec)]
       (is (= "invoice" (:module-name ctx)))
@@ -22,7 +22,7 @@
           (is (contains? first-field :field-name-kebab))
           (is (contains? first-field :malli-type)))))))
 
-(deftest endpoints-to-generators-test
+(deftest ^:unit endpoints-to-generators-test
   (testing "maps endpoint keywords to generator function names"
     (let [generators (prototype/endpoints-to-generators [:crud :list :search])]
       (is (contains? (set generators) :schema))
@@ -32,14 +32,14 @@
       (is (contains? (set generators) :service))
       (is (contains? (set generators) :http)))))
 
-(deftest build-migration-spec-test
+(deftest ^:unit build-migration-spec-test
   (testing "converts field spec to migration column definitions"
     (let [columns (prototype/build-migration-spec "invoice" (:fields sample-spec))]
       (is (vector? columns))
       (is (>= (count columns) 4))
       (is (some #(= :id (:name %)) columns)))))
 
-(deftest field-type-mapping-test
+(deftest ^:unit field-type-mapping-test
   (testing "maps Malli types to SQL types"
     (is (= "VARCHAR(255)" (prototype/malli->sql-type [:string {:min 1}])))
     (is (= "DECIMAL" (prototype/malli->sql-type [:decimal {:min 0}])))
@@ -49,7 +49,7 @@
     (is (= "TEXT" (prototype/malli->sql-type :map)))
     (is (= "TEXT" (prototype/malli->sql-type :json)))))
 
-(deftest optional-unique-field-test
+(deftest ^:unit optional-unique-field-test
   (testing "optional field sets field-required false in scaffold context"
     (let [spec {:fields [[:nickname [:string {:optional true}]]]
                 :endpoints [:crud]}
@@ -77,7 +77,7 @@
       (is (true? (:not-null name-col)) "required field should be NOT NULL")
       (is (nil? (:unique name-col)) "non-unique field should not have unique key"))))
 
-(deftest enum-form-test
+(deftest ^:unit enum-form-test
   (testing "standard Malli enum [:enum :a :b :c] produces correct enum-values"
     (let [spec {:fields {:status [:enum :draft :sent :paid]}
                 :endpoints [:crud]}

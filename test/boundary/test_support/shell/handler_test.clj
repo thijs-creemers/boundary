@@ -11,7 +11,7 @@
    :uri            "/test/reset"
    :body-params    body-params})
 
-(deftest ^:unit reset-handler-returns-seeded-entities
+(deftest ^:contract reset-handler-returns-seeded-entities
   (testing "handler truncates and seeds, returns JSON with fixture IDs"
     (let [truncate-calls (atom 0)
           seed-calls     (atom 0)
@@ -32,7 +32,7 @@
       (is (nil? (-> resp :body :seeded :admin :password-hash))
           "password-hash must never leak"))))
 
-(deftest ^:unit reset-handler-empty-seed-skips-seeding
+(deftest ^:contract reset-handler-empty-seed-skips-seeding
   (testing "with seed=empty, handler truncates but does not seed"
     (let [seed-calls (atom 0)
           fake-deps {:truncate! (fn [_] nil)
@@ -42,7 +42,7 @@
       (is (= 200 (:status resp)))
       (is (= 0 @seed-calls)))))
 
-(deftest ^:unit reset-handler-returns-500-on-truncate-failure
+(deftest ^:contract reset-handler-returns-500-on-truncate-failure
   (testing "when truncate! throws, handler returns 500 with only .getMessage and no ex-data leak"
     (let [fake-deps {:truncate! (fn [_]
                                   (throw (ex-info "boom" {:secret "xyz"})))

@@ -18,7 +18,7 @@
 ;; explain->field-errors Tests
 ;; =============================================================================
 
-(deftest explain->field-errors-basic-test
+(deftest ^:unit explain->field-errors-basic-test
   (testing "converts basic validation errors to field map"
     (let [invalid-data {:name ""
                         :email "not-an-email"
@@ -34,7 +34,7 @@
       (is (seq (:name result)))
       (is (every? string? (:name result))))))
 
-(deftest explain->field-errors-single-error-test
+(deftest ^:unit explain->field-errors-single-error-test
   (testing "handles single field error"
     (let [invalid-data {:name "Valid Name"
                         :email "not-an-email"
@@ -47,12 +47,12 @@
       (is (not (contains? result :name)))
       (is (not (contains? result :password))))))
 
-(deftest explain->field-errors-nil-test
+(deftest ^:unit explain->field-errors-nil-test
   (testing "handles nil explain data gracefully"
     (let [result (validation/explain->field-errors nil)]
       (is (nil? result)))))
 
-(deftest explain->field-errors-valid-data-test
+(deftest ^:unit explain->field-errors-valid-data-test
   (testing "returns nil for valid data"
     (let [valid-data {:name "John Doe"
                       :email "john@example.com"
@@ -65,7 +65,7 @@
 ;; has-errors? Tests
 ;; =============================================================================
 
-(deftest has-errors?-test
+(deftest ^:unit has-errors?-test
   (testing "returns true for non-empty error map"
     (is (true? (validation/has-errors? {:name ["error"]}))))
 
@@ -82,7 +82,7 @@
 ;; field-error Tests
 ;; =============================================================================
 
-(deftest field-error-test
+(deftest ^:unit field-error-test
   (testing "retrieves error for existing field"
     (let [errors {:name ["Name is required"]
                   :email ["Invalid email"]}]

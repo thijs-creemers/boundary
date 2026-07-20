@@ -4,7 +4,7 @@
             [clojure.string :as str]
             [boundary.cli.new :as new]))
 
-(deftest validate-name-test
+(deftest ^:unit validate-name-test
   (testing "valid kebab-case names are accepted"
     (is (nil? (new/validate-name "my-app")))
     (is (nil? (new/validate-name "myapp")))
@@ -19,13 +19,13 @@
     (is (string? (new/validate-name "my-")))       ; trailing hyphen
     (is (string? (new/validate-name "my--app")))))  ; double hyphen
 
-(deftest name->ns-test
+(deftest ^:unit name->ns-test
   (testing "converts hyphens to underscores"
     (is (= "my_app" (new/name->ns "my-app")))
     (is (= "myapp" (new/name->ns "myapp")))
     (is (= "my_long_name" (new/name->ns "my-long-name")))))
 
-(deftest generate-project-test
+(deftest ^:integration generate-project-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-test-" (System/currentTimeMillis))]
     (try
       (testing "creates project directory"
@@ -109,7 +109,7 @@
         dir
         (recur (.getParentFile dir))))))
 
-(deftest plugin-skill-in-sync-test
+(deftest ^:integration plugin-skill-in-sync-test
   (testing "claude-plugin SKILL.md is byte-identical to the project template"
     (if-let [root (find-repo-root)]
       (let [plugin-skill (io/file root "claude-plugin/skills/boundary/SKILL.md")
@@ -124,7 +124,7 @@
       (is (nil? (find-repo-root))
           "Sync check skipped: monorepo root (.claude-plugin/marketplace.json) not found"))))
 
-(deftest directory-exists-test
+(deftest ^:integration directory-exists-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-exists-test")]
     (io/make-parents (io/file tmp "dummy.txt"))
     (spit (io/file tmp "dummy.txt") "x")
@@ -140,7 +140,7 @@
         (doseq [f (reverse (file-seq (io/file tmp)))]
           (.delete f))))))
 
-(deftest not-a-directory-test
+(deftest ^:integration not-a-directory-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-file-test-" (System/currentTimeMillis))]
     (spit (io/file tmp) "x")
     (try
@@ -149,7 +149,7 @@
       (finally
         (.delete (io/file tmp))))))
 
-(deftest git-bootstrap-test
+(deftest ^:unit git-bootstrap-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-git-test-" (System/currentTimeMillis))]
     (io/make-parents (io/file tmp "x"))
     (try
@@ -170,7 +170,7 @@
       (finally
         (doseq [f (reverse (file-seq (io/file tmp)))] (.delete f))))))
 
-(deftest skip-git-test
+(deftest ^:integration skip-git-test
   (let [tmp (str (System/getProperty "java.io.tmpdir") "/boundary-skipgit-" (System/currentTimeMillis))]
     (try
       (testing "real bootstrap creates a .git directory"

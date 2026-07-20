@@ -3,7 +3,7 @@
             [clojure.string :as str]
             [boundary.devtools.core.recording :as recording]))
 
-(deftest create-session-test
+(deftest ^:unit create-session-test
   (testing "creates empty session with timestamp"
     (let [session (recording/create-session)]
       (is (vector? (:entries session)))
@@ -11,7 +11,7 @@
       (is (inst? (:started-at session)))
       (is (nil? (:stopped-at session))))))
 
-(deftest add-entry-test
+(deftest ^:unit add-entry-test
   (testing "appends entry with auto-incrementing index"
     (let [session (-> (recording/create-session)
                       (recording/add-entry
@@ -26,7 +26,7 @@
       (is (= 0 (:idx (first (:entries session)))))
       (is (= 1 (:idx (second (:entries session))))))))
 
-(deftest get-entry-test
+(deftest ^:unit get-entry-test
   (testing "retrieves entry by index"
     (let [session (-> (recording/create-session)
                       (recording/add-entry
@@ -36,13 +36,13 @@
       (is (= :get (get-in (recording/get-entry session 0) [:request :method])))
       (is (nil? (recording/get-entry session 5))))))
 
-(deftest stop-session-test
+(deftest ^:unit stop-session-test
   (testing "freezes session with stopped-at timestamp"
     (let [session (-> (recording/create-session)
                       (recording/stop-session))]
       (is (inst? (:stopped-at session))))))
 
-(deftest merge-request-modifications-test
+(deftest ^:unit merge-request-modifications-test
   (testing "deep-merges overrides into captured request body"
     (let [request {:method :post :uri "/api/users"
                    :body {:name "Test" :email "old@test.com"}
@@ -53,7 +53,7 @@
       (is (= "Test" (get-in modified [:body :name])))
       (is (= :admin (get-in modified [:body :role]))))))
 
-(deftest diff-entries-test
+(deftest ^:unit diff-entries-test
   (testing "produces structured diff between two entries"
     (let [session (-> (recording/create-session)
                       (recording/add-entry
@@ -69,7 +69,7 @@
       (is (contains? diff :request-diff))
       (is (contains? diff :response-diff)))))
 
-(deftest format-entry-table-test
+(deftest ^:unit format-entry-table-test
   (testing "formats entries as a printable table string"
     (let [session (-> (recording/create-session)
                       (recording/add-entry
@@ -82,7 +82,7 @@
       (is (str/includes? table "/api/users"))
       (is (str/includes? table "200")))))
 
-(deftest serialization-round-trip-test
+(deftest ^:unit serialization-round-trip-test
   (testing "session survives EDN serialization"
     (let [session (-> (recording/create-session)
                       (recording/add-entry

@@ -11,7 +11,7 @@
 ;; Navigation Tests
 ;; =============================================================================
 
-(deftest main-navigation-test
+(deftest ^:unit main-navigation-test
   (testing "Basic navigation generation"
     (let [result (layout/main-navigation)]
       (is (vector? result))
@@ -48,7 +48,7 @@
 ;; Page Layout Tests
 ;; =============================================================================
 
-(deftest page-layout-test
+(deftest ^:unit page-layout-test
   (testing "Basic page layout generation"
     (let [title "Test Page"
           content [:div "Page content here"]
@@ -95,7 +95,7 @@
 ;; Error Layout Tests
 ;; =============================================================================
 
-(deftest error-layout-test
+(deftest ^:unit error-layout-test
   (testing "Basic error layout generation"
     (let [status 404
           title "Page Not Found"
@@ -131,7 +131,7 @@
 ;; Home Page Tests
 ;; =============================================================================
 
-(deftest home-page-content-test
+(deftest ^:unit home-page-content-test
   (testing "Home page content generation"
     (let [result (layout/home-page-content)]
       (is (vector? result))
@@ -152,7 +152,7 @@
 ;; Error Page Rendering Tests
 ;; =============================================================================
 
-(deftest render-error-page-test
+(deftest ^:unit render-error-page-test
   (testing "Error page rendering with request context"
     ; The render-error-page function signature is different - it takes message and optional status
     (let [message "Page not found"
@@ -176,7 +176,7 @@
 ;; Component Layout Tests
 ;; =============================================================================
 
-(deftest modal-test
+(deftest ^:unit modal-test
   (testing "Basic modal generation"
     (let [id "test-modal"
           title "Confirm Action"
@@ -201,7 +201,7 @@
           (is (or (str/includes? (:class attrs "") "large-modal")
                   (string? (:id attrs)))))))))
 
-(deftest sidebar-test
+(deftest ^:unit sidebar-test
   (testing "Basic sidebar generation"
     (let [content [:ul [:li "Menu Item 1"] [:li "Menu Item 2"]]
           result (layout/sidebar content)]
@@ -219,7 +219,7 @@
       ; Should be valid structure
       (is (keyword? (first result))))))
 
-(deftest breadcrumbs-test
+(deftest ^:unit breadcrumbs-test
   (testing "Basic breadcrumbs generation"
     (let [crumbs [["Home" "/"] ["Users" "/users"] ["John Doe" nil]]
           result (layout/breadcrumbs crumbs)]
@@ -242,7 +242,7 @@
       (let [crumbs-html (str result)]
         (is (str/includes? crumbs-html "Dashboard"))))))
 
-(deftest card-test
+(deftest ^:unit card-test
   (testing "Basic card generation"
     (let [content [:div [:h3 "Card Title"] [:p "Card content"]]
           result (layout/card content)]
@@ -267,7 +267,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest layout-integration-test
+(deftest ^:unit layout-integration-test
   (testing "Complete page with all layout components"
     (let [title "Complex Page"
           content [:main
