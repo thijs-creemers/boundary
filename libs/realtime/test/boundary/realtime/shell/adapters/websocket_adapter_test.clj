@@ -18,7 +18,7 @@
 ;; TestWebSocketAdapter Tests
 ;; =============================================================================
 
-(deftest test-adapter-send-message-test
+(deftest ^:unit test-adapter-send-message-test
   (testing "sending message via test adapter"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)
           message {:type "notification" :content "Hello"}]
@@ -29,7 +29,7 @@
         (is (= 1 (count @(:sent-messages adapter))))
         (is (= message (first @(:sent-messages adapter))))))))
 
-(deftest test-adapter-send-multiple-messages-test
+(deftest ^:unit test-adapter-send-multiple-messages-test
   (testing "sending multiple messages via test adapter"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)
           message-1 {:type "notification" :content "First"}
@@ -46,7 +46,7 @@
         (is (= message-2 (nth @(:sent-messages adapter) 1)))
         (is (= message-3 (nth @(:sent-messages adapter) 2)))))))
 
-(deftest test-adapter-send-to-closed-connection-test
+(deftest ^:unit test-adapter-send-to-closed-connection-test
   (testing "sending message to closed test adapter"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)
           message {:type "notification" :content "Hello"}]
@@ -60,7 +60,7 @@
       (testing "message not added when closed"
         (is (= 0 (count @(:sent-messages adapter))))))))
 
-(deftest test-adapter-close-test
+(deftest ^:unit test-adapter-close-test
   (testing "closing test adapter"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)]
       
@@ -72,7 +72,7 @@
       (testing "closed after close call"
         (is (false? (ports/open? adapter)))))))
 
-(deftest test-adapter-close-multiple-times-test
+(deftest ^:unit test-adapter-close-multiple-times-test
   (testing "closing test adapter multiple times"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)]
       
@@ -83,14 +83,14 @@
       (ports/close adapter)
       (is (false? (ports/open? adapter))))))
 
-(deftest test-adapter-connection-id-test
+(deftest ^:unit test-adapter-connection-id-test
   (testing "getting connection ID from test adapter"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)]
       
       (testing "returns correct connection ID"
         (is (= test-connection-id (ports/connection-id adapter)))))))
 
-(deftest test-adapter-open-state-test
+(deftest ^:unit test-adapter-open-state-test
   (testing "test adapter open state tracking"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)]
       
@@ -115,7 +115,7 @@
 ;; RingWebSocketAdapter Tests
 ;; =============================================================================
 
-(deftest ring-adapter-send-message-test
+(deftest ^:unit ring-adapter-send-message-test
   (testing "sending message via ring adapter"
     (let [sent-messages (atom [])
           mock-channel {:send! (fn [msg] (swap! sent-messages conj msg))
@@ -133,7 +133,7 @@
           (is (.contains sent-json "\"type\":\"notification\""))
           (is (.contains sent-json "\"content\":\"Hello\"")))))))
 
-(deftest ring-adapter-send-complex-message-test
+(deftest ^:unit ring-adapter-send-complex-message-test
   (testing "sending complex message structure via ring adapter"
     (let [sent-messages (atom [])
           mock-channel {:send! (fn [msg] (swap! sent-messages conj msg))
@@ -157,7 +157,7 @@
           (is (.contains sent-json "\"user-id\":\"123\""))
           (is (.contains sent-json "\"nested-array\":[1,2,3]")))))))
 
-(deftest ring-adapter-close-test
+(deftest ^:unit ring-adapter-close-test
   (testing "closing ring adapter"
     (let [close-called (atom false)
           mock-channel {:send! (fn [_msg])
@@ -173,7 +173,7 @@
       (testing "close function called"
         (is (true? @close-called))))))
 
-(deftest ring-adapter-connection-id-test
+(deftest ^:unit ring-adapter-connection-id-test
   (testing "getting connection ID from ring adapter"
     (let [mock-channel {:send! (fn [_msg])
                         :close! (fn [])
@@ -183,7 +183,7 @@
       (testing "returns correct connection ID"
         (is (= test-connection-id (ports/connection-id adapter)))))))
 
-(deftest ring-adapter-open-state-test
+(deftest ^:unit ring-adapter-open-state-test
   (testing "ring adapter open state tracking"
     (let [is-open (atom true)
           mock-channel {:send! (fn [_msg])
@@ -199,7 +199,7 @@
       (testing "closed after close call"
         (is (false? (ports/open? adapter)))))))
 
-(deftest ring-adapter-missing-send-fn-test
+(deftest ^:unit ring-adapter-missing-send-fn-test
   (testing "ring adapter with missing send function"
     (let [mock-channel {:close! (fn [])
                         :open? (fn [] true)}
@@ -210,7 +210,7 @@
       (testing "does not throw when send function missing"
         (is (nil? (ports/send-message adapter message)))))))
 
-(deftest ring-adapter-missing-close-fn-test
+(deftest ^:unit ring-adapter-missing-close-fn-test
   (testing "ring adapter with missing close function"
     (let [mock-channel {:send! (fn [_msg])
                         :open? (fn [] true)}
@@ -220,7 +220,7 @@
       (testing "does not throw when close function missing"
         (is (nil? (ports/close adapter)))))))
 
-(deftest ring-adapter-missing-open-fn-test
+(deftest ^:unit ring-adapter-missing-open-fn-test
   (testing "ring adapter with missing open function"
     (let [mock-channel {:send! (fn [_msg])
                         :close! (fn [])}
@@ -230,7 +230,7 @@
       (testing "returns false when open function missing"
         (is (false? (ports/open? adapter)))))))
 
-(deftest ring-adapter-send-error-handling-test
+(deftest ^:unit ring-adapter-send-error-handling-test
   (testing "ring adapter handles send errors gracefully"
     (let [mock-channel {:send! (fn [_msg] (throw (Exception. "Network error")))
                         :close! (fn [])
@@ -241,7 +241,7 @@
       (testing "does not throw when send fails"
         (is (nil? (ports/send-message adapter message)))))))
 
-(deftest ring-adapter-close-error-handling-test
+(deftest ^:unit ring-adapter-close-error-handling-test
   (testing "ring adapter handles close errors gracefully"
     (let [mock-channel {:send! (fn [_msg])
                         :close! (fn [] (throw (Exception. "Close error")))
@@ -255,7 +255,7 @@
 ;; Factory Function Tests
 ;; =============================================================================
 
-(deftest create-test-websocket-adapter-test
+(deftest ^:unit create-test-websocket-adapter-test
   (testing "creating test WebSocket adapter"
     (let [adapter (ws/create-test-websocket-adapter test-connection-id)]
       
@@ -267,7 +267,7 @@
         (is (= test-connection-id (ports/connection-id adapter)))
         (is (= 0 (count @(:sent-messages adapter))))))))
 
-(deftest create-ring-websocket-adapter-test
+(deftest ^:unit create-ring-websocket-adapter-test
   (testing "creating ring WebSocket adapter"
     (let [mock-channel {:send! (fn [_msg])
                         :close! (fn [])

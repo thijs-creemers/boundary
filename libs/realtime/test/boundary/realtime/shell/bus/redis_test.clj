@@ -29,7 +29,7 @@
      (do ~@body)
      (is (not (redis-available?)) "Redis not available — test skipped")))
 
-(deftest cross-bus-delivery-test
+(deftest ^:integration cross-bus-delivery-test
   (when-redis
    (let [chan "rt-test:bus"
          received (atom [])
@@ -47,7 +47,7 @@
          (ports/stop-subscriber! sub)
          (ports/stop-subscriber! pub))))))
 
-(deftest create-redis-bus-accepts-full-config-test
+(deftest ^:unit create-redis-bus-accepts-full-config-test
   ;; Config plumbing: auth/db/timeout/sizing/channel/subscribe-timeout-ms must be
   ;; accepted. Construction is lazy (no connection), so this needs no Redis.
   (testing "create-redis-bus builds from a full production config without connecting"
@@ -59,7 +59,7 @@
       (is (instance? java.io.Closeable bus))
       (.close ^java.io.Closeable bus))))
 
-(deftest subscriber-survives-redis-unavailable-test
+(deftest ^:integration subscriber-survives-redis-unavailable-test
   ;; Regression for the startup bug where .getResource threw OUTSIDE the loop's
   ;; try, killing the daemon and leaving the node permanently deaf even after
   ;; Redis recovered. Runs WITHOUT Redis (points at a dead port on purpose).
@@ -80,7 +80,7 @@
           (ports/stop-subscriber! bus)))
       (is (false? (:running? @(:state bus))) "stop-subscriber! clears running?"))))
 
-(deftest idempotent-subscriber-test
+(deftest ^:integration idempotent-subscriber-test
   (when-redis
    (let [chan "rt-test:bus2"
          received (atom [])

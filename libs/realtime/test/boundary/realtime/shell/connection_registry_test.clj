@@ -34,7 +34,7 @@
 ;; Register/Unregister Tests
 ;; =============================================================================
 
-(deftest register-connection-test
+(deftest ^:unit register-connection-test
   (testing "registering a connection"
     (let [reg (registry/create-in-memory-registry)
           connection (create-test-connection test-user-id-1 #{:user})
@@ -51,7 +51,7 @@
           (is (= test-user-id-1 (:user-id retrieved)))
           (is (= #{:user} (:roles retrieved))))))))
 
-(deftest register-multiple-connections-test
+(deftest ^:unit register-multiple-connections-test
   (testing "registering multiple connections"
     (let [reg (registry/create-in-memory-registry)
           connection-1 (create-test-connection test-user-id-1 #{:user})
@@ -67,7 +67,7 @@
         (is (some? (ports/find-connection reg test-connection-id-1)))
         (is (some? (ports/find-connection reg test-connection-id-2)))))))
 
-(deftest unregister-connection-test
+(deftest ^:unit unregister-connection-test
   (testing "unregistering a connection"
     (let [reg (registry/create-in-memory-registry)
           connection (create-test-connection test-user-id-1 #{:user})
@@ -84,7 +84,7 @@
       (testing "connection cannot be retrieved"
         (is (nil? (ports/find-connection reg test-connection-id-1)))))))
 
-(deftest unregister-nonexistent-connection-test
+(deftest ^:unit unregister-nonexistent-connection-test
   (testing "unregistering non-existent connection does not throw"
     (let [reg (registry/create-in-memory-registry)]
 
@@ -96,7 +96,7 @@
 ;; Find by User Tests
 ;; =============================================================================
 
-(deftest find-by-user-single-connection-test
+(deftest ^:unit find-by-user-single-connection-test
   (testing "finding connections for user with single connection"
     (let [reg (registry/create-in-memory-registry)
           connection (create-test-connection test-user-id-1 #{:user})
@@ -111,7 +111,7 @@
           (is (= 1 (count ws-adapters)))
           (is (= test-connection-id-1 (ports/connection-id (first ws-adapters)))))))))
 
-(deftest find-by-user-multiple-connections-test
+(deftest ^:unit find-by-user-multiple-connections-test
   (testing "finding connections for user with multiple connections"
     (let [reg (registry/create-in-memory-registry)
           ;; Same user, multiple connections
@@ -131,7 +131,7 @@
             (is (contains? connection-ids test-connection-id-1))
             (is (contains? connection-ids test-connection-id-2))))))))
 
-(deftest find-by-user-no-connections-test
+(deftest ^:unit find-by-user-no-connections-test
   (testing "finding connections for user with no connections"
     (let [reg (registry/create-in-memory-registry)
           ws-adapters (ports/find-by-user reg test-user-id-1)]
@@ -140,7 +140,7 @@
         (is (vector? ws-adapters))
         (is (= 0 (count ws-adapters)))))))
 
-(deftest find-by-user-filters-correctly-test
+(deftest ^:unit find-by-user-filters-correctly-test
   (testing "find-by-user returns only specified user's connections"
     (let [reg (registry/create-in-memory-registry)
           connection-1 (create-test-connection test-user-id-1 #{:user})
@@ -166,7 +166,7 @@
 ;; Find by Role Tests
 ;; =============================================================================
 
-(deftest find-by-role-single-connection-test
+(deftest ^:unit find-by-role-single-connection-test
   (testing "finding connections by role with single match"
     (let [reg (registry/create-in-memory-registry)
           connection (create-test-connection test-user-id-1 #{:admin})
@@ -180,7 +180,7 @@
           (is (= 1 (count admin-adapters)))
           (is (= test-connection-id-1 (ports/connection-id (first admin-adapters)))))))))
 
-(deftest find-by-role-multiple-connections-test
+(deftest ^:unit find-by-role-multiple-connections-test
   (testing "finding connections by role with multiple matches"
     (let [reg (registry/create-in-memory-registry)
           connection-1 (create-test-connection test-user-id-1 #{:admin})
@@ -199,7 +199,7 @@
             (is (contains? connection-ids test-connection-id-1))
             (is (contains? connection-ids test-connection-id-2))))))))
 
-(deftest find-by-role-no-matches-test
+(deftest ^:unit find-by-role-no-matches-test
   (testing "finding connections by role with no matches"
     (let [reg (registry/create-in-memory-registry)
           connection (create-test-connection test-user-id-1 #{:user})
@@ -212,7 +212,7 @@
         (testing "returns empty vector"
           (is (= 0 (count admin-adapters))))))))
 
-(deftest find-by-role-filters-correctly-test
+(deftest ^:unit find-by-role-filters-correctly-test
   (testing "find-by-role returns only connections with specified role"
     (let [reg (registry/create-in-memory-registry)
           user-connection (create-test-connection test-user-id-1 #{:user})
@@ -234,7 +234,7 @@
           (is (= 1 (count admin-adapters)))
           (is (= test-connection-id-2 (ports/connection-id (first admin-adapters)))))))))
 
-(deftest find-by-role-multiple-roles-test
+(deftest ^:unit find-by-role-multiple-roles-test
   (testing "finding connections with users having multiple roles"
     (let [reg (registry/create-in-memory-registry)
           ;; User with both :user and :moderator roles
@@ -256,7 +256,7 @@
 ;; All Connections Tests
 ;; =============================================================================
 
-(deftest all-connections-empty-test
+(deftest ^:unit all-connections-empty-test
   (testing "getting all connections from empty registry"
     (let [reg (registry/create-in-memory-registry)
           all-adapters (ports/all-connections reg)]
@@ -265,7 +265,7 @@
         (is (vector? all-adapters))
         (is (= 0 (count all-adapters)))))))
 
-(deftest all-connections-test
+(deftest ^:unit all-connections-test
   (testing "getting all connections"
     (let [reg (registry/create-in-memory-registry)
           connection-1 (create-test-connection test-user-id-1 #{:user})
@@ -288,14 +288,14 @@
 ;; Connection Count Tests
 ;; =============================================================================
 
-(deftest connection-count-empty-test
+(deftest ^:unit connection-count-empty-test
   (testing "connection count for empty registry"
     (let [reg (registry/create-in-memory-registry)]
 
       (testing "returns zero"
         (is (= 0 (ports/connection-count reg)))))))
 
-(deftest connection-count-test
+(deftest ^:unit connection-count-test
   (testing "connection count after registration"
     (let [reg (registry/create-in-memory-registry)
           connection-1 (create-test-connection test-user-id-1 #{:user})
@@ -323,7 +323,7 @@
 ;; Thread Safety Tests
 ;; =============================================================================
 
-(deftest concurrent-registration-test
+(deftest ^:unit concurrent-registration-test
   (testing "concurrent registration of connections"
     (let [reg (registry/create-in-memory-registry)
           num-threads 10
@@ -349,7 +349,7 @@
       (testing "all connections registered correctly"
         (is (= (* num-threads connections-per-thread) (ports/connection-count reg)))))))
 
-(deftest concurrent-unregistration-test
+(deftest ^:unit concurrent-unregistration-test
   (testing "concurrent unregistration of connections"
     (let [reg (registry/create-in-memory-registry)
           num-connections 100
@@ -382,7 +382,7 @@
 
 (def user-id (java.util.UUID/randomUUID))
 
-(deftest find-adapters-by-ids-test
+(deftest ^:unit find-adapters-by-ids-test
   (testing "returns adapters for present ids, skips missing"
     (let [reg (registry/create-in-memory-registry)
           id-1 (java.util.UUID/randomUUID)

@@ -166,7 +166,7 @@
 ;; invite-user-handler
 ;; =============================================================================
 
-(deftest invite-user-handler-test
+(deftest ^:contract invite-user-handler-test
   (testing "201 on valid invite"
     (let [handler  (sut/invite-user-handler *mock-service*)
           request  (make-request :post
@@ -211,7 +211,7 @@
 ;; list-members-handler
 ;; =============================================================================
 
-(deftest list-members-handler-test
+(deftest ^:contract list-members-handler-test
   (testing "200 with list of members"
     (let [handler  (sut/list-members-handler *mock-service*)
           request  (make-request :get {:tenant-id (str tenant-id-1)})
@@ -230,7 +230,7 @@
 ;; get-membership-handler
 ;; =============================================================================
 
-(deftest get-membership-handler-test
+(deftest ^:contract get-membership-handler-test
   (testing "200 for existing membership"
     (let [handler  (sut/get-membership-handler *mock-service*)
           request  (make-request :get {:tenant-id (str tenant-id-1)
@@ -258,7 +258,7 @@
 ;; update-membership-handler
 ;; =============================================================================
 
-(deftest update-membership-handler-test
+(deftest ^:contract update-membership-handler-test
   (testing "200 when updating role"
     (let [handler  (sut/update-membership-handler *mock-service*)
           request  (make-request :put
@@ -294,7 +294,7 @@
 ;; revoke-member-handler
 ;; =============================================================================
 
-(deftest revoke-member-handler-test
+(deftest ^:contract revoke-member-handler-test
   (testing "200 on successful revoke"
     (let [handler  (sut/revoke-member-handler *mock-service*)
           request  (make-request :delete {:tenant-id (str tenant-id-1)
@@ -315,7 +315,7 @@
 ;; accept-invitation-handler
 ;; =============================================================================
 
-(deftest accept-invitation-handler-test
+(deftest ^:contract accept-invitation-handler-test
   (testing "200 on accepting an invitation"
     (let [handler  (sut/accept-invitation-handler *mock-service*)
           request  (make-request :post {:id (str member-id-1)})
@@ -346,7 +346,7 @@
 ;; Routes structure
 ;; =============================================================================
 
-(deftest membership-routes-normalized-test
+(deftest ^:contract membership-routes-normalized-test
   (testing "returns normalized route structure with :api key"
     (let [routes (sut/membership-routes-normalized *mock-service*)]
       (is (map? routes))

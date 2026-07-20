@@ -9,7 +9,7 @@
     (tenant-provisioned? [_ _db-ctx _tenant] true)
     (list-tenant-schemas [_ _db-ctx] schemas)))
 
-(deftest for-each-tenant-schema-runs-f-per-schema
+(deftest ^:unit for-each-tenant-schema-runs-f-per-schema
   (testing "f runs once per provisioned schema, inside that schema"
     (let [seen     (atom [])
           provider (fake-provider ["tenant_a" "tenant_b"])
@@ -20,7 +20,7 @@
       (is (= 2 (:processed result)))
       (is (= 0 (:failed result))))))
 
-(deftest for-each-tenant-schema-isolates-failures
+(deftest ^:unit for-each-tenant-schema-isolates-failures
   (testing "one tenant's failure does not abort the others"
     (let [seen     (atom [])
           provider (fake-provider ["tenant_a" "tenant_b"])

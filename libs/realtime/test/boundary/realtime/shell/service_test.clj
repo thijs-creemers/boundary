@@ -48,7 +48,7 @@
 ;; Connection Lifecycle Tests
 ;; =============================================================================
 
-(deftest connect-with-valid-jwt-test
+(deftest ^:integration connect-with-valid-jwt-test
   (testing "establishing connection with valid JWT"
     (let [{:keys [service registry]} (create-test-service)
           ws-adapter (create-test-ws-adapter)
@@ -65,7 +65,7 @@
           (is (= test-user-id (:user-id connection)))
           (is (= #{:user} (:roles connection))))))))
 
-(deftest connect-with-invalid-jwt-test
+(deftest ^:integration connect-with-invalid-jwt-test
   (testing "connection fails with invalid JWT"
     (let [{:keys [service registry]} (create-test-service)
           ws-adapter (create-test-ws-adapter)]
@@ -79,7 +79,7 @@
       (testing "does not register connection"
         (is (= 0 (ports/connection-count registry)))))))
 
-(deftest connect-without-token-test
+(deftest ^:integration connect-without-token-test
   (testing "connection fails without token in query params"
     (let [{:keys [service registry]} (create-test-service)
           ws-adapter (create-test-ws-adapter)]
@@ -93,7 +93,7 @@
       (testing "does not register connection"
         (is (= 0 (ports/connection-count registry)))))))
 
-(deftest disconnect-test
+(deftest ^:integration disconnect-test
   (testing "disconnecting active connection"
     (let [{:keys [service registry]} (create-test-service)
           ws-adapter (create-test-ws-adapter)
@@ -109,7 +109,7 @@
         (is (= 0 (ports/connection-count registry)))
         (is (nil? (ports/find-connection registry connection-id)))))))
 
-(deftest disconnect-nonexistent-connection-test
+(deftest ^:integration disconnect-nonexistent-connection-test
   (testing "disconnecting non-existent connection does not throw"
     (let [{:keys [service]} (create-test-service)]
 
@@ -120,7 +120,7 @@
 ;; Message Routing Tests
 ;; =============================================================================
 
-(deftest send-to-user-test
+(deftest ^:integration send-to-user-test
   (testing "sending message to user's connections"
     (let [{:keys [service _registry]} (create-test-service)
           ws-adapter-1 (create-test-ws-adapter)
@@ -149,7 +149,7 @@
           (is (some? (:timestamp msg-1))) ; Timestamp added by service
           (is (some? (:timestamp msg-2))))))))
 
-(deftest send-to-user-no-connections-test
+(deftest ^:integration send-to-user-no-connections-test
   (testing "sending to user with no connections"
     (let [{:keys [service]} (create-test-service)
           message {:type "notification" :content "Hello"}
@@ -159,7 +159,7 @@
       (testing "returns zero count"
         (is (= 0 send-count))))))
 
-(deftest send-to-role-test
+(deftest ^:integration send-to-role-test
   (testing "sending message to role-based connections"
     (let [{:keys [service]} (create-test-service)
 
@@ -198,7 +198,7 @@
           (testing "user did not receive message"
             (is (= 0 (count @(:sent-messages user-ws))))))))))
 
-(deftest broadcast-test
+(deftest ^:integration broadcast-test
   (testing "broadcasting message to all connections"
     (let [{:keys [service]} (create-test-service)
           ws-adapter-1 (create-test-ws-adapter)
@@ -220,7 +220,7 @@
         (is (= 1 (count @(:sent-messages ws-adapter-2))))
         (is (= 1 (count @(:sent-messages ws-adapter-3))))))))
 
-(deftest send-to-connection-test
+(deftest ^:integration send-to-connection-test
   (testing "sending message to specific connection"
     (let [{:keys [service]} (create-test-service)
           ws-adapter-1 (create-test-ws-adapter)
@@ -243,7 +243,7 @@
           (is (= "job-progress" (:type msg)))
           (is (= "50% complete" (:content msg))))))))
 
-(deftest send-to-connection-not-found-test
+(deftest ^:integration send-to-connection-not-found-test
   (testing "sending to non-existent connection"
     (let [{:keys [service]} (create-test-service)
           message {:type "test" :content "test"}
@@ -253,7 +253,7 @@
       (testing "returns false"
         (is (false? result))))))
 
-(deftest send-to-closed-connection-test
+(deftest ^:integration send-to-closed-connection-test
   (testing "sending to closed connection"
     (let [{:keys [service]} (create-test-service)
           ws-adapter (create-test-ws-adapter)
@@ -276,7 +276,7 @@
 ;; Message Timestamp Tests
 ;; =============================================================================
 
-(deftest message-timestamp-auto-added-test
+(deftest ^:integration message-timestamp-auto-added-test
   (testing "service adds timestamp if missing"
     (let [{:keys [service]} (create-test-service)
           ws-adapter (create-test-ws-adapter)
@@ -290,7 +290,7 @@
         (let [sent-msg (first @(:sent-messages ws-adapter))]
           (is (some? (:timestamp sent-msg))))))))
 
-(deftest message-timestamp-preserved-test
+(deftest ^:integration message-timestamp-preserved-test
   (testing "service preserves existing timestamp"
     (let [{:keys [service]} (create-test-service)
           ws-adapter (create-test-ws-adapter)
@@ -309,7 +309,7 @@
 ;; Pub/Sub Integration Tests
 ;; =============================================================================
 
-(deftest publish-to-topic-with-subscribers-test
+(deftest ^:integration publish-to-topic-with-subscribers-test
   (testing "publishing message to topic with subscribers"
     (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
           {:keys [service]} (create-test-service pubsub-manager)
@@ -340,7 +340,7 @@
             (is (= "shipped" (:status msg-1)))
             (is (= msg-1 msg-2))))))))
 
-(deftest publish-to-topic-without-subscribers-test
+(deftest ^:integration publish-to-topic-without-subscribers-test
   (testing "publishing message to topic with no subscribers"
     (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
           {:keys [service]} (create-test-service pubsub-manager)
@@ -350,7 +350,7 @@
       (testing "returns 0 subscribers"
         (is (= 0 subscriber-count))))))
 
-(deftest publish-to-topic-partial-subscribers-test
+(deftest ^:integration publish-to-topic-partial-subscribers-test
   (testing "publishing to topic with only some connections subscribed"
     (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
           {:keys [service]} (create-test-service pubsub-manager)
@@ -374,7 +374,7 @@
           (is (= 1 (count @(:sent-messages ws-adapter-1))))
           (is (= 0 (count @(:sent-messages ws-adapter-2)))))))))
 
-(deftest disconnect-unsubscribes-from-all-topics-test
+(deftest ^:integration disconnect-unsubscribes-from-all-topics-test
   (testing "disconnect removes subscriptions from all topics"
     (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
           {:keys [service]} (create-test-service pubsub-manager)
@@ -401,7 +401,7 @@
         (is (= 0 (count (ports/get-topic-subscribers pubsub-manager "topic-2"))))
         (is (= 0 (count (ports/get-topic-subscribers pubsub-manager "topic-3"))))))))
 
-(deftest service-without-pubsub-manager-test
+(deftest ^:integration service-without-pubsub-manager-test
   (testing "service works without pubsub manager (backward compatibility)"
     (let [{:keys [service]} (create-test-service nil)
           ws-adapter (create-test-ws-adapter)
@@ -418,7 +418,7 @@
         (ports/disconnect service conn-id)
         (is (= 0 (ports/send-to-user service test-user-id {:type "test"})))))))
 
-(deftest publish-adds-timestamp-test
+(deftest ^:integration publish-adds-timestamp-test
   (testing "publish-to-topic adds timestamp if missing"
     (let [pubsub-manager (pubsub-mgr/create-pubsub-manager)
           {:keys [service]} (create-test-service pubsub-manager)

@@ -4,7 +4,7 @@
   (:import (java.time Instant)
            (java.util UUID)))
 
-(deftest valid-slug?-test
+(deftest ^:unit valid-slug?-test
   (testing "valid slugs"
     (is (true? (sut/valid-slug? "acme-corp")))
     (is (true? (sut/valid-slug? "company123")))
@@ -21,13 +21,13 @@
     (is (false? (sut/valid-slug? "a")))
     (is (false? (sut/valid-slug? (apply str (repeat 101 "a")))))))
 
-(deftest slug->schema-name-test
+(deftest ^:unit slug->schema-name-test
   (testing "converts slug to schema name"
     (is (= "tenant_acme_corp" (sut/slug->schema-name "acme-corp")))
     (is (= "tenant_my_company" (sut/slug->schema-name "my-company")))
     (is (= "tenant_test123" (sut/slug->schema-name "test123")))))
 
-(deftest ^:security valid-schema-name?-test
+(deftest ^:unit ^:security valid-schema-name?-test
   (testing "accepts schema names produced by slug->schema-name"
     (is (true? (sut/valid-schema-name? "tenant_acme_corp")))
     (is (true? (sut/valid-schema-name? "tenant_company123")))
@@ -44,7 +44,7 @@
     (is (false? (sut/valid-schema-name? nil)))
     (is (false? (sut/valid-schema-name? :tenant_acme)))))
 
-(deftest prepare-tenant-test
+(deftest ^:unit prepare-tenant-test
   (testing "prepares tenant entity with all fields"
     (let [tenant-id (UUID/randomUUID)
           now (Instant/now)
@@ -62,7 +62,7 @@
       (is (= now (:updated-at result)))
       (is (nil? (:deleted-at result))))))
 
-(deftest create-tenant-decision-test
+(deftest ^:unit create-tenant-decision-test
   (testing "accepts valid new tenant"
     (let [result (sut/create-tenant-decision "acme-corp" #{})]
       (is (true? (:valid? result)))
@@ -78,7 +78,7 @@
       (is (false? (:valid? result)))
       (is (= "Tenant slug already exists" (:error result))))))
 
-(deftest update-tenant-decision-test
+(deftest ^:unit update-tenant-decision-test
   (testing "accepts valid update for existing tenant"
     (let [existing {:id (UUID/randomUUID) :slug "acme-corp" :status :active}
           result (sut/update-tenant-decision existing {:name "New Name"})]
@@ -96,7 +96,7 @@
       (is (false? (:valid? result)))
       (is (= "Invalid status" (:error result))))))
 
-(deftest prepare-tenant-update-test
+(deftest ^:unit prepare-tenant-update-test
   (testing "merges update data with existing tenant"
     (let [existing {:id (UUID/randomUUID)
                     :slug "acme-corp"
@@ -111,7 +111,7 @@
       (is (= now (:updated-at result)))
       (is (= "acme-corp" (:slug result))))))
 
-(deftest tenant-status-predicates-test
+(deftest ^:unit tenant-status-predicates-test
   (testing "tenant-deleted?"
     (is (true? (sut/tenant-deleted? {:status :deleted :deleted-at (Instant/now)})))
     (is (true? (sut/tenant-deleted? {:status :deleted :deleted-at nil})))
@@ -131,7 +131,7 @@
     (is (true? (sut/can-delete-tenant? {:status :active :deleted-at nil})))
     (is (false? (sut/can-delete-tenant? {:status :deleted :deleted-at (Instant/now)})))))
 
-(deftest prepare-tenant-deletion-test
+(deftest ^:unit prepare-tenant-deletion-test
   (testing "marks tenant as deleted"
     (let [existing {:id (UUID/randomUUID)
                     :slug "acme-corp"

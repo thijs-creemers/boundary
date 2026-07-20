@@ -60,7 +60,7 @@
 ;; Registry Tests
 ;; =============================================================================
 
-(deftest test-metrics-registry
+(deftest ^:unit test-metrics-registry
   (testing "Counter registration"
     (let [{:keys [registry]} (create-test-components)
           handle (ports/register-counter! registry :test.counter "Test counter" {:team "test"})]
@@ -124,7 +124,7 @@
 ;; Emitter Tests
 ;; =============================================================================
 
-(deftest test-metrics-emitter
+(deftest ^:unit test-metrics-emitter
   (testing "Counter increment"
     (let [{:keys [registry emitter sent-lines]} (create-test-components)
           handle (ports/register-counter! registry :test.counter "Test counter" {:metric "tag"})]
@@ -203,7 +203,7 @@
 ;; Tag Merging Tests
 ;; =============================================================================
 
-(deftest test-tag-merging
+(deftest ^:unit test-tag-merging
   (testing "Tag precedence: global < metric < call"
     (let [config (assoc test-config :global-tags {:env "prod" :service "test" :global "only"})
           {:keys [registry emitter sent-lines]} (create-test-components config)
@@ -225,7 +225,7 @@
 ;; Sampling Tests
 ;; =============================================================================
 
-(deftest test-sampling
+(deftest ^:unit test-sampling
   (testing "No sampling (rate = 1.0)"
     (let [{:keys [registry emitter sent-lines]} (create-test-components)
           handle (ports/register-counter! registry :test.counter "Test" {})]
@@ -259,7 +259,7 @@
 ;; Enable/Disable Tests
 ;; =============================================================================
 
-(deftest test-metric-enable-disable
+(deftest ^:unit test-metric-enable-disable
   (testing "Disabled metric does not emit"
     (let [{:keys [registry emitter config sent-lines]} (create-test-components)
           handle (ports/register-counter! registry :test.counter "Test" {})]
@@ -287,7 +287,7 @@
 ;; Exporter Tests
 ;; =============================================================================
 
-(deftest test-metrics-exporter
+(deftest ^:unit test-metrics-exporter
   (testing "Export all metrics"
     (let [{:keys [registry emitter exporter]} (create-test-components)
           counter-handle (ports/register-counter! registry :test.counter "Test counter" {})
@@ -340,7 +340,7 @@
 ;; Configuration Tests
 ;; =============================================================================
 
-(deftest test-metrics-config
+(deftest ^:unit test-metrics-config
   (testing "Default tags management"
     (let [{:keys [config]} (create-test-components)]
       (is (= {:service "test-service" :environment "test"} (ports/get-default-tags config)))
@@ -359,7 +359,7 @@
 ;; DogStatsD Protocol Tests
 ;; =============================================================================
 
-(deftest test-dogstatsd-protocol
+(deftest ^:unit test-dogstatsd-protocol
   (testing "Counter line format"
     (let [{:keys [registry emitter sent-lines]} (create-test-components)
           handle (ports/register-counter! registry :my.counter "Test" {})]
@@ -398,7 +398,7 @@
 ;; Component Integration Tests
 ;; =============================================================================
 
-(deftest test-component-creation
+(deftest ^:unit test-component-creation
   (testing "Create complete component"
     (let [component (datadog/create-datadog-metrics-component test-config)]
       ;; Should implement all protocols
@@ -435,7 +435,7 @@
 ;; Error Handling Tests
 ;; =============================================================================
 
-(deftest test-error-handling
+(deftest ^:unit test-error-handling
   (testing "Non-existent metric operations are no-ops"
     (let [{:keys [emitter sent-lines]} (create-test-components)]
       (ports/inc-counter! emitter :non-existent 1)

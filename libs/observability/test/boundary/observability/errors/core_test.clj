@@ -117,7 +117,7 @@
 ;; Context Conversion Tests
 ;; =============================================================================
 
-(deftest test-error-context->reporting-context
+(deftest ^:unit test-error-context->reporting-context
   (testing "converts Problem Details context to reporting format"
     (let [pd-context (create-test-problem-details-context
                       :user-id "user-123"
@@ -175,7 +175,7 @@
 ;; Enhanced Error Reporting Tests
 ;; =============================================================================
 
-(deftest test-report-enhanced-application-error
+(deftest ^:unit test-report-enhanced-application-error
   (testing "reports application error with enhanced context"
     (let [mock-service (create-mock-error-service)
           exception (create-test-exception :message "Business logic error"
@@ -247,7 +247,7 @@
 ;; Problem Details Integration Tests
 ;; =============================================================================
 
-(deftest test-problem-details-error-reporting-integration
+(deftest ^:unit test-problem-details-error-reporting-integration
   (testing "Problem Details context flows correctly to error reporting"
     (let [mock-service (create-mock-error-service)
           user-id (UUID/randomUUID)
@@ -347,7 +347,7 @@
 ;; Error Correlation Tests
 ;; =============================================================================
 
-(deftest test-error-correlation
+(deftest ^:unit test-error-correlation
   (testing "correlates HTTP request errors with reporting context"
     (let [mock-service (create-mock-error-service)
           correlation-id "correlation-12345"
@@ -408,7 +408,7 @@
         (is (= "web-user" (get-in (first errors) [:context :user-id])))
         (is (= "cli-user" (get-in (second errors) [:context :user-id])))))))
 
-(deftest test-trace-id-debug
+(deftest ^:unit test-trace-id-debug
   (testing "isolate trace-id issue"
     (let [mock-service (create-mock-error-service)
           correlation-id "correlation-12345"

@@ -36,14 +36,14 @@
      :sent  sent
      :open? open?}))
 
-(deftest websocket-handler-returns-400-without-token
+(deftest ^:contract websocket-handler-returns-400-without-token
   (let [{:keys [service]} (create-test-service)
         handler (ws-handler/websocket-handler service)
         response (handler {:query-params {}})]
     (is (= 400 (:status response)))
     (is (string? (:body response)))))
 
-(deftest websocket-handler-returns-listener-with-token
+(deftest ^:contract websocket-handler-returns-listener-with-token
   (let [{:keys [service]} (create-test-service)
         handler (ws-handler/websocket-handler service)
         response (handler {:query-params {"token" "valid-token"}})]
@@ -53,7 +53,7 @@
     (is (fn? (get-in response [:ring.websocket/listener :on-close])))
     (is (fn? (get-in response [:ring.websocket/listener :on-error])))))
 
-(deftest websocket-handler-custom-token-param
+(deftest ^:contract websocket-handler-custom-token-param
   (testing "custom token-param name"
     (let [{:keys [service]} (create-test-service)
           handler (ws-handler/websocket-handler service :token-param "jwt")
@@ -62,7 +62,7 @@
       (is (= 400 (:status response-missing)))
       (is (contains? response-ok :ring.websocket/listener)))))
 
-(deftest websocket-handler-on-open-registers-connection
+(deftest ^:contract websocket-handler-on-open-registers-connection
   (let [{:keys [service registry]} (create-test-service)
         handler (ws-handler/websocket-handler service)
         response (handler {:query-params {"token" "valid-token"}})
@@ -71,7 +71,7 @@
     ((:on-open listener) socket)
     (is (= 1 (ports/connection-count registry)))))
 
-(deftest websocket-handler-on-open-callback-receives-connection-id
+(deftest ^:contract websocket-handler-on-open-callback-receives-connection-id
   (testing ":on-open opt is invoked with the established connection-id"
     (let [{:keys [service registry]} (create-test-service)
           seen    (atom nil)
@@ -85,7 +85,7 @@
       (is (some? (ports/find-connection registry @seen))
           "connection-id resolves to the registered connection"))))
 
-(deftest websocket-handler-on-open-callback-errors-are-swallowed
+(deftest ^:contract websocket-handler-on-open-callback-errors-are-swallowed
   (testing "a throwing :on-open callback does not abort the connection"
     (let [{:keys [service registry]} (create-test-service)
           handler (ws-handler/websocket-handler
@@ -98,7 +98,7 @@
       (is (= 1 (ports/connection-count registry))
           "connection remains registered"))))
 
-(deftest websocket-handler-on-close-unregisters-connection
+(deftest ^:contract websocket-handler-on-close-unregisters-connection
   (let [{:keys [service registry]} (create-test-service)
         handler (ws-handler/websocket-handler service)
         response (handler {:query-params {"token" "valid-token"}})
@@ -113,7 +113,7 @@
     (is (= 0 (ports/connection-count registry))
         "connection should be unregistered after on-close")))
 
-(deftest websocket-handler-on-error-unregisters-connection
+(deftest ^:contract websocket-handler-on-error-unregisters-connection
   (testing "on-error triggers disconnect"
     (let [{:keys [service registry]} (create-test-service)
           handler (ws-handler/websocket-handler service)

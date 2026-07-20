@@ -79,10 +79,10 @@
   (create-new-tenant [_ tenant-input]
     (let [schema-name (str/replace (:slug tenant-input) "-" "_")
           new-tenant (assoc tenant-input
-                           :id (UUID/randomUUID)
-                           :schema-name (str "tenant_" schema-name)
-                           :created-at (java.time.Instant/now)
-                           :updated-at (java.time.Instant/now))]
+                            :id (UUID/randomUUID)
+                            :schema-name (str "tenant_" schema-name)
+                            :created-at (java.time.Instant/now)
+                            :updated-at (java.time.Instant/now))]
       (swap! tenants conj new-tenant)
       {:success? true :tenant new-tenant}))
 
@@ -94,10 +94,10 @@
                                   update-data
                                   {:updated-at (java.time.Instant/now)})]
         (swap! tenants (fn [ts]
-                        (mapv #(if (= (:id %) tenant-id)
-                                updated-tenant
-                                %)
-                             ts)))
+                         (mapv #(if (= (:id %) tenant-id)
+                                  updated-tenant
+                                  %)
+                               ts)))
         {:success? true :tenant updated-tenant})
       {:success? false :error "Tenant not found"}))
 
@@ -106,7 +106,7 @@
              (some #(= tenant-id (:id %))))
       (do
         (swap! tenants (fn [ts]
-                        (filterv #(not= (:id %) tenant-id) ts)))
+                         (filterv #(not= (:id %) tenant-id) ts)))
         {:success? true})
       {:success? false :error "Tenant not found"}))
 
@@ -115,12 +115,12 @@
                          (filter #(= tenant-id (:id %)))
                          first)]
       (let [updated-tenant (assoc tenant :status :suspended
-                                        :updated-at (java.time.Instant/now))]
+                                  :updated-at (java.time.Instant/now))]
         (swap! tenants (fn [ts]
-                        (mapv #(if (= (:id %) tenant-id)
-                                updated-tenant
-                                %)
-                             ts)))
+                         (mapv #(if (= (:id %) tenant-id)
+                                  updated-tenant
+                                  %)
+                               ts)))
         {:success? true :tenant updated-tenant})
       {:success? false :error "Tenant not found"}))
 
@@ -129,12 +129,12 @@
                          (filter #(= tenant-id (:id %)))
                          first)]
       (let [updated-tenant (assoc tenant :status :active
-                                        :updated-at (java.time.Instant/now))]
+                                  :updated-at (java.time.Instant/now))]
         (swap! tenants (fn [ts]
-                        (mapv #(if (= (:id %) tenant-id)
-                                updated-tenant
-                                %)
-                             ts)))
+                         (mapv #(if (= (:id %) tenant-id)
+                                  updated-tenant
+                                  %)
+                               ts)))
         {:success? true :tenant updated-tenant})
       {:success? false :error "Tenant not found"})))
 
@@ -181,7 +181,7 @@
 ;; List Tenants Tests
 ;; =============================================================================
 
-(deftest list-tenants-handler-test
+(deftest ^:contract list-tenants-handler-test
   (testing "lists all tenants with default pagination"
     (let [handler (tenant-http/list-tenants-handler *mock-tenant-service*)
           request (make-request :get "/api/v1/tenants")
@@ -234,7 +234,7 @@
 ;; Get Tenant Tests
 ;; =============================================================================
 
-(deftest get-tenant-handler-test
+(deftest ^:contract get-tenant-handler-test
   (testing "retrieves existing tenant by ID"
     (let [handler (tenant-http/get-tenant-handler *mock-tenant-service*)
           request (-> (make-request :get "/api/v1/tenants/00000000-0000-0000-0000-000000000001")
@@ -267,13 +267,13 @@
 ;; Create Tenant Tests
 ;; =============================================================================
 
-(deftest create-tenant-handler-test
+(deftest ^:contract create-tenant-handler-test
   (testing "creates new tenant successfully"
     (let [handler (tenant-http/create-tenant-handler *mock-tenant-service*)
           request (make-request :post "/api/v1/tenants" {}
-                               {:name "New Tenant"
-                                :slug "new-tenant"
-                                :status "active"})
+                                {:name "New Tenant"
+                                 :slug "new-tenant"
+                                 :status "active"})
           response (handler request)
           body (parse-json-body response)]
       (is (= 201 (:status response)))
@@ -284,8 +284,8 @@
   (testing "defaults status to active"
     (let [handler (tenant-http/create-tenant-handler *mock-tenant-service*)
           request (make-request :post "/api/v1/tenants" {}
-                               {:name "Default Status"
-                                :slug "default-status"})
+                                {:name "Default Status"
+                                 :slug "default-status"})
           response (handler request)
           body (parse-json-body response)]
       (is (= 201 (:status response)))
@@ -294,7 +294,7 @@
   (testing "returns validation error for missing name"
     (let [handler (tenant-http/create-tenant-handler *mock-tenant-service*)
           request (make-request :post "/api/v1/tenants" {}
-                               {:slug "no-name"})
+                                {:slug "no-name"})
           response (handler request)
           body (parse-json-body response)]
       (is (= 400 (:status response)))
@@ -304,7 +304,7 @@
   (testing "returns validation error for missing slug"
     (let [handler (tenant-http/create-tenant-handler *mock-tenant-service*)
           request (make-request :post "/api/v1/tenants" {}
-                               {:name "No Slug"})
+                                {:name "No Slug"})
           response (handler request)
           body (parse-json-body response)]
       (is (= 400 (:status response)))
@@ -314,11 +314,11 @@
 ;; Update Tenant Tests
 ;; =============================================================================
 
-(deftest update-tenant-handler-test
+(deftest ^:contract update-tenant-handler-test
   (testing "updates tenant successfully"
     (let [handler (tenant-http/update-tenant-handler *mock-tenant-service*)
           request (-> (make-request :put "/api/v1/tenants/00000000-0000-0000-0000-000000000001" {}
-                                   {:name "Updated ACME"})
+                                    {:name "Updated ACME"})
                       (assoc :path-params {:id "00000000-0000-0000-0000-000000000001"}))
           response (handler request)
           body (parse-json-body response)]
@@ -329,9 +329,9 @@
   (testing "updates multiple fields"
     (let [handler (tenant-http/update-tenant-handler *mock-tenant-service*)
           request (-> (make-request :put "/api/v1/tenants/00000000-0000-0000-0000-000000000001" {}
-                                   {:name "New Name"
-                                    :slug "new-slug"
-                                    :status "suspended"})
+                                    {:name "New Name"
+                                     :slug "new-slug"
+                                     :status "suspended"})
                       (assoc :path-params {:id "00000000-0000-0000-0000-000000000001"}))
           response (handler request)
           body (parse-json-body response)]
@@ -343,7 +343,7 @@
   (testing "returns 400 for invalid UUID format"
     (let [handler (tenant-http/update-tenant-handler *mock-tenant-service*)
           request (-> (make-request :put "/api/v1/tenants/invalid-uuid" {}
-                                   {:name "Updated"})
+                                    {:name "Updated"})
                       (assoc :path-params {:id "invalid-uuid"}))
           response (handler request)
           body (parse-json-body response)]
@@ -354,7 +354,7 @@
 ;; Delete Tenant Tests
 ;; =============================================================================
 
-(deftest delete-tenant-handler-test
+(deftest ^:contract delete-tenant-handler-test
   (testing "deletes tenant successfully"
     (let [handler (tenant-http/delete-tenant-handler *mock-tenant-service*)
           request (-> (make-request :delete "/api/v1/tenants/00000000-0000-0000-0000-000000000001")
@@ -386,7 +386,7 @@
 ;; Suspend Tenant Tests
 ;; =============================================================================
 
-(deftest suspend-tenant-handler-test
+(deftest ^:contract suspend-tenant-handler-test
   (testing "suspends active tenant successfully"
     (let [handler (tenant-http/suspend-tenant-handler *mock-tenant-service*)
           request (-> (make-request :post "/api/v1/tenants/00000000-0000-0000-0000-000000000001/suspend")
@@ -418,7 +418,7 @@
 ;; Activate Tenant Tests
 ;; =============================================================================
 
-(deftest activate-tenant-handler-test
+(deftest ^:contract activate-tenant-handler-test
   (testing "activates suspended tenant successfully"
     (let [handler (tenant-http/activate-tenant-handler *mock-tenant-service*)
           request (-> (make-request :post "/api/v1/tenants/00000000-0000-0000-0000-000000000002/activate")
@@ -450,7 +450,7 @@
 ;; Provision Tenant Tests
 ;; =============================================================================
 
-(deftest provision-tenant-handler-test
+(deftest ^:contract provision-tenant-handler-test
   (testing "returns 500 when database context not available"
     (let [handler (tenant-http/provision-tenant-handler *mock-tenant-service* nil)
           request (-> (make-request :post "/api/v1/tenants/00000000-0000-0000-0000-000000000001/provision")
@@ -473,7 +473,7 @@
 ;; Routes Structure Tests
 ;; =============================================================================
 
-(deftest tenant-routes-normalized-test
+(deftest ^:contract tenant-routes-normalized-test
   (testing "returns normalized route structure"
     (let [routes (tenant-http/tenant-routes-normalized *mock-tenant-service* nil {})]
       (is (map? routes))

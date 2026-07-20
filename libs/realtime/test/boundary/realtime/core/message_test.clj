@@ -31,7 +31,7 @@
   [connection-id payload]
   (msg/connection-message connection-id payload test-now))
 
-(deftest create-message-test
+(deftest ^:unit create-message-test
   (testing "creating message with all fields"
     (let [message (create-test-message {:type :user
                                        :payload test-payload
@@ -47,28 +47,28 @@
       (is (= :broadcast (:type message)))
       (is (nil? (:target message))))))
 
-(deftest broadcast-message-test
+(deftest ^:unit broadcast-message-test
   (testing "creating broadcast message"
     (let [message (create-broadcast-message test-payload)]
       (is (= :broadcast (:type message)))
       (is (= test-payload (:payload message)))
       (is (nil? (:target message))))))
 
-(deftest user-message-test
+(deftest ^:unit user-message-test
   (testing "creating user-targeted message"
     (let [message (create-user-message test-user-id test-payload)]
       (is (= :user (:type message)))
       (is (= test-user-id (:target message)))
       (is (= test-payload (:payload message))))))
 
-(deftest role-message-test
+(deftest ^:unit role-message-test
   (testing "creating role-targeted message"
     (let [message (create-role-message :admin test-payload)]
       (is (= :role (:type message)))
       (is (= :admin (:target message)))
       (is (= test-payload (:payload message))))))
 
-(deftest connection-message-test
+(deftest ^:unit connection-message-test
   (testing "creating connection-specific message"
     (let [conn-id (java.util.UUID/randomUUID)
           message (create-connection-message conn-id test-payload)]
@@ -76,7 +76,7 @@
       (is (= conn-id (:target message)))
       (is (= test-payload (:payload message))))))
 
-(deftest valid-message?-test
+(deftest ^:unit valid-message?-test
   (testing "valid message passes validation"
     (let [message (create-broadcast-message {:foo "bar"})]
       (is (msg/valid-message? message))))
@@ -86,7 +86,7 @@
                    :payload {}}]
       (is (not (msg/valid-message? invalid))))))
 
-(deftest route-message-test
+(deftest ^:unit route-message-test
   (let [user1 #uuid "550e8400-e29b-41d4-a716-446655440001"
         user2 #uuid "550e8400-e29b-41d4-a716-446655440002"
         conn1 (create-test-connection user1 #{:user})
@@ -124,7 +124,7 @@
             targets (msg/route-message message connections)]
         (is (= 0 (count targets)))))))
 
-(deftest route-to-connections-test
+(deftest ^:unit route-to-connections-test
   (let [user1 #uuid "550e8400-e29b-41d4-a716-446655440001"
         user2 #uuid "550e8400-e29b-41d4-a716-446655440002"
         conn1 (create-test-connection user1 #{:user})
@@ -137,7 +137,7 @@
         (is (= 1 (count targets)))
         (is (= conn1 (first targets)))))))
 
-(deftest filter-by-type-test
+(deftest ^:unit filter-by-type-test
   (let [msg1 (create-broadcast-message {:n 1})
         msg2 (create-user-message test-user-id {:n 2})
         msg3 (create-broadcast-message {:n 3})
@@ -148,7 +148,7 @@
         (is (= 2 (count broadcasts)))
         (is (every? #(= :broadcast (:type %)) broadcasts))))))
 
-(deftest filter-by-target-test
+(deftest ^:unit filter-by-target-test
   (let [user1 #uuid "550e8400-e29b-41d4-a716-446655440001"
         user2 #uuid "550e8400-e29b-41d4-a716-446655440002"
         msg1 (create-user-message user1 {:n 1})
@@ -161,7 +161,7 @@
         (is (= 2 (count user1-msgs)))
         (is (every? #(= user1 (:target %)) user1-msgs))))))
 
-(deftest filter-recent-test
+(deftest ^:unit filter-recent-test
   (let [t1 (java.time.Instant/parse "2026-02-04T20:00:00Z")
         t2 (java.time.Instant/parse "2026-02-04T20:05:00Z")
         t3 (java.time.Instant/parse "2026-02-04T20:10:00Z")
@@ -177,7 +177,7 @@
         (is (= 2 (count recent)))
         (is (= [msg2 msg3] recent))))))
 
-(deftest message-count-by-type-test
+(deftest ^:unit message-count-by-type-test
   (let [msg1 (create-broadcast-message {:n 1})
         msg2 (create-user-message test-user-id {:n 2})
         msg3 (create-broadcast-message {:n 3})
@@ -190,7 +190,7 @@
         (is (= 1 (:user counts)))
         (is (= 1 (:role counts)))))))
 
-(deftest messages-for-connection-test
+(deftest ^:unit messages-for-connection-test
   (let [user1 #uuid "550e8400-e29b-41d4-a716-446655440001"
         user2 #uuid "550e8400-e29b-41d4-a716-446655440002"
         conn1 (create-test-connection user1 #{:user})

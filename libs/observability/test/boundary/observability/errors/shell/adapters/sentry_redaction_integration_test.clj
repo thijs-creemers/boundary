@@ -9,7 +9,7 @@
   {:dsn "https://fake-key@fake-sentry.io/fake-project"
    :environment "test"})
 
-(deftest sentry-reporter-uses-shared-redactor-once
+(deftest ^:unit sentry-reporter-uses-shared-redactor-once
   (testing "Sentry error reporter delegates to shared redactor exactly once per capture"
     (let [call-count (atom 0)
           captured (atom nil)

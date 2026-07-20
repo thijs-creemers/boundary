@@ -31,7 +31,7 @@
     (ports/register reg id c a)
     a))
 
-(deftest broadcast-crosses-instances-test
+(deftest ^:integration broadcast-crosses-instances-test
   (let [shared (in-memory-bus/create-in-memory-bus)
         a (node shared)
         b (node shared)
@@ -42,7 +42,7 @@
       (is (= 1 (count @(:sent-messages ws-a))) "node A delivered locally")
       (is (= 1 (count @(:sent-messages ws-b))) "node B received via the relay"))))
 
-(deftest send-to-user-crosses-instances-test
+(deftest ^:integration send-to-user-crosses-instances-test
   (let [shared (in-memory-bus/create-in-memory-bus)
         a (node shared)
         b (node shared)
@@ -52,7 +52,7 @@
       (ports/send-to-user (:svc a) user-b {:type :dm :payload {}})
       (is (= 1 (count @(:sent-messages ws-b))) "user-b socket on node B got it"))))
 
-(deftest publish-to-topic-crosses-instances-test
+(deftest ^:integration publish-to-topic-crosses-instances-test
   (let [shared (in-memory-bus/create-in-memory-bus)
         a (node shared)
         b (node shared)

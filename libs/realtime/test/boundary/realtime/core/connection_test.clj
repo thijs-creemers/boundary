@@ -13,7 +13,7 @@
   ([user-id roles metadata]
    (conn/create-connection user-id roles metadata (java.util.UUID/randomUUID) test-now)))
 
-(deftest create-connection-test
+(deftest ^:unit create-connection-test
   (testing "creating connection with all fields"
     (let [connection (create-test-connection test-user-id test-roles test-metadata)]
       (is (uuid? (:id connection)))
@@ -31,7 +31,7 @@
           conn2 (create-test-connection test-user-id test-roles)]
       (is (not= (:id conn1) (:id conn2))))))
 
-(deftest connection-age-test
+(deftest ^:unit connection-age-test
   (testing "calculating connection age"
     (let [created (java.time.Instant/parse "2026-02-04T20:00:00Z")
           now (java.time.Instant/parse "2026-02-04T20:05:30Z")
@@ -43,7 +43,7 @@
           age (conn/connection-age connection now)]
       (is (= 330.0 age))))) ;; 5 minutes 30 seconds
 
-(deftest authorize-connection?-test
+(deftest ^:unit authorize-connection?-test
   (testing "connection with required role"
     (let [connection (create-test-connection test-user-id #{:admin :user})]
       (is (conn/authorize-connection? connection :admin))
@@ -53,7 +53,7 @@
     (let [connection (create-test-connection test-user-id #{:user})]
       (is (not (conn/authorize-connection? connection :admin))))))
 
-(deftest authorize-connection-any?-test
+(deftest ^:unit authorize-connection-any?-test
   (testing "connection with at least one required role"
     (let [connection (create-test-connection test-user-id #{:user})]
       (is (conn/authorize-connection-any? connection #{:admin :user}))
@@ -63,7 +63,7 @@
     (let [connection (create-test-connection test-user-id #{:guest})]
       (is (not (conn/authorize-connection-any? connection #{:admin :user}))))))
 
-(deftest authorize-connection-all?-test
+(deftest ^:unit authorize-connection-all?-test
   (testing "connection with all required roles"
     (let [connection (create-test-connection test-user-id #{:admin :user :moderator})]
       (is (conn/authorize-connection-all? connection #{:admin :user}))))
@@ -72,7 +72,7 @@
     (let [connection (create-test-connection test-user-id #{:user})]
       (is (not (conn/authorize-connection-all? connection #{:admin :user}))))))
 
-(deftest filter-by-user-test
+(deftest ^:unit filter-by-user-test
   (let [user1 #uuid "550e8400-e29b-41d4-a716-446655440001"
         user2 #uuid "550e8400-e29b-41d4-a716-446655440002"
         conn1 (create-test-connection user1 #{:user})
@@ -90,7 +90,7 @@
             result (conn/filter-by-user connections user3)]
         (is (= 0 (count result)))))))
 
-(deftest filter-by-role-test
+(deftest ^:unit filter-by-role-test
   (let [conn1 (create-test-connection test-user-id #{:user})
         conn2 (create-test-connection test-user-id #{:admin})
         conn3 (create-test-connection test-user-id #{:user :admin})
@@ -104,7 +104,7 @@
       (let [result (conn/filter-by-role connections :superuser)]
         (is (= 0 (count result)))))))
 
-(deftest filter-by-metadata-test
+(deftest ^:unit filter-by-metadata-test
   (let [conn1 (create-test-connection test-user-id #{:user} {:region "us-east"})
         conn2 (create-test-connection test-user-id #{:user} {:region "eu-west"})
         conn3 (create-test-connection test-user-id #{:user} {:region "us-east"})
@@ -115,7 +115,7 @@
                                              (fn [m] (= "us-east" (:region m))))]
         (is (= 2 (count us-east)))))))
 
-(deftest update-metadata-test
+(deftest ^:unit update-metadata-test
   (testing "update connection metadata"
     (let [connection (create-test-connection test-user-id #{:user} {:count 0})
           updated (conn/update-metadata connection #(update % :count inc))]
@@ -123,14 +123,14 @@
       ;; Original unchanged (immutable)
       (is (= 0 (get-in connection [:metadata :count]))))))
 
-(deftest assoc-metadata-test
+(deftest ^:unit assoc-metadata-test
   (testing "associate key-value in metadata"
     (let [connection (create-test-connection test-user-id #{:user} {})
           updated (conn/assoc-metadata connection :foo "bar")]
       (is (= "bar" (get-in updated [:metadata :foo])))
       (is (nil? (get-in connection [:metadata :foo]))))))
 
-(deftest dissoc-metadata-test
+(deftest ^:unit dissoc-metadata-test
   (testing "dissociate key from metadata"
     (let [connection (create-test-connection test-user-id #{:user} {:foo "bar" :baz "qux"})
           updated (conn/dissoc-metadata connection :foo)]
@@ -138,7 +138,7 @@
       (is (= "qux" (get-in updated [:metadata :baz])))
       (is (= "bar" (get-in connection [:metadata :foo]))))))
 
-(deftest valid-connection?-test
+(deftest ^:unit valid-connection?-test
   (testing "valid connection passes validation"
     (let [connection (create-test-connection test-user-id #{:user})]
       (is (conn/valid-connection? connection))))

@@ -13,7 +13,7 @@
 (def later (Instant/parse "2026-04-11T12:00:00Z"))
 (def expiry (Instant/parse "2026-04-17T12:00:00Z"))
 
-(deftest prepare-invite-test
+(deftest ^:unit prepare-invite-test
   (testing "creates a pending invite with explicit id and normalized email"
     (let [invite (sut/prepare-invite* {:invite-id invite-id
                                        :tenant-id tenant-id
@@ -34,7 +34,7 @@
       (is (= now (:created-at invite)))
       (is (nil? (:updated-at invite))))))
 
-(deftest expired-test
+(deftest ^:unit expired-test
   (testing "returns true when invite expiry is before now"
     (is (true? (sut/expired? {:expires-at now} later))))
 
@@ -44,7 +44,7 @@
   (testing "returns false when invite has no expiry"
     (is (nil? (sut/expired? {} now)))))
 
-(deftest accept-invite-test
+(deftest ^:unit accept-invite-test
   (testing "transitions invite to accepted"
     (let [invite {:id invite-id :status :pending}
           accepted (sut/accept-invite invite user-id later)]
@@ -53,7 +53,7 @@
       (is (= later (:accepted-at accepted)))
       (is (= later (:updated-at accepted))))))
 
-(deftest revoke-invite-test
+(deftest ^:unit revoke-invite-test
   (testing "transitions invite to revoked"
     (let [invite {:id invite-id :status :pending}
           revoked (sut/revoke-invite invite later)]

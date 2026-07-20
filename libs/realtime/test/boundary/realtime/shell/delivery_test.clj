@@ -16,7 +16,7 @@
     (ports/register reg id c a)
     a))
 
-(deftest delivery-routes-test
+(deftest ^:unit delivery-routes-test
   (let [reg (registry/create-in-memory-registry)
         pubsub (pubsub-mgr/create-pubsub-manager)
         id-1 (java.util.UUID/randomUUID)

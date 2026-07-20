@@ -11,7 +11,7 @@
             [clojure.test :refer [deftest is testing]]
             [integrant.core :as ig]))
 
-(deftest tenant-module-init-keys-delegate-to-constructor-functions
+(deftest ^:unit tenant-module-init-keys-delegate-to-constructor-functions
   (let [ctx {:datasource ::ds}
         logger ::logger
         error-reporter ::error-reporter
@@ -27,10 +27,10 @@
                                                                                 (is (= ctx arg))
                                                                                 :initialized)
                   boundary.tenant.shell.persistence/create-tenant-repository (fn [arg log err]
-                                                                              (is (= ctx arg))
-                                                                              (is (= logger log))
-                                                                              (is (= error-reporter err))
-                                                                              tenant-repo)
+                                                                               (is (= ctx arg))
+                                                                               (is (= logger log))
+                                                                               (is (= error-reporter err))
+                                                                               tenant-repo)
                   boundary.tenant.shell.service/create-tenant-service (fn [repo validation-cfg log metrics-emitter err]
                                                                         (is (= tenant-repo repo))
                                                                         (is (= {:password-policy {:min-length 12}} validation-cfg))

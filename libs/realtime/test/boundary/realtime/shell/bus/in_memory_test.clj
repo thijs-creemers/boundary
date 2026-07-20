@@ -4,7 +4,7 @@
             [boundary.realtime.ports :as ports]
             [boundary.realtime.shell.bus.in-memory :as bus]))
 
-(deftest publish-sums-delivery-fn-counts-test
+(deftest ^:unit publish-sums-delivery-fn-counts-test
   (testing "publish invokes every registered delivery-fn and sums counts"
     (let [b (bus/create-in-memory-bus)
           seen (atom [])]

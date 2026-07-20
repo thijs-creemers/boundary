@@ -47,7 +47,7 @@
      (do ~@body)
      (is (not (redis-available?)) "Redis not available — test skipped")))
 
-(deftest subscribe-get-unsubscribe-roundtrip-test
+(deftest ^:integration subscribe-get-unsubscribe-roundtrip-test
   (when-redis
    (let [c1 (java.util.UUID/randomUUID)
          c2 (java.util.UUID/randomUUID)]
@@ -66,7 +66,7 @@
        (with-open [^Jedis j (.getResource *pool*)]
          (is (false? (.exists j "rt-test:topic:order:1"))))))))
 
-(deftest unsubscribe-all-test
+(deftest ^:integration unsubscribe-all-test
   (when-redis
    (let [c (java.util.UUID/randomUUID)]
      (ports/subscribe-to-topic *mgr* c "a")
@@ -75,7 +75,7 @@
      (is (= #{} (ports/get-connection-subscriptions *mgr* c)))
      (is (= #{} (ports/get-topic-subscribers *mgr* "a"))))))
 
-(deftest topic-and-subscription-counts-test
+(deftest ^:integration topic-and-subscription-counts-test
   ;; Exercises the SCAN-based counters (replacing the old blocking KEYS).
   (when-redis
    (let [c1 (java.util.UUID/randomUUID)
