@@ -2,7 +2,7 @@
 ;; total-function guard on an unparseable timestamp; the volatile! usages are
 ;; local accumulators inside otherwise-pure ranking fns (no shared/process
 ;; state). Both are intentional and local, not FC/IS violations to migrate.
-(ns ^:boundary/allow-throw ^:boundary/allow-mutable-state boundary.platform.core.search.ranking
+(ns ^:boundary/allow-throw ^:boundary/allow-mutable-state boundary.search.core.ranking
   "Pure ranking and scoring functions for search results.
    
    This namespace provides functions for calculating relevance scores,

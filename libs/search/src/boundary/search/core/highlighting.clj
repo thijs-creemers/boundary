@@ -1,4 +1,4 @@
-(ns boundary.platform.core.search.highlighting
+(ns boundary.search.core.highlighting
   "Pure functions for search result highlighting and snippet extraction.
    
    This namespace provides functions for highlighting matching terms

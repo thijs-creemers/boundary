@@ -15,6 +15,8 @@ libs/search/
 │   ├── core/
 │   │   ├── index.clj       # build-document*, filter-key->json-key (pure)
 │   │   ├── query.clj       # SQL builders (PostgreSQL FTS + H2/SQLite LIKE fallback)
+│   │   ├── ranking.clj     # pure relevance scoring: field weights, recency boost, score normalization (z-score/min-max), combine
+│   │   ├── highlighting.clj # pure snippet extraction + match highlighting (highlight-field, extract-snippet-with-highlight)
 │   │   └── ui.clj          # Hiccup: indices-page, index-detail-page, search-results-fragment
 │   └── shell/
 │       ├── registry.clj    # defsearch macro + global definition registry (mutable state)
@@ -25,6 +27,8 @@ libs/search/
 └── test/boundary/search/
     ├── core/index_test.clj         # unit: registry (shell) + build-document*
     ├── core/query_test.clj         # unit: sanitize-query, SQL builders
+    ├── core/ranking_test.clj       # unit: scoring/normalization/boost (pure)
+    ├── core/highlighting_test.clj  # unit: highlighting + snippet extraction (pure)
     ├── shell/service_test.clj      # unit: MemorySearchStore double
     └── shell/persistence_test.clj  # integration: H2 upsert, delete, search, suggest
 ```

@@ -129,18 +129,8 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 
 ### Search
 
-```clojure
-(ns myapp.search
-  (:require [boundary.platform.core.search :as search]))
-
-;; Full-text search with ranking
-(defn search-products [db-ctx query]
-  (search/full-text-search db-ctx
-    {:table :products
-     :fields [:name :description]
-     :query query
-     :limit 20}))
-```
+Full-text search lives in the dedicated **`libs/search`** module
+(`boundary.search.*`), not in platform. See `libs/search/AGENTS.md`.
 
 ### Multi-Tenancy
 

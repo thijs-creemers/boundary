@@ -1,11 +1,11 @@
-(ns boundary.platform.core.search.ranking-test
+(ns boundary.search.core.ranking-test
   "Unit tests for search ranking functions.
    
    Tests all scoring, normalization, and ranking functions.
    All functions are pure so tests need no mocks or fixtures."
   {:kaocha.testable/meta {:unit true :search true}}
   (:require [clojure.test :refer [deftest testing is]]
-            [boundary.platform.core.search.ranking :as ranking]))
+            [boundary.search.core.ranking :as ranking]))
 
 ;; ============================================================================
 ;; Field Weighting
