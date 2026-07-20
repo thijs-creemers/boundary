@@ -61,7 +61,19 @@
             (persistence/initialize-user-schema! ctx2)
             (let [[repo email created] (create-admin! ctx2)]
               (is (some? (:id created)) "admin insert works after reconnect + re-init")
-              (is (= :admin (:role (ports/find-user-by-email repo email))))))
+              (is (= :admin (:role (ports/find-user-by-email repo email))))
+              ;; The re-added constraint must still *enforce* — an out-of-enum
+              ;; role has to be rejected, proving repair didn't drop it or make
+              ;; it permissive.
+              (is (thrown? Exception
+                           (ports/create-user
+                            repo
+                            {:email (str "invalid-" (UUID/randomUUID) "@example.com")
+                             :name "Invalid Role User"
+                             :role :superuser
+                             :active true
+                             :password-hash "x"}))
+                  "out-of-enum role is still rejected after repair")))
           (finally (.close ds2)))))))
 
 (deftest ^:integration double-init-on-same-connection-is-safe

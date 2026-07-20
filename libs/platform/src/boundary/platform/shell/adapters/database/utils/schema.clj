@@ -416,6 +416,12 @@
    IF NOT EXISTS is a no-op and does not repair them; dropping and re-adding
    the *named* constraint does.
 
+   Note: only heals constraints created by this (named) code path. A DB created
+   by an older version that emitted inline anonymous CHECKs (CONSTRAINT_<n>)
+   would keep those — a non-issue in practice since the only affected dialect,
+   H2, is used solely for ephemeral in-memory test DBs that are always recreated
+   by the current code.
+
    Args:
      table-name: String name of the table
      field-infos: Vector of field info maps
