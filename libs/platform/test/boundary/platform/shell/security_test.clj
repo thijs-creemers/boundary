@@ -394,4 +394,12 @@
     (testing "referrer, cross-origin isolation, and feature policy are locked down"
       (is (= "strict-origin-when-cross-origin" (get headers "Referrer-Policy")))
       (is (= "same-origin" (get headers "Cross-Origin-Opener-Policy")))
-      (is (= "geolocation=(), microphone=(), camera=()" (get headers "Permissions-Policy"))))))
+      (is (= "geolocation=(), microphone=(), camera=()" (get headers "Permissions-Policy")))))
+  (testing "the interceptor is actually mounted on the router stack, not just callable in isolation"
+    (let [handler (compile-web-handler {:path    "/web/headers-probe"
+                                        :no-doc  true
+                                        :methods {:get {:handler (fn [_] {:status 200 :body "ok"})}}})
+          resp    (handler (req :get "/web/headers-probe"))]
+      (is (= "DENY" (get-in resp [:headers "X-Frame-Options"]))
+          "a routed response carries the security headers → interceptor is wired in")
+      (is (some? (get-in resp [:headers "Strict-Transport-Security"]))))))
