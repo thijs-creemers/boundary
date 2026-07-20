@@ -9,19 +9,29 @@
             [boundary.user.shell.http-interceptors]
             [clojure.test :refer [deftest is testing]]))
 
-(defn- method-interceptors
-  "Resolve the interceptor symbols a given route method declares to their maps."
-  [path method]
-  (->> (http/normalized-api-routes nil nil)
+(defn- interceptors-of [routes path method]
+  (->> routes
        (filter #(= path (:path %)))
        first :methods method :interceptors
        (map #(deref (resolve %)))))
 
+(def ^:private api-routes (http/normalized-api-routes nil nil))
+(def ^:private web-routes (http/normalized-web-routes nil nil nil))
+
+(defn- method-interceptors [path method] (interceptors-of api-routes path method))
+(defn- web-method-interceptors [path method] (interceptors-of web-routes path method))
+
 (defn- mounted? [path method interceptor-name]
   (boolean (some #(= interceptor-name (:name %)) (method-interceptors path method))))
 
+(defn- web-mounted? [path method interceptor-name]
+  (boolean (some #(= interceptor-name (:name %)) (web-method-interceptors path method))))
+
 (defn- guard [path method interceptor-name]
   (first (filter #(= interceptor-name (:name %)) (method-interceptors path method))))
+
+(defn- web-guard [path method interceptor-name]
+  (first (filter #(= interceptor-name (:name %)) (web-method-interceptors path method))))
 
 (defn- denied? [interceptor ctx]
   (= 403 (get-in ((:enter interceptor) ctx) [:response :status])))
@@ -65,3 +75,15 @@
     (is (denied? (guard "/users/:id" :delete :require-admin) cross-user-ctx)))
   (testing "GET /users: a non-admin cannot list the user directory"
     (is (denied? (guard "/users" :get :require-admin) cross-user-ctx))))
+
+;; =============================================================================
+;; Web session routes act on the :id path param — also IDOR-guarded
+;; =============================================================================
+
+(deftest ^:security ^:unit web-user-session-routes-guard-cross-user-access
+  (testing "GET /users/:id/sessions is self-or-admin (cannot view another user's sessions)"
+    (is (web-mounted? "/users/:id/sessions" :get :require-self-or-admin))
+    (is (denied? (web-guard "/users/:id/sessions" :get :require-self-or-admin) cross-user-ctx)))
+  (testing "POST /users/:id/sessions/revoke-all is self-or-admin (cannot force-logout another user)"
+    (is (web-mounted? "/users/:id/sessions/revoke-all" :post :require-self-or-admin))
+    (is (denied? (web-guard "/users/:id/sessions/revoke-all" :post :require-self-or-admin) cross-user-ctx))))
