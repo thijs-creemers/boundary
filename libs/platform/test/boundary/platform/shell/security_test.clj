@@ -2,7 +2,7 @@
   "Security-focused tests covering error mapping, CSRF routing logic,
    Hiccup XSS escaping, SQL parameterization, and sensitive field stripping.
 
-   All tests are tagged ^:security ^:unit ."
+   All tests are tagged ^:security ^:unit."
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as str]
             [boundary.platform.core.csrf :as csrf]
