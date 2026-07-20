@@ -11,7 +11,7 @@
    [:password :string]
    [:api-key :string]])
 
-(deftest operation-specific-template-test
+(deftest ^:unit operation-specific-template-test
   (testing "create operation template"
     (let [template (ctx/get-operation-template :create :required)]
       (is (string? template))
@@ -30,7 +30,7 @@
   (testing "unknown operation returns nil"
     (is (nil? (ctx/get-operation-template :unknown :required)))))
 
-(deftest role-based-guidance-test
+(deftest ^:unit role-based-guidance-test
   (testing "admin role guidance"
     (let [guidance (ctx/get-role-guidance :admin)]
       (is (string? guidance))
@@ -59,7 +59,7 @@
   (testing "unknown role returns nil"
     (is (nil? (ctx/get-role-guidance :unknown)))))
 
-(deftest render-contextual-message-test
+(deftest ^:unit render-contextual-message-test
   (testing "required field with create operation"
     (let [message (ctx/render-contextual-message
                    :required
@@ -121,7 +121,7 @@
       ;; Should fall back to base message without context
       (is (not (re-find #"when creating" message))))))
 
-(deftest generate-example-payload-test
+(deftest ^:unit generate-example-payload-test
   (testing "generates valid example with deterministic seed"
     (let [example1 (ctx/generate-example-payload User :email {:seed 42})
           example2 (ctx/generate-example-payload User :email {:seed 42})]
@@ -157,7 +157,7 @@
           example2 (ctx/generate-example-payload User :email {:seed 99})]
       (is (not= example1 example2)))))
 
-(deftest format-next-steps-test
+(deftest ^:unit format-next-steps-test
   (testing "formats list of steps"
     (let [steps ["Check the email format"
                  "Verify the domain exists"
@@ -181,7 +181,7 @@
       (is (re-find #"1\." formatted))
       (is (re-find #"Fix the error" formatted)))))
 
-(deftest add-context-to-error-test
+(deftest ^:unit add-context-to-error-test
   (testing "adds contextual message and example to error"
     (let [error {:field :email
                  :code :user.email/required
@@ -223,7 +223,7 @@
       (is (contains? enriched :contextual-message))
       (is (not (contains? enriched :example))))))
 
-(deftest multi-tenant-context-test
+(deftest ^:unit multi-tenant-context-test
   (testing "includes tenant ID in contextual message"
     (let [message (ctx/render-contextual-message
                    :required
@@ -244,7 +244,7 @@
           enriched (ctx/add-context-to-error error User context)]
       (is (re-find #"acme-corp" (:contextual-message enriched))))))
 
-(deftest integration-with-existing-messages-test
+(deftest ^:unit integration-with-existing-messages-test
   (testing "contextual message complements base message"
     (let [error {:field :email
                  :code :user.email/invalid

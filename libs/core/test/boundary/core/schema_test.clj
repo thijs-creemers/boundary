@@ -4,7 +4,7 @@
             [malli.core :as m]
             [boundary.core.schema :as schema]))
 
-(deftest validation-result-schema-test
+(deftest ^:unit validation-result-schema-test
   (testing "ValidationResult is a valid Malli schema"
     (is (some? (m/schema schema/ValidationResult))))
 
@@ -25,7 +25,7 @@
   (testing "invalid result — missing :valid?"
     (is (not (m/validate schema/ValidationResult {:data {:foo "bar"}})))))
 
-(deftest interceptor-context-schema-test
+(deftest ^:unit interceptor-context-schema-test
   (testing "InterceptorContext is a valid Malli schema"
     (is (some? (m/schema schema/InterceptorContext))))
 

@@ -9,7 +9,7 @@
 ;; Version Parsing Tests
 ;; =============================================================================
 
-(deftest parse-version-test
+(deftest ^:unit parse-version-test
   (testing "Parse simple major version"
     (let [result (versioning/parse-version "v1")]
       (is (= 1 (:major result)))
@@ -54,7 +54,7 @@
     (is (nil? (versioning/parse-version "")))
     (is (nil? (versioning/parse-version "v")))))
 
-(deftest version-string-test
+(deftest ^:unit version-string-test
   (testing "Convert simple version to string"
     (is (= "v1" (versioning/version-string {:major 1 :minor 0 :patch 0}))))
 
@@ -71,7 +71,7 @@
 ;; Version Comparison Tests
 ;; =============================================================================
 
-(deftest compare-versions-test
+(deftest ^:unit compare-versions-test
   (testing "Compare major versions"
     (is (= -1 (versioning/compare-versions "v1" "v2")))
     (is (= 1 (versioning/compare-versions "v2" "v1")))
@@ -99,7 +99,7 @@
     (is (nil? (versioning/compare-versions "invalid" "v1")))
     (is (nil? (versioning/compare-versions "v1" "invalid")))))
 
-(deftest version-comparison-predicates-test
+(deftest ^:unit version-comparison-predicates-test
   (testing "version-greater-than?"
     (is (versioning/version-greater-than? "v2" "v1"))
     (is (not (versioning/version-greater-than? "v1" "v2")))
@@ -119,7 +119,7 @@
 ;; Version Lifecycle Tests
 ;; =============================================================================
 
-(deftest is-experimental-test
+(deftest ^:unit is-experimental-test
   (testing "Experimental version (v0)"
     (is (versioning/is-experimental? "v0"))
     (is (versioning/is-experimental? :v0))
@@ -131,7 +131,7 @@
     (is (not (versioning/is-experimental? "v2")))
     (is (not (versioning/is-experimental? "v1.2.3")))))
 
-(deftest is-stable-test
+(deftest ^:unit is-stable-test
   (testing "Stable version"
     (let [config {:deprecated-versions #{:v0}}]
       (is (versioning/is-stable? "v1" config))
@@ -151,7 +151,7 @@
     (let [config {:deprecated-versions #{:v1}}]
       (is (versioning/is-stable? "v2" config)))))
 
-(deftest is-deprecated-test
+(deftest ^:unit is-deprecated-test
   (testing "Deprecated version"
     (let [config {:deprecated-versions #{:v1 :v2}}]
       (is (versioning/is-deprecated? "v1" config))
@@ -163,7 +163,7 @@
       (is (not (versioning/is-deprecated? "v2" config)))
       (is (not (versioning/is-deprecated? :v2 config))))))
 
-(deftest get-sunset-date-test
+(deftest ^:unit get-sunset-date-test
   (testing "Get sunset date for version"
     (let [config {:sunset-dates {:v1 "2026-06-01"
                                  :v2 "2027-01-01"}}]
@@ -175,7 +175,7 @@
       (is (nil? (versioning/get-sunset-date :v2 config)))
       (is (nil? (versioning/get-sunset-date :v3 config))))))
 
-(deftest is-sunset-test
+(deftest ^:unit is-sunset-test
   (testing "Version is sunset"
     (let [config {:sunset-dates {:v1 "2024-01-01"}}]
       (is (versioning/is-sunset? :v1 config "2024-01-02"))
@@ -195,7 +195,7 @@
 ;; Version Validation Tests
 ;; =============================================================================
 
-(deftest is-valid-version-test
+(deftest ^:unit is-valid-version-test
   (testing "Valid version formats"
     (is (versioning/is-valid-version? "v1"))
     (is (versioning/is-valid-version? "v2.1"))
@@ -208,7 +208,7 @@
     (is (not (versioning/is-valid-version? "")))
     (is (not (versioning/is-valid-version? "v")))))
 
-(deftest is-supported-version-test
+(deftest ^:unit is-supported-version-test
   (testing "Supported version"
     (let [config {:supported-versions #{:v1 :v2 :v3}}]
       (is (versioning/is-supported-version? :v1 config))
@@ -220,7 +220,7 @@
       (is (not (versioning/is-supported-version? :v3 config)))
       (is (not (versioning/is-supported-version? "v4" config))))))
 
-(deftest validate-version-test
+(deftest ^:unit validate-version-test
   (testing "Valid supported version"
     (let [config {:supported-versions #{:v1 :v2}}
           result (versioning/validate-version* "v1" config "2026-04-10")]
@@ -259,7 +259,7 @@
 ;; Version Resolution Tests
 ;; =============================================================================
 
-(deftest resolve-default-version-test
+(deftest ^:unit resolve-default-version-test
   (testing "Resolve default version from config"
     (let [config {:default-version :v1}]
       (is (= :v1 (versioning/resolve-default-version config)))))
@@ -268,7 +268,7 @@
     (let [config {}]
       (is (= :v1 (versioning/resolve-default-version config))))))
 
-(deftest resolve-latest-version-test
+(deftest ^:unit resolve-latest-version-test
   (testing "Resolve latest stable from config"
     (let [config {:latest-stable :v2}]
       (is (= :v2 (versioning/resolve-latest-version config)))))
@@ -281,7 +281,7 @@
     (let [config {}]
       (is (= :v1 (versioning/resolve-latest-version config))))))
 
-(deftest extract-version-from-path-test
+(deftest ^:unit extract-version-from-path-test
   (testing "Extract version from API path"
     (is (= :v1 (versioning/extract-version-from-path "/api/v1/users")))
     (is (= :v2 (versioning/extract-version-from-path "/api/v2/items")))
@@ -303,7 +303,7 @@
     (is (nil? (versioning/extract-version-from-path "/")))
     (is (nil? (versioning/extract-version-from-path "/api/invalid/users")))))
 
-(deftest extract-version-from-header-test
+(deftest ^:unit extract-version-from-header-test
   (testing "Extract version from custom header"
     (let [headers {"x-api-version" "v1"}]
       (is (= :v1 (versioning/extract-version-from-header headers "x-api-version")))))
@@ -320,7 +320,7 @@
     (let [headers {"x-api-version" "v1"}]
       (is (= :v1 (versioning/extract-version-from-header headers nil))))))
 
-(deftest resolve-version-test
+(deftest ^:unit resolve-version-test
   (testing "Resolve from URL path (highest priority)"
     (let [request {:uri "/api/v2/users"
                    :headers {"x-api-version" "v1"}}
@@ -349,7 +349,7 @@
 ;; Version Metadata Tests
 ;; =============================================================================
 
-(deftest create-version-metadata-test
+(deftest ^:unit create-version-metadata-test
   (testing "Current version is latest"
     (let [config {:latest-stable :v1}
           result (versioning/create-version-metadata :v1 config)]
@@ -386,7 +386,7 @@
       (is (true? (:deprecated result)))
       (is (= "2026-06-01" (:sunset-date result))))))
 
-(deftest version-headers-test
+(deftest ^:unit version-headers-test
   (testing "Basic version headers"
     (let [config {:latest-stable :v1}
           headers (versioning/version-headers :v1 config)]
@@ -424,7 +424,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "Nil inputs"
     (is (nil? (versioning/parse-version nil)))
     (is (nil? (versioning/extract-version-from-path nil)))

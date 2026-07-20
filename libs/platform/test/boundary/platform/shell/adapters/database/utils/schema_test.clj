@@ -26,7 +26,7 @@
 ;; Column Type Mapping Tests
 ;; =============================================================================
 
-(deftest malli-type->column-type-h2-test
+(deftest ^:unit malli-type->column-type-h2-test
   (testing "Malli type to H2 column type mapping"
     (testing "Basic types"
       (is (= "UUID" (malli-type->column-type h2-ctx :uuid)))
@@ -62,7 +62,7 @@
 ;; Field Extraction Tests ([:maybe ...] unwrapping)
 ;; =============================================================================
 
-(deftest extract-field-info-basic-test
+(deftest ^:unit extract-field-info-basic-test
   (testing "Extract field info from simple field definitions"
     (let [result (extract-field-info [:id :uuid])]
       (is (= "id" (:name result)))
@@ -73,14 +73,14 @@
       (is (= "name" (:name result)))
       (is (= :string (:type result))))))
 
-(deftest extract-field-info-with-properties-test
+(deftest ^:unit extract-field-info-with-properties-test
   (testing "Extract field info with properties map"
     (let [result (extract-field-info [:email {:optional true} :string])]
       (is (= "email" (:name result)))
       (is (= :string (:type result)))
       (is (true? (:optional? result))))))
 
-(deftest extract-field-info-maybe-unwrapping-test
+(deftest ^:unit extract-field-info-maybe-unwrapping-test
   (testing "[:maybe X] is unwrapped correctly"
     (testing "[:maybe inst?] → type is inst?"
       (let [result (extract-field-info [:created-at [:maybe 'inst?]])]
@@ -102,7 +102,7 @@
         (is (true? (:optional? result)))
         (is (= [:enum :admin :user :viewer] (:schema result)))))))
 
-(deftest extract-field-info-enum-test
+(deftest ^:unit extract-field-info-enum-test
   (testing "Enum field without [:maybe] wrapper"
     (let [result (extract-field-info [:status [:enum :active :inactive]])]
       (is (= "status" (:name result)))
@@ -113,7 +113,7 @@
 ;; DDL Generation Integration Tests
 ;; =============================================================================
 
-(deftest generate-table-ddl-basic-test
+(deftest ^:unit generate-table-ddl-basic-test
   (testing "Generate DDL for a simple schema"
     (let [malli-schema [:map
                         [:id :uuid]
@@ -126,7 +126,7 @@
       (is (.contains ddl "name VARCHAR(255) NOT NULL"))
       (is (.contains ddl "active BOOLEAN NOT NULL")))))
 
-(deftest generate-table-ddl-with-timestamps-test
+(deftest ^:unit generate-table-ddl-with-timestamps-test
   (testing "DDL with inst? timestamp fields"
     (let [malli-schema [:map
                         [:id :uuid]
@@ -136,7 +136,7 @@
       (is (.contains ddl "created_at TIMESTAMP WITH TIME ZONE NOT NULL"))
       (is (.contains ddl "updated_at TIMESTAMP WITH TIME ZONE")))))
 
-(deftest generate-table-ddl-with-text-test
+(deftest ^:unit generate-table-ddl-with-text-test
   (testing "DDL with text field"
     (let [malli-schema [:map
                         [:id :uuid]
@@ -144,7 +144,7 @@
           ddl (schema/generate-table-ddl h2-ctx "payloads" malli-schema)]
       (is (.contains ddl "payload CLOB NOT NULL")))))
 
-(deftest generate-table-ddl-with-enum-test
+(deftest ^:unit generate-table-ddl-with-enum-test
   (testing "DDL with enum field includes CHECK constraint"
     (let [malli-schema [:map
                         [:id :uuid]
@@ -153,7 +153,7 @@
       (is (.contains ddl "role VARCHAR(50)"))
       (is (.contains ddl "CHECK(role IN ('admin', 'user', 'viewer'))")))))
 
-(deftest generate-table-ddl-with-json-test
+(deftest ^:unit generate-table-ddl-with-json-test
   (testing "DDL with map/JSON field"
     (let [malli-schema [:map
                         [:id :uuid]
@@ -161,7 +161,7 @@
           ddl (schema/generate-table-ddl h2-ctx "configs" malli-schema)]
       (is (.contains ddl "metadata CLOB NOT NULL")))))
 
-(deftest generate-table-ddl-with-double-test
+(deftest ^:unit generate-table-ddl-with-double-test
   (testing "DDL with double precision field"
     (let [malli-schema [:map
                         [:id :uuid]
@@ -173,7 +173,7 @@
 ;; Index Generation Tests
 ;; =============================================================================
 
-(deftest generate-indexes-ddl-test
+(deftest ^:unit generate-indexes-ddl-test
   (testing "Indexes generated for foreign key fields"
     (let [malli-schema [:map
                         [:id :uuid]

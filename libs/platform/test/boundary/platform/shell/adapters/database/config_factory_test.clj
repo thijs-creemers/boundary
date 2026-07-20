@@ -20,7 +20,7 @@
     (table-exists? [_ _ _] false)
     (get-table-info [_ _ _] [])))
 
-(deftest create-config-context-selects-requested-config
+(deftest ^:unit create-config-context-selects-requested-config
   (let [adapter (adapter-stub :sqlite)]
       (with-redefs [db-config/get-active-db-configs
                     (fn [env]
@@ -45,7 +45,7 @@
               :environment "test"}
              (sut/create-config-context "test" :boundary/sqlite))))))
 
-(deftest get-default-context-prefers-sqlite-when-available
+(deftest ^:unit get-default-context-prefers-sqlite-when-available
   (let [sqlite-ctx {:adapter (adapter-stub :sqlite)
                     :datasource ::sqlite-ds}
         h2-ctx {:adapter (adapter-stub :h2)
@@ -58,7 +58,7 @@
               :datasource ::sqlite-ds}
              (sut/get-default-context "test"))))))
 
-(deftest create-active-contexts-and-health-check-cover-success-and-failure
+(deftest ^:unit create-active-contexts-and-health-check-cover-success-and-failure
   (testing "active contexts are created for every active config"
     (with-redefs [boundary.platform.shell.adapters.database.config/get-active-db-configs
                   (fn [_]
@@ -105,7 +105,7 @@
       (is (= {:valid? true :errors []}
              (sut/validate-environment-config "test"))))))
 
-(deftest adapter-availability-and-context-lifecycle-helpers
+(deftest ^:unit adapter-availability-and-context-lifecycle-helpers
   (with-redefs [boundary.platform.shell.adapters.database.config/get-active-adapters
                 (fn [_] [:sqlite :postgresql])
                 boundary.platform.shell.adapters.database.config/adapter-active?
@@ -137,7 +137,7 @@
                             #"No active database adapters found"
                             (sut/get-default-context "test"))))))
 
-(deftest adapter-loading-and-default-environment-helpers
+(deftest ^:unit adapter-loading-and-default-environment-helpers
   (testing "inactive adapters are rejected with a helpful error"
     (with-redefs [boundary.platform.shell.adapters.database.config/adapter-active? (constantly false)]
       (is (thrown-with-msg? IllegalStateException
@@ -187,7 +187,7 @@
       (is (= :ok
              (sut/with-default-context (fn [_] :ok)))))))
 
-(deftest config-context-and-health-check-failure-paths
+(deftest ^:unit config-context-and-health-check-failure-paths
   (testing "missing config keys produce a useful error message"
     (with-redefs [boundary.platform.shell.adapters.database.config/get-active-db-configs
                   (fn [_]
@@ -243,7 +243,7 @@
                                 (fn [_] (throw (ex-info "default path failure" {}))))))
         (is (= [::config-ds ::default-ds] @closed))))))
 
-(deftest compatibility-helper-functions
+(deftest ^:unit compatibility-helper-functions
   (testing "supported adapter helpers expose the expected compatibility surface"
     (is (true? (sut/adapter-supported? :boundary/sqlite)))
     (is (false? (sut/adapter-supported? :boundary/unknown)))
@@ -283,7 +283,7 @@
                             #"The :active section must be a map"
                             (sut/create-active-adapters {:active []}))))))
 
-(deftest print-environment-summary-renders-validation-and-adapter-information
+(deftest ^:unit print-environment-summary-renders-validation-and-adapter-information
   (let [printed (atom [])]
     (with-redefs [boundary.platform.shell.adapters.database.config/print-config-summary
                   (fn [env]

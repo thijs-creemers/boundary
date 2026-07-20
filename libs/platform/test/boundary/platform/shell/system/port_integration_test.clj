@@ -107,7 +107,7 @@
 ;; System Startup Tests
 ;; =============================================================================
 
-(deftest test-http-server-startup-with-available-port
+(deftest ^:integration test-http-server-startup-with-available-port
   (testing "HTTP server starts successfully when port is available"
     (if (socket-bind-supported?)
       (let [available-port (find-free-port)
@@ -124,7 +124,7 @@
             (stop-system system))))
       (is (not (socket-bind-supported?)) "Skipping socket-bind dependent HTTP startup test in sandbox"))))
 
-(deftest test-http-server-port-conflict-resolution
+(deftest ^:integration test-http-server-port-conflict-resolution
   (testing "HTTP server resolves port conflicts using port-range fallback"
     (if (socket-bind-supported?)
       (with-redefs [port-manager/development-environment? (constantly true)]
@@ -151,7 +151,7 @@
               (release-port blocking-socket)))))
       (is (not (socket-bind-supported?)) "Skipping socket-bind dependent conflict-resolution test in sandbox"))))
 
-(deftest test-http-server-config-integration
+(deftest ^:unit test-http-server-config-integration
   (testing "HTTP server receives complete configuration including port-range"
     (let [test-config (create-test-config :port 59975
                                           :port-range {:start 59970 :end 59979})
@@ -169,7 +169,7 @@
 ;; Error Handling Tests
 ;; =============================================================================
 
-(deftest test-system-startup-failure-handling
+(deftest ^:integration test-system-startup-failure-handling
   (testing "System handles startup failures gracefully"
     (if (socket-bind-supported?)
       (let [{:keys [start end] :as port-range} (find-free-port-range 3)
@@ -195,7 +195,7 @@
 ;; Docker Environment Simulation Tests
 ;; =============================================================================
 
-(deftest test-docker-environment-behavior
+(deftest ^:integration test-docker-environment-behavior
   (testing "System behavior in Docker environment"
     (if (socket-bind-supported?)
       (with-redefs [port-manager/docker-environment? (constantly true)]
@@ -215,7 +215,7 @@
 ;; Configuration Validation Tests  
 ;; =============================================================================
 
-(deftest test-config-loading-and-validation
+(deftest ^:unit test-config-loading-and-validation
   (testing "Configuration loading includes port management settings"
     (let [test-config (create-test-config :port 59950
                                           :port-range {:start 59950 :end 59959})
@@ -226,7 +226,7 @@
       (is (false? (:join? http-config)))
       (is (= {:start 59950 :end 59959} (:port-range http-config))))))
 
-(deftest test-config-without-port-range
+(deftest ^:unit test-config-without-port-range
   (testing "Configuration works without port-range specified"
     (let [test-config (create-test-config :port 59945)
           http-config (config/http-config test-config)]
@@ -238,7 +238,7 @@
 ;; Performance and Resource Tests
 ;; =============================================================================
 
-(deftest test-multiple-system-startups
+(deftest ^:integration test-multiple-system-startups
   (testing "Multiple system startups with port allocation"
     (if (socket-bind-supported?)
       (with-redefs [port-manager/development-environment? (constantly true)]

@@ -116,13 +116,13 @@
 ;; Router Tests
 ;; =============================================================================
 
-(deftest create-router-test
+(deftest ^:unit create-router-test
   (testing "Can create Reitit router instance"
     (let [router (reitit/create-reitit-router)]
       (is (some? router))
       (is (satisfies? ports/IRouter router)))))
 
-(deftest compile-simple-routes-test
+(deftest ^:contract compile-simple-routes-test
   (testing "Can compile simple routes to Ring handler"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router simple-routes {})]
@@ -145,7 +145,7 @@
                                  :uri "/api/unknown"})]
           (is (= 404 (:status response))))))))
 
-(deftest compile-nested-routes-test
+(deftest ^:contract compile-nested-routes-test
   (testing "Can compile nested routes with path parameters"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router nested-routes {})]
@@ -166,7 +166,7 @@
                                  :uri "/api/users/123"})]
           (is (= 204 (:status response))))))))
 
-(deftest compile-routes-with-coercion-test
+(deftest ^:contract compile-routes-with-coercion-test
   (testing "Can compile routes with Malli coercion"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router routes-with-coercion {})]
@@ -181,7 +181,7 @@
                                  :uri "/api/products"})]
           (is (= 201 (:status response))))))))
 
-(deftest router-with-middleware-test
+(deftest ^:contract router-with-middleware-test
   (testing "Can compile routes with custom middleware"
     (let [router (reitit/create-reitit-router)
           ;; Simple middleware that adds header
@@ -202,7 +202,7 @@
 ;; Symbol Resolution Tests
 ;; =============================================================================
 
-(deftest symbol-resolution-test
+(deftest ^:contract symbol-resolution-test
   (testing "Handler symbols are resolved to functions"
     (let [router (reitit/create-reitit-router)
           ;; Use quoted symbols (will be resolved by adapter)
@@ -220,7 +220,7 @@
 ;; Error Handling Tests
 ;; =============================================================================
 
-(deftest method-not-allowed-test
+(deftest ^:contract method-not-allowed-test
   (testing "Returns 405 for unsupported methods"
     (let [router (reitit/create-reitit-router)
           ;; Only GET is supported
@@ -230,7 +230,7 @@
       (is (= 405 (:status (handler {:request-method :post
                                     :uri "/api/items"})))))))
 
-(deftest not-found-test
+(deftest ^:contract not-found-test
   (testing "Returns 404 for unknown routes"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router simple-routes {})
@@ -294,7 +294,7 @@
                     :interceptors [test-interceptor-enter test-interceptor-leave]
                     :summary "Route with interceptors"}}}])
 
-(deftest compile-routes-with-interceptors-test
+(deftest ^:contract compile-routes-with-interceptors-test
   (testing "Can compile routes with interceptors"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router (routes-with-interceptors) {})]
@@ -308,7 +308,7 @@
           ;; Verify leave interceptor ran
           (is (= "yes" (get-in response [:headers "x-test-leave"]))))))))
 
-(deftest mixed-middleware-and-interceptors-test
+(deftest ^:contract mixed-middleware-and-interceptors-test
   (testing "Can use both middleware and interceptors together"
     (let [router (reitit/create-reitit-router)
           ;; Middleware adds header
@@ -334,7 +334,7 @@
 ;; Default HTTP Interceptor Behavior Tests
 ;; =============================================================================
 
-(deftest default-interceptors-add-correlation-id-test
+(deftest ^:contract default-interceptors-add-correlation-id-test
   (testing "Default interceptors add/propagate X-Correlation-ID header for matched routes"
     (let [router (reitit/create-reitit-router)
           handler (ports/compile-routes router simple-routes {})
@@ -347,7 +347,7 @@
       (is (= 200 (:status response)))
       (is (= correlation-id response-correlation-id)))))
 
-(deftest default-error-handler-converts-exceptions-test
+(deftest ^:contract default-error-handler-converts-exceptions-test
   (testing "Default interceptors convert exceptions into safe error responses"
     (let [router (reitit/create-reitit-router)
           routes [{:path "/api/boom"
@@ -367,7 +367,7 @@
       (is (= correlation-id (:correlation-id body)))
       (is (= {:foo "bar"} (:details body))))))
 
-(deftest route-middleware-runs-before-interceptors-test
+(deftest ^:contract route-middleware-runs-before-interceptors-test
   (testing "Route middleware runs before interceptors (interceptors see modified request)"
     (let [router (reitit/create-reitit-router)
           routes-with-middleware

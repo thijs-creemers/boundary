@@ -4,7 +4,7 @@
             [clojure.string]
             [boundary.core.validation.codes :as codes]))
 
-(deftest get-error-code-info-test
+(deftest ^:unit get-error-code-info-test
   (testing "known common error code"
     (let [info (codes/get-error-code-info :required)]
       (is (some? info))
@@ -19,7 +19,7 @@
   (testing "unknown error code returns nil"
     (is (nil? (codes/get-error-code-info :nonexistent/code)))))
 
-(deftest error-code-exists?-test
+(deftest ^:unit error-code-exists?-test
   (testing "existing codes"
     (is (true? (codes/error-code-exists? :required)))
     (is (true? (codes/error-code-exists? :user.email/required))))
@@ -27,7 +27,7 @@
   (testing "non-existing codes"
     (is (false? (codes/error-code-exists? :fake/code)))))
 
-(deftest get-error-codes-by-category-test
+(deftest ^:unit get-error-codes-by-category-test
   (testing "schema category returns codes"
     (let [results (codes/get-error-codes-by-category :schema)]
       (is (vector? results))
@@ -40,7 +40,7 @@
       (is (pos? (count results)))
       (is (every? #(= :business (:category (second %))) results)))))
 
-(deftest get-error-codes-for-field-test
+(deftest ^:unit get-error-codes-for-field-test
   (testing "email field returns related codes"
     (let [results (codes/get-error-codes-for-field :email)]
       (is (vector? results))
@@ -50,7 +50,7 @@
   (testing "non-existing field returns empty vector"
     (is (empty? (codes/get-error-codes-for-field :nonexistent-field)))))
 
-(deftest suggest-error-code-test
+(deftest ^:unit suggest-error-code-test
   (testing "suggests codes whose name contains the input"
     (let [suggestions (codes/suggest-error-code :required)]
       (is (vector? suggestions))
@@ -62,7 +62,7 @@
       (is (vector? suggestions))
       (is (empty? suggestions)))))
 
-(deftest error-code-catalog-test
+(deftest ^:unit error-code-catalog-test
   (testing "catalog merges all module codes"
     (is (map? codes/error-code-catalog))
     (is (contains? codes/error-code-catalog :required))

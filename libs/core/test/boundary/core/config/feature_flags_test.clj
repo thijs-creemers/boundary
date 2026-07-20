@@ -3,7 +3,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [boundary.core.config.feature-flags :as flags]))
 
-(deftest parse-bool-test
+(deftest ^:unit parse-bool-test
   (testing "truthy values"
     (is (true? (flags/parse-bool "true")))
     (is (true? (flags/parse-bool "TRUE")))
@@ -22,7 +22,7 @@
   (testing "nil input"
     (is (nil? (flags/parse-bool nil)))))
 
-(deftest get-env-value-test
+(deftest ^:unit get-env-value-test
   (testing "reads from provided env map"
     (is (= "true" (flags/get-env-value "BND_DEVEX_VALIDATION"
                                        {"BND_DEVEX_VALIDATION" "true"}))))
@@ -30,7 +30,7 @@
   (testing "returns nil for missing key"
     (is (nil? (flags/get-env-value "MISSING_KEY" {})))))
 
-(deftest enabled?-test
+(deftest ^:unit enabled?-test
   (testing "known flag enabled via env"
     (is (true? (flags/enabled? :devex-validation
                                {"BND_DEVEX_VALIDATION" "true"}))))
@@ -45,7 +45,7 @@
   (testing "unknown flag defaults to false"
     (is (false? (flags/enabled? :nonexistent-flag {})))))
 
-(deftest all-flags-test
+(deftest ^:unit all-flags-test
   (testing "returns map of all flags with status"
     (let [result (flags/all-flags {"BND_DEVEX_VALIDATION" "true"})]
       (is (map? result))
@@ -57,7 +57,7 @@
       (is (false? (:devex-validation result)))
       (is (false? (:structured-logging result))))))
 
-(deftest flag-info-test
+(deftest ^:unit flag-info-test
   (testing "known flag returns full info"
     (let [info (flags/flag-info :devex-validation
                                 {"BND_DEVEX_VALIDATION" "true"})]
@@ -70,7 +70,7 @@
     (let [info (flags/flag-info :unknown-flag {})]
       (is (= "Unknown feature flag" (:error info))))))
 
-(deftest add-flags-to-config-test
+(deftest ^:unit add-flags-to-config-test
   (testing "adds :feature-flags to config map"
     (let [config {:app-name "test"}
           result (flags/add-flags-to-config config {})]

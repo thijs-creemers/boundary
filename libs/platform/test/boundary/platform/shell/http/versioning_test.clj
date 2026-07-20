@@ -45,7 +45,7 @@
 ;; Version Configuration Tests
 ;; =============================================================================
 
-(deftest version-config-test
+(deftest ^:unit version-config-test
   (testing "Get version config with custom values"
     (let [config {:active {:boundary/api-versioning
                            {:default-version :v2
@@ -76,7 +76,7 @@
 ;; Route Wrapping Tests
 ;; =============================================================================
 
-(deftest wrap-routes-with-version-test
+(deftest ^:unit wrap-routes-with-version-test
   (testing "Wrap routes with v1 prefix"
     (let [routes [{:path "/users" :methods {}}
                   {:path "/items" :methods {}}]
@@ -114,7 +114,7 @@
 ;; Version Headers Middleware Tests
 ;; =============================================================================
 
-(deftest version-headers-middleware-test
+(deftest ^:unit version-headers-middleware-test
   (testing "Add version headers to response"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           config {:latest-stable :v1
@@ -190,7 +190,7 @@
 ;; Backward Compatibility Redirect Tests
 ;; =============================================================================
 
-(deftest create-redirect-route-test
+(deftest ^:unit create-redirect-route-test
   (testing "Create redirect route for users endpoint"
     (let [route (versioning/create-redirect-route "/users" :v1)]
       (is (= "/api/users" (:path route)))
@@ -228,7 +228,7 @@
       (is (= "/api/v2/items" (get-in get-response [:headers "Location"])))
       (is (= "/api/v2/items" (get-in post-response [:headers "Location"]))))))
 
-(deftest create-backward-compatibility-routes-test
+(deftest ^:unit create-backward-compatibility-routes-test
   (testing "Create redirects for versioned routes"
     (let [versioned-routes [{:path "/api/v1/users" :methods {}}
                             {:path "/api/v1/items" :methods {}}]
@@ -280,7 +280,7 @@
 ;; High-Level API Tests
 ;; =============================================================================
 
-(deftest apply-versioning-test
+(deftest ^:unit apply-versioning-test
   (testing "Apply versioning to routes"
     (let [routes [{:path "/users" :methods {}}
                   {:path "/items" :methods {}}]
@@ -328,7 +328,7 @@
           result (versioning/apply-versioning routes sample-config)]
       (is (vector? result)))))
 
-(deftest wrap-handler-with-version-headers-test
+(deftest ^:unit wrap-handler-with-version-headers-test
   (testing "Wrap handler adds version headers"
     (let [handler (fn [_] {:status 200 :headers {} :body "test"})
           wrapped (versioning/wrap-handler-with-version-headers
@@ -362,7 +362,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest full-versioning-flow-test
+(deftest ^:unit full-versioning-flow-test
   (testing "Complete versioning flow with sample routes"
     (let [;; Step 1: Apply versioning to routes
           versioned-routes (versioning/apply-versioning sample-routes sample-config)
@@ -424,7 +424,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "Version config with nil values"
     (let [config {:active {:boundary/api-versioning nil}}
           result (versioning/version-config config)]

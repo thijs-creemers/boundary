@@ -2,25 +2,25 @@
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.core.utils.pii-redaction :as pii]))
 
-(deftest normalize-key-name-test
+(deftest ^:unit normalize-key-name-test
   (testing "Normalizes various key types to lowercase strings"
     (is (= "password" (pii/normalize-key-name :Password)))
     (is (= "email" (pii/normalize-key-name "Email")))
     (is (= "user-id" (pii/normalize-key-name :user-id)))))
 
-(deftest default-redaction-keys-test
+(deftest ^:unit default-redaction-keys-test
   (testing "Default key set includes common sensitive keys"
     (is (contains? pii/default-redact-keys "password"))
     (is (contains? pii/default-redact-keys "token"))
     (is (contains? pii/default-redact-keys "email"))))
 
-(deftest email-masking-test
+(deftest ^:unit email-masking-test
   (testing "Email masking preserves domain and masks local part"
     (is (= "u***@example.com" (pii/mask-email "user@example.com")))
     (is (= "a***@example.com" (pii/mask-email "a@example.com")))
     (is (= "[REDACTED]" (pii/mask-email "not-an-email")))))
 
-(deftest redact-pii-basic-test
+(deftest ^:unit redact-pii-basic-test
   (testing "Redacts values by key with default state"
     (let [state (pii/build-redact-state {:redact {}})
           data  {:password "secret"
@@ -33,7 +33,7 @@
       (is (re-find #".*\*\*\*@example\.com$" (:email out)))
       (is (= "ok" (:safe out))))))
 
-(deftest redact-pii-additional-keys-test
+(deftest ^:unit redact-pii-additional-keys-test
   (testing "Redacts additional configured keys"
     (let [state (pii/build-redact-state {:redact {:additional-keys [:custom]}})
           data  {:custom "val"
@@ -42,14 +42,14 @@
       (is (= "[REDACTED]" (:custom out)))
       (is (= "keep" (:other out))))))
 
-(deftest redact-pii-disable-email-masking-test
+(deftest ^:unit redact-pii-disable-email-masking-test
   (testing "Email is not masked when :mask-email? is false"
     (let [state (pii/build-redact-state {:redact {:mask-email? false}})
           data  {:email "user@example.com"}
           out   (pii/redact-pii data state)]
       (is (= "user@example.com" (:email out))))))
 
-(deftest redact-pii-nested-structures-test
+(deftest ^:unit redact-pii-nested-structures-test
   (testing "Redacts PII in nested structures"
     (let [state (pii/build-redact-state {:redact {}})
           data  {:user {:password "secret"
@@ -60,7 +60,7 @@
       (is (= "John" (get-in out [:user :name])))
       (is (= ["tok1" "tok2"] (:tokens out))))))
 
-(deftest apply-redaction-test
+(deftest ^:unit apply-redaction-test
   (testing "Applies redaction to :extra and :tags"
     (let [context {:extra {:password "pw"
                            :safe     "ok"}
@@ -72,13 +72,13 @@
       (is (= "[REDACTED]" (get-in out [:tags :token])))
       (is (= "prod" (get-in out [:tags :env]))))))
 
-(deftest apply-redaction-default-behavior-test
+(deftest ^:unit apply-redaction-default-behavior-test
   (testing "Applies default redaction even without :redact key"
     (let [context {:extra {:password "secret"}}
           out     (pii/apply-redaction context {})]
       (is (= "[REDACTED]" (get-in out [:extra :password]))))))
 
-(deftest redact-pii-idempotence-test
+(deftest ^:unit redact-pii-idempotence-test
   (testing "Redaction is idempotent"
     (let [state (pii/build-redact-state {:redact {}})
           data  {:password "secret"

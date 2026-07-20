@@ -15,7 +15,7 @@
 ;; HTTP Context Tests
 ;; ==============================================================================
 
-(deftest create-http-context-test
+(deftest ^:unit create-http-context-test
   (testing "creates basic HTTP context"
     (let [request {:request-method :get
                    :uri "/api/users"
@@ -46,7 +46,7 @@
 
       (is (= route-data (:route ctx))))))
 
-(deftest extract-response-test
+(deftest ^:unit extract-response-test
   (testing "extracts response from context"
     (let [response {:status 200 :body "OK"}
           ctx {:response response}]
@@ -58,14 +58,14 @@
       (is (= 500 (:status response)))
       (is (= "test-123" (:correlation-id (:body response)))))))
 
-(deftest set-response-test
+(deftest ^:unit set-response-test
   (testing "sets response in context"
     (let [ctx {}
           response {:status 200 :body "OK"}
           updated (http-interceptors/set-response ctx response)]
       (is (= response (:response updated))))))
 
-(deftest merge-response-headers-test
+(deftest ^:unit merge-response-headers-test
   (testing "merges headers into response"
     (let [ctx {:response {:headers {"Content-Type" "application/json"}}}
           updated (http-interceptors/merge-response-headers ctx {"X-Custom" "value"})]
@@ -77,7 +77,7 @@
 ;; HTTP Interceptor Runner Tests
 ;; ==============================================================================
 
-(deftest run-http-interceptors-happy-path-test
+(deftest ^:unit run-http-interceptors-happy-path-test
   (testing "runs interceptors and handler successfully"
     (let [{:keys [system]} (create-mock-system)
           handler (fn [_req] {:status 200 :body "OK"})
@@ -105,7 +105,7 @@
       (is (= [:enter] @enter-called))
       (is (= [:leave] @leave-called)))))
 
-(deftest run-http-interceptors-error-handling-test
+(deftest ^:unit run-http-interceptors-error-handling-test
   (testing "catches handler exceptions and runs error phase"
     (let [{:keys [system]} (create-mock-system)
           handler (fn [_req] (throw (ex-info "Handler error" {:type :validation-error})))
@@ -127,7 +127,7 @@
       (is (= 400 (:status response)))
       (is (= [:error] @error-called)))))
 
-(deftest run-http-interceptors-ordering-test
+(deftest ^:unit run-http-interceptors-ordering-test
   (testing "executes enter in forward order, leave in reverse"
     (let [{:keys [system]} (create-mock-system)
           handler (fn [_req] {:status 200 :body "OK"})
@@ -152,7 +152,7 @@
       (is (= [:first-enter :second-enter :second-leave :first-leave]
              @execution-order)))))
 
-(deftest run-http-interceptors-context-propagation-test
+(deftest ^:unit run-http-interceptors-context-propagation-test
   (testing "context changes propagate through pipeline"
     (let [{:keys [system]} (create-mock-system)
           handler (fn [_req] {:status 200 :body "OK"})
@@ -177,7 +177,7 @@
 ;; Middleware Wrapper Tests
 ;; ==============================================================================
 
-(deftest wrap-http-interceptors-test
+(deftest ^:unit wrap-http-interceptors-test
   (testing "wraps handler with interceptors as middleware"
     (let [{:keys [system]} (create-mock-system)
           handler (fn [_req] {:status 200 :body "OK"})
@@ -196,7 +196,7 @@
       (is (= 200 (:status response)))
       (is (= "OK" (:body response))))))
 
-(deftest interceptor-middleware-test
+(deftest ^:unit interceptor-middleware-test
   (testing "creates middleware function from interceptors"
     (let [{:keys [system]} (create-mock-system)
           handler (fn [_req] {:status 200 :body "OK"})
@@ -214,7 +214,7 @@
 
       (is (= "true" (get-in response [:headers "X-Test"]))))))
 
-(deftest http-error-handler-test
+(deftest ^:unit http-error-handler-test
   (testing "converts validation error to 400"
     (let [exception (ex-info "Invalid input" {:type :validation-error})
           ctx {:exception exception :correlation-id "test-123"}
@@ -246,7 +246,7 @@
           result ((:error http-interceptors/http-error-handler) ctx)]
       (is (= "test-123" (get-in result [:response :body :correlation-id]))))))
 
-(deftest http-correlation-header-test
+(deftest ^:unit http-correlation-header-test
   (testing "adds correlation header on leave"
     (let [ctx {:correlation-id "test-123"
                :response {:headers {}}}
@@ -263,7 +263,7 @@
 ;; Error Type Enforcement Tests
 ;; ==============================================================================
 
-(deftest http-error-handler-enforcement-test
+(deftest ^:unit http-error-handler-enforcement-test
   (testing "detects missing :type in dev environment"
     (let [exception (ex-info "Validation error" {:field "name" :value ""})
           ctx {:exception exception

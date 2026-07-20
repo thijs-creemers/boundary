@@ -8,7 +8,7 @@
 ;; String Distance Tests
 ;; =============================================================================
 
-(deftest suggest-similar-value-test
+(deftest ^:unit suggest-similar-value-test
   (testing "Did you mean suggestions"
     (testing "Suggests similar value for simple typo"
       (is (= "admin" (msg/suggest-similar-value "admim" ["admin" "user" "viewer"] {}))))
@@ -28,7 +28,7 @@
     (testing "Empty allowed values"
       (is (nil? (msg/suggest-similar-value "test" [] {}))))))
 
-(deftest format-allowed-values-test
+(deftest ^:unit format-allowed-values-test
   (testing "Format list of allowed values"
     (testing "Single value"
       (is (= "admin" (msg/format-allowed-values ["admin"] {}))))
@@ -57,7 +57,7 @@
 ;; Message Rendering Tests
 ;; =============================================================================
 
-(deftest render-message-test
+(deftest ^:unit render-message-test
   (testing "Basic message rendering"
     (testing "Required field message"
       (is (= "Email is required"
@@ -119,7 +119,7 @@
 ;; Suggestion Rendering Tests
 ;; =============================================================================
 
-(deftest render-suggestion-test
+(deftest ^:unit render-suggestion-test
   (testing "Did you mean suggestions"
     (testing "Invalid value with suggestion"
       (is (= "Did you mean \"admin\"? Allowed values: admin, user, viewer"
@@ -180,7 +180,7 @@
 ;; Error Enhancement Tests
 ;; =============================================================================
 
-(deftest enhance-error-test
+(deftest ^:unit enhance-error-test
   (testing "Error map enhancement"
     (testing "Basic error enhancement"
       (let [error {:field :email
@@ -221,7 +221,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest integration-test
+(deftest ^:unit integration-test
   (testing "Complete validation error flow"
     (testing "User creation with missing email"
       (let [error {:field :email
@@ -261,7 +261,7 @@
 ;; Edge Cases and Error Handling
 ;; =============================================================================
 
-(deftest edge-cases-test
+(deftest ^:unit edge-cases-test
   (testing "Edge cases"
     (testing "Empty params"
       (let [result (msg/render-message :required {:field :email} {})]

@@ -49,7 +49,7 @@
 ;; Configuration Loading Tests
 ;; =============================================================================
 
-(deftest test-load-config-dev
+(deftest ^:unit test-load-config-dev
   (testing "Loading development configuration"
     (let [config (config/load-config "dev")]
       (is (map? config) "Config should be a map")
@@ -64,7 +64,7 @@
       (is (contains? (:inactive config) :boundary/sqlite)
           "SQLite should be inactive in dev environment"))))
 
-(deftest test-load-config-test
+(deftest ^:unit test-load-config-test
   (testing "Loading test configuration"
     (let [config (config/load-config "test")]
       (is (map? config) "Config should be a map")
@@ -79,7 +79,7 @@
         (is (true? (:memory h2-config))
             "H2 should be configured for in-memory in test environment")))))
 
-(deftest test-load-config-prod
+(deftest ^:unit test-load-config-prod
   (testing "Loading production configuration"
     (let [config (config/load-config "prod")]
       (is (map? config) "Config should be a map")
@@ -96,7 +96,7 @@
         (is (>= (get-in pg-config [:pool :maximum-pool-size]) 10)
             "Production PostgreSQL should have large pool size")))))
 
-(deftest test-load-config-nonexistent
+(deftest ^:unit test-load-config-nonexistent
   (testing "Loading nonexistent configuration should throw"
     (is (thrown? Exception (config/load-config "nonexistent"))
         "Should throw exception for nonexistent environment")))
@@ -105,7 +105,7 @@
 ;; Configuration Validation Tests
 ;; =============================================================================
 
-(deftest test-get-active-adapters
+(deftest ^:unit test-get-active-adapters
   (testing "Extracting active adapters from configuration"
     (let [active-adapters (config/get-active-adapters-from-config sample-config)]
       (is (map? active-adapters) "Active adapters should be a map")
@@ -117,7 +117,7 @@
       (is (not (contains? active-adapters :boundary/postgresql))
           "Should not contain inactive PostgreSQL adapter"))))
 
-(deftest test-get-inactive-adapters
+(deftest ^:unit test-get-inactive-adapters
   (testing "Extracting inactive adapters from configuration"
     (let [inactive-adapters (config/get-inactive-adapters sample-config)]
       (is (map? inactive-adapters) "Inactive adapters should be a map")
@@ -129,7 +129,7 @@
       (is (not (contains? inactive-adapters :boundary/sqlite))
           "Should not contain active SQLite adapter"))))
 
-(deftest test-get-all-database-configs
+(deftest ^:unit test-get-all-database-configs
   (testing "Getting all database configurations (active + inactive)"
     (let [all-configs (config/get-all-database-configs sample-config)]
       (is (map? all-configs) "All configs should be a map")
@@ -143,7 +143,7 @@
 ;; Configuration Structure Validation Tests
 ;; =============================================================================
 
-(deftest test-validate-config-structure
+(deftest ^:unit test-validate-config-structure
   (testing "Configuration structure validation"
     (testing "Valid configuration"
       (is (config/valid-config-structure? sample-config)
@@ -167,7 +167,7 @@
       (is (not (config/valid-config-structure? "not-a-map"))
           "Non-map config should be invalid"))))
 
-(deftest test-validate-adapter-configs
+(deftest ^:unit test-validate-adapter-configs
   (testing "Individual adapter configuration validation"
     (testing "Valid SQLite config"
       (let [sqlite-config {:db "test.db"
@@ -199,7 +199,7 @@
 ;; Environment Detection Tests
 ;; =============================================================================
 
-(deftest test-detect-environment
+(deftest ^:unit test-detect-environment
   (testing "Environment detection from system properties"
     (testing "Environment set via system property"
       (System/setProperty "env" "test")
@@ -235,7 +235,7 @@
 ;; Configuration Merging and Override Tests
 ;; =============================================================================
 
-(deftest test-merge-configurations
+(deftest ^:unit test-merge-configurations
   (testing "Merging configurations for override scenarios"
     (let [base-config {:active {:boundary/sqlite {:db "base.db"}}
                        :inactive {:boundary/h2 {:memory true}}}
@@ -254,7 +254,7 @@
 ;; Performance and Edge Case Tests
 ;; =============================================================================
 
-(deftest test-config-loading-performance
+(deftest ^:unit test-config-loading-performance
   (testing "Configuration loading should be reasonably fast"
     (let [start-time (System/nanoTime)
           _ (config/load-config "dev")
@@ -263,7 +263,7 @@
       (is (< duration-ms 100) ; Should load in under 100ms
           (str "Config loading took " duration-ms "ms, should be under 100ms")))))
 
-(deftest test-config-caching
+(deftest ^:unit test-config-caching
   (testing "Configuration should be cached for performance"
     (let [config1 (config/load-config "dev")
           config2 (config/load-config "dev")]
@@ -272,7 +272,7 @@
       (is (identical? config1 config2)
           "Same environment config should return cached instance"))))
 
-(deftest test-concurrent-config-loading
+(deftest ^:unit test-concurrent-config-loading
   (testing "Configuration loading should be thread-safe"
     (let [results (atom [])
           threads (for [_i (range 10)]
@@ -294,7 +294,7 @@
 ;; Integration Tests with Real Config Files
 ;; =============================================================================
 
-(deftest test-real-config-files-exist
+(deftest ^:unit test-real-config-files-exist
   (testing "Real configuration files should exist and be loadable"
     (doseq [env ["dev" "test" "prod"]]
       (testing (str "Environment: " env)

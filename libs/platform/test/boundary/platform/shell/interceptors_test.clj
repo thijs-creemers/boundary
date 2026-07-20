@@ -62,7 +62,7 @@
 
 ;; Context Interceptor Tests
 
-(deftest context-interceptor-test
+(deftest ^:unit context-interceptor-test
   (testing "adds correlation-id and timestamp to context"
     (let [initial-ctx {:op :test :system {}}
           result-ctx ((:enter interceptors/context-interceptor) initial-ctx)]
@@ -97,7 +97,7 @@
 
 ;; Logging Interceptor Tests
 
-(deftest logging-interceptors-test
+(deftest ^:unit logging-interceptors-test
   (testing "logging-start logs operation start"
     (let [logger (mock-logger)
           ctx {:op :test/operation
@@ -164,7 +164,7 @@
 
 ;; Metrics Interceptor Tests
 
-(deftest metrics-interceptors-test
+(deftest ^:unit metrics-interceptors-test
   (testing "metrics-start records attempt and timing"
     (let [metrics (mock-metrics)
           ctx {:op :test/operation :system {:metrics metrics}}
@@ -208,7 +208,7 @@
 
 ;; Error Handling Interceptor Tests
 
-(deftest error-handling-interceptors-test
+(deftest ^:unit error-handling-interceptors-test
   (testing "error-capture sends exception to error reporter"
     (let [error-reporter (mock-error-reporter)
           exception (ex-info "Test exception" {:test true})
@@ -237,7 +237,7 @@
 
 ;; Effects Dispatch Interceptor Tests
 
-(deftest effects-dispatch-test
+(deftest ^:unit effects-dispatch-test
   (testing "executes persist-user effect"
     (let [user-repo (reify
                       boundary.user.ports/IUserRepository
@@ -305,7 +305,7 @@
 
 ;; Response Shaping Interceptor Tests
 
-(deftest response-shaping-test
+(deftest ^:unit response-shaping-test
   (testing "response-shape-http creates successful HTTP response"
     (let [ctx {:result {:status :success :data {:id 1 :name "Test"}}
                :correlation-id "test-correlation-id"}
@@ -351,7 +351,7 @@
 
 ;; Pipeline Assembly Tests
 
-(deftest pipeline-assembly-test
+(deftest ^:unit pipeline-assembly-test
   (testing "create-http-pipeline assembles correctly"
     (let [custom-interceptor {:name :custom :enter (fn [ctx] ctx)}
           pipeline (interceptors/create-http-pipeline custom-interceptor)]
@@ -380,7 +380,7 @@
 
 ;; Integration Tests
 
-(deftest full-pipeline-integration-test
+(deftest ^:unit full-pipeline-integration-test
   (testing "complete pipeline execution with all interceptors"
     (let [logger (mock-logger)
           metrics (mock-metrics)

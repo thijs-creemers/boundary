@@ -30,7 +30,7 @@
 ;; CLI Error Reporting Middleware Tests
 ;; =============================================================================
 
-(deftest test-with-cli-error-reporting-success
+(deftest ^:unit test-with-cli-error-reporting-success
   (testing "executes successful operation without interference"
     (let [context (create-test-context)
           operation (create-successful-operation {:status :success :data "test-result"})
@@ -54,7 +54,7 @@
 
       (is (= complex-result result)))))
 
-(deftest test-with-cli-error-reporting-errors
+(deftest ^:unit test-with-cli-error-reporting-errors
   (testing "enhances exceptions with CLI context"
     (let [context (create-test-context :operation "create-user" :user-id "admin-123")
           exception (ex-info "Validation failed" {:field "email" :error "invalid-format"})
@@ -113,7 +113,7 @@
             (is (= "process-item" (get-in data [:cli-context :operation])))
             (is (= "item-user" (get-in data [:cli-context :user-id])))))))))
 
-(deftest test-context-enrichment
+(deftest ^:unit test-context-enrichment
   (testing "enriches context with environment information"
     (let [context (create-test-context :operation "deploy" :user-id "deploy-user")
           exception (ex-info "Deployment failed" {:stage "production"})
@@ -166,7 +166,7 @@
 ;; Error Formatting Integration Tests
 ;; =============================================================================
 
-(deftest test-error-formatting-integration
+(deftest ^:unit test-error-formatting-integration
   (testing "errors can be formatted with CLI context"
     (let [context (create-test-context :operation "validate-config" :user-id "config-admin")
           exception (ex-info "Configuration invalid" {:config-file "app.yml" :line 15})
@@ -209,7 +209,7 @@
 ;; Performance and Edge Case Tests
 ;; =============================================================================
 
-(deftest test-performance-and-edge-cases
+(deftest ^:unit test-performance-and-edge-cases
   (testing "handles large context data efficiently"
     (let [large-context (create-test-context
                          :additional {:large-data (vec (range 1000))

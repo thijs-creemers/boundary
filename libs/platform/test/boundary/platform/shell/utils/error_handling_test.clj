@@ -35,7 +35,7 @@
 ;; HTTP Error Context Middleware Tests
 ;; =============================================================================
 
-(deftest test-wrap-error-context
+(deftest ^:unit test-wrap-error-context
   (testing "captures context early and makes it available"
     (let [user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)
@@ -84,7 +84,7 @@
         (is (= "POST" (:method context)))
         (is (= "/api/minimal" (:uri context)))))))
 
-(deftest test-wrap-enhanced-exception-handling
+(deftest ^:unit test-wrap-enhanced-exception-handling
   (testing "handles exceptions with enhanced context"
     (let [user-id (UUID/randomUUID)
           exception (ex-info "Test error" {:field "test"})
@@ -159,7 +159,7 @@
 ;; CLI Error Context Tests
 ;; =============================================================================
 
-(deftest test-with-cli-error-context
+(deftest ^:unit test-with-cli-error-context
   (testing "executes function successfully"
     (let [result (eh/with-cli-error-context
                    {:operation "test-op" :user-id "test-user"}
@@ -197,7 +197,7 @@
             (is (= "child-op" (get-in data [:cli-context :operation])))
             (is (= "inner" (get-in data [:cli-context :level])))))))))
 
-(deftest test-format-cli-error
+(deftest ^:unit test-format-cli-error
   (testing "formats error without context"
     (let [exception (ex-info "Simple CLI error" {:field "value"})
           formatted (eh/format-cli-error exception)]
@@ -235,7 +235,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest test-middleware-integration
+(deftest ^:unit test-middleware-integration
   (testing "HTTP middleware stack with context preservation"
     (let [user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)

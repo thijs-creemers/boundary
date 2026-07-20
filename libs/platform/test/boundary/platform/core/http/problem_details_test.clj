@@ -32,7 +32,7 @@
 ;; Context Extraction Tests
 ;; =============================================================================
 
-(deftest test-request->context
+(deftest ^:unit test-request->context
   (testing "extracts context from HTTP request"
     (let [user-id (UUID/randomUUID)
           tenant-id (UUID/randomUUID)
@@ -71,7 +71,7 @@
       (is (= "10.0.0.1" (:ip-address context-single)))
       (is (= "10.0.0.1" (:ip-address context-multiple))))))
 
-(deftest test-cli-context
+(deftest ^:unit test-cli-context
   (testing "creates CLI context with environment info"
     (let [timestamp (Instant/parse "2026-04-10T12:00:00Z")
           context (pd/cli-context* {:environment "development"
@@ -93,7 +93,7 @@
       (is (= "create-user" (:operation context)))
       (is (contains? context :environment)))))
 
-(deftest test-enrich-context
+(deftest ^:unit test-enrich-context
   (testing "enriches context with timestamp and environment"
     (let [base-context {:user-id "test-user"}
           enriched (pd/enrich-context base-context {:timestamp (java.time.Instant/now) :environment "test"})]
@@ -114,7 +114,7 @@
 ;; Problem Details Creation Tests
 ;; =============================================================================
 
-(deftest test-exception->problem-body-with-context
+(deftest ^:unit test-exception->problem-body-with-context
   (testing "creates problem body with context"
     (let [exception (create-test-exception :message "Validation failed"
                                            :data {:field "email" :error "invalid"})
@@ -157,7 +157,7 @@
       (is (= "test-user" (get-in problem-body [:errorContext :user-id])))
       (is (not (contains? (:errorContext problem-body) :timestamp))))))
 
-(deftest test-exception->problem-response-with-context
+(deftest ^:unit test-exception->problem-response-with-context
   (testing "creates problem response with context"
     (let [exception (create-test-exception :message "Server error")
           context {:user-id "test-user" :operation "get-user"}
@@ -192,7 +192,7 @@
 ;; Integration Tests
 ;; =============================================================================
 
-(deftest test-full-context-flow
+(deftest ^:unit test-full-context-flow
   (testing "full flow from request to problem response"
     (let [request (create-test-request :user-id (UUID/randomUUID)
                                        :tenant-id (UUID/randomUUID))

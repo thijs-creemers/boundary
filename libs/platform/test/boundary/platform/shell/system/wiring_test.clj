@@ -13,13 +13,13 @@
             [clojure.test :refer [deftest is testing]]
             [integrant.core :as ig]))
 
-(deftest router-init-falls-back-to-reitit-for-unknown-adapters
+(deftest ^:unit router-init-falls-back-to-reitit-for-unknown-adapters
   (with-redefs [boundary.platform.shell.http.reitit-router/create-reitit-router
                 (fn [] ::reitit-router)]
     (is (= ::reitit-router
            (ig/init-key :boundary/router {:adapter :unknown})))))
 
-(deftest http-handler-includes-membership-routes-and-optional-middleware
+(deftest ^:unit http-handler-includes-membership-routes-and-optional-middleware
   (let [captured-routes (atom nil)
         captured-config (atom nil)
         compiled-handler (fn [request] {:status 200 :body request})
@@ -88,7 +88,7 @@
       (is (= {:status 200 :body {:request-method :get}}
              (handler {:request-method :get}))))))
 
-(deftest http-handler-normalizes-web-routes-and-skips-optional-middleware-when-disabled
+(deftest ^:unit http-handler-normalizes-web-routes-and-skips-optional-middleware-when-disabled
   (let [captured-routes (atom nil)
         captured-config (atom nil)
         compiled-handler (fn [request] {:status 200 :body request})
@@ -165,7 +165,7 @@
         (is (= {:status 200 :body {:request-method :get}}
                (handler {:request-method :get})))))))
 
-(deftest ^:security http-handler-fails-loud-when-csrf-enabled-without-secret
+(deftest ^:security ^:unit http-handler-fails-loud-when-csrf-enabled-without-secret
   (testing "CSRF enabled with a blank secret throws at startup (fail closed, not fail open)"
     ;; :secret "" forces a blank secret regardless of the ambient JWT_SECRET env var,
     ;; so the guard trips deterministically.
@@ -180,7 +180,7 @@
                        :config {:active {:boundary/http {:security {:csrf {:enabled? true
                                                                            :secret ""}}}}}})))))
 
-(deftest component-init-falls-back-to-no-op-providers-for-unknown-adapters
+(deftest ^:unit component-init-falls-back-to-no-op-providers-for-unknown-adapters
   (with-redefs [boundary.observability.logging.shell.adapters.no-op/create-logging-component
                 (fn [config] [:logging-no-op config])
                 boundary.observability.metrics.shell.adapters.no-op/create-metrics-component

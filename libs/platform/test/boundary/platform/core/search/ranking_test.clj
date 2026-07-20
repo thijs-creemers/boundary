@@ -11,7 +11,7 @@
 ;; Field Weighting
 ;; ============================================================================
 
-(deftest calculate-field-weight-test
+(deftest ^:unit calculate-field-weight-test
   (testing "calculates weight for A-level field"
     (is (= 1.0 (ranking/calculate-field-weight :name {:weights {:name 'A}}))))
 
@@ -30,7 +30,7 @@
   (testing "handles missing weights config"
     (is (= 0.1 (ranking/calculate-field-weight :name nil)))))
 
-(deftest normalize-field-weights-test
+(deftest ^:unit normalize-field-weights-test
   (testing "normalizes weights to sum to 1.0"
     (let [weights {:name 1.0 :email 0.4 :bio 0.2}
           normalized (ranking/normalize-field-weights weights)
@@ -63,7 +63,7 @@
 ;; Recency Boost
 ;; ============================================================================
 
-(deftest calculate-document-age-days-test
+(deftest ^:unit calculate-document-age-days-test
   (testing "calculates age in days"
     (let [created (.toInstant #inst "2024-01-01T00:00:00Z")
           current (.toInstant #inst "2024-01-08T00:00:00Z")
@@ -88,7 +88,7 @@
                "2024-01-08T00:00:00Z")]
       (is (= 7 age)))))
 
-(deftest apply-recency-boost-test
+(deftest ^:unit apply-recency-boost-test
   (testing "boosts recent documents significantly"
     (let [boosted (ranking/apply-recency-boost 0.5 1 0.1)]
       (is (> boosted 0.5))
@@ -113,7 +113,7 @@
           fast-decay (ranking/apply-recency-boost 0.5 10 0.2)]
       (is (> slow-decay fast-decay)))))
 
-(deftest apply-linear-recency-boost-test
+(deftest ^:unit apply-linear-recency-boost-test
   (testing "brand new document gets maximum boost"
     (let [boosted (ranking/apply-linear-recency-boost 0.5 0 2.0 30)]
       (is (= 1.0 boosted))))
@@ -144,7 +144,7 @@
 ;; Score Normalization
 ;; ============================================================================
 
-(deftest normalize-scores-test
+(deftest ^:unit normalize-scores-test
   (testing "normalizes scores to 0-1 range"
     (let [results [{:id 1 :score 0.8}
                    {:id 2 :score 0.5}
@@ -173,7 +173,7 @@
           normalized (ranking/normalize-scores results)]
       (is (= 0.8 (:score (first normalized)))))))
 
-(deftest normalize-scores-zscore-test
+(deftest ^:unit normalize-scores-zscore-test
   (testing "calculates z-scores"
     (let [results [{:id 1 :score 0.8}
                    {:id 2 :score 0.5}
@@ -204,7 +204,7 @@
 ;; Score Combination
 ;; ============================================================================
 
-(deftest combine-scores-test
+(deftest ^:unit combine-scores-test
   (testing "combines scores with equal weights"
     (let [scores {:relevance 0.8 :recency 0.6}
           weights {:relevance 0.5 :recency 0.5}
@@ -233,7 +233,7 @@
     (let [combined (ranking/combine-scores {} {})]
       (is (= 0.0 combined)))))
 
-(deftest multiply-scores-test
+(deftest ^:unit multiply-scores-test
   (testing "multiplies multiple scores"
     (is (= 0.504 (ranking/multiply-scores [0.8 0.9 0.7]))))
 
@@ -250,7 +250,7 @@
 ;; Ranking Functions
 ;; ============================================================================
 
-(deftest rank-results-test
+(deftest ^:unit rank-results-test
   (testing "ranks by score descending"
     (let [results [{:id 1 :score 0.5}
                    {:id 2 :score 0.9}
@@ -274,7 +274,7 @@
           ranked (ranking/rank-results results)]
       (is (= results ranked)))))
 
-(deftest rank-by-field-test
+(deftest ^:unit rank-by-field-test
   (testing "ranks by field ascending"
     (let [results [{:name "Zoe"} {:name "Alice"} {:name "Bob"}]
           ranked (ranking/rank-by-field results :name :asc)]
@@ -296,7 +296,7 @@
   (testing "handles empty results"
     (is (= [] (ranking/rank-by-field [] :name :asc)))))
 
-(deftest add-rank-position-test
+(deftest ^:unit add-rank-position-test
   (testing "adds rank positions starting from 1"
     (let [results [{:score 0.9} {:score 0.7} {:score 0.5}]
           ranked (ranking/add-rank-position results)]
@@ -322,7 +322,7 @@
 ;; Scoring Metrics
 ;; ============================================================================
 
-(deftest calculate-average-score-test
+(deftest ^:unit calculate-average-score-test
   (testing "calculates average of multiple scores"
     (let [results [{:score 0.8} {:score 0.6} {:score 0.4}]
           avg (ranking/calculate-average-score results)]
@@ -341,7 +341,7 @@
           avg (ranking/calculate-average-score results)]
       (is (= 0.6 avg)))))
 
-(deftest calculate-median-score-test
+(deftest ^:unit calculate-median-score-test
   (testing "calculates median for odd count"
     (let [results [{:score 0.8} {:score 0.6} {:score 0.4}]
           median (ranking/calculate-median-score results)]
@@ -369,7 +369,7 @@
 ;; Diversity & De-duplication
 ;; ============================================================================
 
-(deftest deduplicate-by-field-test
+(deftest ^:unit deduplicate-by-field-test
   (testing "removes duplicates keeping first occurrence"
     (let [results [{:id 1 :name "John"}
                    {:id 2 :name "Jane"}
@@ -403,7 +403,7 @@
           deduped (ranking/deduplicate-by-field results :name)]
       (is (= 2 (count deduped))))))
 
-(deftest diversify-results-test
+(deftest ^:unit diversify-results-test
   (testing "limits results per category"
     (let [results [{:id 1 :category "tech" :score 0.9}
                    {:id 2 :category "tech" :score 0.8}
@@ -442,7 +442,7 @@
 ;; Integration Tests
 ;; ============================================================================
 
-(deftest ranking-pipeline-test
+(deftest ^:unit ranking-pipeline-test
   (testing "complete ranking pipeline"
     (let [raw-results [{:id 1 :name "John Doe" :score 0.5 :created-at (.toInstant #inst "2024-01-01")}
                        {:id 2 :name "Jane Smith" :score 0.8 :created-at (.toInstant #inst "2024-01-10")}

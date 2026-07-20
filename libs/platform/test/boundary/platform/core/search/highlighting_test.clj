@@ -12,7 +12,7 @@
 ;; Highlighting
 ;; ============================================================================
 
-(deftest highlight-matches-test
+(deftest ^:unit highlight-matches-test
   (testing "highlights single term with default markup"
     (let [text "John Doe is a software engineer"
           result (hl/highlight-matches text ["John"])]
@@ -68,7 +68,7 @@
                                        {:whole-words? false})]
       (is (= "Price is <mark>$100</mark>" result)))))
 
-(deftest highlight-field-test
+(deftest ^:unit highlight-field-test
   (testing "highlights single field"
     (let [result {:name "John Doe"}
           highlighted (hl/highlight-field result :name ["John"])]
@@ -96,7 +96,7 @@
           highlighted (hl/highlight-field result :name ["John"])]
       (is (= "John Doe" (:name highlighted))))))
 
-(deftest highlight-multiple-fields-test
+(deftest ^:unit highlight-multiple-fields-test
   (testing "highlights multiple fields"
     (let [result {:name "John Doe" :bio "Software engineer"}
           highlighted (hl/highlight-multiple-fields result [:name :bio]
@@ -125,7 +125,7 @@
 ;; Snippet Extraction
 ;; ============================================================================
 
-(deftest find-first-match-position-test
+(deftest ^:unit find-first-match-position-test
   (testing "finds first match position"
     (let [text "Hello John Doe"
           result (hl/find-first-match-position text ["John" "Jane"])]
@@ -151,7 +151,7 @@
   (testing "handles empty search terms"
     (is (nil? (hl/find-first-match-position "text" [])))))
 
-(deftest extract-snippet-test
+(deftest ^:unit extract-snippet-test
   (testing "extracts snippet around match"
     (let [text "This is a long text about John Doe who works as a software engineer"
           result (hl/extract-snippet text ["John"] 30)]
@@ -199,7 +199,7 @@
       (is (str/includes? result "John"))
       (is (<= (count result) 23)))))  ; 20 + ellipsis
 
-(deftest extract-snippet-with-highlight-test
+(deftest ^:unit extract-snippet-with-highlight-test
   (testing "extracts and highlights in one step"
     (let [text "This is a long text about John Doe who works as an engineer"
           result (hl/extract-snippet-with-highlight text ["John" "engineer"] 50)]
@@ -219,7 +219,7 @@
       (is (str/includes? result "<mark>Jane</mark>")))))
       ; Note: "engineers" may be truncated depending on snippet extraction)
 
-(deftest extract-multiple-snippets-test
+(deftest ^:unit extract-multiple-snippets-test
   (testing "extracts multiple snippets for multiple matches"
     (let [text (str "John works in NYC. " (apply str (repeat 200 "x"))
                     " John lives in LA.")
@@ -258,7 +258,7 @@
 ;; Helper Functions
 ;; ============================================================================
 
-(deftest truncate-text-test
+(deftest ^:unit truncate-text-test
   (testing "truncates long text"
     (is (= "Hello..." (hl/truncate-text "Hello World" 8))))
 
@@ -278,7 +278,7 @@
     (let [result (hl/truncate-text "Hello World" 10)]
       (is (= 10 (count result))))))
 
-(deftest strip-html-test
+(deftest ^:unit strip-html-test
   (testing "strips simple HTML tags"
     (is (= "Hello world" (hl/strip-html "<p>Hello world</p>"))))
 
@@ -303,7 +303,7 @@
   (testing "removes self-closing tags"
     (is (= "BeforeAfter" (hl/strip-html "Before<br/>After")))))
 
-(deftest count-matches-test
+(deftest ^:unit count-matches-test
   (testing "counts single term matches"
     (let [result (hl/count-matches "John and Jane met John" ["John"])]
       (is (= 2 (get result "John")))))
@@ -333,7 +333,7 @@
     (let [result (hl/count-matches "aaa" ["aa"])]
       (is (= 1 (get result "aa"))))))  ; re-seq doesn't find overlapping matches
 
-(deftest calculate-match-density-test
+(deftest ^:unit calculate-match-density-test
   (testing "calculates density for single term"
     (let [density (hl/calculate-match-density "John Doe" ["John"])]
       (is (= 0.5 density))))  ; "John" is 4 chars out of 8 total
@@ -366,7 +366,7 @@
 ;; Integration Tests
 ;; ============================================================================
 
-(deftest highlighting-pipeline-test
+(deftest ^:unit highlighting-pipeline-test
   (testing "complete highlighting and snippet workflow"
     (let [text "John Doe is a software engineer who works on distributed systems"
           search-terms ["John" "engineer" "systems"]

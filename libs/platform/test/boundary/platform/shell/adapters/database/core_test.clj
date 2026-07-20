@@ -88,7 +88,7 @@
 ;; Core Database Operations Tests
 ;; =============================================================================
 
-(deftest test-connection-pool-creation
+(deftest ^:integration test-connection-pool-creation
   (testing "Connection pool creation with H2"
     (let [adapter (h2/new-adapter)
           db-config {:adapter :h2 :database-path "mem:test_pool"}
@@ -97,7 +97,7 @@
       (is (instance? javax.sql.DataSource datasource))
       (.close datasource))))
 
-(deftest test-execute-query
+(deftest ^:integration test-execute-query
   (testing "Query execution returns correct results"
     (let [ctx @test-ctx
           user-id (UUID/randomUUID)
@@ -120,7 +120,7 @@
         (is (= "Test User" (:name user)))
         (is (true? (:active user)))))))
 
-(deftest test-execute-one
+(deftest ^:integration test-execute-one
   (testing "Execute-one returns single result or nil"
     (let [ctx @test-ctx
           user-id (UUID/randomUUID)]
@@ -138,13 +138,13 @@
         (is (= user-id (:id result)))
         (is (= "single@test.com" (:email result)))))))
 
-(deftest test-execute-query-with-jdbc-vector
+(deftest ^:integration test-execute-query-with-jdbc-vector
   (testing "Raw JDBC vectors are accepted for direct SQL queries"
     (let [ctx @test-ctx
           result (db/execute-query! ctx ["SELECT 42 AS answer"])]
       (is (= [{:answer 42}] result)))))
 
-(deftest test-execute-update
+(deftest ^:integration test-execute-update
   (testing "Execute-update returns affected row count"
     (let [ctx @test-ctx
           user-id (UUID/randomUUID)]
@@ -171,7 +171,7 @@
                                               :where [:= :id user-id]})]
         (is (= 0 affected))))))
 
-(deftest test-instant-values-are-normalized-before-db-execution
+(deftest ^:integration test-instant-values-are-normalized-before-db-execution
   (testing "Instant values are converted to ISO strings for inserts, updates, and predicates"
     (let [ctx @test-ctx
           event-id (UUID/randomUUID)
@@ -195,7 +195,7 @@
                                      :from [:test_events]
                                      :where [:= :updated_at updated-at]}))))))
 
-(deftest test-transactions
+(deftest ^:integration test-transactions
   (testing "Transaction commit and rollback behavior"
     (let [ctx @test-ctx
           user-id-1 (UUID/randomUUID)
@@ -231,7 +231,7 @@
 ;; Query Building Tests
 ;; =============================================================================
 
-(deftest test-build-where-clause
+(deftest ^:integration test-build-where-clause
   (testing "Where clause building with different filter types"
     (let [adapter (h2/new-adapter)
           ctx {:adapter adapter}]
@@ -258,7 +258,7 @@
       (is (nil? (db/build-where-clause ctx {})))
       (is (nil? (db/build-where-clause ctx nil))))))
 
-(deftest test-build-pagination
+(deftest ^:integration test-build-pagination
   (testing "Pagination building with safe limits"
     ;; Test default values
     (let [pagination (db/build-pagination {})]
@@ -282,7 +282,7 @@
     (let [pagination (db/build-pagination {:offset -10})]
       (is (= 0 (:offset pagination))))))
 
-(deftest test-build-ordering
+(deftest ^:integration test-build-ordering
   (testing "Order clause building with different options"
     ;; Test default ordering (defaults to :asc)
     (let [ordering (db/build-ordering {} :created_at)]
@@ -304,7 +304,7 @@
 ;; Schema Introspection Tests
 ;; =============================================================================
 
-(deftest test-table-exists
+(deftest ^:integration test-table-exists
   (testing "Table existence checking"
     (let [ctx @test-ctx]
       ;; Test existing table
@@ -315,7 +315,7 @@
       (is (not (db/table-exists? ctx :non_existent_table)))
       (is (not (db/table-exists? ctx "non_existent_table"))))))
 
-(deftest test-get-table-info
+(deftest ^:integration test-get-table-info
   (testing "Table information retrieval"
     (let [ctx @test-ctx
           table-info (db/get-table-info ctx :test_users)]
@@ -340,7 +340,7 @@
 ;; Error Handling Tests
 ;; =============================================================================
 
-(deftest test-error-handling
+(deftest ^:integration test-error-handling
   (testing "Proper error handling with context enrichment"
     (let [ctx @test-ctx]
 
@@ -363,7 +363,7 @@
 ;; Database Dialect Tests
 ;; =============================================================================
 
-(deftest test-dialect-formatting
+(deftest ^:integration test-dialect-formatting
   (testing "Queries are formatted with correct dialect"
     (let [h2-adapter (h2/new-adapter)
           sqlite-adapter (sqlite/new-adapter)
@@ -386,7 +386,7 @@
 ;; Batch Operations Tests
 ;; =============================================================================
 
-(deftest test-execute-batch
+(deftest ^:integration test-execute-batch
   (testing "Batch execution in transaction"
     (let [ctx @test-ctx
           user-id-1 (UUID/randomUUID)
@@ -410,7 +410,7 @@
 ;; Performance and Logging Tests
 ;; =============================================================================
 
-(deftest test-query-logging
+(deftest ^:integration test-query-logging
   (testing "Queries log execution time and row counts"
     ;; This is more of an integration test to ensure logging doesn't break
     ;; In a real scenario, you'd capture log output and verify it
@@ -430,7 +430,7 @@
 ;; Integration Tests with Different Adapters
 ;; =============================================================================
 
-(deftest test-adapter-compatibility
+(deftest ^:integration test-adapter-compatibility
   (testing "Core functions work with different adapters"
     ;; Test with H2 (already tested above)
     (let [h2-adapter (h2/new-adapter)]
@@ -450,7 +450,7 @@
       (is (true? (protocols/db->boolean sqlite-adapter 1)))
       (is (false? (protocols/db->boolean sqlite-adapter 0))))))
 
-(deftest test-cross-database-queries
+(deftest ^:integration test-cross-database-queries
   (testing "Same query logic works across different database types"
     ;; This test demonstrates that the same application code
     ;; can work with different database backends
@@ -466,7 +466,7 @@
       ;; Test with H2 (our test database)
       (is (= "cross@db.test" (:email (test-query-fn @test-ctx)))))))
 
-(deftest test-database-info
+(deftest ^:integration test-database-info
   (testing "Database info provides useful metadata"
     (let [ctx @test-ctx
           db-info (db/database-info ctx)]
@@ -480,7 +480,7 @@
 ;; Edge Cases and Error Conditions
 ;; =============================================================================
 
-(deftest test-edge-cases
+(deftest ^:integration test-edge-cases
   (testing "Handling of edge cases and invalid inputs"
     (let [ctx @test-ctx]
 
