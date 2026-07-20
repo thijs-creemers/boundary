@@ -500,13 +500,11 @@
   [user-service _config]
   (fn [request]
     (let [session-token (or (get-in request [:cookies "session-token" :value])
-                            (get-in request [:headers "x-session-token"]))
-          token-preview (when session-token
-                          (subs session-token 0 (min 16 (count session-token))))]
+                            (get-in request [:headers "x-session-token"]))]
       (when session-token
         (try
           ;; Best-effort server-side logout
-          (log/info "Attempting to invalidate session" {:token token-preview})
+          (log/info "Attempting to invalidate session" {:has-token true})
           (let [result (user-ports/logout-user user-service session-token)]
             (log/info "Session invalidation result" {:result result}))
           (catch Exception e
