@@ -78,7 +78,7 @@
           result (ports/generate! gen sample-sections-report sample-data {})]
       (is (= "test-output.docx" (:filename result))))))
 
-(deftest word-supported-type-test
+(deftest ^:unit word-supported-type-test
   (testing "supported-type? returns true for :word"
     (is (ports/supported-type? (sut/create-word-generator) :word)))
   (testing "supported-type? returns false for :pdf"

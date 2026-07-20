@@ -78,7 +78,7 @@
       (is (pos? (count (:bytes result))))
       (is (= (int \%) (aget ^bytes (:bytes result) 0))))))
 
-(deftest pdf-supported-type-test
+(deftest ^:unit pdf-supported-type-test
   (testing "supported-type? returns true for :pdf"
     (is (ports/supported-type? (sut/create-pdf-generator) :pdf)))
   (testing "supported-type? returns false for :excel"

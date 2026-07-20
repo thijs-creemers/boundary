@@ -15,7 +15,7 @@
         (doseq [f (.listFiles dir)] (.delete f))
         (.delete dir)))))
 
-(deftest start-stop-session-test
+(deftest ^:unit start-stop-session-test
   (testing "start creates a session, stop freezes it"
     (recording/start-recording!)
     (is (some? (recording/active-session)))
@@ -23,7 +23,7 @@
     (recording/stop-recording!)
     (is (inst? (:stopped-at (recording/active-session))))))
 
-(deftest capture-middleware-test
+(deftest ^:unit capture-middleware-test
   (testing "middleware captures request/response pairs"
     (recording/start-recording!)
     (let [handler (fn [_req] {:status 200 :body {:ok true}})
@@ -32,7 +32,7 @@
       (is (= 200 (:status response)))
       (is (= 1 (count (:entries (recording/active-session))))))))
 
-(deftest save-load-session-test
+(deftest ^:integration save-load-session-test
   (testing "saves and loads session from file"
     (recording/start-recording!)
     (let [handler (fn [_req] {:status 200 :body {:ok true}})
@@ -45,7 +45,7 @@
       (recording/load-session! "test-flow" test-dir)
       (is (= 1 (count (:entries (recording/active-session))))))))
 
-(deftest load-missing-session-test
+(deftest ^:integration load-missing-session-test
   (testing "loading a non-existent session returns error info"
     (let [result (recording/load-session! "nonexistent" test-dir)]
       (is (= :not-found (:error result))))))

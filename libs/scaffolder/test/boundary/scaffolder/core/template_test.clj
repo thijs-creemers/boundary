@@ -2,31 +2,31 @@
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.scaffolder.core.template :as template]))
 
-(deftest kebab->pascal-test
+(deftest ^:unit kebab->pascal-test
   (testing "converts kebab-case to PascalCase"
     (is (= "UserProfile" (template/kebab->pascal "user-profile")))
     (is (= "Customer" (template/kebab->pascal "customer")))
     (is (= "OrderItem" (template/kebab->pascal "order-item")))))
 
-(deftest kebab->snake-test
+(deftest ^:unit kebab->snake-test
   (testing "converts kebab-case to snake_case"
     (is (= "user_profile" (template/kebab->snake "user-profile")))
     (is (= "customer" (template/kebab->snake "customer")))
     (is (= "order_item" (template/kebab->snake "order-item")))))
 
-(deftest pluralize-test
+(deftest ^:unit pluralize-test
   (testing "pluralizes singular nouns"
     (is (= "customers" (template/pluralize "customer")))
     (is (= "users" (template/pluralize "user")))))
 
-(deftest field-type->malli-test
+(deftest ^:unit field-type->malli-test
   (testing "converts field types to Malli schemas"
     (is (= :string (template/field-type->malli {:type :string})))
     (is (= :uuid (template/field-type->malli {:type :uuid})))
     (is (= [:enum :active :inactive]
            (template/field-type->malli {:type :enum :enum-values [:active :inactive]})))))
 
-(deftest field-type->sql-test
+(deftest ^:unit field-type->sql-test
   (testing "converts field types to SQL types"
     (is (= "VARCHAR(255)" (template/field-type->sql {:type :string})))
     (is (= "TEXT" (template/field-type->sql {:type :text})))
@@ -39,7 +39,7 @@
     (is (= "JSONB" (template/field-type->sql {:type :json})))
     (is (= "DOUBLE PRECISION" (template/field-type->sql {:type :decimal})))))
 
-(deftest build-entity-context-test
+(deftest ^:unit build-entity-context-test
   (testing "builds entity context for templates"
     (let [entity-def {:name "Customer"
                       :fields [{:name :email :type :email :required true}
@@ -53,7 +53,7 @@
       (is (= "customers" (:entity-table ctx)))
       (is (= 2 (count (:fields ctx)))))))
 
-(deftest build-module-context-test
+(deftest ^:unit build-module-context-test
   (testing "builds complete module context"
     (let [request {:module-name "customer"
                    :entities [{:name "Customer"

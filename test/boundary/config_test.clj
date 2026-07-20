@@ -7,7 +7,7 @@
 ;; Environment alias normalization
 ;; ---------------------------------------------------------------------------
 
-(deftest normalize-env-aliases-test
+(deftest ^:unit normalize-env-aliases-test
   (testing "long-form :profile values are normalized to short directory names"
     (is (map? (sut/load-config {:profile :development})))
     (is (map? (sut/load-config {:profile :production})))
@@ -43,7 +43,7 @@
     :boundary/sqlite {:db "dev-database.db"
                       :pool {:maximum-pool-size 5}}}})
 
-(deftest db-spec-selects-active-adapter-test
+(deftest ^:unit db-spec-selects-active-adapter-test
   (testing "sqlite config is converted to a DB spec"
     (is (= {:adapter :sqlite
             :database-path "dev-database.db"
@@ -63,7 +63,7 @@
                           (sut/db-adapter {:active {:boundary/http {:port 3000}}})))]
       (is (= "No active database adapter found in configuration" (ex-message ex))))))
 
-(deftest ig-config-wires-tenant-membership-and-http-components-test
+(deftest ^:unit ig-config-wires-tenant-membership-and-http-components-test
   (let [config (assoc-in (base-config) [:active :boundary/admin] {:enabled? true})
         ig-config (sut/ig-config config)]
     (testing "tenant and membership services are part of the Integrant graph"

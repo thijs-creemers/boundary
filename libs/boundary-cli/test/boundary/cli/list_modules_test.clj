@@ -4,7 +4,7 @@
             [cheshire.core :as json]
             [boundary.cli.list-modules :as lm]))
 
-(deftest human-table-test
+(deftest ^:unit human-table-test
   (testing "table output contains module names"
     (let [out (with-out-str (lm/print-table))]
       (is (str/includes? out "payments"))
@@ -16,7 +16,7 @@
       (is (str/includes? out "Module"))
       (is (str/includes? out "Description")))))
 
-(deftest json-output-test
+(deftest ^:unit json-output-test
   (testing "JSON output is valid JSON"
     (let [out (with-out-str (lm/print-json))
           parsed (json/parse-string out true)]
