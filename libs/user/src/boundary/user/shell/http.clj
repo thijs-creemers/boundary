@@ -370,6 +370,10 @@
                                              [:dateFormat {:optional true} [:enum "iso" "us" "eu"]]
                                              [:timeFormat {:optional true} [:enum "12h" "24h"]]]}}
                 :get  {:handler    (list-users-handler user-service)
+                       ;; Listing all users is an admin operation (consistent with
+                       ;; POST create); non-admins must not enumerate the directory.
+                       :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                      'boundary.user.shell.http-interceptors/require-admin]
                        :summary    "List users with pagination and filters"
                        :tags       ["users"]
                        :parameters {:query [:map
@@ -380,10 +384,20 @@
      {:path    "/users/:id"
       :meta    {:middleware [auth-middleware]}
       :methods {:get    {:handler    (get-user-handler user-service)
+                         ;; Read own record or admin — closes the cross-user IDOR
+                         ;; (a non-admin cannot fetch another user's record by :id).
+                         :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                        'boundary.user.shell.http-interceptors/require-self-or-admin]
                          :summary    "Get user by ID"
                          :tags       ["users"]
                          :parameters {:path [:map [:id :string]]}}
                 :put    {:handler    (update-user-handler user-service)
+                         ;; Admin-only: the update body includes :role, so a
+                         ;; self-or-admin guard would allow privilege escalation
+                         ;; via self-edit. Self-service profile edits go through
+                         ;; the /profile web routes, which do not accept :role.
+                         :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                        'boundary.user.shell.http-interceptors/require-admin]
                          :summary    "Update user"
                          :tags       ["users"]
                          :parameters {:path [:map [:id :string]]
@@ -402,6 +416,9 @@
                                              [:dateFormat {:optional true} [:enum "iso" "us" "eu"]]
                                              [:timeFormat {:optional true} [:enum "12h" "24h"]]]}}
                 :delete {:handler    (delete-user-handler user-service)
+                         ;; Admin-only: deleting a user is an administrative action.
+                         :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                        'boundary.user.shell.http-interceptors/require-admin]
                          :summary    "Soft delete user"
                          :tags       ["users"]
                          :parameters {:path [:map [:id :string]]}}}}
@@ -527,11 +544,19 @@
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get {:handler (web-handlers/user-sessions-page-handler user-service config)
+                      ;; The handler reads the :id path param, so a non-admin must
+                      ;; not view another user's sessions (IDOR) — own or admin only.
+                      :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                     'boundary.user.shell.http-interceptors/require-self-or-admin]
                       :summary "User sessions management page"}}}
      {:path    "/users/:id/sessions/revoke-all"
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:post {:handler (web-handlers/revoke-all-sessions-handler user-service config)
+                       ;; Revoking by :id path param — own or admin only, else a
+                       ;; non-admin could force-logout any user (IDOR / DoS).
+                       :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                      'boundary.user.shell.http-interceptors/require-self-or-admin]
                        :summary "Revoke all user sessions"}}}
      {:path    "/sessions/revoke"
       :meta    {:no-doc     true
