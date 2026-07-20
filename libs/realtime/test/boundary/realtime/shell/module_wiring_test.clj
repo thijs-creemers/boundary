@@ -10,7 +10,7 @@
             ;; Loading this namespace must register the init/halt defmethods.
             [boundary.realtime.shell.module-wiring]))
 
-(deftest ^:integration init-key-registered-test
+(deftest ^:unit init-key-registered-test
   (testing ":boundary/realtime has registered Integrant init and halt methods"
     (is (contains? (methods ig/init-key) :boundary/realtime)
         "init-key defmethod must be registered (else system startup fails with 'no method for key')")
