@@ -19,6 +19,7 @@
             [boundary.admin.shell.module-wiring]
             [boundary.workflow.shell.module-wiring]
             [boundary.search.shell.module-wiring]
+            [boundary.tenant.shell.module-wiring]
             [boundary.devtools.core.guidance :as guidance]
             [boundary.devtools.core.introspection :as introspection]
             [boundary.devtools.core.schema-tools :as schema-tools]

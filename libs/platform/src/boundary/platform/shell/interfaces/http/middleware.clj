@@ -18,7 +18,7 @@
    - Error reporting breadcrumb integration
    
    Multi-Tenant Middleware:
-   See boundary.platform.shell.interfaces.http.tenant-middleware for:
+   See boundary.tenant.shell.tenant-middleware for:
    - Tenant resolution (subdomain, JWT, headers)
    - PostgreSQL schema switching per request
    - Tenant caching with configurable TTL

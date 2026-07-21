@@ -17,6 +17,7 @@
             [boundary.admin.shell.module-wiring]
             [boundary.workflow.shell.module-wiring]
             [boundary.search.shell.module-wiring]
+            [boundary.tenant.shell.module-wiring]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [integrant.core :as ig])

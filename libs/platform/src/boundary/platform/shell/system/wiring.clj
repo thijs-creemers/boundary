@@ -38,11 +38,10 @@
             ;; NOTE: user module-wiring is loaded by the application entry point
             ;; (boundary.main), NOT here — platform must not depend on the user
             ;; feature lib (BOU-171: dissolves the platform<->user cycle).
-            ;; NOTE: admin/workflow/search module-wiring is loaded by the
-            ;; application entry point (boundary.main), NOT here — platform must
-            ;; not depend on those feature libs (BOU-192: dissolves the
-            ;; platform<->{admin,workflow,search} cycles).
-            [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods
+            ;; NOTE: feature-module module-wiring (admin/workflow/search/tenant/user)
+            ;; is loaded by the application entry point (boundary.main), NOT here —
+            ;; platform must not statically depend on the feature libs
+            ;; (BOU-192/BOU-198: dissolves the platform<->feature cycles).
             [boundary.external.shell.module-wiring] ;; Load external adapters init/halt methods
             [boundary.payments.shell.module-wiring] ;; Load payments module init/halt methods
             [boundary.i18n.shell.module-wiring] ;; Load i18n module init/halt methods
@@ -147,13 +146,15 @@
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
-  (require 'boundary.platform.shell.interfaces.http.tenant-middleware)
+  ;; Tenant HTTP middleware lives in the tenant lib (BOU-198) — loaded
+  ;; dynamically here so platform does not statically depend on tenant.
+  (require 'boundary.tenant.shell.tenant-middleware)
   (require 'boundary.tenant.shell.membership-middleware)
   (let [;; Import compile-routes function
         compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
 
-        ;; Import tenant middleware
-        tenant-mw-ns 'boundary.platform.shell.interfaces.http.tenant-middleware
+        ;; Import tenant middleware (from the tenant lib)
+        tenant-mw-ns 'boundary.tenant.shell.tenant-middleware
         wrap-multi-tenant (ns-resolve tenant-mw-ns 'wrap-multi-tenant)
         wrap-tenant-membership (ns-resolve 'boundary.tenant.shell.membership-middleware
                                            'wrap-tenant-membership)

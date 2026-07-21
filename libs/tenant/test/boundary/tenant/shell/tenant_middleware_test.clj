@@ -1,8 +1,8 @@
-(ns boundary.platform.shell.interfaces.http.tenant-middleware-test
+(ns boundary.tenant.shell.tenant-middleware-test
   "Tests for multi-tenant HTTP middleware."
   (:require [clojure.test :refer [deftest testing is]]
             [boundary.platform.shell.adapters.database.common.core :as db]
-            [boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw]
+            [boundary.tenant.shell.tenant-middleware :as tenant-mw]
             [boundary.platform.shell.adapters.database.protocols]
             [boundary.tenant.ports :as tenant-ports]
             [next.jdbc])

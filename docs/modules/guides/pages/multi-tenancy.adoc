@@ -87,7 +87,7 @@ Each one depends on data set by the previous.
 
 [source,clojure]
 ----
-(require '[boundary.platform.shell.interfaces.http.tenant-middleware :as tm]
+(require '[boundary.tenant.shell.tenant-middleware :as tm]
          '[boundary.tenant.shell.membership-middleware :refer [wrap-tenant-membership]])
 
 (defn build-handler [routes system]

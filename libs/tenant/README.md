@@ -76,10 +76,10 @@ Multi-tenancy for the Boundary Framework — isolated PostgreSQL schemas, tenant
 
 ### 4. HTTP Tenant Resolution
 
-Tenant middleware lives in the **platform** library (`boundary.platform.shell.interfaces.http.tenant-middleware`):
+Tenant middleware lives in the **tenant** library (`boundary.tenant.shell.tenant-middleware`):
 
 ```clojure
-(require '[boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw])
+(require '[boundary.tenant.shell.tenant-middleware :as tenant-mw])
 
 ;; Add tenant resolution middleware (resolves tenant from subdomain/header/token)
 (def app
@@ -518,7 +518,7 @@ clojure -M:test:db/h2 --focus boundary.tenant.shell.provisioning-test  # Provisi
 
 ### Middleware
 
-**`boundary.platform.shell.interfaces.http.tenant-middleware`** (platform lib):
+**`boundary.tenant.shell.tenant-middleware`** (tenant lib):
 
 - `(wrap-tenant-resolution handler service opts)` - Resolve tenant from request (subdomain/header/token); pass `:require-tenant? true` to enforce tenant presence
 - `(wrap-tenant-schema handler db-ctx)` - Automatic schema switching
