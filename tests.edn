@@ -22,6 +22,7 @@
                         "libs/geo/src"
                         "libs/ai/src"
                         "libs/ui-style/src"
+                        "libs/shared-ui/src"
                         "libs/i18n/src"
                         "libs/devtools/src"
                         "libs/push/src"
@@ -50,6 +51,7 @@
                         "libs/geo/test"
                         "libs/ai/test"
                         "libs/ui-style/test"
+                        "libs/shared-ui/test"
                         "libs/i18n/test"
                         "libs/devtools/test"
                         "libs/push/test"
@@ -142,6 +144,10 @@
           {:id :ui-style
            :test-paths ["libs/ui-style/test"]
            :ns-patterns ["boundary.ui-style.*-test"]}
+
+          {:id :shared-ui
+           :test-paths ["libs/shared-ui/test"]
+           :ns-patterns ["boundary.shared.*-test"]}
 
           {:id :i18n
            :test-paths ["libs/i18n/test"]

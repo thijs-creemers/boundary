@@ -1,4 +1,4 @@
-(ns boundary.admin.shared.ui.core.table-test
+(ns boundary.shared.ui.core.table-test
   (:require [boundary.shared.ui.core.table :as table-ui]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]))

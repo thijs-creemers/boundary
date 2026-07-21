@@ -58,6 +58,7 @@
    "calendar"
    "ai"
    "ui-style"
+   "shared-ui"
    "admin"
    "boundary-cli"
    "devtools"
