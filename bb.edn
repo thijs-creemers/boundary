@@ -20,6 +20,7 @@
              [boundary.tools.check-tests :as check-tests]
              [boundary.tools.check-deps  :as check-deps]
              [boundary.tools.check-ports :as check-ports]
+             [boundary.tools.check-poms  :as check-poms]
              [boundary.tools.check-hygiene :as check-hygiene]
              [boundary.tools.doctor-env  :as doctor-env]
              [boundary.tools.db          :as db]
@@ -98,6 +99,8 @@
               :task (check-deps/-main)}
   check:ports {:doc "Hexagonal boundary enforcement — modules must define ports.clj; shell/web must not bypass protocols (bb check:ports)"
                :task (check-ports/-main)}
+  check:poms {:doc "POM dependency completeness — published POMs must carry inter-Boundary deps via build-shared/pom-basis (bb check:poms)"
+              :task (check-poms/-main)}
   check:hygiene {:doc "Reject tracked backup/cruft files (*.bak, *.backup, *.orig, *~) (bb check:hygiene)"
                  :task (check-hygiene/-main)}
   test:tools {:doc "Run boundary-tools unit tests (bb test:tools)"
@@ -110,6 +113,7 @@
                                  'boundary.tools.check-tests-test
                                  'boundary.tools.check-ports-test
                                  'boundary.tools.check-test
+                                 'boundary.tools.check-poms-test
                                  'boundary.tools.quickstart-test
                                  'boundary.tools.deploy-test
                                  'boundary.tools.help-test)
@@ -122,6 +126,7 @@
                                        'boundary.tools.check-tests-test
                                        'boundary.tools.check-ports-test
                                        'boundary.tools.check-test
+                                 'boundary.tools.check-poms-test
                                        'boundary.tools.quickstart-test
                                        'boundary.tools.deploy-test
                                        'boundary.tools.help-test)]
