@@ -4,8 +4,6 @@
             [boundary.platform.shell.http.reitit-router]
             [boundary.platform.shell.http.versioning]
             [boundary.platform.shell.interfaces.http.common]
-            [boundary.tenant.shell.tenant-middleware]
-            [boundary.tenant.shell.membership-middleware]
             [boundary.i18n.shell.middleware]
             [boundary.observability.logging.shell.adapters.no-op]
             [boundary.observability.metrics.shell.adapters.no-op]
@@ -25,24 +23,16 @@
         compiled-handler (fn [request] {:status 200 :body request})
         config {:active {:boundary/settings {:name "Boundary"
                                              :version "1.2.3"}}}
+        ;; Tenant/membership middleware now arrives via :extra-middleware, built
+        ;; by the tenant lib's :boundary/tenant-http-middleware component (BOU-200);
+        ;; platform's http-handler no longer constructs it. Two stand-in wrappers.
+        extra-middleware [(fn [h] (fn [request] (h (assoc request :tenant true))))
+                          (fn [h] (fn [request] (h (assoc request :membership true))))]
         handler (with-redefs [boundary.platform.ports.http/compile-routes
                               (fn [_router routes router-config]
                                 (reset! captured-routes routes)
                                 (reset! captured-config router-config)
                                 compiled-handler)
-                              boundary.tenant.shell.tenant-middleware/wrap-multi-tenant
-                              (fn [wrapped-handler tenant-service db-context opts]
-                                (fn [request]
-                                  (wrapped-handler
-                                   (assoc request
-                                          :tenant-service tenant-service
-                                          :db-context db-context
-                                          :tenant-opts opts))))
-                              boundary.tenant.shell.membership-middleware/wrap-tenant-membership
-                              (fn [membership-service wrapped-handler]
-                                (fn [request]
-                                  (wrapped-handler
-                                   (assoc request :membership-service membership-service))))
                               boundary.platform.shell.interfaces.http.common/health-check-handler
                               (fn [_app-name _version _details]
                                 (fn [_request] {:status 200}))
@@ -65,15 +55,15 @@
                                 :error-reporter ::error-reporter
                                 :config config
                                 :tenant-service ::tenant-service
-                                :membership-service ::membership-service
                                 :db-context ::db-context
+                                :extra-middleware extra-middleware
                                 :i18n ::i18n}))]
     (testing "the compiled route set includes membership endpoints"
       (is (some #(= "/tenants/:tenant-id/memberships" (:path %)) @captured-routes))
       (is (some #(= "/tenants" (:path %)) @captured-routes))
       (is (some #(= "/users" (:path %)) @captured-routes)))
 
-    (testing "router config receives tenant, membership, i18n, and method override middleware"
+    (testing "router config receives the injected extra middleware, i18n, and method override"
       (is (= 4 (count (:middleware @captured-config))))
       (is (= {:logger ::logger
               :metrics-emitter ::metrics

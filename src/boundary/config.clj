@@ -309,8 +309,8 @@
                                      :error-reporter (ig/ref :boundary/error-reporting)
                                      :user-service (ig/ref :boundary/user-service)
                                      :tenant-service (ig/ref :boundary/tenant-service)
-                                     :membership-service (ig/ref :boundary/membership-service)
                                      :db-context (ig/ref :boundary/db-context)
+                                     :extra-middleware (ig/ref :boundary/tenant-http-middleware)
                                      :i18n (ig/ref :boundary/i18n)}
                               cache-enabled? (assoc :cache (ig/ref :boundary/cache))
                               admin-enabled?
@@ -461,7 +461,15 @@
 
      :boundary/membership-routes
      {:service (ig/ref :boundary/membership-service)
-      :config config}}))
+      :config config}
+
+     ;; Tenant HTTP middleware seq, injected into platform's http-handler via
+     ;; :extra-middleware (BOU-200). Built in the tenant lib so platform's
+     ;; http-handler does not require the tenant lib.
+     :boundary/tenant-http-middleware
+     {:tenant-service (ig/ref :boundary/tenant-service)
+      :membership-service (ig/ref :boundary/membership-service)
+      :db-context (ig/ref :boundary/db-context)}}))
 
 (defn- workflow-module-config
   "Return Integrant configuration for the workflow module.
