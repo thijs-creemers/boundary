@@ -4,6 +4,8 @@
          boundary/shared-ui  {:local/root "../shared-ui"}
          boundary/platform   {:local/root "../platform"}
          boundary/user       {:local/root "../user"}
+         boundary/i18n       {:local/root "../i18n"}
+         boundary/core       {:local/root "../core"}
          boundary/ui-style   {:local/root "../ui-style"}
 
          ;; UI

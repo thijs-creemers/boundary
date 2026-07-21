@@ -164,6 +164,13 @@ clj-paren-repair --help
 | ├── ports.clj      # Protocol definitions
 | └── schema.clj     # Malli validation schemas
 | 
+| # Layout exceptions (the shape above is the norm; these libs deviate by design):
+| #   - cache/         has no core/ — thin adapter lib (shell + ports only)
+| #   - platform/ , observability/  split ports across several files, not one ports.clj
+| #   - boundary-mcp/  sources live under boundary/mcp/ (ns boundary.mcp.*) —
+| #                    lib dir name and namespace segment differ on purpose
+| #   - shared-ui/     shared Hiccup UI primitives (boundary.shared.ui.*); no ports/schema
+| 
 | # Library structure (monorepo)
 | libs/
 | ├── core/          # Foundation: validation, utilities, interceptors
