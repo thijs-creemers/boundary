@@ -34,7 +34,7 @@
 (defn dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
-;; Library registry (in dependency order)
+;; Library registry (membership only — publish ORDER is derived, see below)
 ;; =============================================================================
 
 ;; Keep the SET in sync with libs/tools/src/boundary/tools/deploy.clj all-libs
