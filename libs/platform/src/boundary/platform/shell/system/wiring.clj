@@ -38,10 +38,11 @@
             ;; NOTE: user module-wiring is loaded by the application entry point
             ;; (boundary.main), NOT here — platform must not depend on the user
             ;; feature lib (BOU-171: dissolves the platform<->user cycle).
-            [boundary.admin.shell.module-wiring] ;; Load admin module init/halt methods
+            ;; NOTE: admin/workflow/search module-wiring is loaded by the
+            ;; application entry point (boundary.main), NOT here — platform must
+            ;; not depend on those feature libs (BOU-192: dissolves the
+            ;; platform<->{admin,workflow,search} cycles).
             [boundary.tenant.shell.module-wiring] ;; Load tenant module init/halt methods
-            [boundary.workflow.shell.module-wiring] ;; Load workflow module init/halt methods
-            [boundary.search.shell.module-wiring] ;; Load search module init/halt methods
             [boundary.external.shell.module-wiring] ;; Load external adapters init/halt methods
             [boundary.payments.shell.module-wiring] ;; Load payments module init/halt methods
             [boundary.i18n.shell.module-wiring] ;; Load i18n module init/halt methods
