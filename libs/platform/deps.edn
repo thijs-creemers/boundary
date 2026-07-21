@@ -2,6 +2,9 @@
 
  :deps  {org.clojure/clojure               {:mvn/version "1.12.5"}
          boundary/observability            {:local/root "../observability"}
+         boundary/cache                    {:local/root "../cache"}
+         boundary/i18n                     {:local/root "../i18n"}
+         boundary/core                     {:local/root "../core"}
          boundary/payments                 {:local/root "../payments"}
          boundary/realtime                 {:local/root "../realtime"}
 
