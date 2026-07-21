@@ -20,7 +20,8 @@
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [babashka.http-client :as http]
-            [babashka.process :as p]))
+            [babashka.process :as p]
+            [boundary.tools.check-poms :as check-poms]))
 
 ;; =============================================================================
 ;; ANSI helpers
@@ -33,12 +34,13 @@
 (defn dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
-;; Library registry (in dependency order)
+;; Library registry (membership only — publish ORDER is derived, see below)
 ;; =============================================================================
 
-;; Keep in sync with libs/tools/src/boundary/tools/deploy.clj all-libs
-;; (the canonical registry `bb deploy` publishes from). Dependency order:
-;; a lib appears after every boundary lib it depends on.
+;; Keep the SET in sync with libs/tools/src/boundary/tools/deploy.clj all-libs
+;; (the canonical registry `bb deploy` publishes from). The ORDER here is not
+;; authoritative: `publish-order` topologically sorts it from each lib's deps.edn
+;; (BOU-203), so both registries derive the same order and can't drift on it.
 (def all-libs
   ["tools"
    "core"
@@ -79,6 +81,29 @@
 
 (defn lib-dir [lib]
   (str (io/file root-dir "libs" lib)))
+
+;; Publish order — topological sort of all-libs by deps.edn boundary deps.
+;; Mirrors boundary.tools.deploy (canonical); both derive the same order.
+(defn boundary-dep-dirs [lib]
+  (map :dir (check-poms/boundary-local-deps (io/file (lib-dir lib)))))
+
+(defn topo-sort
+  "Reorder `libs` so every lib follows all of its deps (per `dep-fn`). Stable:
+   earliest-in-original-order among ready libs wins. Throws on a cycle."
+  [libs dep-fn]
+  (let [libset (set libs)
+        deps   (into {} (map (fn [l] [l (set (filter libset (dep-fn l)))])) libs)]
+    (loop [result [] remaining (vec libs)]
+      (if (empty? remaining)
+        result
+        (let [done (set result)
+              nxt  (first (filter #(every? done (deps %)) remaining))]
+          (if nxt
+            (recur (conj result nxt) (vec (remove #{nxt} remaining)))
+            (throw (ex-info "Cycle in deploy dependency graph"
+                            {:remaining remaining}))))))))
+
+(def publish-order (topo-sort all-libs boundary-dep-dirs))
 
 (defn read-version [lib]
   (let [build-file (io/file (lib-dir lib) "build.clj")]
@@ -181,8 +206,8 @@
 
 (defn cmd-all []
   (check-env!)
-  (println (bold (str "Deploying all " (count all-libs) " libraries...")))
-  (deploy-sequence! all-libs)
+  (println (bold (str "Deploying all " (count publish-order) " libraries...")))
+  (deploy-sequence! publish-order)
   (println (green "\n✓ All libraries deployed.")))
 
 (defn cmd-missing []
@@ -194,7 +219,7 @@
                                (println (dim (str "  ⏭  " (artifact-name lib) " " (read-version lib) " already published")))
                                (println (yellow (str "  •  " (artifact-name lib) " " (read-version lib) " not yet published"))))
                              (not exists?)))
-                         all-libs)]
+                         publish-order)]
     (if (empty? missing)
       (println (green "\nAll libraries already published. Nothing to do."))
       (do
@@ -219,8 +244,8 @@
   (println "  bb deploy --missing          Deploy only libraries not yet on Clojars")
   (println "  bb deploy <lib> [lib...]     Deploy specific libraries")
   (println)
-  (println "Available libraries:")
-  (doseq [lib all-libs]
+  (println "Available libraries (in publish order):")
+  (doseq [lib publish-order]
     (println (str "  " lib)))
   (println)
   (println "Environment:")

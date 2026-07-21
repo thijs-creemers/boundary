@@ -17,7 +17,8 @@
   (:require [clojure.string :as str]
             [clojure.java.io :as io]
             [babashka.http-client :as http]
-            [babashka.process :as p]))
+            [babashka.process :as p]
+            [boundary.tools.check-poms :as check-poms]))
 
 ;; =============================================================================
 ;; ANSI helpers
@@ -30,9 +31,13 @@
 (defn dim    [s] (str "\033[2m"  s "\033[0m"))
 
 ;; =============================================================================
-;; Library registry (in dependency order)
+;; Library registry (membership only — publish ORDER is derived, see below)
 ;; =============================================================================
 
+;; This vector is the set of artifacts to publish. Its ORDER is not authoritative:
+;; `publish-order` topologically sorts it from each lib's deps.edn so a lib is
+;; always published after every boundary lib it depends on (BOU-203). Add/remove
+;; entries here; never hand-tune the order.
 (def all-libs
   ["tools"
    "core"
@@ -73,6 +78,38 @@
 
 (defn lib-dir [lib]
   (str (io/file root-dir "libs" lib)))
+
+;; =============================================================================
+;; Publish order — topological sort of all-libs by deps.edn boundary deps
+;; =============================================================================
+
+(defn boundary-dep-dirs
+  "The directory names of the boundary libs `lib` depends on, per its deps.edn
+   (via check-poms — the same :local/root parsing the check:poms gate uses)."
+  [lib]
+  (map :dir (check-poms/boundary-local-deps (io/file (lib-dir lib)))))
+
+(defn topo-sort
+  "Reorder `libs` so every lib follows all of its deps (per `dep-fn`). Stable:
+   among libs whose deps are all satisfied, the earliest in the original order
+   wins, so the output is deterministic and stays close to the input. Deps not
+   in `libs` are ignored. Throws on a cycle (check:deps already forbids cycles)."
+  [libs dep-fn]
+  (let [libset (set libs)
+        deps   (into {} (map (fn [l] [l (set (filter libset (dep-fn l)))])) libs)]
+    (loop [result [] remaining (vec libs)]
+      (if (empty? remaining)
+        result
+        (let [done (set result)
+              nxt  (first (filter #(every? done (deps %)) remaining))]
+          (if nxt
+            (recur (conj result nxt) (vec (remove #{nxt} remaining)))
+            (throw (ex-info "Cycle in deploy dependency graph"
+                            {:remaining remaining}))))))))
+
+(def publish-order
+  "all-libs in a valid publish order: each lib after its boundary deps."
+  (topo-sort all-libs boundary-dep-dirs))
 
 (defn artifact-name
   "Clojars artifact id for a lib, read from its build.clj coordinate
@@ -171,8 +208,8 @@
 
 (defn cmd-all []
   (check-env!)
-  (println (bold (str "Deploying all " (count all-libs) " artifacts...")))
-  (deploy-sequence! all-libs)
+  (println (bold (str "Deploying all " (count publish-order) " artifacts...")))
+  (deploy-sequence! publish-order)
   (println (green "\n✓ All artifacts deployed.")))
 
 (defn cmd-missing []
@@ -184,7 +221,7 @@
                                (println (dim (str "  ⏭  " (artifact-name lib) " " (read-version lib) " already published")))
                                (println (yellow (str "  •  " (artifact-name lib) " " (read-version lib) " not yet published"))))
                              (not exists?)))
-                         all-libs)]
+                         publish-order)]
     (if (empty? missing)
       (println (green "\nAll artifacts already published. Nothing to do."))
       (do
@@ -224,7 +261,7 @@
    fails the workflow instead of silently leaving a half-published release."
   []
   (println "Verifying all artifacts are published on Clojars...")
-  (let [missing (unpublished-libs all-libs published?)]
+  (let [missing (unpublished-libs publish-order published?)]
     (if (empty? missing)
       (println (green (str "✓ All " (count all-libs) " artifacts published.")))
       (do
@@ -243,8 +280,8 @@
   (println "  bb deploy --verify              Check every artifact is live on Clojars")
   (println "  bb deploy <lib> [lib...]        Deploy specific libraries")
   (println)
-  (println "Available artifacts:")
-  (doseq [lib all-libs]
+  (println "Available artifacts (in publish order):")
+  (doseq [lib publish-order]
     (println (str "  " lib)))
   (println)
   (println "Environment:")
