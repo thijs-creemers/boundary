@@ -499,7 +499,10 @@
            ;; their sessions so any active session must re-establish under the new
            ;; role — a demotion must not retain elevated access, and a promotion
            ;; forces a fresh session rather than silently upgrading a live one.
+           ;; Guard on (:role updated-user) so a partial update that omits :role
+           ;; is not mistaken for a demotion-to-nil and does not churn sessions.
            (when (and updated-user old-user
+                      (:role updated-user)
                       (not= (:role old-user) (:role updated-user)))
              (.invalidate-all-user-sessions session-repository (:id updated-user)))
 
