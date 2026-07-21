@@ -191,7 +191,7 @@
     ["jobs" "tenant"]
     ["search" "i18n"]
     ["platform" "i18n"]
-    ["platform" "cache"]      ["platform" "tenant"]
+    ["platform" "cache"]
     ["platform" "core"]    ["platform" "external"]})
 
 (defn- allowed-undeclared?
@@ -204,10 +204,8 @@
    but not yet resolved. A cycle is allowlisted when every directed edge
    in its path is covered by this set.
    Remove entries as cross-references are broken; adding new entries requires an ADR."
-  ;; One source-level cycle remains:
-  ;;   tenant <-> platform (platform's tenant middleware requires boundary.tenant.ports;
-  ;;                        needs the middleware relocated out of platform — BOU-198)
-  #{["tenant" "platform"] ["platform" "tenant"]})
+  ;; No source-level cycles remain (BOU-171/192/193/194/198 dissolved them all).
+  #{})
 
 (defn- allowed-cycle?
   "Returns true if every directed edge in the cycle path is covered by the

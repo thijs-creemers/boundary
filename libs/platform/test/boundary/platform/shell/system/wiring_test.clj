@@ -4,7 +4,7 @@
             [boundary.platform.shell.http.reitit-router]
             [boundary.platform.shell.http.versioning]
             [boundary.platform.shell.interfaces.http.common]
-            [boundary.platform.shell.interfaces.http.tenant-middleware]
+            [boundary.tenant.shell.tenant-middleware]
             [boundary.tenant.shell.membership-middleware]
             [boundary.i18n.shell.middleware]
             [boundary.observability.logging.shell.adapters.no-op]
@@ -30,7 +30,7 @@
                                 (reset! captured-routes routes)
                                 (reset! captured-config router-config)
                                 compiled-handler)
-                              boundary.platform.shell.interfaces.http.tenant-middleware/wrap-multi-tenant
+                              boundary.tenant.shell.tenant-middleware/wrap-multi-tenant
                               (fn [wrapped-handler tenant-service db-context opts]
                                 (fn [request]
                                   (wrapped-handler

@@ -28,7 +28,7 @@ Core infrastructure for web applications: database, HTTP routing, pagination, se
 |---------|-------------|
 | **Multi-Database Support** | SQLite, PostgreSQL, MySQL, H2 with unified API |
 | **HTTP Routing** | Reitit-based routing with interceptors |
-| **Multi-Tenancy** | Tenant resolution and schema switching middleware |
+| **Multi-Tenancy** | Tenant resolution + schema switching (middleware lives in the tenant lib) |
 | **API Versioning** | Built-in versioning support for REST APIs |
 | **Pagination** | Offset and cursor-based pagination |
 | **Search** | Full-text search with ranking and filtering |
@@ -136,11 +136,11 @@ Full-text search lives in the dedicated **`libs/search`** module
 
 #### Middleware Integration
 
-The platform includes multi-tenant middleware that automatically resolves tenants and switches database schemas:
+Multi-tenant middleware (now in the **tenant** lib, `boundary.tenant.shell.tenant-middleware`) automatically resolves tenants and switches database schemas:
 
 ```clojure
 (ns myapp.routes
-  (:require [boundary.platform.shell.interfaces.http.tenant-middleware :as tenant-mw]))
+  (:require [boundary.tenant.shell.tenant-middleware :as tenant-mw]))
 
 ;; Option 1: Combined middleware (recommended)
 (def handler

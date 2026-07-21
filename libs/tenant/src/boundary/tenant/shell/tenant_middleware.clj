@@ -1,4 +1,4 @@
-(ns boundary.platform.shell.interfaces.http.tenant-middleware
+(ns boundary.tenant.shell.tenant-middleware
   "HTTP middleware for multi-tenant request handling (imperative shell).
    
    This namespace provides middleware for tenant resolution and database schema
