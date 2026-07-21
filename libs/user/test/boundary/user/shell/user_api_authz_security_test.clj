@@ -93,9 +93,9 @@
 ;; =============================================================================
 
 (deftest ^:security ^:unit web-user-management-routes-guard-cross-user-access
-  (testing "GET /users/:id (detail) is self-or-admin — no cross-user view"
-    (is (web-mounted? "/users/:id" :get :require-self-or-admin))
-    (is (denied? (web-guard "/users/:id" :get :require-self-or-admin) cross-user-ctx)))
+  (testing "GET /users/:id (management detail) is admin-only (self-service is /profile)"
+    (is (web-mounted? "/users/:id" :get :require-admin))
+    (is (denied? (web-guard "/users/:id" :get :require-admin) cross-user-ctx)))
   (testing "PUT /users/:id (update) is admin-only — no self-escalation / cross-user edit"
     (is (web-mounted? "/users/:id" :put :require-admin))
     (is (denied? (web-guard "/users/:id" :put :require-admin) cross-user-ctx)))

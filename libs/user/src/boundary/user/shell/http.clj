@@ -559,11 +559,13 @@
       :meta    {:no-doc     true
                 :middleware [auth-middleware]}
       :methods {:get    {:handler (web-handlers/user-detail-page-handler user-service config)
-                         ;; Read own record or admin — the handler reads the :id
-                         ;; path param, so a non-admin must not view another user.
+                         ;; Admin-only: this is the user-MANAGEMENT detail page
+                         ;; (edit/deactivate/delete controls). Self-service lives at
+                         ;; /web/profile, so a non-admin has no reason to load it —
+                         ;; not even for their own id.
                          :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
-                                        'boundary.user.shell.http-interceptors/require-self-or-admin]
-                         :summary "User detail page"}
+                                        'boundary.user.shell.http-interceptors/require-admin]
+                         :summary "User detail page (admin)"}
                 :put    {:handler (web-handlers/update-user-htmx-handler user-service config)
                          ;; Admin-only: updates include role — self-or-admin would
                          ;; allow privilege escalation via self-edit.
