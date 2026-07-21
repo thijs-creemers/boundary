@@ -170,7 +170,7 @@ The service soft-deletes by running `UPDATE <table> SET deleted_at = ? WHERE id 
 | **Hiccup** | HTML generation | `libs/{library}/src/boundary/{library}/core/ui.clj` |
 | **HTMX** | Dynamic interactions | Inline attributes in Hiccup |
 | **Pico CSS** | Base framework | `libs/ui-style/resources/public/css/` |
-| **Lucide Icons** | Icon system | `libs/admin/src/boundary/shared/ui/core/icons.clj` |
+| **Lucide Icons** | Icon system | `libs/shared-ui/src/boundary/shared/ui/core/icons.clj` |
 
 ### UI Architecture Principles
 
@@ -226,7 +226,7 @@ clj-nrepl-eval -p <port> "(require '[integrant.repl :as ig-repl]) (ig-repl/reset
  (icons/icon :trash {:size 18})
  " Delete"]
 
-;; Available in: libs/admin/src/boundary/shared/ui/core/icons.clj
+;; Available in: libs/shared-ui/src/boundary/shared/ui/core/icons.clj
 ```
 
 #### HTMX Loading States
