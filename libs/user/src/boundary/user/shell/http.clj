@@ -537,8 +537,50 @@
      {:path    "/users"
       :meta    {:no-doc     true
                 :middleware [auth-middleware user-middleware/require-admin-middleware]}
-      :methods {:post {:handler (web-handlers/create-user-htmx-handler user-service email-sender config)
+      :methods {:get  {:handler (web-handlers/users-page-handler user-service config)
+                       :summary "Users management list page (admin)"}
+                :post {:handler (web-handlers/create-user-htmx-handler user-service email-sender config)
                        :summary "Create user (HTMX fragment)"}}}
+     {:path    "/users/table"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get {:handler (web-handlers/users-table-fragment-handler user-service config)
+                      :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                     'boundary.user.shell.http-interceptors/require-admin]
+                      :summary "Users table fragment (HTMX refresh)"}}}
+     {:path    "/users/bulk"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/bulk-update-users-htmx-handler user-service config)
+                       :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                      'boundary.user.shell.http-interceptors/require-admin]
+                       :summary "Bulk user operations (HTMX)"}}}
+     {:path    "/users/:id"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:get    {:handler (web-handlers/user-detail-page-handler user-service config)
+                         ;; Read own record or admin — the handler reads the :id
+                         ;; path param, so a non-admin must not view another user.
+                         :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                        'boundary.user.shell.http-interceptors/require-self-or-admin]
+                         :summary "User detail page"}
+                :put    {:handler (web-handlers/update-user-htmx-handler user-service config)
+                         ;; Admin-only: updates include role — self-or-admin would
+                         ;; allow privilege escalation via self-edit.
+                         :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                        'boundary.user.shell.http-interceptors/require-admin]
+                         :summary "Update user (HTMX)"}
+                :delete {:handler (web-handlers/delete-user-htmx-handler user-service config)
+                         :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                        'boundary.user.shell.http-interceptors/require-admin]
+                         :summary "Deactivate user (HTMX)"}}}
+     {:path    "/users/:id/hard-delete"
+      :meta    {:no-doc     true
+                :middleware [auth-middleware]}
+      :methods {:post {:handler (web-handlers/hard-delete-user-handler user-service config)
+                       :interceptors ['boundary.user.shell.http-interceptors/require-authenticated
+                                      'boundary.user.shell.http-interceptors/require-admin]
+                       :summary "Permanently delete user (admin)"}}}
       ;; Session management routes (user-specific, not duplicated in admin)
      {:path    "/users/:id/sessions"
       :meta    {:no-doc     true
