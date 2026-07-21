@@ -11,9 +11,12 @@
      java -jar boundary-standalone.jar cli [args]   # Run CLI commands"
   (:require [boundary.config :as config]
             [boundary.platform.shell.system.wiring] ; Required for Integrant init functions
-            ;; Load the user module's Integrant init/halt methods at the app layer
-            ;; so platform does not depend on the user feature lib (BOU-171).
+            ;; Load feature modules' Integrant init/halt methods at the app layer
+            ;; so platform does not depend on the feature libs (BOU-171 / BOU-192).
             [boundary.user.shell.module-wiring]
+            [boundary.admin.shell.module-wiring]
+            [boundary.workflow.shell.module-wiring]
+            [boundary.search.shell.module-wiring]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [integrant.core :as ig])

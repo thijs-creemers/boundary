@@ -191,9 +191,9 @@
     ["workflow" "user"]       ["workflow" "i18n"]
     ["jobs" "tenant"]
     ["search" "i18n"]
-    ["platform" "i18n"]    ["platform" "admin"]
-    ["platform" "cache"]      ["platform" "workflow"] ["platform" "tenant"]
-    ["platform" "search"]     ["platform" "core"]    ["platform" "external"]})
+    ["platform" "i18n"]
+    ["platform" "cache"]      ["platform" "tenant"]
+    ["platform" "core"]    ["platform" "external"]})
 
 (defn- allowed-undeclared?
   "Returns true if this undeclared dep is in the known allowlist."
@@ -205,14 +205,12 @@
    but not yet resolved. A cycle is allowlisted when every directed edge
    in its path is covered by this set.
    Remove entries as cross-references are broken; adding new entries requires an ADR."
+  ;; Only two source-level cycles remain:
+  ;;   admin <-> user      (BOU-193 — genuine two-way dep, needs port inversion)
+  ;;   tenant <-> platform (platform's tenant middleware requires boundary.tenant.ports;
+  ;;                        needs the middleware relocated out of platform)
   #{["admin" "user"]      ["user" "admin"]
-    ["user" "tenant"]
-    ["tenant" "platform"] ["platform" "tenant"]
-    ["platform" "workflow"] ["workflow" "platform"]
-    ["platform" "search"]   ["search" "platform"]
-    ["platform" "admin"]    ["admin" "platform"]
-    ["workflow" "user"]     ["workflow" "admin"]
-    ["search" "admin"]})
+    ["tenant" "platform"] ["platform" "tenant"]})
 
 (defn- allowed-cycle?
   "Returns true if every directed edge in the cycle path is covered by the
