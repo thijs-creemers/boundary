@@ -51,6 +51,7 @@ jobs:
             libs/geo/src \
             libs/ai/src \
             libs/ui-style/src \
+            libs/shared-ui/src libs/shared-ui/test \
             libs/i18n/src \
             libs/push/src \
             libs/boundary-mcp/src
@@ -410,6 +411,24 @@ jobs:
         env:
           JWT_SECRET: "ci-test-secret-minimum-32-characters"
         run: clojure -M:test :ui-style
+
+  test-shared-ui:
+    name: Test boundary/shared-ui
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
+        with:
+          aliases: -M:test
+
+      - name: Run tests
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+        run: clojure -M:test :shared-ui
 
   test-storage:
     name: Test boundary/storage
@@ -862,7 +881,7 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-test-meta, check-test-tags, check-deps, check-ports, check-hygiene, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai, test-mcp, test-boundary-cli]
+    needs: [build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-test-meta, check-test-tags, check-deps, check-ports, check-hygiene, test-i18n, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-jobs, test-tenant, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai, test-mcp, test-boundary-cli, test-shared-ui]
 
     steps:
       - name: Summary
@@ -875,6 +894,7 @@ jobs:
           echo "  - boundary/user"
           echo "  - boundary/admin"
           echo "  - boundary/ui-style"
+          echo "  - boundary/shared-ui"
           echo "  - boundary/storage"
           echo "  - boundary/cache"
           echo "  - boundary/jobs"

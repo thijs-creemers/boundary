@@ -66,12 +66,12 @@
 (defn- ns->boundary-lib
   "Given a namespace string like 'boundary.user.core.foo', extract the library
    name 'user'. Returns nil for non-boundary namespaces.
-   Maps boundary.shared.* to 'admin' (those namespaces live in libs/admin/src/)."
+   Maps boundary.shared.* to 'shared-ui' (those namespaces live in libs/shared-ui/src/)."
   [ns-str]
   (let [parts (str/split ns-str #"\.")]
     (when (and (>= (count parts) 2) (= "boundary" (first parts)))
       (if (= "shared" (second parts))
-        "admin"
+        "shared-ui"
         (second parts)))))
 
 ;; ---------------------------------------------------------------------------
@@ -183,8 +183,7 @@
    library without declaring it in deps.edn. These are acknowledged but not
    yet resolved. Remove entries as deps.edn files are updated; adding new
    entries requires an ADR."
-  #{["calendar" "admin"]
-    ["user" "i18n"]           ["user" "admin"]      ["user" "cache"]
+  #{["user" "i18n"]           ["user" "cache"]
     ["user" "tenant"]         ["user" "observability"] ["user" "core"]
     ["storage" "observability"]
     ["admin" "i18n"]          ["admin" "core"]
@@ -205,12 +204,10 @@
    but not yet resolved. A cycle is allowlisted when every directed edge
    in its path is covered by this set.
    Remove entries as cross-references are broken; adding new entries requires an ADR."
-  ;; Only two source-level cycles remain:
-  ;;   admin <-> user      (BOU-193 — genuine two-way dep, needs port inversion)
+  ;; One source-level cycle remains:
   ;;   tenant <-> platform (platform's tenant middleware requires boundary.tenant.ports;
-  ;;                        needs the middleware relocated out of platform)
-  #{["admin" "user"]      ["user" "admin"]
-    ["tenant" "platform"] ["platform" "tenant"]})
+  ;;                        needs the middleware relocated out of platform — BOU-198)
+  #{["tenant" "platform"] ["platform" "tenant"]})
 
 (defn- allowed-cycle?
   "Returns true if every directed edge in the cycle path is covered by the
