@@ -4,6 +4,9 @@
    'version ahead of source' stale-artifact class), and a post-deploy check that
    every artifact actually landed on Clojars."
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [boundary.tools.deploy :as deploy]))
 
 (deftest ^:unit artifact-name-test
@@ -40,3 +43,42 @@
   (testing "only the unpublished libs are returned, in order"
     (is (= ["b"] (deploy/unpublished-libs ["a" "b" "c"]
                                           (fn [lib] (not= "b" lib)))))))
+
+;; ---------------------------------------------------------------------------
+;; Publish order — topological sort (BOU-203)
+;; ---------------------------------------------------------------------------
+
+(deftest ^:unit topo-sort-orders-deps-before-dependents
+  (testing "a lib always lands after every dep, ignoring deps outside the set"
+    (let [deps {"a" ["b" "c"] "b" ["c"] "c" [] "d" ["z"]} ; z not in the set
+          out  (deploy/topo-sort ["a" "b" "c" "d"] deps)
+          idx  (zipmap out (range))]
+      (is (= #{"a" "b" "c" "d"} (set out)))
+      (is (< (idx "c") (idx "b")))
+      (is (< (idx "b") (idx "a")))))
+  (testing "stable: earliest-in-input among ready libs wins"
+    (is (= ["x" "y" "z"] (deploy/topo-sort ["x" "y" "z"] {"x" [] "y" [] "z" []}))))
+  (testing "throws on a cycle"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (deploy/topo-sort ["a" "b"] {"a" ["b"] "b" ["a"]})))))
+
+(deftest ^:unit publish-order-is-a-valid-topological-order
+  (testing "publish-order is a permutation of all-libs"
+    (is (= (set deploy/all-libs) (set deploy/publish-order)))
+    (is (= (count deploy/all-libs) (count deploy/publish-order))))
+  (testing "every lib is published after all of its boundary deps (the BOU-203 invariant)"
+    (let [idx (zipmap deploy/publish-order (range))]
+      (doseq [lib deploy/publish-order
+              dep (deploy/boundary-dep-dirs lib)
+              :when (idx dep)] ; only deps that are themselves published
+        (is (< (idx dep) (idx lib))
+            (str dep " must be published before " lib))))))
+
+(deftest ^:unit deploy-registries-share-the-same-membership
+  (testing "scripts/deploy.clj all-libs set == canonical (prevents membership drift)"
+    ;; The two registries duplicate the membership vector; order is derived, but
+    ;; the SET must stay in lockstep (BOU-202/203).
+    (let [src   (slurp (io/file (System/getProperty "user.dir") "scripts" "deploy.clj"))
+          form  (edn/read-string (subs src (str/index-of src "(def all-libs")))
+          mirror (nth form 2)]
+      (is (= (set deploy/all-libs) (set mirror))))))
