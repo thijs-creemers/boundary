@@ -87,3 +87,29 @@
   (testing "POST /users/:id/sessions/revoke-all is self-or-admin (cannot force-logout another user)"
     (is (web-mounted? "/users/:id/sessions/revoke-all" :post :require-self-or-admin))
     (is (denied? (web-guard "/users/:id/sessions/revoke-all" :post :require-self-or-admin) cross-user-ctx))))
+
+;; =============================================================================
+;; Web user-management routes (re-mounted in BOU-197) — same guard model
+;; =============================================================================
+
+(deftest ^:security ^:unit web-user-management-routes-guard-cross-user-access
+  (testing "GET /users/:id (detail) is self-or-admin — no cross-user view"
+    (is (web-mounted? "/users/:id" :get :require-self-or-admin))
+    (is (denied? (web-guard "/users/:id" :get :require-self-or-admin) cross-user-ctx)))
+  (testing "PUT /users/:id (update) is admin-only — no self-escalation / cross-user edit"
+    (is (web-mounted? "/users/:id" :put :require-admin))
+    (is (denied? (web-guard "/users/:id" :put :require-admin) cross-user-ctx)))
+  (testing "DELETE /users/:id (deactivate) is admin-only"
+    (is (web-mounted? "/users/:id" :delete :require-admin))
+    (is (denied? (web-guard "/users/:id" :delete :require-admin) cross-user-ctx)))
+  (testing "POST /users/:id/hard-delete is admin-only"
+    (is (web-mounted? "/users/:id/hard-delete" :post :require-admin))
+    (is (denied? (web-guard "/users/:id/hard-delete" :post :require-admin) cross-user-ctx)))
+  (testing "the table-fragment and bulk routes are admin-only (no directory enumeration / mass edit)"
+    (is (web-mounted? "/users/table" :get :require-admin))
+    (is (denied? (web-guard "/users/table" :get :require-admin) cross-user-ctx))
+    (is (web-mounted? "/users/bulk" :post :require-admin))
+    (is (denied? (web-guard "/users/bulk" :post :require-admin) cross-user-ctx))))
+;; Note: GET /users (list) shares the /users route with POST create, guarded by
+;; route-level require-admin-middleware (the same trusted guard that already
+;; protects create) — not a per-method interceptor, so not asserted here.
