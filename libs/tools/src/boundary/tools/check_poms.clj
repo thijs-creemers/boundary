@@ -12,10 +12,11 @@
 ;; Without that rewrite a published lib's pom lists none of its boundary deps and
 ;; downstream consumers must hand-enumerate the whole closure (BOU-202).
 ;;
-;; This gate is static (no tools.build / network): it guards the two regression
+;; This gate is static (no tools.build / network): it guards the three regression
 ;; modes that would silently drop boundary deps from a POM again —
-;;   A. build_shared.clj loses the rewrite, or
-;;   B. a publishable build.clj feeds write-pom a raw basis instead of pom-basis.
+;;   A. build_shared.clj loses the rewrite,
+;;   B. a publishable build.clj feeds write-pom a basis not bound to pom-basis, or
+;;   C. a POM declares a boundary dep whose lib is not itself publishable.
 ;; It also reports, per lib, the boundary closure that will land in its POM.
 
 (ns boundary.tools.check-poms
@@ -45,8 +46,11 @@
   (symbol "org.boundary-app" (str "boundary-" (name dep))))
 
 (defn boundary-local-deps
-  "Set of published coordinate symbols for every `boundary/<x> {:local/root ...}`
-   dep declared in a lib's deps.edn (empty if the file is missing/unreadable)."
+  "For every `boundary/<x> {:local/root ...}` dep in a lib's deps.edn, a map
+   {:dir <:local/root target dir name> :coord <published coord symbol>}, sorted
+   by :dir. :dir is the authoritative publishable-lib key (the actual directory
+   the dep resolves to); :coord is what build-shared/pom-basis emits into the
+   pom. Empty when the file is missing/unreadable."
   [lib-dir]
   (let [deps-file (io/file lib-dir "deps.edn")]
     (if (.exists deps-file)
@@ -55,9 +59,11 @@
                    (when (and (map? coord)
                               (contains? coord :local/root)
                               (= "boundary" (namespace dep)))
-                     (boundary-dep->coord dep))))
-           (into (sorted-set)))
-      (sorted-set))))
+                     {:dir   (last (str/split (:local/root coord) #"/"))
+                      :coord (boundary-dep->coord dep)})))
+           (sort-by :dir)
+           (vec))
+      [])))
 
 ;; ---------------------------------------------------------------------------
 ;; Checks
@@ -80,6 +86,19 @@
 
      :else nil)))
 
+(defn pom-basis-wired?
+  "Regression mode B guard. True when build.clj source not only mentions
+   build-shared/pom-basis but actually binds `basis` from it AND feeds that
+   `basis` to write-pom — and never falls back to a raw create-basis. This
+   rejects a build.clj that computes pom-basis but hands write-pom a different
+   basis (which would silently drop the boundary deps from the pom)."
+  [src]
+  (boolean
+   (and src
+        (re-find #"\(def\s+basis\s+\(\s*build-shared/pom-basis" src)
+        (re-find #":basis\s+basis\b" src)
+        (not (str/includes? src "create-basis")))))
+
 (defn check-lib
   "Regression mode B: a build.clj that generates a pom (calls write-pom) must
    feed it the rewritten basis via build-shared/pom-basis. Returns a map:
@@ -88,7 +107,7 @@
   (let [build-file    (io/file lib-dir "build.clj")
         src           (when (.exists build-file) (slurp build-file))
         publishable?  (boolean (and src (str/includes? src "write-pom")))
-        uses-pom-basis? (boolean (and src (str/includes? src "build-shared/pom-basis")))
+        uses-pom-basis? (pom-basis-wired? src)
         boundary-deps (boundary-local-deps lib-dir)]
     {:lib             lib-name
      :publishable?    publishable?
@@ -98,22 +117,18 @@
      ;; deps from the pom. A non-publishable lib (no write-pom) is exempt.
      :violation?      (and publishable? (not uses-pom-basis?))}))
 
-(defn coord->lib-name
-  "Reverse of boundary-dep->coord: 'org.boundary-app/boundary-shared-ui -> \"shared-ui\"."
-  [coord]
-  (subs (name coord) (count "boundary-")))
-
 (defn unpublishable-deps
   "Regression mode C: every boundary dep a POM declares must itself be a
    publishable lib, else downstream resolution fails on an unresolvable artifact
    (the shared-ui failure: referenced by user/admin/... but no build.clj).
-   Returns a seq of {:lib :dep} violations."
+   Matches on the dep's :local/root target dir — the authoritative lib key —
+   rather than reverse-engineering the coord. Returns a seq of {:lib :dep}."
   [results]
   (let [publishable (into #{} (comp (filter :publishable?) (map :lib)) results)]
     (for [{:keys [lib publishable? boundary-deps]} results
           :when publishable?                         ; only published libs emit a POM
-          coord boundary-deps
-          :when (not (contains? publishable (coord->lib-name coord)))]
+          {:keys [dir coord]} boundary-deps
+          :when (not (contains? publishable dir))]
       {:lib lib :dep coord})))
 
 ;; ---------------------------------------------------------------------------
@@ -131,7 +146,7 @@
     (when (seq with-deps)
       (println (ansi/dim "Boundary dependencies each published POM will declare:"))
       (doseq [{:keys [lib boundary-deps]} with-deps]
-        (println (str "  " lib " -> " (str/join ", " (map str boundary-deps)))))
+        (println (str "  " lib " -> " (str/join ", " (map (comp str :coord) boundary-deps)))))
       (println))
     (if (or (seq shared-issues) (seq violations) (seq unpublishable))
       (do
