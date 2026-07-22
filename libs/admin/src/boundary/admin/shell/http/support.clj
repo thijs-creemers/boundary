@@ -2,9 +2,8 @@
   "Shared plumbing for the admin HTTP layer.
 
    Leaf namespace requiring no handler or route namespaces. Provides the
-   middleware, error mappings, query/form parsing, and handler helpers used by
-   the handler namespaces and the route definitions in
-   `boundary.admin.shell.http`."
+   error mappings, query/form parsing, and handler helpers used by the handler
+   namespaces and the route definitions in `boundary.admin.shell.http`."
   (:require
    [boundary.admin.ports :as ports]
    [boundary.admin.shell.permissions :as shell-permissions]
@@ -14,38 +13,6 @@
    [clojure.string :as str]
    [ring.util.response :as ring-response])
   (:import [java.util UUID]))
-
-;; =============================================================================
-;; Method Override Middleware
-;; =============================================================================
-
-(defn wrap-method-override
-  "Middleware to support HTTP method override via _method parameter.
-
-   HTML forms can only send GET and POST requests. This middleware allows
-   forms to override the POST method by including a _method parameter:
-
-   Example:
-     <form method=\"POST\">
-       <input type=\"hidden\" name=\"_method\" value=\"PUT\">
-       ...
-     </form>
-
-   The middleware will change the request method from POST to PUT.
-
-   Note: This middleware checks both :form-params (parsed by Reitit) and
-   :params (fallback) to ensure compatibility."
-  [handler]
-  (fn [request]
-    (if (= :post (:request-method request))
-      (let [;; Try form-params first (parsed by Reitit), fallback to params
-            method (or (get-in request [:form-params "_method"])
-                       (get-in request [:params "_method"]))]
-        (if method
-          (let [override-method (keyword (str/lower-case method))]
-            (handler (assoc request :request-method override-method)))
-          (handler request)))
-      (handler request))))
 
 ;; =============================================================================
 ;; Error Mappings - Admin-Specific RFC 7807 Problem Details
@@ -218,27 +185,6 @@
       sort-dir (assoc :sort-dir sort-dir)
       search (assoc :search search)
       (seq filters) (assoc :filters filters))))
-
-(defn build-query-string
-  "Build query string from options map.
-
-   Args:
-     opts: Options map with keys like :page, :search, :sort, etc.
-
-   Returns:
-     Query string (without leading ?)
-
-   Example:
-     (build-query-string {:page 2 :search john :sort :email})
-     => page=2&search=john&sort=email"
-  [opts]
-  (let [params (cond-> []
-                 (:page opts) (conj (str "page=" (:page opts)))
-                 (:page-size opts) (conj (str "page-size=" (:page-size opts)))
-                 (:search opts) (conj (str "search=" (:search opts)))
-                 (:sort opts) (conj (str "sort=" (name (:sort opts))))
-                 (:sort-dir opts) (conj (str "sort-dir=" (name (:sort-dir opts)))))]
-    (str/join "&" params)))
 
 ;; =============================================================================
 ;; Form Data Parsing
@@ -417,22 +363,6 @@
   [request html]
   (-> (html-response request html)
       (ring-response/header "HX-Trigger" "entityListUpdated")))
-
-(defn redirect-to-entity-list
-  "Redirect to entity list page.
-
-   Args:
-     entity-name: Entity name keyword
-     flash-message: Optional flash message map
-
-   Returns:
-     Ring redirect response"
-  ([entity-name]
-   (redirect-to-entity-list entity-name nil))
-  ([entity-name flash-message]
-   (let [location (str "/web/admin/" (name entity-name))]
-     (cond-> (ring-response/redirect location)
-       flash-message (assoc :flash flash-message)))))
 
 ;; =============================================================================
 ;; Entity Detail Options (shared by detail + crud handlers)
