@@ -174,12 +174,13 @@
   (add-endpoint [_this request]
     (try
       (let [{:keys [module-name path method handler-name dry-run]} request
+            base-ns-path (str/replace (or (:base-ns request) "boundary") "." "/")
 
             ;; Generate endpoint definition instructions
             endpoint-content (generators/generate-endpoint-definition
                               module-name path method handler-name)
 
-            files [{:path (format "src/boundary/%s/shell/http.clj" module-name)
+            files [{:path (format "src/%s/%s/shell/http.clj" base-ns-path module-name)
                     :content endpoint-content
                     :action :update}]]
 
@@ -198,14 +199,17 @@
   (add-adapter [_this request]
     (try
       (let [{:keys [module-name port adapter-name methods dry-run]} request
+            base-ns      (or (:base-ns request) "boundary")
+            base-ns-path (str/replace base-ns "." "/")
 
             ;; Generate adapter file content
             adapter-content (generators/generate-adapter-file
                              module-name port adapter-name
-                             (or methods [{:name "example-method" :args ["arg1"]}]))
+                             (or methods [{:name "example-method" :args ["arg1"]}])
+                             base-ns)
 
-            adapter-path (format "src/boundary/%s/shell/adapters/%s.clj"
-                                 module-name adapter-name)
+            adapter-path (format "src/%s/%s/shell/adapters/%s.clj"
+                                 base-ns-path module-name adapter-name)
             files [{:path adapter-path
                     :content adapter-content
                     :action :create}]]

@@ -339,3 +339,32 @@
       ;; Result depends on whether directory exists
       ;; In test environment, should generally succeed or handle gracefully
       (is (contains? result :success)))))
+
+;; =============================================================================
+;; base-ns path parameterization (BOU-205) — endpoint + adapter honour --base-ns
+;; =============================================================================
+
+(deftest ^:unit add-endpoint-path-honours-base-ns
+  (let [svc (service/create-scaffolder-service)
+        req {:module-name "product" :path "/p" :method :get
+             :handler-name "h" :dry-run true}]
+    (testing "default base-ns -> src/boundary/<module>/"
+      (let [p (:path (first (:files (ports/add-endpoint svc req))))]
+        (is (= "src/boundary/product/shell/http.clj" p))))
+    (testing "custom base-ns -> src/<base-ns>/<module>/"
+      (let [p (:path (first (:files (ports/add-endpoint svc (assoc req :base-ns "myapp")))))]
+        (is (= "src/myapp/product/shell/http.clj" p))))))
+
+(deftest ^:unit add-adapter-path-and-ns-honour-base-ns
+  (let [svc (service/create-scaffolder-service)
+        req {:module-name "notifications" :port "INotificationSender"
+             :adapter-name "slack" :methods [{:name "send" :args ["x"]}]
+             :dry-run true}]
+    (testing "default base-ns -> path + adapter ns under boundary"
+      (let [f (first (:files (ports/add-adapter svc req)))]
+        (is (= "src/boundary/notifications/shell/adapters/slack.clj" (:path f)))
+        (is (str/includes? (:content f) "(ns boundary.notifications.shell.adapters.slack"))))
+    (testing "custom base-ns -> path + adapter ns under <base-ns>"
+      (let [f (first (:files (ports/add-adapter svc (assoc req :base-ns "myapp"))))]
+        (is (= "src/myapp/notifications/shell/adapters/slack.clj" (:path f)))
+        (is (str/includes? (:content f) "(ns myapp.notifications.shell.adapters.slack"))))))

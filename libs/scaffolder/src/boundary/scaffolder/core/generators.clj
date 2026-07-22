@@ -1456,13 +1456,14 @@ ALTER TABLE %s ADD COLUMN %s %s%s%s;
      port-name - Port protocol name (e.g., \"ICache\")
      adapter-name - Adapter name (e.g., \"redis\")
      methods - Vector of method specs [{:name \"get-value\" :args [\"key\"]}]
-   
+     base-ns - Optional base namespace (default \"boundary\")
+
    Returns:
      String content for adapter.clj file
-   
+
    Pure: true"
-  [module-name port-name adapter-name methods]
-  (let [base-ns "boundary"
+  [module-name port-name adapter-name methods & [base-ns]]
+  (let [base-ns (or base-ns "boundary")
         adapter-pascal (template/kebab->pascal adapter-name)
         record-name (str adapter-pascal (template/kebab->pascal module-name))
         methods-str (str/join "\n\n"
