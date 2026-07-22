@@ -2,9 +2,11 @@
   (:require [boundary.platform.shell.adapters.database.config :as db-config]
             [boundary.tenant.shell.invite-persistence :as invite-persistence]
             [boundary.tenant.shell.invite-service :as invite-service]
+            [boundary.tenant.shell.membership-middleware :as membership-mw]
             [boundary.tenant.shell.membership-persistence :as membership-persistence]
             [boundary.tenant.shell.membership-service :as membership-service]
             [boundary.tenant.shell.persistence :as tenant-persistence]
+            [boundary.tenant.shell.tenant-middleware :as tenant-mw]
             [boundary.tenant.shell.provisioning :as provisioning]
             [boundary.tenant.shell.service :as tenant-service]
             [boundary.tenant.shell.tenant-migrations :as tenant-migrations]
@@ -182,3 +184,30 @@
 (defmethod ig/halt-key! :boundary/membership-routes
   [_ _routes]
   (log/info "Membership module routes halted (no cleanup needed)"))
+
+;; =============================================================================
+;; Tenant HTTP middleware
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/tenant-http-middleware
+  [_ {ts :tenant-service ms :membership-service db :db-context}]
+  ;; Build the tenant HTTP middleware seq here, in the tenant lib, and let the
+  ;; app inject it into platform's http-handler via :extra-middleware. Platform's
+  ;; http-handler no longer dynamically requires the tenant lib (BOU-200) — the
+  ;; tenant module owns its own middleware wiring. Ordered: tenant resolution
+  ;; first, then membership (mirrors the previous inline platform order). Each
+  ;; entry is a (fn [handler] ...) applied lazily when the pipeline compiles, so
+  ;; a service that is absent simply contributes no middleware.
+  (cond-> []
+    (and ts db)
+    (conj (fn [handler]
+            (log/info "Adding multi-tenant middleware to HTTP pipeline")
+            (tenant-mw/wrap-multi-tenant handler ts db {:require-tenant? false})))
+    ms
+    (conj (fn [handler]
+            (log/info "Adding tenant membership middleware to HTTP pipeline")
+            (membership-mw/wrap-tenant-membership ms handler)))))
+
+(defmethod ig/halt-key! :boundary/tenant-http-middleware
+  [_ _mw]
+  (log/info "Tenant HTTP middleware halted (no cleanup needed)"))

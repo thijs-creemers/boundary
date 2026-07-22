@@ -142,22 +142,12 @@
                          :skip-interceptors? true}}}])))
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service membership-service db-context cache i18n user-service request-capture?]}]
+  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service db-context cache i18n user-service request-capture? extra-middleware]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
-  ;; Tenant HTTP middleware lives in the tenant lib (BOU-198) — loaded
-  ;; dynamically here so platform does not statically depend on tenant.
-  (require 'boundary.tenant.shell.tenant-middleware)
-  (require 'boundary.tenant.shell.membership-middleware)
   (let [;; Import compile-routes function
         compile-routes (ns-resolve 'boundary.platform.ports.http 'compile-routes)
-
-        ;; Import tenant middleware (from the tenant lib)
-        tenant-mw-ns 'boundary.tenant.shell.tenant-middleware
-        wrap-multi-tenant (ns-resolve tenant-mw-ns 'wrap-multi-tenant)
-        wrap-tenant-membership (ns-resolve 'boundary.tenant.shell.membership-middleware
-                                           'wrap-tenant-membership)
 
         ;; Create health check handler
         health-handler (let [health-fn (ns-resolve 'boundary.platform.shell.interfaces.http.common 'health-check-handler)]
@@ -365,24 +355,14 @@
                              (fn [handler]
                                (i18n-middleware/wrap-i18n handler i18n)))
 
-        ;; Build middleware chain with tenant support
-        ;; Tenant middleware is added ONLY if tenant-service is provided
-        tenant-middleware (when (and tenant-service db-context)
-                            [(fn [handler]
-                               (log/info "Adding multi-tenant middleware to HTTP pipeline")
-                               (wrap-multi-tenant handler tenant-service db-context
-                                                  {:require-tenant? false}))])
-        membership-middleware (when membership-service
-                                [(fn [handler]
-                                   (log/info "Adding tenant membership middleware to HTTP pipeline")
-                                   (wrap-tenant-membership membership-service handler))])
-
-        ;; Compile routes using router adapter with system services
-        ;; Add method override middleware for HTML form PUT/DELETE support
-        ;; Add tenant middleware to the chain (before method override)
+        ;; Compile routes using router adapter with system services.
+        ;; `extra-middleware` is a seq of (fn [handler] ...) supplied by the app
+        ;; (e.g. tenant/membership middleware via :boundary/tenant-http-middleware).
+        ;; Platform provides the pipeline; feature libs inject their middleware —
+        ;; platform no longer requires the tenant lib (BOU-200). Applied before the
+        ;; method-override middleware, matching the previous ordering.
         router-config {:middleware (concat
-                                    tenant-middleware
-                                    membership-middleware
+                                    (or extra-middleware [])
                                     (when i18n-middleware-fn [i18n-middleware-fn])
                                     [(fn [handler]
                                        (fn [request]

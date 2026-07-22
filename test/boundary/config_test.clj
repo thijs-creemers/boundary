@@ -81,11 +81,20 @@
               :config config}
              (:boundary/tenant-routes ig-config))))
 
-    (testing "http handler receives membership routes and membership middleware dependencies"
+    (testing "http handler receives membership routes and the injected tenant middleware (BOU-200)"
       (is (= (ig/ref :boundary/membership-routes)
              (get-in ig-config [:boundary/http-handler :membership-routes])))
-      (is (= (ig/ref :boundary/membership-service)
-             (get-in ig-config [:boundary/http-handler :membership-service]))))
+      ;; Tenant/membership middleware is no longer built inside http-handler; it is
+      ;; injected via :extra-middleware from the tenant lib's component.
+      (is (= (ig/ref :boundary/tenant-http-middleware)
+             (get-in ig-config [:boundary/http-handler :extra-middleware])))
+      (is (not (contains? (:boundary/http-handler ig-config) :membership-service))))
+
+    (testing "the tenant-http-middleware component wires the services it needs"
+      (is (= {:tenant-service (ig/ref :boundary/tenant-service)
+              :membership-service (ig/ref :boundary/membership-service)
+              :db-context (ig/ref :boundary/db-context)}
+             (:boundary/tenant-http-middleware ig-config))))
 
     (testing "cache-enabled user service wiring keeps the cache dependency"
       (is (= (ig/ref :boundary/cache)
