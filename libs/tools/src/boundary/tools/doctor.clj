@@ -231,8 +231,61 @@
         :level :pass
         :msg   ":test/reset-endpoint-enabled? not enabled"}])))
 
+(def ^:private relocated-namespaces
+  "Namespaces that moved during the Phase-2 refactors (framework upgrade aid).
+   Requiring the old name fails at compile; doctor points at the new home."
+  {"boundary.platform.shell.interfaces.http.tenant-middleware"
+   "boundary.tenant.shell.tenant-middleware"
+   "boundary.platform.shell.interfaces.http.membership-middleware"
+   "boundary.tenant.shell.membership-middleware"})
+
+(defn check-upgrade-wiring
+  "Framework-upgrade checks over the app's own source text (BOU-204).
+
+   Two migration hazards from the Phase-2 refactors:
+   - BOU-200 (SILENT): the platform http-handler no longer builds tenant
+     middleware itself. An app that wires :boundary/tenant-service but never
+     references :boundary/tenant-http-middleware boots fine — with tenant
+     resolution silently absent.
+   - BOU-198 (loud): the tenant HTTP middleware namespaces moved from platform
+     to the tenant lib; requiring the old platform ns fails at compile."
+  [src-text]
+  (let [stale (filter #(str/includes? src-text %) (keys relocated-namespaces))
+        ;; Any of these keys implies the tenant module is wired — an app may
+        ;; reference routes or membership without the service key itself.
+        tenant-wired? (boolean (some #(str/includes? src-text %)
+                                     [":boundary/tenant-service"
+                                      ":boundary/tenant-routes"
+                                      ":boundary/membership-service"]))
+        mw-wired?     (str/includes? src-text ":boundary/tenant-http-middleware")]
+    (concat
+     (when (seq stale)
+       (mapv (fn [old-ns]
+               {:id    :upgrade-wiring
+                :level :error
+                :msg   (str "Require of relocated namespace " old-ns " (moved in BOU-198)")
+                :fix   (str "Require " (get relocated-namespaces old-ns) " instead")})
+             stale))
+     (cond
+       (and tenant-wired? (not mw-wired?))
+       [{:id    :upgrade-wiring
+         :level :warn
+         :msg   (str "Tenant module wired but :boundary/tenant-http-middleware is never "
+                     "referenced — tenant HTTP middleware will NOT be mounted (BOU-200)")
+         :fix   (str "Add the component and inject it into the http-handler:\n"
+                     "  :boundary/tenant-http-middleware {:tenant-service     (ig/ref :boundary/tenant-service)\n"
+                     "                                    :membership-service (ig/ref :boundary/membership-service)\n"
+                     "                                    :db-context         (ig/ref :boundary/db-context)}\n"
+                     "  ;; and in the :boundary/http-handler config:\n"
+                     "  :extra-middleware (ig/ref :boundary/tenant-http-middleware)")}]
+       (and (empty? stale) (or (not tenant-wired?) mw-wired?))
+       [{:id :upgrade-wiring :level :pass :msg "No stale framework wiring detected"}]
+       :else nil))))
+
 (defn check-wiring-requires
-  "Check that wiring.clj has require entries for all active Integrant module keys."
+  "Check that the app source has require entries for all active Integrant module keys.
+   Post BOU-171/192/198 the app (not platform) loads feature module wiring, so the
+   scanned text is the app's own source tree (plus platform wiring.clj when present)."
   [wiring-text active-config]
   (let [;; Module keys that should have module-wiring requires
         module-keys (->> (keys active-config)
@@ -272,8 +325,9 @@
     (if (seq missing)
       [{:id    :wiring-requires
         :level :warn
-        :msg   (str "Active modules not wired in wiring.clj: " (str/join ", " (sort missing)))
-        :fix   (str "Add requires to wiring.clj:\n"
+        :msg   (str "Active modules with no module-wiring require in app source: "
+                    (str/join ", " (sort missing)))
+        :fix   (str "Require the module wiring from the app (e.g. main/config ns):\n"
                     (str/join "\n" (map #(str "  [boundary." % ".shell.module-wiring]") (sort missing))))}]
       [{:id :wiring-requires :level :pass :msg "All active modules wired"}])))
 
@@ -324,10 +378,23 @@
            (filter #(str/ends-with? (.getName %) ".edn"))
            vec))))
 
-(defn- load-wiring-text []
-  (let [f (io/file (root-dir) "libs/platform/src/boundary/platform/shell/system/wiring.clj")]
-    (when (.exists f)
-      (slurp f))))
+(defn- load-app-source-text
+  "Concatenated .clj source of the app's src/ and dev/ trees, plus platform's
+   system wiring.clj when present (monorepo). Post BOU-171/192/198 the app owns
+   its module-wiring requires, so wiring/upgrade checks must scan the app source
+   — in a downstream project the monorepo wiring.clj path does not even exist."
+  []
+  (let [platform-wiring (io/file (root-dir) "libs/platform/src/boundary/platform/shell/system/wiring.clj")
+        clj-files (fn [dir]
+                    (let [d (io/file (root-dir) dir)]
+                      (when (.exists d)
+                        (->> (file-seq d)
+                             (filter #(and (.isFile %) (str/ends-with? (.getName %) ".clj")))))))]
+    (->> (concat (when (.exists platform-wiring) [platform-wiring])
+                 (clj-files "src")
+                 (clj-files "dev"))
+         (map slurp)
+         (str/join "\n"))))
 
 ;; =============================================================================
 ;; Check orchestration
@@ -375,7 +442,7 @@
     (let [parsed       (parse-config-minimal config-text)
           active       (or (:active parsed) {})
           active-text  (extract-active-section config-text)
-          wiring-text  (or (load-wiring-text) "")
+          src-text     (load-app-source-text)
           dev-admin    (or (list-admin-files "dev") [])
           test-admin   (or (list-admin-files "test") [])]
       (concat
@@ -385,7 +452,8 @@
        (check-admin-parity dev-admin test-admin)
        (check-prod-placeholders config-text env)
        (check-reset-endpoint-flag (or parsed {}) env)
-       (check-wiring-requires wiring-text active)))))
+       (check-wiring-requires src-text active)
+       (check-upgrade-wiring src-text)))))
 
 ;; =============================================================================
 ;; Output formatting
@@ -448,7 +516,8 @@
   (println "  admin-parity        Admin entity files exist in both dev and test")
   (println "  prod-placeholders   No placeholder values in prod config")
   (println "  reset-endpoint-flag :test/reset-endpoint-enabled? only true in test/dev")
-  (println "  wiring-requires     wiring.clj has requires for all active modules"))
+  (println "  wiring-requires     App source requires wiring for all active modules")
+  (println "  upgrade-wiring      No stale pre-Phase-2 framework wiring (BOU-198/200)"))
 
 ;; =============================================================================
 ;; Main entry point

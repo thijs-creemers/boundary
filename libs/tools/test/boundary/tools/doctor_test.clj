@@ -284,3 +284,45 @@
                    (#'boundary.tools.doctor/extract-active-section config)))
       (is (not (re-find #"INACTIVE_HOST"
                         (#'boundary.tools.doctor/extract-active-section config)))))))
+
+(deftest ^:unit check-upgrade-wiring-flags-tenant-without-http-middleware
+  (testing "BOU-200 silent case: tenant-service wired, tenant-http-middleware absent"
+    (let [results (doctor/check-upgrade-wiring
+                   "(ig/ref :boundary/tenant-service) (ig/ref :boundary/membership-service)")]
+      (is (= [:warn] (map :level results)))
+      (is (re-find #"tenant-http-middleware" (:msg (first results))))))
+
+  (testing "tenant-service + tenant-http-middleware both wired passes"
+    (let [results (doctor/check-upgrade-wiring
+                   (str "(ig/ref :boundary/tenant-service)\n"
+                        ":boundary/tenant-http-middleware {:tenant-service (ig/ref :boundary/tenant-service)}"))]
+      (is (= [:pass] (map :level results)))))
+
+  (testing "tenant signalled by :tenant-routes alone (no service key) still warns"
+    (let [results (doctor/check-upgrade-wiring "(ig/ref :boundary/tenant-routes)")]
+      (is (= [:warn] (map :level results)))))
+
+  (testing "no tenant module at all passes"
+    (is (= [:pass] (map :level (doctor/check-upgrade-wiring "(ns app.config)"))))))
+
+(deftest ^:unit check-upgrade-wiring-flags-relocated-namespaces
+  (testing "pre-BOU-198 platform tenant middleware require is an error with the new ns in the fix"
+    (let [results (doctor/check-upgrade-wiring
+                   "(:require [boundary.platform.shell.interfaces.http.tenant-middleware :as mw])")]
+      (is (= [:error] (map :level results)))
+      (is (re-find #"boundary\.tenant\.shell\.tenant-middleware" (:fix (first results))))))
+
+  (testing "old membership-middleware ns is also flagged"
+    (let [results (doctor/check-upgrade-wiring
+                   "(:require [boundary.platform.shell.interfaces.http.membership-middleware :as mmw])")]
+      (is (= [:error] (map :level results)))))
+
+  (testing "stale ns AND missing middleware pair reports both"
+    (let [results (doctor/check-upgrade-wiring
+                   (str "(:require [boundary.platform.shell.interfaces.http.tenant-middleware :as mw])\n"
+                        "(ig/ref :boundary/tenant-service)"))]
+      (is (= #{:error :warn} (set (map :level results))))))
+
+  (testing "new tenant-lib ns does not trip the relocated check"
+    (is (= [:pass] (map :level (doctor/check-upgrade-wiring
+                                "(:require [boundary.tenant.shell.tenant-middleware :as mw])"))))))
