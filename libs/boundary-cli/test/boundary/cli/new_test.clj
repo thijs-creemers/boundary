@@ -46,6 +46,25 @@
                    ".githooks/pre-commit"]]
           (is (.exists (io/file tmp f)) (str "Missing: " f))))
 
+      (testing "every generated .clj source parses (balanced delimiters, no template tokens)"
+        ;; new-test previously only asserted file EXISTENCE — a template edit
+        ;; with unbalanced parens or a stray {{token}} would ship a project
+        ;; that fails on first load. Read-loop every rendered .clj to guard it.
+        (doseq [f (->> (file-seq (io/file tmp))
+                       (filter #(and (.isFile %) (str/ends-with? (.getName %) ".clj"))))]
+          (let [content (slurp f)]
+            (is (not (str/includes? content "{{"))
+                (str "Unrendered template token in " f))
+            (is (try
+                  (with-open [rdr (java.io.PushbackReader. (io/reader f))]
+                    (loop [n 0]
+                      (let [form (read {:read-cond :allow :eof ::eof} rdr)]
+                        (if (= ::eof form) (pos? n) (recur (inc n))))))
+                  (catch Exception e
+                    (println "PARSE ERROR in" (str f) "—" (ex-message e))
+                    false))
+                (str f " must parse cleanly and contain at least one form")))))
+
       (testing ".env has a generated JWT_SECRET (no unreplaced placeholder)"
         (let [content (slurp (io/file tmp ".env"))]
           (is (str/includes? content "JWT_SECRET="))

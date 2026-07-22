@@ -298,6 +298,10 @@
                         ":boundary/tenant-http-middleware {:tenant-service (ig/ref :boundary/tenant-service)}"))]
       (is (= [:pass] (map :level results)))))
 
+  (testing "tenant signalled by :tenant-routes alone (no service key) still warns"
+    (let [results (doctor/check-upgrade-wiring "(ig/ref :boundary/tenant-routes)")]
+      (is (= [:warn] (map :level results)))))
+
   (testing "no tenant module at all passes"
     (is (= [:pass] (map :level (doctor/check-upgrade-wiring "(ns app.config)"))))))
 

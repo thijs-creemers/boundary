@@ -251,7 +251,12 @@
      to the tenant lib; requiring the old platform ns fails at compile."
   [src-text]
   (let [stale (filter #(str/includes? src-text %) (keys relocated-namespaces))
-        tenant-wired? (str/includes? src-text ":boundary/tenant-service")
+        ;; Any of these keys implies the tenant module is wired — an app may
+        ;; reference routes or membership without the service key itself.
+        tenant-wired? (boolean (some #(str/includes? src-text %)
+                                     [":boundary/tenant-service"
+                                      ":boundary/tenant-routes"
+                                      ":boundary/membership-service"]))
         mw-wired?     (str/includes? src-text ":boundary/tenant-http-middleware")]
     (concat
      (when (seq stale)
