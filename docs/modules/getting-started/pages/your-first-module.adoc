@@ -5,28 +5,32 @@ After `bb scaffold generate` and `bb scaffold integrate`, Boundary gives you a m
 
 == What you get
 
-For a `product` module with `name`, `sku`, and `price` fields, the scaffolder creates the familiar FC/IS layout:
+Run it from your project root:
+
+[source,bash]
+----
+bb scaffold generate --module-name product --entity Product \
+  --field name:string:required --field sku:string:required --field price:decimal
+----
+
+For that `product` module the scaffolder creates the familiar FC/IS layout under `src/boundary/product/`:
 
 [source]
 ----
-libs/product/
-├── src/product/
-│   ├── core/
-│   │   ├── product.clj      ← Pure business rules
-│   │   └── ui.clj           ← UI helpers and presentation logic
-│   ├── shell/
-│   │   ├── persistence.clj  ← Database translation and queries
-│   │   ├── service.clj      ← Orchestration and validation
-│   │   ├── http.clj         ← Request and response handlers
-│   │   └── web_handlers.clj
-│   ├── ports.clj            ← Protocol definitions
-│   └── schema.clj           ← Malli validation schemas
-├── test/product/
-│   ├── core/product_test.clj          ← Unit tests
-│   ├── shell/service_test.clj         ← Integration tests
-│   └── shell/product_repository_test.clj     ← Contract tests
-└── migrations/005_create_products.sql
+src/boundary/product/
+├── core/
+│   ├── product.clj      ← Pure business rules
+│   └── ui.clj           ← UI helpers and presentation logic
+├── shell/
+│   ├── persistence.clj  ← Database translation and queries
+│   ├── service.clj      ← Orchestration and validation
+│   ├── http.clj         ← Request and response handlers
+│   └── web_handlers.clj
+├── ports.clj            ← Protocol definitions
+└── schema.clj           ← Malli validation schemas
 ----
+
+NOTE: The scaffolder emits modules under the `boundary.<module>.*` namespace (e.g. `boundary.product.core.product`) into `src/boundary/`. Wiring the module into `deps.edn`/`tests.edn` currently assumes the monorepo `libs/` layout — see xref:libraries:scaffolder.adoc[the scaffolder reference] for the current integration flow.
 
 If you have seen one Boundary module, you already know the basic map of the next one.
 
@@ -123,17 +127,21 @@ That split is deliberate:
 
 == Run the module's tests
 
-[source,bash]
-----
-clojure -M:test:db/h2 :product
-----
-
-If you only changed pure logic, you can also run the unit-focused suite:
+A project generated with `boundary new` runs its tests through Kaocha via the `:test` alias:
 
 [source,bash]
 ----
-clojure -M:test:db/h2 --focus-meta :unit
+clojure -M:test
 ----
+
+If you only changed pure logic, run the unit suite:
+
+[source,bash]
+----
+clojure -M:test :unit
+----
+
+NOTE: `clojure -M:test:db/h2 :product` is the *monorepo* form — inside this framework repository, where each library has its own Kaocha suite id and the `:db/h2` alias selects the in-memory database. Generated projects use the plain `:test` alias shown above.
 
 == Next steps
 
