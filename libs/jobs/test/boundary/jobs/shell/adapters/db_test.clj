@@ -120,6 +120,32 @@
         (is (= (set ids) (set c)))
         (is (zero? (ports/queue-size q :default)) "queue drained")))))
 
+(deftest ^:integration enqueue-in-tx-commits-atomically-with-business-write
+  (testing "job enqueued in the caller's tx is there after commit"
+    (let [q   (fresh-queue)
+          ds  (:ds q)
+          job (mk-job)
+          order-id (random-uuid)]
+      (jdbc/execute! ds ["CREATE TABLE orders (id UUID PRIMARY KEY)"])
+      (jdbc/with-transaction [tx ds]
+        (jdbc/execute! tx ["INSERT INTO orders (id) VALUES (?)" order-id])
+        (db/enqueue-in-tx! tx :default job))
+      (is (= 1 (count (jdbc/execute! ds ["SELECT id FROM orders"]))) "business write committed")
+      (is (= (:id job) (:id (ports/dequeue-job! q :default "w"))) "job committed in the same tx"))))
+
+(deftest ^:integration enqueue-in-tx-leaves-no-orphan-when-business-tx-rolls-back
+  (testing "a rolled-back business tx leaves neither the business row nor the job"
+    (let [q   (fresh-queue)
+          ds  (:ds q)
+          job (mk-job)]
+      (jdbc/execute! ds ["CREATE TABLE orders (id UUID PRIMARY KEY)"])
+      (jdbc/with-transaction [tx ds {:rollback-only true}]
+        (jdbc/execute! tx ["INSERT INTO orders (id) VALUES (?)" (random-uuid)])
+        (db/enqueue-in-tx! tx :default job))
+      (is (zero? (count (jdbc/execute! ds ["SELECT id FROM orders"]))) "business write rolled back")
+      (is (zero? (ports/queue-size q :default)) "no orphan job on the queue")
+      (is (nil? (ports/dequeue-job! q :default "w"))))))
+
 (deftest ^:integration peek-delete-and-list-queues
   (let [q (fresh-queue)
         a (mk-job :queue :alpha)
