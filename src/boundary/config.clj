@@ -242,6 +242,11 @@
   [config]
   (get-in config [:active :boundary/metrics] {:provider :no-op}))
 
+(defn tracing-config
+  "Extract tracing configuration (defaults to the inert no-op tracer)."
+  [config]
+  (get-in config [:active :boundary/tracing] {:provider :no-op}))
+
 (defn error-reporting-config
   "Extract error reporting configuration.
    
@@ -268,12 +273,14 @@
   (let [db-cfg (db-spec config)
         logging-cfg (logging-config config)
         metrics-cfg (metrics-config config)
+        tracing-cfg (tracing-config config)
         error-reporting-cfg (error-reporting-config config)
         router-cfg (get-in config [:active :boundary/router] {:adapter :reitit})
         cache-cfg (cache-config config)]
     (cond-> {:boundary/db-context db-cfg
              :boundary/logging logging-cfg
              :boundary/metrics metrics-cfg
+             :boundary/tracing tracing-cfg
              :boundary/error-reporting error-reporting-cfg
              :boundary/router router-cfg}
       cache-cfg (assoc :boundary/cache cache-cfg))))
@@ -306,6 +313,7 @@
                                      :router (ig/ref :boundary/router)
                                      :logger (ig/ref :boundary/logging)
                                      :metrics-emitter (ig/ref :boundary/metrics)
+                                     :tracer (ig/ref :boundary/tracing)
                                      :error-reporter (ig/ref :boundary/error-reporting)
                                      :user-service (ig/ref :boundary/user-service)
                                      :tenant-service (ig/ref :boundary/tenant-service)

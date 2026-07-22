@@ -11,6 +11,7 @@
    - Comprehensive error handling"
   (:require [boundary.jobs.ports :as ports]
             [boundary.jobs.shell.adapters.redis :as redis-adapter]
+            [boundary.observability.tracing.ports :as tracing-ports]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]
            [java.time Instant]))
@@ -193,49 +194,56 @@
      true if job was processed, false if queue was empty"
   [config queue store registry worker-state]
   (when-let [job (ports/dequeue-job! queue (:queue-name worker-state) (:id worker-state))]
-    (let [job-id (:id job)
-          job-type (:job-type job)]
-      (reset! (:current-job worker-state) job)
+    (let [job-id   (:id job)
+          job-type (:job-type job)
+          tracer   (:tracer config)
+          run-job!
+          (fn []
+            (reset! (:current-job worker-state) job)
+            (try
+              ;; Resolve the handler BEFORE marking the job running, so a missing
+              ;; handler can be re-routed without leaving the job stuck in :running.
+              (if-let [handler-fn (ports/get-handler registry job-type)]
+                (do
+                  (log/info "Processing job" {:job-id job-id :job-type job-type})
+                  (ports/update-job-status! store job-id :running nil)
+                  (let [result (execute-job-handler handler-fn (:args job))]
+                    (if (:success? result)
+                      (do
+                        (ports/update-job-status! store job-id :completed (:result result))
+                        (swap! (:processed-count worker-state) inc)
+                        (log/info "Job completed successfully" {:job-id job-id}))
+                      (do
+                        (ports/update-job-status! store job-id :failed (:error result))
+                        (swap! (:failed-count worker-state) inc)
+                        (log/warn "Job failed" {:job-id job-id :error (:error result)})))))
 
-      (try
-        ;; Resolve the handler BEFORE marking the job running, so a missing
-        ;; handler can be re-routed without leaving the job stuck in :running.
-        (if-let [handler-fn (ports/get-handler registry job-type)]
-          (do
-            (log/info "Processing job" {:job-id job-id :job-type job-type})
-            (ports/update-job-status! store job-id :running nil)
-            (let [result (execute-job-handler handler-fn (:args job))]
-              (if (:success? result)
-                (do
-                  (ports/update-job-status! store job-id :completed (:result result))
-                  (swap! (:processed-count worker-state) inc)
-                  (log/info "Job completed successfully" {:job-id job-id}))
-                (do
-                  (ports/update-job-status! store job-id :failed (:error result))
+                ;; No handler on this instance — re-enqueue (bounded), never silent DLQ.
+                (handle-missing-handler! config queue store registry worker-state job))
+
+              (catch Exception e
+                ;; Unexpected error during processing
+                (let [error {:message    (.getMessage e)
+                             :type       (-> e class .getName)
+                             :stacktrace (with-out-str (.printStackTrace e))}]
+                  (ports/update-job-status! store job-id :failed error)
                   (swap! (:failed-count worker-state) inc)
-                  (log/warn "Job failed" {:job-id job-id :error (:error result)})))))
+                  (log/error e "Unexpected error processing job" {:job-id job-id})))
 
-          ;; No handler on this instance — re-enqueue (bounded), never silent DLQ.
-          (handle-missing-handler! config queue store registry worker-state job))
-
-        (catch Exception e
-          ;; Unexpected error during processing
-          (let [error {:message (.getMessage e)
-                       :type (-> e class .getName)
-                       :stacktrace (with-out-str (.printStackTrace e))}]
-            (ports/update-job-status! store job-id :failed error)
-            (swap! (:failed-count worker-state) inc)
-            (log/error e "Unexpected error processing job" {:job-id job-id})))
-
-        (finally
-          ;; Ack removes the job from this worker's in-flight processing list.
-          ;; By here the job is completed, re-enqueued for retry, or dead-lettered
-          ;; — no longer in flight. A crash BEFORE this point leaves it in the
-          ;; processing list for reclaim-abandoned-jobs! to re-run (at-least-once).
-          (ports/ack-job! queue (:queue-name worker-state) (:id worker-state) job-id)
-          (reset! (:current-job worker-state) nil)
-          (reset! (:last-heartbeat worker-state) (Instant/now))))
-
+              (finally
+                ;; Ack removes the job from this worker's in-flight processing list.
+                ;; By here the job is completed, re-enqueued for retry, or dead-lettered
+                ;; — no longer in flight. A crash BEFORE this point leaves it in the
+                ;; processing list for reclaim-abandoned-jobs! to re-run (at-least-once).
+                (ports/ack-job! queue (:queue-name worker-state) (:id worker-state) job-id)
+                (reset! (:current-job worker-state) nil)
+                (reset! (:last-heartbeat worker-state) (Instant/now)))))]
+      ;; Emit a span per job execution when a tracer is configured (no-op safe).
+      (if tracer
+        (tracing-ports/with-span* tracer (str "job " job-type)
+          {:job.id (str job-id) :job.type (str job-type)}
+          (fn [_span] (run-job!)))
+        (run-job!))
       true)))
 
 ;; =============================================================================

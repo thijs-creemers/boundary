@@ -5,6 +5,7 @@
             [boundary.jobs.shell.adapters.in-memory :as in-memory]
             [boundary.jobs.core.job :as job]
             [boundary.jobs.ports :as ports]
+            [boundary.observability.tracing.ports :as tracing-ports]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]
            [java.time Instant]))
@@ -391,3 +392,57 @@
 
             (finally
               (ports/stop-worker! worker-instance (:id (:state worker-instance))))))))))
+
+;; =============================================================================
+;; Tracing
+;; =============================================================================
+
+(defn- recording-tracer
+  "ITracer that records each with-span* invocation into `calls`."
+  [calls]
+  (reify tracing-ports/ITracer
+    (start-span! [_ n] {:n n})
+    (start-span! [_ n _a] {:n n})
+    (end-span! [_ _] nil)
+    (add-event! [_ _ _] nil)
+    (add-event! [_ _ _ _] nil)
+    (set-attributes! [_ _ _] nil)
+    (record-exception! [_ _ _] nil)
+    (span-context [_ _] {:trace-id nil :span-id nil})
+    (with-span* [_ n a f]
+      (swap! calls conj {:name n :attrs a})
+      (f {:n n}))))
+
+(deftest ^:unit worker-emits-span-per-job-when-tracer-configured
+  (testing "A tracer in worker config wraps each job execution in a span"
+    (let [{:keys [queue store]} *system*
+          calls (atom [])]
+      (ports/register-handler! *registry* :test-job
+                               (fn [_args] {:success? true :result "ok"}))
+      (ports/enqueue-job! queue :default (create-test-job {:job-type :test-job}))
+      (let [worker-instance (worker/create-worker
+                             {:queue-name :default :poll-interval-ms 50
+                              :tracer (recording-tracer calls)}
+                             queue store *registry*)]
+        (try
+          (is (wait-for #(seq @calls) 5000) "a job span was emitted")
+          (let [span (first @calls)]
+            (is (= "job :test-job" (:name span)))
+            (is (= ":test-job" (get-in span [:attrs :job.type]))))
+          (finally
+            (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))
+
+(deftest ^:unit worker-runs-jobs-without-tracer
+  (testing "No :tracer in config still processes jobs (no-op safe)"
+    (let [{:keys [queue store]} *system*
+          done (atom false)]
+      (ports/register-handler! *registry* :test-job
+                               (fn [_args] (reset! done true) {:success? true :result "ok"}))
+      (ports/enqueue-job! queue :default (create-test-job {:job-type :test-job}))
+      (let [worker-instance (worker/create-worker
+                             {:queue-name :default :poll-interval-ms 50}
+                             queue store *registry*)]
+        (try
+          (is (wait-for #(true? @done) 5000) "job ran without a tracer")
+          (finally
+            (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))

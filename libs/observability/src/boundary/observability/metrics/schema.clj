@@ -13,7 +13,7 @@
 
 (def MetricProvider
   "Supported metrics providers."
-  [:enum :in-memory :prometheus :datadog-statsd :statsd :cloudwatch :custom])
+  [:enum :in-memory :prometheus :datadog-statsd :otlp :statsd :cloudwatch :custom])
 
 (def MetricType
   "Types of metrics that can be collected."
@@ -100,6 +100,27 @@
      [:vector [:double {:min 0.0 :max 1.0}]]]
     [:summary-max-age {:optional true} [:int {:min 60 :max 3600}]]]])
 
+(def OtlpProtocol
+  "OTLP transport. Only `:http/protobuf` is bundled (okhttp sender)."
+  [:enum :http/protobuf])
+
+(def OtlpMetricsConfig
+  "Configuration for the OpenTelemetry OTLP metrics provider (push to any OTel
+   collector: SigNoz, Grafana, Datadog-via-OTel, …)."
+  [:and BaseMetricsConfig
+   [:map {:title "OTLP Metrics Configuration"}
+    [:provider [:= :otlp]]
+    ;; OTLP base endpoint (OTEL_EXPORTER_OTLP_ENDPOINT); the exporter appends
+    ;; /v1/metrics. HTTP receiver default port is 4318.
+    [:endpoint {:optional true} [:string {:min 1 :max 500}]]
+    [:protocol {:optional true} OtlpProtocol]
+    [:service-name {:optional true} [:string {:min 1 :max 200}]]
+    ;; Push interval to the collector (PeriodicMetricReader).
+    [:interval-ms {:optional true} [:int {:min 1000 :max 600000}]]
+    [:timeout-ms {:optional true} [:int {:min 100 :max 120000}]]
+    [:default-tags {:optional true} [:map-of :keyword :string]]
+    [:headers {:optional true} [:map-of :keyword :string]]]])
+
 (def DatadogStatsdConfig
   "Configuration for Datadog StatsD metrics provider."
   [:and BaseMetricsConfig
@@ -162,6 +183,7 @@
    [:in-memory InMemoryMetricsConfig]
    [:prometheus PrometheusMetricsConfig]
    [:datadog-statsd DatadogStatsdConfig]
+   [:otlp OtlpMetricsConfig]
    [:statsd StatsdConfig]
    [:cloudwatch CloudwatchMetricsConfig]
    [:custom CustomMetricsConfig]])
@@ -249,6 +271,17 @@
                             :max-tags      15
                             :default-tags  {:service "boundary"}
                             :sanitize-keys true}})
+
+(def default-otlp-config
+  "Default OTLP metrics configuration (push to a local collector)."
+  {:provider     :otlp
+   :enabled      true
+   :namespace    "boundary"
+   :endpoint     "http://localhost:4318"
+   :protocol     :http/protobuf
+   :service-name "boundary"
+   :interval-ms  60000
+   :timeout-ms   10000})
 
 (def default-datadog-config
   "Default Datadog StatsD metrics configuration."
@@ -367,6 +400,7 @@
    {:in-memory      InMemoryMetricsConfig
     :prometheus     PrometheusMetricsConfig
     :datadog-statsd DatadogStatsdConfig
+    :otlp           OtlpMetricsConfig
     :statsd         StatsdConfig
     :cloudwatch     CloudwatchMetricsConfig
     :custom         CustomMetricsConfig}
