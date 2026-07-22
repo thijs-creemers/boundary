@@ -37,6 +37,7 @@
     :multi true
     :default []
     :update-fn conj]
+   [nil "--base-ns NS" "Base namespace + path for the module (default: boundary)"]
    [nil "--http" "Enable HTTP (REST API) interface (default: true)"
     :default true]
    [nil "--cli" "Enable CLI interface (default: true)"
@@ -370,17 +371,18 @@
         (if-not fields-valid?
           {:status 1
            :errors fields-or-errors}
-          (let [request {:module-name (:module-name opts)
-                         :entities [{:name (:entity opts)
-                                     :fields fields-or-errors}]
-                         :interfaces {:http (:http opts)
-                                      :cli (:cli opts)
-                                      :web (:web opts)}
-                         :features {:audit (:audit opts)
-                                    :pagination (:pagination opts)}
-                         :output-dir (:output-dir opts)
-                         :force (:force opts)
-                         :dry-run (:dry-run opts)}
+          (let [request (cond-> {:module-name (:module-name opts)
+                                 :entities [{:name (:entity opts)
+                                             :fields fields-or-errors}]
+                                 :interfaces {:http (:http opts)
+                                              :cli (:cli opts)
+                                              :web (:web opts)}
+                                 :features {:audit (:audit opts)
+                                            :pagination (:pagination opts)}
+                                 :output-dir (:output-dir opts)
+                                 :force (:force opts)
+                                 :dry-run (:dry-run opts)}
+                          (:base-ns opts) (assoc :base-ns (:base-ns opts)))
                 result (ports/generate-module service request)]
             (if (:success result)
               {:status 0

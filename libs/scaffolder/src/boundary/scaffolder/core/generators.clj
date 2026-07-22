@@ -43,12 +43,13 @@
    
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         fields (:fields entity)
         field-schemas (str/join "\n" (map generate-field-schema fields))]
-    (format "(ns boundary.%s.schema
+    (format "(ns %s.%s.schema
   \"Schema definitions for %s module.\"
   (:require [malli.core :as m]))
 
@@ -96,6 +97,7 @@
   [%s-data]
   (%s-explainer %s-data))
 "
+            base-ns
             module-name
             module-name
             entity-name
@@ -141,11 +143,12 @@
    
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (:entity-lower entity)]
-    (format "(ns boundary.%s.ports
+    (format "(ns %s.%s.ports
   \"%s module port definitions (abstract interfaces).\")
 
 ;; =============================================================================
@@ -192,6 +195,7 @@
   (delete-%s [this id]
     \"Delete %s.\"))
 "
+            base-ns
             module-name
             (str/capitalize module-name)
             entity-name
@@ -230,17 +234,18 @@
    
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         _entity-name (:entity-name entity)
         entity-lower (:entity-lower entity)
         entity-kebab (:entity-kebab entity)]
-    (format "(ns boundary.%s.core.%s
+    (format "(ns %s.%s.core.%s
   \"Pure business logic for %s domain.
    
    All functions in this namespace are pure - they have no side effects,
    don't perform I/O, and always return the same output for the same input.\"
-  (:require [boundary.%s.schema :as schema]))
+  (:require [%s.%s.schema :as schema]))
 
 ;; =============================================================================
 ;; Entity Creation
@@ -304,9 +309,11 @@
     [true nil data]
     [false (schema/explain-%s data) nil]))
 "
+            base-ns
             module-name
             entity-kebab
             entity-lower
+            base-ns
             module-name
             entity-kebab
             entity-lower
@@ -394,12 +401,13 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)
         entity-plural (template/pluralize entity-lower)]
-    (str "(ns boundary." module-name ".core.ui\n"
+    (str "(ns " base-ns "." module-name ".core.ui\n"
          "  \"Pure UI generation for " module-name " module - Hiccup templates.\")\n"
          "\n"
          "(defn " entity-lower "-list-page\n"
@@ -427,15 +435,16 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)
         entity-kebab (str/replace entity-lower #"\s+" "-")]
-    (str "(ns boundary." module-name ".shell.service\n"
+    (str "(ns " base-ns "." module-name ".shell.service\n"
          "  \"Service layer for " module-name " module.\"\n"
-         "  (:require [boundary." module-name ".ports :as ports]\n"
-         "            [boundary." module-name ".core." entity-kebab " :as core])\n"
+         "  (:require [" base-ns "." module-name ".ports :as ports]\n"
+         "            [" base-ns "." module-name ".core." entity-kebab " :as core])\n"
          "  (:import [java.time Instant]\n"
          "           [java.util UUID]))\n"
          "\n"
@@ -477,14 +486,15 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)
         table-name (template/pluralize (template/kebab->snake entity-name))]
-    (str "(ns boundary." module-name ".shell.persistence\n"
+    (str "(ns " base-ns "." module-name ".shell.persistence\n"
          "  \"Persistence layer for " module-name " module.\"\n"
-         "  (:require [boundary." module-name ".ports :as ports]\n"
+         "  (:require [" base-ns "." module-name ".ports :as ports]\n"
          "            [boundary.platform.shell.adapters.database.common.core :as db]\n"
          "            [honey.sql :as sql]))\n"
          "\n"
@@ -534,14 +544,15 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)
         entity-plural (template/pluralize entity-lower)]
-    (str "(ns boundary." module-name ".shell.http\n"
+    (str "(ns " base-ns "." module-name ".shell.http\n"
          "  \"HTTP routes for " module-name " module.\"\n"
-         "  (:require [boundary." module-name ".ports :as ports]))\n"
+         "  (:require [" base-ns "." module-name ".ports :as ports]))\n"
          "\n"
          ";; =============================================================================\n"
          ";; Legacy Reitit Routes\n"
@@ -632,15 +643,16 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)
         entity-plural (template/pluralize entity-lower)]
-    (str "(ns boundary." module-name ".shell.web-handlers\n"
+    (str "(ns " base-ns "." module-name ".shell.web-handlers\n"
          "  \"Web UI handlers for " module-name " module.\"\n"
-         "  (:require [boundary." module-name ".core.ui :as ui]\n"
-         "            [boundary." module-name ".ports :as ports]))\n"
+         "  (:require [" base-ns "." module-name ".core.ui :as ui]\n"
+         "            [" base-ns "." module-name ".ports :as ports]))\n"
          "\n"
          "(defn " entity-lower "-list-handler [service config]\n"
          "  (fn [request]\n"
@@ -664,13 +676,14 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)]
-    (str "(ns boundary." module-name ".core." entity-lower "-test\n"
+    (str "(ns " base-ns "." module-name ".core." entity-lower "-test\n"
          "  (:require [clojure.test :refer [deftest testing is]]\n"
-         "            [boundary." module-name ".core." entity-lower " :as core])\n"
+         "            [" base-ns "." module-name ".core." entity-lower " :as core])\n"
          "  (:import [java.time Instant]\n"
          "           [java.util UUID]))\n"
          "\n"
@@ -695,14 +708,15 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)]
-    (str "(ns boundary." module-name ".shell.service-test\n"
+    (str "(ns " base-ns "." module-name ".shell.service-test\n"
          "  (:require [clojure.test :refer [deftest testing is]]\n"
-         "            [boundary." module-name ".shell.service :as service]\n"
-         "            [boundary." module-name ".ports :as ports]))\n"
+         "            [" base-ns "." module-name ".shell.service :as service]\n"
+         "            [" base-ns "." module-name ".ports :as ports]))\n"
          "\n"
          "(deftest create-" entity-lower "-test\n"
          "  (testing \"creates " entity-lower " via service\"\n"
@@ -723,14 +737,15 @@ CREATE INDEX IF NOT EXISTS idx_%s_created_at ON %s(created_at);
      
    Pure: true"
   [ctx]
-  (let [module-name (:module-name ctx)
+  (let [base-ns (:base-ns ctx "boundary")
+        module-name (:module-name ctx)
         entity (first (:entities ctx))
         entity-name (:entity-name entity)
         entity-lower (str/lower-case entity-name)]
-    (str "(ns boundary." module-name ".shell." entity-lower "-repository-test\n"
+    (str "(ns " base-ns "." module-name ".shell." entity-lower "-repository-test\n"
          "  (:require [clojure.test :refer [deftest testing is]]\n"
-         "            [boundary." module-name ".shell.persistence :as persistence]\n"
-         "            [boundary." module-name ".ports :as ports]))\n"
+         "            [" base-ns "." module-name ".shell.persistence :as persistence]\n"
+         "            [" base-ns "." module-name ".ports :as ports]))\n"
          "\n"
          "(deftest create-" entity-lower "-test\n"
          "  (testing \"creates " entity-lower " in database\"\n"
@@ -1441,13 +1456,15 @@ ALTER TABLE %s ADD COLUMN %s %s%s%s;
      port-name - Port protocol name (e.g., \"ICache\")
      adapter-name - Adapter name (e.g., \"redis\")
      methods - Vector of method specs [{:name \"get-value\" :args [\"key\"]}]
-   
+     base-ns - Optional base namespace (default \"boundary\")
+
    Returns:
      String content for adapter.clj file
-   
+
    Pure: true"
-  [module-name port-name adapter-name methods]
-  (let [adapter-pascal (template/kebab->pascal adapter-name)
+  [module-name port-name adapter-name methods & [base-ns]]
+  (let [base-ns (or base-ns "boundary")
+        adapter-pascal (template/kebab->pascal adapter-name)
         record-name (str adapter-pascal (template/kebab->pascal module-name))
         methods-str (str/join "\n\n"
                               (map (fn [{:keys [name args _returns]}]
@@ -1455,11 +1472,11 @@ ALTER TABLE %s ADD COLUMN %s %s%s%s;
                                        (format "  (%s [%s]\n    ;; TODO: Implement %s\n    (throw (ex-info \"Not implemented\" {:method :%s})))"
                                                name args-str name name)))
                                    methods))]
-    (format "(ns boundary.%s.shell.adapters.%s
+    (format "(ns %s.%s.shell.adapters.%s
   \"%s adapter implementation for %s.
    
    TODO: Implement all methods of the %s protocol.\"
-  (:require [boundary.%s.ports :as ports]))
+  (:require [%s.%s.ports :as ports]))
 
 ;; =============================================================================
 ;; %s Adapter Implementation
@@ -1485,11 +1502,13 @@ ALTER TABLE %s ADD COLUMN %s %s%s%s;
   [config]
   (->%s config))
 "
+            base-ns
             module-name
             adapter-name
             (str/capitalize adapter-name)
             module-name
             port-name
+            base-ns
             module-name
             (str/capitalize adapter-name)
             record-name
