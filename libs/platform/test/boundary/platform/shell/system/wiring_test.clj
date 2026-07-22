@@ -72,7 +72,7 @@
               :metrics-emitter ::metrics
               :tracer ::tracer
               :error-reporter ::error-reporter}
-             (dissoc (:system @captured-config) :csrf :rate-limit :cache)))
+             (dissoc (:system @captured-config) :csrf :rate-limit :cache :metrics-handles)))
       ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
       (is (false? (get-in @captured-config [:system :csrf :enabled?])))
       ;; Rate limiting is opt-in too: with no :rate-limit config block it defaults off.
@@ -142,7 +142,7 @@
               :metrics-emitter ::metrics
               :tracer ::tracer
               :error-reporter ::error-reporter}
-             (dissoc (:system @captured-config) :csrf :rate-limit :cache)))
+             (dissoc (:system @captured-config) :csrf :rate-limit :cache :metrics-handles)))
       ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
       (is (false? (get-in @captured-config [:system :csrf :enabled?])))
       ;; Rate limiting is opt-in too: with no :rate-limit config block it defaults off.
