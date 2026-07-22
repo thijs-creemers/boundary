@@ -4,93 +4,187 @@
 
 ## Purpose
 
-Email sending with SMTP support, validation, and optional async processing via the jobs module. Supports sync, async (future-based), and queued (jobs module) sending modes.
+Application-layer email sending: an `Email` domain model, pure preparation and
+validation, and pluggable sender adapters. Raw SMTP transport is delegated to
+`libs/external`. Sending comes in three flavours — synchronous, async
+(`future`-based), and queued (via the optional `libs/jobs` module).
 
 ## Key Namespaces
 
 | Namespace | Purpose |
 |-----------|---------|
-| `boundary.email.core.email` | Pure functions: prepare, validate, add headers, summarize |
-| `boundary.email.ports` | Protocols: EmailSenderProtocol, EmailQueueProtocol |
-| `boundary.email.schema` | Malli schemas: EmailAddress, Email, SendEmailInput |
-| `boundary.email.shell.adapters.smtp` | SMTP adapter — thin wrapper over `boundary.external` SMTP transport |
-| `boundary.email.shell.jobs-integration` | Optional integration with jobs module for queued sending |
+| `boundary.email.core.email` | Pure functions: validate addresses/recipients, normalize + prepare emails, format headers, add reply-to/cc/bcc, summarize |
+| `boundary.email.ports` | Protocols: `EmailSenderProtocol`, `EmailQueueProtocol` |
+| `boundary.email.schema` | Malli schemas: `EmailAddress`, `Attachment`, `Email`, `SendEmailInput`, `EmailValidationResult`, `RecipientValidationResult`, `EmailSummary` + validators |
+| `boundary.email.shell.adapters.smtp` | Production SMTP sender — thin wrapper over `libs/external`'s `SmtpProviderAdapter` |
+| `boundary.email.shell.adapters.logging` | Dev/test sender — records + prints emails instead of delivering them |
+| `boundary.email.shell.jobs-integration` | Optional queued sending via `libs/jobs` (loaded through `requiring-resolve`) |
 
-## Transport Layer Dependency
+## Relationship to `libs/external`
 
-`libs/email` delegates all raw SMTP transport to `libs/external`:
+`libs/email` is the **application/domain** layer; `libs/external` is the raw
+**transport** layer. `email` depends on `external` (see `deps.edn`); there is no
+direct `javax.mail` dependency here — it arrives transitively.
 
 ```
-libs/email (application layer)        libs/external (transport layer)
-  Email {id, created-at, metadata}  →   OutboundEmail {to, from, subject, ...}
-  EmailSenderProtocol                →   ISmtpProvider (javax.mail, HTML, test-connection!)
-  shell/adapters/smtp.clj (wrapper)  →   SmtpProviderAdapter
+libs/email (domain)                         libs/external (transport)
+  Email {id, created-at, metadata, ...}  →   OutboundEmail {to, from, subject, ...}
+  EmailSenderProtocol                    →   ISmtpProvider  (javax.mail, TLS/SSL, HTML, MIME)
+  shell/adapters/smtp SmtpEmailSender    →   shell/adapters/smtp SmtpProviderAdapter
 ```
 
-`shell/adapters/smtp.clj` translates the `Email` domain model to `OutboundEmail` and delegates. `libs/email` no longer has a direct `javax.mail` dependency — it comes transitively through `libs/external`.
+`shell/adapters/smtp.clj`'s private `email->outbound` translates the domain
+`Email` to an `OutboundEmail`, mapping the `:headers` sub-map (`:reply-to`,
+`:cc`, `:bcc`) to top-level transport keys and passing `:attachments` through
+(BOU-150). It then delegates to `external-ports/send-email!`.
 
-## Email Lifecycle
+> Note: `libs/user`'s web handlers send welcome emails against
+> `boundary.external.ports/ISmtpProvider` **directly**, not through this
+> library. `libs/email` is the richer domain path (validation, prep, queuing);
+> `libs/external` is the bare transport some callers use on its own.
+
+## Ports
+
+### `EmailSenderProtocol`
+| Method | Signature | Returns |
+|--------|-----------|---------|
+| `send-email!` | `(send-email! this email)` | `{:success? bool :message-id "..."}` or `{:success? false :error {:message :type :provider-error}}` |
+| `send-email-async!` | `(send-email-async! this email)` | a `future` wrapping the `send-email!` result map |
+
+Implemented by `SmtpEmailSender` (real SMTP) and `LoggingEmailSender` (dev sink).
+
+### `EmailQueueProtocol`
+Defines `queue-email!`, `process-queue!`, `queue-size`, `peek-queue`. **This is a
+port only — there is no implementation in the repo.** In practice, queued
+sending goes through `shell.jobs-integration` (below), not this protocol.
+
+## Core functions (pure — `boundary.email.core.email`)
+
+- `(valid-email-address? s)` → boolean (basic RFC 5322 regex)
+- `(validate-recipients recipients)` → `{:valid? :valid-emails :invalid-emails}`
+- `(normalize-recipients recipients)` → always a vector
+- `(format-headers headers)` → keywordized keys, stringified values
+- `(prepare-email email-input email-id now)` → normalized `Email` map. **Takes
+  three args:** the shell supplies `email-id` (a UUID) and `now` (a timestamp).
+- `(validate-email email)` → `{:valid? :errors}`
+- `(email-summary email)` → compact map for logging (recipient count, not list)
+- `(add-reply-to email addr)` / `(add-cc email recips)` / `(add-bcc email recips)`
+  → return a new `Email` with the header set under `:headers`
+
+## Sending modes
+
+| Mode | How to trigger | Backing |
+|------|----------------|---------|
+| **Sync** | `(ports/send-email! sender email)` | Blocks until the SMTP round-trip completes; immediate result. Use for critical mail (password reset, MFA). |
+| **Async** | `(ports/send-email-async! sender email)` → deref the `future` | Plain Clojure `future` on the agent thread pool. Non-blocking, in-process (not durable across restarts). |
+| **Queued** | `(jobs-integration/queue-email-job! job-queue sender email)` | Enqueues a `:send-email` job onto the `:emails` queue in `libs/jobs` (Redis/DB-backed, retryable). Requires the jobs module. |
+
+## Jobs integration (`shell.jobs-integration`)
+
+`libs/jobs` is an **optional** dependency, resolved at call time via
+`requiring-resolve`. If it is absent, these throw `ex-info` with
+`:type :missing-dependency`.
+
+- `(queue-email-job! job-queue email-sender email)` — extracts SMTP config from
+  `email-sender`, builds a `:send-email` job, enqueues it on `:emails`. Returns
+  the job id.
+- `(register-email-job-handler! job-registry)` — registers `process-email-job`
+  for the `:send-email` job type. Call once at startup.
+- `(process-email-job job-args)` — the handler: rebuilds an `SmtpEmailSender`
+  from `:sender-config`, sends, returns `{:success? ... :result/:error}`.
+
+## Wiring & configuration
+
+There is **no Integrant `init-key` / `:boundary/email` component** — this is a
+plain library. Construct a sender directly and pass it where needed (the app
+typically threads it into the HTTP layer's `config` under `:email-sender`, which
+`libs/user`'s routes read).
 
 ```clojure
-(require '[boundary.email.core.email :as email])
-(require '[boundary.email.ports :as ports])
 (require '[boundary.email.shell.adapters.smtp :as smtp])
 
-;; 1. Create sender
-(def sender (smtp/create-smtp-sender
-              {:host "smtp.gmail.com" :port 587
-               :username "user@gmail.com" :password "app-password"
-               :tls? true}))
-
-;; 2. Prepare email (pure - normalizes :to to vector, adds UUID + timestamp)
-(def prepared (email/prepare-email
-                {:to "user@example.com"
-                 :from "no-reply@myapp.com"
-                 :subject "Welcome!"
-                 :body "Thanks for signing up"}))
-
-;; 3. Optional: add headers (pure)
-(def with-headers (-> prepared
-                      (email/add-reply-to "support@myapp.com")
-                      (email/add-cc "admin@myapp.com")))
-
-;; 4. Validate (pure)
-(email/validate-email with-headers)
-;; => {:valid? true :errors []}
-
-;; 5. Send
-(ports/send-email! sender with-headers)
-;; => {:success? true :message-id "..."}
-
-;; Or async
-(def result-future (ports/send-email-async! sender with-headers))
-@result-future  ; deref when needed
+;; create-smtp-sender config keys:
+;;   :host     (required)  SMTP hostname
+;;   :port     (required)  SMTP port
+;;   :username (optional)  auth user
+;;   :password (optional)  auth password
+;;   :tls?     (default true)   STARTTLS
+;;   :ssl?     (default false)  implicit SSL
+(def sender
+  (smtp/create-smtp-sender
+    {:host "smtp.gmail.com" :port 587
+     :username "user@gmail.com" :password "app-password"
+     :tls? true}))
 ```
 
-## Sending Modes
+Pull host/port/credentials from Aero config + env vars (`resources/conf/*`) at
+the app layer; never hard-code them in a module.
 
-| Use Case | Method | Notes |
-|----------|--------|-------|
-| Critical (password reset) | `send-email!` | Blocks, immediate feedback |
-| Non-critical, low volume | `send-email-async!` | Clojure `future`, non-blocking |
-| High volume (>10/min) | `queue-email-job!` + jobs module | Redis queue, auto-retry |
+## Usage example
 
-## Gotchas
+```clojure
+(require '[boundary.email.core.email :as email]
+         '[boundary.email.ports :as ports]
+         '[boundary.email.shell.adapters.smtp :as smtp])
 
-1. **Gmail**: Must use 16-char App Password, not regular password
-2. **Port + TLS/SSL**: Port 587 → `:tls? true`, Port 465 → `:ssl? true`, Port 25 → both false
-3. **Recipients are always vectors** after `prepare-email`, even if input is a single string
-4. **Jobs module is optional** - uses `requiring-resolve`, throws `:type :missing-dependency` if unavailable
-5. **HTML email** - supported via `libs/external` (`SmtpProviderAdapter` handles multipart); set `:html-body` on the `OutboundEmail`. The `libs/email` adapter currently sends plain text only — pass `:html-body` via `email->outbound` translation if needed
-6. **No attachment support yet** - schema includes it but the SMTP adapter doesn't handle it
+(def sender (smtp/create-smtp-sender {:host "localhost" :port 1025 :tls? false}))
 
-## Local Development
+;; prepare-email is pure — the SHELL supplies the id + timestamp:
+(def prepared
+  (email/prepare-email
+    {:to "user@example.com" :from "no-reply@myapp.com"
+     :subject "Welcome!" :body "Thanks for signing up"}
+    (java.util.UUID/randomUUID)
+    (java.time.Instant/now)))
+
+;; :to is normalized to a vector; add optional headers (pure):
+(def ready (-> prepared
+               (email/add-reply-to "support@myapp.com")
+               (email/add-cc "admin@myapp.com")))
+
+(email/validate-email ready)      ;; => {:valid? true :errors []}
+(ports/send-email! sender ready)  ;; => {:success? true :message-id "..."}
+
+@(ports/send-email-async! sender ready)  ;; async: deref the future
+```
+
+### Dev sender (no real delivery)
+
+`(log-sender/create-logging-sender)` returns a `LoggingEmailSender` that prints
+to `*err*` and records emails in-memory instead of delivering them. Inspect with
+`list-sent-emails` / `latest-sent-email`; reset with `clear-sent-emails!`.
+
+## Common pitfalls
+
+1. **`prepare-email` is 3-arity.** `(prepare-email input id now)` — the shell
+   generates the UUID and timestamp so the core stays pure. Calling it with one
+   arg is a bug.
+2. **Recipients become vectors.** After `prepare-email`, `:to` is always a
+   vector even when you passed a single string. `add-cc`/`add-bcc` join lists
+   into a comma string inside `:headers`; the SMTP adapter re-splits them.
+3. **`EmailQueueProtocol` has no implementation.** For durable queuing use
+   `jobs-integration/queue-email-job!`, not the queue protocol.
+4. **Jobs module is optional.** `queue-email-job!` / `register-email-job-handler!`
+   throw `{:type :missing-dependency}` when `libs/jobs` is not on the classpath.
+5. **Gmail** requires a 16-char App Password, not the account password.
+6. **Port ↔ transport security:** 587 → `:tls? true`; 465 → `:ssl? true`
+   (`:tls? false`); 25 → both false. `create-smtp-sender` defaults `:tls? true`.
+7. **HTML body:** the domain `Email` carries a plain-text `:body` only, and
+   `email->outbound` does not set `:html-body`. `libs/external`'s adapter *can*
+   render HTML multipart when `:html-body` is present — reach for the external
+   transport directly (or extend `email->outbound`) if you need HTML.
+8. **Attachments are supported** (BOU-150): put an `:attachments` vector on the
+   `Email`; `email->outbound` passes it through to the external MIME builder.
+   (Earlier docs claiming "no attachment support" are stale.)
+9. **`LoggingEmailSender` holds a `defonce` atom** — a shell-layer dev sink,
+   intentionally outside FC/IS core-purity rules.
+
+## Local development (MailHog)
 
 ```bash
-# Start local SMTP server (MailHog)
 docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
-# Config: {:host "localhost" :port 1025 :tls? false}
-# View emails: http://localhost:8025
+# Sender config: {:host "localhost" :port 1025 :tls? false}
+# Inbox UI:      http://localhost:8025
 ```
 
 ## Testing
@@ -99,7 +193,13 @@ docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog
 clojure -M:test:db/h2 :email
 ```
 
+Tests: `core/email_test.clj` (pure functions), `schema_test.clj` (Malli), and
+`shell/adapters/smtp_test.clj` (adapter + `email->outbound` translation,
+including attachment pass-through; tagged `^:integration`).
+
 ## Links
 
 - [Library README](README.md)
 - [Root AGENTS Guide](../../AGENTS.md)
+- [external library](../external/AGENTS.md) — SMTP transport
+- [jobs library](../jobs/AGENTS.md) — background/queued processing
