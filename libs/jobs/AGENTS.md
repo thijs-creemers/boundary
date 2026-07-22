@@ -15,8 +15,33 @@ Background job processing with priority queues, scheduled execution, automatic r
 | `boundary.jobs.schema` | Malli schemas: job states, priorities, retry config |
 | `boundary.jobs.shell.adapters.in-memory` | In-memory adapter (atoms, for dev/test) |
 | `boundary.jobs.shell.adapters.redis` | Redis adapter (sorted sets, lists, hashes) |
+| `boundary.jobs.shell.adapters.db` | DB adapter (next.jdbc, H2/PostgreSQL) — durable jobs on your existing SQL database |
 | `boundary.jobs.shell.worker` | Worker implementation: polling, processing, pool management |
 | `boundary.jobs.shell.tenant-context` | Multi-tenant job execution with schema switching |
+
+## DB-backed adapter (`adapters.db`)
+
+Durable jobs on your existing SQL database (H2 or PostgreSQL) — no Redis
+required, survives a Redis outage.
+
+```clojure
+(require '[boundary.jobs.shell.adapters.db :as db])
+(db/create-jobs-table! ds)                 ; once at startup (or ship as a migration)
+(def q (db/create-db-job-queue ds :lease-ms 60000))
+```
+
+- Implements the same reliable-dequeue contract as Redis: `dequeue-job!` claims
+  a row (status `processing`, `locked_by`/`locked_at`); `ack-job!` removes it;
+  `reclaim-abandoned-jobs!` returns rows whose **lease** (`locked_at` older than
+  `:lease-ms`) has expired back to `ready` (at-least-once).
+- **Portable SQL** (no `SELECT … FOR UPDATE SKIP LOCKED`): claim is a SELECT of
+  the best candidate + a conditional `UPDATE … WHERE status='ready'`; the row
+  lock serialises concurrent workers (one wins, losers retry). Runs identically
+  on H2 and PostgreSQL, so its reliability tests run on the default H2 test DB.
+- The authoritative job is the JSON `payload` column (same wire format as the
+  Redis adapter); the other columns exist only for ordering/claim/reclaim.
+- Transactional enqueue (outbox — enqueue in the caller's business-DB tx) is a
+  planned follow-up (BOU-181).
 
 ## Job Handler Signature
 
