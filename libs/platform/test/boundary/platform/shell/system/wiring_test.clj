@@ -170,6 +170,20 @@
                        :config {:active {:boundary/http {:security {:csrf {:enabled? true
                                                                            :secret ""}}}}}})))))
 
+(deftest ^:security ^:unit rate-limit-fails-loud-in-prod-without-cache
+  (testing "rate limiting enabled in :prod with no cache throws at startup (no false protection)"
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo
+         #"Rate limiting is enabled in the :prod profile but no"
+         (ig/init-key :boundary/http-handler
+                      {:router ::router
+                       :logger ::logger
+                       :metrics-emitter ::metrics
+                       :error-reporter ::error-reporter
+                       ;; no :cache -> cache is nil
+                       :config {:boundary/profile :prod
+                                :active {:boundary/http {:rate-limit {:enabled? true}}}}})))))
+
 (deftest ^:unit component-init-falls-back-to-no-op-providers-for-unknown-adapters
   (with-redefs [boundary.observability.logging.shell.adapters.no-op/create-logging-component
                 (fn [config] [:logging-no-op config])

@@ -61,6 +61,7 @@
   (println "Run with:")
   (println (str "  java -jar " uber-file))
   (println (str "  java -jar " uber-file " server"))
+  (println (str "  java -jar " uber-file " worker"))
   (println (str "  java -jar " uber-file " cli user list"))
   (println)
   (println "Recommended production JVM flags:")

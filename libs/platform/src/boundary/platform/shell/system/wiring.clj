@@ -335,12 +335,25 @@
                                   :limit     100
                                   :window-ms 60000}
                                  (get-in config [:active :boundary/http :rate-limit]))
+        ;; Fail-loud in :prod, warn elsewhere. In production a per-process fallback
+        ;; is almost never intended (multi-replica → effective limit is limit x N,
+        ;; i.e. not a real limit), so refuse to boot rather than provide a false
+        ;; sense of protection. dev/test/acc are single-node by default, so a warn
+        ;; is enough there.
         _ (when (and (:enabled? rate-limit-config) (nil? cache))
-            (log/warn (str "Rate limiting is enabled but no cache is configured — "
-                           "falling back to a per-process counter. This is correct on a "
-                           "single node only; across replicas each instance counts "
-                           "independently, so the effective global limit is limit x N. "
-                           "Configure :boundary/cache (Redis) for a shared limit.")))
+            (if (= :prod (:boundary/profile config))
+              (throw (ex-info (str "Rate limiting is enabled in the :prod profile but no "
+                                   ":boundary/cache (Redis) is active. Without a shared cache the "
+                                   "limiter falls back to a per-process counter — across replicas the "
+                                   "effective global limit is limit x N, so it is NOT a real limit. "
+                                   "Activate :boundary/cache (Redis), or disable rate limiting "
+                                   "(HTTP_RATE_LIMIT_ENABLED=false).")
+                              {:rate-limit/enabled? true :cache/present? false :profile :prod}))
+              (log/warn (str "Rate limiting is enabled but no cache is configured — "
+                             "falling back to a per-process counter. This is correct on a "
+                             "single node only; across replicas each instance counts "
+                             "independently, so the effective global limit is limit x N. "
+                             "Configure :boundary/cache (Redis) for a shared limit."))))
 
         ;; Build system services map for HTTP interceptors
         system {:logger logger
