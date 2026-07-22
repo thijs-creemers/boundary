@@ -92,6 +92,10 @@
            software.amazon.awssdk/s3                  {:mvn/version "2.46.9"}
            software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.46.9"}
 
+           ;; File Storage - Google Cloud Storage (GCS adapter)
+           com.google.cloud/google-cloud-storage      {:mvn/version "2.44.1"}
+           com.google.cloud/google-cloud-nio          {:mvn/version "0.127.28"}
+
            ;; Redis client for cache and jobs libs
            redis.clients/jedis                        {:mvn/version "7.5.2"}
 

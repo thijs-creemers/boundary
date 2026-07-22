@@ -7,9 +7,12 @@
             [boundary.storage.core.validation :as validation]
             [boundary.observability.logging.ports :as logging]
             [clojure.string :as str])
-(:import [java.nio.file Files Path Paths]
+  (:import [java.nio.file Files Path Paths]
            [java.nio.file.attribute FileAttribute]
            [java.security MessageDigest]
+           [java.nio.charset StandardCharsets]
+           [javax.crypto Mac]
+           [javax.crypto.spec SecretKeySpec]
            [java.util UUID]))
 
 ;; ============================================================================
@@ -20,6 +23,43 @@
   "Convert byte array to hex string."
   [bytes]
   (apply str (map #(format "%02x" %) bytes)))
+
+;; ============================================================================
+;; Signed-URL (HMAC-SHA256) helpers
+;; ============================================================================
+
+(defn- hmac-sha256-hex
+  "HMAC-SHA256 of `message` keyed by `secret`, hex-encoded."
+  [^String secret ^String message]
+  (let [mac (Mac/getInstance "HmacSHA256")]
+    (.init mac (SecretKeySpec. (.getBytes secret StandardCharsets/UTF_8) "HmacSHA256"))
+    (bytes->hex (.doFinal mac (.getBytes message StandardCharsets/UTF_8)))))
+
+(defn- constant-time=?
+  "Constant-time string comparison (timing-attack safe)."
+  [^String a ^String b]
+  (and a b
+       (MessageDigest/isEqual (.getBytes a StandardCharsets/UTF_8)
+                              (.getBytes b StandardCharsets/UTF_8))))
+
+(defn- now-epoch-seconds ^long []
+  (quot (System/currentTimeMillis) 1000))
+
+(defn verify-signed-url
+  "Verify a signed local-storage URL. Given the configured `signing-secret`, the
+   `file-key`, and the URL's query params (`:expires` epoch-seconds, `:signature`
+   hex), return true iff the signature matches and the URL has not expired.
+
+   The serving route is responsible for calling this before streaming a private
+   file — the local adapter cannot enforce it at the filesystem layer."
+  [signing-secret file-key {:keys [expires signature]}]
+  (boolean
+   (when (and signing-secret file-key expires signature)
+     (let [exp (if (string? expires) (parse-long expires) expires)]
+       (and exp
+            (>= (long exp) (now-epoch-seconds))
+            (constant-time=? signature
+                             (hmac-sha256-hex signing-secret (str file-key ":" exp))))))))
 
 (defn- compute-sha256
   "Compute SHA-256 hash of bytes."
@@ -72,7 +112,7 @@
 ;; Local Storage Adapter
 ;; ============================================================================
 
-(defrecord LocalFileStorage [base-path url-base logger]
+(defrecord LocalFileStorage [base-path url-base signing-secret logger]
   ports/IFileStorage
 
   (store-file [_ file-data metadata]
@@ -194,11 +234,17 @@
                           :error (.getMessage e)}))
         false)))
 
-  (generate-signed-url [_ file-key _expiration-seconds]
-    ;; Local filesystem doesn't support signed URLs
-    ;; Return the public URL if available
+  (generate-signed-url [_ file-key expiration-seconds]
+    ;; With a signing-secret we issue a genuinely signed URL (HMAC-SHA256 over
+    ;; "<key>:<expires>", with an expiry the serving route enforces via
+    ;; `verify-signed-url`). Without a secret we fall back to the plain public URL.
     (when url-base
-      (str url-base "/" (str/replace file-key "\\" "/")))))
+      (let [base (str url-base "/" (str/replace file-key "\\" "/"))]
+        (if signing-secret
+          (let [expires (+ (now-epoch-seconds) (long (or expiration-seconds 3600)))
+                sig     (hmac-sha256-hex signing-secret (str file-key ":" expires))]
+            (str base "?expires=" expires "&signature=" sig))
+          base)))))
 
 ;; ============================================================================
 ;; Factory
@@ -210,9 +256,10 @@
   Options:
   - :base-path - Root directory for file storage (required)
   - :url-base - Base URL for accessing files (optional)
+  - :signing-secret - HMAC key enabling signed, expiring URLs (optional)
   - :create-directories? - Create base directory if missing (default: true)
   - :logger - Logger instance (optional)"
-  [{:keys [base-path url-base create-directories? logger]
+  [{:keys [base-path url-base signing-secret create-directories? logger]
     :or {create-directories? true}}]
   (when-not base-path
     (throw (ex-info "base-path is required for local storage"
@@ -229,4 +276,4 @@
                    :base-path base-path
                    :url-base url-base}))
 
-  (->LocalFileStorage base-path url-base logger))
+  (->LocalFileStorage base-path url-base signing-secret logger))

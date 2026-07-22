@@ -64,6 +64,7 @@
   [:map
    [:base-path string?]
    [:url-base {:optional true} string?]
+   [:signing-secret {:optional true} string?]
    [:create-directories? {:optional true} boolean?]])
 
 (def S3StorageConfig

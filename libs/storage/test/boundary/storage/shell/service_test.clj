@@ -176,3 +176,20 @@
             result (sut/upload-file service file-data metadata {})]
         ;; Should handle gracefully (either error or use generated name)
         (is (map? result))))))
+
+;; ============================================================================
+;; upload-image content-type detection (BOU-206)
+;; ============================================================================
+
+(deftest ^:integration upload-image-preserves-content-type
+  (let [service (create-test-service)]
+    (testing "a .png upload is stored as image/png (not hardcoded jpeg)"
+      (let [result (sut/upload-image service (.getBytes "fake-png-bytes")
+                                     {:filename "photo.png"} {})]
+        (is (:success result))
+        (is (= "image/png" (-> result :original :content-type)))))
+    (testing "unknown extension falls back to image/jpeg"
+      (let [result (sut/upload-image service (.getBytes "bytes")
+                                     {:filename "photo"} {})]
+        (is (:success result))
+        (is (= "image/jpeg" (-> result :original :content-type)))))))
