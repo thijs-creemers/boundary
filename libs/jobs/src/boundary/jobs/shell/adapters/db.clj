@@ -21,7 +21,14 @@
    The authoritative job value is the JSON `payload` column (same wire format as
    the Redis adapter — keyword fields restored, instants as epoch-millis). The
    indexed columns (queue, priority_rank, status, execute_at, locked_at) exist
-   only for ordering, claiming, and reclaim."
+   only for ordering, claiming, and reclaim.
+
+   Caveats:
+   - The lease is fixed, not renewed (no heartbeat): a job still running after
+     `lease-ms` is reclaimed and may run again concurrently. Set `:lease-ms`
+     comfortably above your longest job, and/or keep handlers idempotent.
+     (Lease renewal is a possible future addition.)
+   - `payload` is `VARCHAR(1000000)`; keep serialized jobs under ~1 MB."
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [cheshire.core :as json]

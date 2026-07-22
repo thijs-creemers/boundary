@@ -97,6 +97,29 @@
         (is (= 1 (ports/process-scheduled-jobs! q)))
         (is (= (:id due) (:id (ports/dequeue-job! q :default "w"))))))))
 
+(deftest ^:integration concurrent-workers-never-double-claim
+  (testing "N workers racing on one queue each claim distinct jobs; none twice"
+    (let [q   (fresh-queue)
+          n   200
+          ids (doall (for [_ (range n)]
+                       (let [job (mk-job)]
+                         (ports/enqueue-job! q :default job)
+                         (:id job))))
+          claimed (atom [])
+          workers (mapv (fn [w]
+                          (future
+                            (loop []
+                              (when-let [j (ports/dequeue-job! q :default (str "w" w))]
+                                (swap! claimed conj (:id j))
+                                (recur)))))
+                        (range 8))]
+      (doseq [f workers] @f)
+      (let [c @claimed]
+        (is (= n (count c)) "every job claimed exactly once (no loss)")
+        (is (= n (count (distinct c))) "no job claimed twice")
+        (is (= (set ids) (set c)))
+        (is (zero? (ports/queue-size q :default)) "queue drained")))))
+
 (deftest ^:integration peek-delete-and-list-queues
   (let [q (fresh-queue)
         a (mk-job :queue :alpha)
