@@ -102,33 +102,23 @@
 
 (defn- opts [] {:builder-fn rs/as-unqualified-lower-maps})
 
-(defn insert-job!
-  "INSERT a job row using the given `connectable` — a datasource, a connection,
-   or (the point of this fn) an open `next.jdbc` transaction. Returns the job id.
-
-   Used by `enqueue-job!` (autocommit via the adapter's datasource) and by
-   `enqueue-in-tx!` (the caller's transaction, for a transactional enqueue)."
-  [connectable queue-name job]
-  (let [job-id     (:id job)
-        scheduled? (some? (:execute-at job))]
-    (jdbc/execute-one!
-     connectable
-     ["INSERT INTO job_queue
-         (id, queue, priority_rank, status, execute_at, payload, created_at)
-         VALUES (?,?,?,?,?,?,?)"
-      job-id (name queue-name) (priority-rank (:priority job))
-      (if scheduled? "scheduled" "ready")
-      (ts (:execute-at job))
-      (serialize-job job)
-      (ts (:created-at job))])
-    job-id))
-
 (defrecord DbJobQueue [ds lease-ms]
   ports/IJobQueue
 
   (enqueue-job! [_ queue-name job]
-    (let [job-id (insert-job! ds queue-name job)]
-      (log/info "Enqueued job" {:job-id job-id :queue queue-name})
+    (let [job-id    (:id job)
+          scheduled? (some? (:execute-at job))]
+      (jdbc/execute-one!
+       ds
+       ["INSERT INTO job_queue
+           (id, queue, priority_rank, status, execute_at, payload, created_at)
+           VALUES (?,?,?,?,?,?,?)"
+        job-id (name queue-name) (priority-rank (:priority job))
+        (if scheduled? "scheduled" "ready")
+        (ts (:execute-at job))
+        (serialize-job job)
+        (ts (:created-at job))])
+      (log/info "Enqueued job" {:job-id job-id :queue queue-name :scheduled? scheduled?})
       job-id))
 
   (schedule-job! [this queue-name job execute-at]
@@ -207,28 +197,6 @@
       ["UPDATE job_queue SET status = 'ready'
           WHERE status = 'scheduled' AND execute_at <= ?"
        (ts (Instant/now))]))))
-
-(defn enqueue-in-tx!
-  "Transactional (outbox) enqueue: insert the job into the queue **within the
-   caller's open transaction**, so the job commits atomically with the business
-   change. If the business transaction rolls back, no job is left behind; if it
-   commits, a worker picks the job up. This is the durable alternative to a
-   dual-write (enqueueing to an external queue separately from the DB commit,
-   where a crash between the two loses the job or runs it for a rolled-back
-   change).
-
-   `tx` is a next.jdbc transactable already inside a transaction, e.g.:
-
-     (jdbc/with-transaction [tx ds]
-       (orders/create! tx order)
-       (db/enqueue-in-tx! tx :emails receipt-job))
-
-   Because the queue is a table in the same database, no separate outbox table
-   or relay is needed — the queue row *is* the outbox row. `tx` MUST be a
-   transaction the caller manages (do not pass a bare datasource, or the enqueue
-   would autocommit and defeat the point). Returns the job id."
-  [tx queue-name job]
-  (insert-job! tx queue-name job))
 
 (defn create-db-job-queue
   "Create a DB-backed job queue over the given `next.jdbc` datasource `ds`.
