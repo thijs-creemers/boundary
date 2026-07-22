@@ -189,6 +189,20 @@ halt so buffered spans are exported before exit.
 
 ## Provider Configuration
 
+### Automatic HTTP metrics
+
+The platform `http-request-metrics` interceptor emits, per request, on whatever
+provider is active (registered once at wiring, so nothing is emitted through a
+no-op stub):
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `http.requests` | counter | `method`, `status` |
+| `http.requests.errors` | counter | `method` |
+| `http.request.duration` | histogram (seconds) | `method`, `status` |
+
+No-op safe: with `:provider :no-op` (default) these are inert.
+
 ### Prometheus (`/metrics` scrape)
 
 Pure-Clojure in-memory registry (`metrics.shell.adapters.prometheus`) that renders

@@ -37,6 +37,7 @@
             [boundary.observability.errors.shell.adapters.no-op :as error-reporting-no-op]
             [boundary.observability.errors.shell.adapters.sentry :as error-reporting-sentry]
             [boundary.platform.shell.http.reitit-router :as reitit-router]
+            [boundary.platform.shell.http.interceptors :as http-interceptors]
             [boundary.platform.shell.http.versioning :as http-versioning]
             [boundary.platform.shell.utils.port-manager :as port-manager]
             ;; todo: need to find a way to decouple these dependencies an inject them in another way.
@@ -376,8 +377,13 @@
                              "Configure :boundary/cache (Redis) for a shared limit."))))
 
         ;; Build system services map for HTTP interceptors
+        ;; Register the standard HTTP metrics once so the request interceptor can
+        ;; emit them (registering per request would reset counters on some adapters).
+        metrics-handles (http-interceptors/register-http-metrics! metrics-emitter)
+
         system {:logger logger
                 :metrics-emitter metrics-emitter
+                :metrics-handles metrics-handles
                 :tracer tracer
                 :error-reporter error-reporter
                 :csrf csrf-config
