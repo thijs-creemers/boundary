@@ -54,7 +54,8 @@ jobs:
             libs/shared-ui/src libs/shared-ui/test \
             libs/i18n/src \
             libs/push/src \
-            libs/boundary-mcp/src
+            libs/boundary-mcp/src \
+            examples/todo/src
 
   # =============================================================================
   # Build shared UI assets
