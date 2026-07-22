@@ -42,6 +42,7 @@
       ;; Build template context
       (let [ctx (template/build-module-context request)
             module-name (:module-name ctx)
+            base-ns-path (:base-ns-path ctx)
             entity (first (:entities ctx))
             entity-kebab (:entity-kebab entity)
             dry-run? (:dry-run request false)
@@ -67,40 +68,40 @@
             service-test-content (generators/generate-service-test-file ctx)
 
             ;; Define file paths
-            files [{:path (format "src/boundary/%s/schema.clj" module-name)
+            files [{:path (format "src/%s/%s/schema.clj" base-ns-path module-name)
                     :content schema-content
                     :action :create}
-                   {:path (format "src/boundary/%s/ports.clj" module-name)
+                   {:path (format "src/%s/%s/ports.clj" base-ns-path module-name)
                     :content ports-content
                     :action :create}
-                   {:path (format "src/boundary/%s/core/%s.clj" module-name entity-kebab)
+                   {:path (format "src/%s/%s/core/%s.clj" base-ns-path module-name entity-kebab)
                     :content core-content
                     :action :create}
-                   {:path (format "src/boundary/%s/core/ui.clj" module-name)
+                   {:path (format "src/%s/%s/core/ui.clj" base-ns-path module-name)
                     :content ui-content
                     :action :create}
-                   {:path (format "src/boundary/%s/shell/service.clj" module-name)
+                   {:path (format "src/%s/%s/shell/service.clj" base-ns-path module-name)
                     :content service-content
                     :action :create}
-                   {:path (format "src/boundary/%s/shell/persistence.clj" module-name)
+                   {:path (format "src/%s/%s/shell/persistence.clj" base-ns-path module-name)
                     :content persistence-content
                     :action :create}
-                   {:path (format "src/boundary/%s/shell/http.clj" module-name)
+                   {:path (format "src/%s/%s/shell/http.clj" base-ns-path module-name)
                     :content http-content
                     :action :create}
-                   {:path (format "src/boundary/%s/shell/web_handlers.clj" module-name)
+                   {:path (format "src/%s/%s/shell/web_handlers.clj" base-ns-path module-name)
                     :content web-handlers-content
                     :action :create}
                    {:path (format "migrations/%s_create_%s.sql" migration-number (:entity-plural-snake entity))
                     :content migration-content
                     :action :create}
-                   {:path (format "test/boundary/%s/core/%s_test.clj" module-name entity-kebab)
+                   {:path (format "test/%s/%s/core/%s_test.clj" base-ns-path module-name entity-kebab)
                     :content core-test-content
                     :action :create}
-                   {:path (format "test/boundary/%s/shell/%s_repository_test.clj" module-name entity-kebab)
+                   {:path (format "test/%s/%s/shell/%s_repository_test.clj" base-ns-path module-name entity-kebab)
                     :content persistence-test-content
                     :action :create}
-                   {:path (format "test/boundary/%s/shell/service_test.clj" module-name)
+                   {:path (format "test/%s/%s/shell/service_test.clj" base-ns-path module-name)
                     :content service-test-content
                     :action :create}]]
 
@@ -128,6 +129,7 @@
   (add-field [_this request]
     (try
       (let [{:keys [module-name entity field dry-run]} request
+            base-ns-path (str/replace (or (:base-ns request) "boundary") "." "/")
             migration-number (get-next-migration-number)
 
             ;; Generate migration content
@@ -145,7 +147,7 @@
                                   migration-number field-name-snake table-name)
                     :content migration-content
                     :action :create}
-                   {:path (format "src/boundary/%s/schema.clj" module-name)
+                   {:path (format "src/%s/%s/schema.clj" base-ns-path module-name)
                     :content schema-instructions
                     :action :update}]]
 

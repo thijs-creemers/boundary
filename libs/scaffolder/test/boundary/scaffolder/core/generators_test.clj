@@ -360,3 +360,27 @@
     (testing "reiterates that ports.clj is required"
       (is (str/includes? output "ports.clj"))
       (is (re-find #"(?i)required" output)))))
+
+;; =============================================================================
+;; base-ns parameterization (BOU-205)
+;; =============================================================================
+
+(deftest ^:unit base-ns-parameterizes-module-namespaces
+  (testing "default base-ns is boundary (behavior unchanged)"
+    (is (str/includes? (gen/generate-schema-file base-ctx) "(ns boundary.product.schema"))
+    (is (str/includes? (gen/generate-service-file base-ctx) "(ns boundary.product.shell.service"))
+    (is (str/includes? (gen/generate-service-file base-ctx) "[boundary.product.ports")))
+
+  (testing "custom base-ns drives the module ns and its internal requires"
+    (let [ctx (assoc base-ctx :base-ns "myapp")]
+      (is (str/includes? (gen/generate-schema-file ctx) "(ns myapp.product.schema"))
+      (is (str/includes? (gen/generate-service-file ctx) "(ns myapp.product.shell.service"))
+      (is (str/includes? (gen/generate-service-file ctx) "[myapp.product.ports"))
+      (is (str/includes? (gen/generate-persistence-file ctx) "(ns myapp.product.shell.persistence"))
+      (is (str/includes? (gen/generate-core-test-file ctx) "(ns myapp.product.core"))
+      (testing "but framework requires stay under boundary.platform"
+        (is (str/includes? (gen/generate-persistence-file ctx) "boundary.platform")))))
+
+  (testing "a dotted base-ns keeps its dots in the namespace"
+    (is (str/includes? (gen/generate-schema-file (assoc base-ctx :base-ns "com.acme"))
+                       "(ns com.acme.product.schema"))))

@@ -48,6 +48,7 @@
   "Schema for module generation request."
   [:map {:title "Module Generation Request"}
    [:module-name :string]                                   ; Module name (lowercase, e.g., "customer")
+   [:base-ns {:optional true} :string]                      ; Base namespace + path (default: "boundary")
    [:entities [:vector EntityDefinition]]                   ; Entities to generate
    [:interfaces                                             ; Which interfaces to generate
     [:map

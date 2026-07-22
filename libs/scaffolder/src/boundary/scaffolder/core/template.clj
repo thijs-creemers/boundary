@@ -187,9 +187,12 @@
    Pure: true"
   [request]
   (let [module-name (:module-name request)
-        entities (:entities request)]
+        entities (:entities request)
+        base-ns (or (:base-ns request) "boundary")]
     {:module-name module-name
      :module-pascal (kebab->pascal module-name)
+     :base-ns base-ns
+     :base-ns-path (str/replace base-ns "." "/")
      :entities (mapv #(build-entity-context % module-name) entities)
      :interfaces (:interfaces request)
      :features (merge {:audit false :soft-delete false :pagination true}
