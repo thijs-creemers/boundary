@@ -320,7 +320,12 @@
    metric-name collision with a DIFFERENT already-registered key, warn and skip
    so the first registration wins (no duplicate `# TYPE`). `metric-map-fn`
    receives the current state (histograms need `:default-buckets`). Returns
-   `mname` as the handle regardless."
+   `mname` as the handle regardless.
+
+   The collision check is check-then-act outside the `swap!` (so the `log/warn`
+   is not inside a retryable transaction). Metric registration is assumed
+   single-threaded — done once at wiring/startup — so a concurrent pair of
+   colliding registrations could both slip through; that is out of scope."
   [state-atom mname metric-map-fn]
   (let [s        @state-atom
         collider (collides-with s mname)]
