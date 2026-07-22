@@ -20,7 +20,7 @@
             [boundary.user.core.profile-ui :as profile-ui]
             [boundary.user.ports :as user-ports]
             [boundary.user.schema :as user-schema]
-            [boundary.external.ports :as external-ports]
+            [boundary.email.ports :as email-ports]
             [boundary.user.shell.auth :as auth]
             [boundary.user.shell.middleware :as user-middleware]
             [boundary.user.shell.mfa :as mfa]
@@ -695,15 +695,18 @@
         (html-response request (ui/error-message (.getMessage e)) 500)))))
 
 (defn- send-welcome-email!
-  "Send welcome email to newly created user.
-   email-sender satisfies boundary.external.ports/ISmtpProvider.
+  "Send welcome email to a newly created user through the email lib.
+   email-sender satisfies boundary.email.ports/EmailSenderProtocol (wired from
+   :boundary/email), so welcome mail flows through the framework's email module
+   rather than the lower-level external SMTP provider.
    Config keys used: :welcome-email-from, :app-name (set at wiring time)."
   [email-sender user config]
   (let [app-name (or (:app-name config) "Boundary")
         from     (or (:welcome-email-from config) "no-reply@localhost")]
-    (external-ports/send-email!
+    (email-ports/send-email!
      email-sender
-     {:to      [(:email user)]
+     {:id      (random-uuid)
+      :to      [(:email user)]
       :from    from
       :subject (str "Welcome to " app-name)
       :body    (str "Hello " (:name user) ",\n\n"

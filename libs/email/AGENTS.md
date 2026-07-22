@@ -6,8 +6,10 @@
 
 Application-layer email sending: an `Email` domain model, pure preparation and
 validation, and pluggable sender adapters. Raw SMTP transport is delegated to
-`libs/external`. Sending comes in three flavours — synchronous, async
-(`future`-based), and queued (via the optional `libs/jobs` module).
+`libs/external`. Sending comes in several flavours — synchronous, async
+(`future`-based), in-process queued (`EmailQueueProtocol`), and distributed
+queued (via the optional `libs/jobs` module). A `:boundary/email` Integrant key
+builds the sender from config.
 
 ## Key Namespaces
 
@@ -18,7 +20,9 @@ validation, and pluggable sender adapters. Raw SMTP transport is delegated to
 | `boundary.email.schema` | Malli schemas: `EmailAddress`, `Attachment`, `Email`, `SendEmailInput`, `EmailValidationResult`, `RecipientValidationResult`, `EmailSummary` + validators |
 | `boundary.email.shell.adapters.smtp` | Production SMTP sender — thin wrapper over `libs/external`'s `SmtpProviderAdapter` |
 | `boundary.email.shell.adapters.logging` | Dev/test sender — records + prints emails instead of delivering them |
-| `boundary.email.shell.jobs-integration` | Optional queued sending via `libs/jobs` (loaded through `requiring-resolve`) |
+| `boundary.email.shell.adapters.queue` | `InMemoryEmailQueue` — in-process `EmailQueueProtocol` impl, bounded retry |
+| `boundary.email.shell.jobs-integration` | Optional distributed queued sending via `libs/jobs` (loaded through `requiring-resolve`) |
+| `boundary.email.shell.module-wiring` | `:boundary/email` + `:boundary/email-queue` Integrant keys |
 
 ## Relationship to `libs/external`
 
@@ -38,10 +42,9 @@ libs/email (domain)                         libs/external (transport)
 `:cc`, `:bcc`) to top-level transport keys and passing `:attachments` through
 (BOU-150). It then delegates to `external-ports/send-email!`.
 
-> Note: `libs/user`'s web handlers send welcome emails against
-> `boundary.external.ports/ISmtpProvider` **directly**, not through this
-> library. `libs/email` is the richer domain path (validation, prep, queuing);
-> `libs/external` is the bare transport some callers use on its own.
+> `libs/user`'s web handlers send welcome emails through this library's
+> `EmailSenderProtocol` (the `:email-sender` injected into `:boundary/user-routes`
+> is the `:boundary/email` component), not against `libs/external` directly.
 
 ## Ports
 
@@ -54,9 +57,11 @@ libs/email (domain)                         libs/external (transport)
 Implemented by `SmtpEmailSender` (real SMTP) and `LoggingEmailSender` (dev sink).
 
 ### `EmailQueueProtocol`
-Defines `queue-email!`, `process-queue!`, `queue-size`, `peek-queue`. **This is a
-port only — there is no implementation in the repo.** In practice, queued
-sending goes through `shell.jobs-integration` (below), not this protocol.
+Defines `queue-email!`, `process-queue!`, `queue-size`, `peek-queue`. Implemented
+by `shell.adapters.queue/InMemoryEmailQueue` — a single-process queue with
+bounded retry (`:max-retries`), built via `:boundary/email-queue`. For
+**distributed** queuing across replicas use `shell.jobs-integration` (below); the
+in-memory queue is per-process and lost on restart.
 
 ## Core functions (pure — `boundary.email.core.email`)
 
@@ -77,7 +82,8 @@ sending goes through `shell.jobs-integration` (below), not this protocol.
 |------|----------------|---------|
 | **Sync** | `(ports/send-email! sender email)` | Blocks until the SMTP round-trip completes; immediate result. Use for critical mail (password reset, MFA). |
 | **Async** | `(ports/send-email-async! sender email)` → deref the `future` | Plain Clojure `future` on the agent thread pool. Non-blocking, in-process (not durable across restarts). |
-| **Queued** | `(jobs-integration/queue-email-job! job-queue sender email)` | Enqueues a `:send-email` job onto the `:emails` queue in `libs/jobs` (Redis/DB-backed, retryable). Requires the jobs module. |
+| **In-process queued** | `(ports/queue-email! q email)` + `(ports/process-queue! q)` | `InMemoryEmailQueue` — enqueue + drain with bounded retry. Single-process, lost on restart. |
+| **Distributed queued** | `(jobs-integration/queue-email-job! job-queue sender email)` | Enqueues a `:send-email` job onto the `:emails` queue in `libs/jobs` (Redis/DB-backed, retryable). Requires the jobs module. |
 
 ## Jobs integration (`shell.jobs-integration`)
 
@@ -95,10 +101,19 @@ sending goes through `shell.jobs-integration` (below), not this protocol.
 
 ## Wiring & configuration
 
-There is **no Integrant `init-key` / `:boundary/email` component** — this is a
-plain library. Construct a sender directly and pass it where needed (the app
-typically threads it into the HTTP layer's `config` under `:email-sender`, which
-`libs/user`'s routes read).
+`boundary.email.shell.module-wiring` ships `:boundary/email` (builds a sender —
+`:provider :smtp` / `:logging`) and `:boundary/email-queue` (in-memory queue over
+a sender). The app refs `:boundary/email` and threads it into
+`:boundary/user-routes` as `:email-sender`:
+
+```clojure
+:boundary/email       {:provider :smtp :host "smtp.example.com" :port 587
+                       :username "..." :password "..."}
+;; or {:provider :logging} in dev
+:boundary/email-queue {:sender (ig/ref :boundary/email) :max-retries 3}
+```
+
+You can also construct a sender directly (no Integrant) and pass it where needed:
 
 ```clojure
 (require '[boundary.email.shell.adapters.smtp :as smtp])
@@ -162,8 +177,10 @@ to `*err*` and records emails in-memory instead of delivering them. Inspect with
 2. **Recipients become vectors.** After `prepare-email`, `:to` is always a
    vector even when you passed a single string. `add-cc`/`add-bcc` join lists
    into a comma string inside `:headers`; the SMTP adapter re-splits them.
-3. **`EmailQueueProtocol` has no implementation.** For durable queuing use
-   `jobs-integration/queue-email-job!`, not the queue protocol.
+3. **`EmailQueueProtocol` has an in-process impl** (`InMemoryEmailQueue`) — good
+   for single-node queued sending. For **durable, cross-replica** queuing use
+   `jobs-integration/queue-email-job!` instead (the in-memory queue is lost on
+   restart).
 4. **Jobs module is optional.** `queue-email-job!` / `register-email-job-handler!`
    throw `{:type :missing-dependency}` when `libs/jobs` is not on the classpath.
 5. **Gmail** requires a 16-char App Password, not the account password.

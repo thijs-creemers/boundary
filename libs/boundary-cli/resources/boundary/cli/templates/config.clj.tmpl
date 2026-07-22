@@ -20,6 +20,7 @@
             ;; modules dynamically in ig-config as they are enabled.
             [boundary.platform.shell.system.wiring]
             [boundary.user.shell.module-wiring]
+            [boundary.email.shell.module-wiring]
             ;; Registers :boundary/settings init-key defined in the generated app.
             [{{project-ns}}.system]))
 
@@ -146,6 +147,7 @@
        :boundary/metrics         (get active :boundary/metrics {:provider :no-op})
        :boundary/tracing         (get active :boundary/tracing {:provider :no-op})
        :boundary/error-reporting (get active :boundary/error-reporting {:provider :no-op})
+       :boundary/email           (get active :boundary/email {:provider :logging})
        :boundary/router          router
        :boundary/i18n            i18n-cfg
 
@@ -172,6 +174,7 @@
                                       cache? (assoc :cache (ig/ref :boundary/cache)))
        :boundary/user-routes        {:user-service (ig/ref :boundary/user-service)
                                      :mfa-service  (ig/ref :boundary/mfa-service)
+                                     :email-sender (ig/ref :boundary/email)
                                      :config       config}
 
        ;; HTTP layer (always wired; optional module refs injected above)

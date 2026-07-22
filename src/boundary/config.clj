@@ -12,6 +12,10 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
+            ;; core-system-config emits :boundary/email unconditionally, so the
+            ;; config that references it self-registers the init/halt methods —
+            ;; every full-system boot (app + tests) then resolves the key.
+            [boundary.email.shell.module-wiring]
             [boundary.user.schema :as user-schema]))
 
 ;; =============================================================================
@@ -267,6 +271,11 @@
   [config]
   (get-in config [:active :boundary/cache]))
 
+(defn- email-config
+  "Extract email sender configuration (defaults to the dev logging sender)."
+  [config]
+  (get-in config [:active :boundary/email] {:provider :logging}))
+
 (defn- core-system-config
   "Return core system components (database, observability) independent of modules."
   [config]
@@ -275,6 +284,7 @@
         metrics-cfg (metrics-config config)
         tracing-cfg (tracing-config config)
         error-reporting-cfg (error-reporting-config config)
+        email-cfg (email-config config)
         router-cfg (get-in config [:active :boundary/router] {:adapter :reitit})
         cache-cfg (cache-config config)]
     (cond-> {:boundary/db-context db-cfg
@@ -282,6 +292,7 @@
              :boundary/metrics metrics-cfg
              :boundary/tracing tracing-cfg
              :boundary/error-reporting error-reporting-cfg
+             :boundary/email email-cfg
              :boundary/router router-cfg}
       cache-cfg (assoc :boundary/cache cache-cfg))))
 
@@ -367,6 +378,7 @@
      :boundary/user-routes
      {:user-service (ig/ref :boundary/user-service)
       :mfa-service (ig/ref :boundary/mfa-service)
+      :email-sender (ig/ref :boundary/email)
       :config config}
 
      :boundary/http-handler
