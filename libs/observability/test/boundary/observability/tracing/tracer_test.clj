@@ -36,7 +36,13 @@
         (is (nil? (ports/add-event! t sp "ev")))
         (is (nil? (ports/set-attributes! t sp {:b 2})))
         (is (nil? (ports/end-span! t sp)))
-        (is (nil? (ports/end-span! t nil)) "ending nil is a no-op")))))
+        (is (nil? (ports/end-span! t nil)) "ending nil is a no-op")))
+    (testing "set-attributes! accumulates onto the span so span.end sees them"
+      (let [sp (ports/start-span! t "manual" {:a 1})]
+        (ports/set-attributes! t sp {:b 2})
+        (ports/set-attributes! t sp {:a 9 :c 3})
+        (is (= {:a 9 :b 2 :c 3} @(:attrs sp))
+            "later set-attributes! merge over initial attrs")))))
 
 (deftest ^:unit with-span-macro-supports-both-arities
   (let [t (no-op/create-tracing-component)]

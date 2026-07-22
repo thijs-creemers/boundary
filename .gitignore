@@ -7,9 +7,9 @@ test/reports
 # Clojure cache
 .cpcache/
 .nrepl-port
-.clj-kondo/*
-!.clj-kondo/config.edn
-**/.clj-kondo/
+# Ignore only the clj-kondo analysis cache; keep config.edn, hooks/, imports/
+# tracked (a blanket **/.clj-kondo/ previously swallowed committed hooks).
+**/.clj-kondo/.cache/
 .lsp
 
 # IDE

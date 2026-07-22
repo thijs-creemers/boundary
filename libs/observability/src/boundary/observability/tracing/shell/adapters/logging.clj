@@ -4,8 +4,9 @@
    without standing up an OpenTelemetry collector. Not a sampled/exportable
    tracer — for real distributed tracing use the OTLP adapter.
 
-   Spans are plain immutable maps carrying a generated trace-id/span-id and a
-   start timestamp; `set-attributes!` therefore only logs (a real backend
+   A span carries a generated trace-id/span-id, a start timestamp, and an atom
+   of accumulated attributes so `set-attributes!` calls made mid-span are folded
+   in and appear on the final `span.end` line (matching how a real backend
    mutates its span object)."
   (:require [boundary.observability.tracing.ports :as ports]
             [clojure.string :as str]
@@ -23,8 +24,11 @@
                 :trace-id (hex-id 32)
                 :span-id  (hex-id 16)
                 :start-ns (System/nanoTime)
-                :attrs    (or attributes {})}]
-      (log/info "span.start" (dissoc span :start-ns))
+                :attrs    (atom (or attributes {}))}]
+      (log/info "span.start" {:name     (:name span)
+                              :trace-id (:trace-id span)
+                              :span-id  (:span-id span)
+                              :attrs    @(:attrs span)})
       span))
 
   (end-span! [_ span]
@@ -34,7 +38,7 @@
                  :trace-id    (:trace-id span)
                  :span-id     (:span-id span)
                  :duration-ms (/ (double (- (System/nanoTime) (:start-ns span))) 1e6)
-                 :attrs       (:attrs span)}))
+                 :attrs       (some-> (:attrs span) deref)}))
     nil)
 
   (add-event! [this span name] (ports/add-event! this span name {}))
@@ -43,6 +47,7 @@
     nil)
 
   (set-attributes! [_ span attributes]
+    (when-let [a (:attrs span)] (swap! a merge attributes))
     (log/debug "span.attrs" {:span-id (:span-id span) :attrs attributes})
     nil)
 
