@@ -54,6 +54,7 @@
                                 :router ::router
                                 :logger ::logger
                                 :metrics-emitter ::metrics
+                                :tracer ::tracer
                                 :error-reporter ::error-reporter
                                 :config config
                                 :tenant-service ::tenant-service
@@ -69,6 +70,7 @@
       (is (= 4 (count (:middleware @captured-config))))
       (is (= {:logger ::logger
               :metrics-emitter ::metrics
+              :tracer ::tracer
               :error-reporter ::error-reporter}
              (dissoc (:system @captured-config) :csrf :rate-limit :cache)))
       ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
@@ -112,6 +114,7 @@
                                 :router ::router
                                 :logger ::logger
                                 :metrics-emitter ::metrics
+                                :tracer ::tracer
                                 :error-reporter ::error-reporter
                                 :config {:active {:boundary/settings {:name "Boundary"
                                                                       :version "1.2.3"}}}}))]
@@ -137,6 +140,7 @@
       (is (= 1 (count (:middleware @captured-config))))
       (is (= {:logger ::logger
               :metrics-emitter ::metrics
+              :tracer ::tracer
               :error-reporter ::error-reporter}
              (dissoc (:system @captured-config) :csrf :rate-limit :cache)))
       ;; CSRF enforcement is opt-in: with no :csrf config block the wiring default is off.
@@ -243,3 +247,26 @@
     (is (satisfies? tracing-ports/ITracer (ig/init-key :boundary/tracing {:provider :no-op})))
     (is (satisfies? tracing-ports/ITracer (ig/init-key :boundary/tracing {:provider :logging})))
     (is (satisfies? tracing-ports/ITracer (ig/init-key :boundary/tracing {:provider :mystery})))))
+
+(deftest ^:unit tracing-component-selects-otlp-provider
+  (testing ":provider :otlp builds an OpenTelemetry tracer (no collector needed to construct)"
+    (let [tracer (ig/init-key :boundary/tracing
+                              {:provider :otlp :endpoint "http://localhost:4318"
+                               :service-name "wiring-test"})]
+      (is (satisfies? tracing-ports/ITracer tracer))
+      (let [span (tracing-ports/start-span! tracer "probe")]
+        (is (re-matches #"[0-9a-f]{32}" (:trace-id (tracing-ports/span-context tracer span))))
+        (tracing-ports/end-span! tracer span))
+      ;; halt flushes + shuts the SDK down (no dangling batch thread)
+      (ig/halt-key! :boundary/tracing tracer))))
+
+(deftest ^:unit metrics-component-selects-otlp-provider
+  (testing ":provider :otlp builds an OTLP metrics component that emits without error"
+    (let [c (ig/init-key :boundary/metrics
+                         {:provider :otlp :endpoint "http://localhost:4318"
+                          :service-name "wiring-test" :interval-ms 60000})]
+      (is (satisfies? metrics-ports/IMetricsEmitter c))
+      (let [h (metrics-ports/register-counter! c :requests_total "reqs" {})]
+        (is (nil? (metrics-ports/inc-counter! c h))))
+      (is (nil? (metrics-ports/flush! c)))
+      (ig/halt-key! :boundary/metrics c))))

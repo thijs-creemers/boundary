@@ -121,6 +121,7 @@
                                   :router          (ig/ref :boundary/router)
                                   :logger          (ig/ref :boundary/logging)
                                   :metrics-emitter (ig/ref :boundary/metrics)
+                                  :tracer          (ig/ref :boundary/tracing)
                                   :error-reporter  (ig/ref :boundary/error-reporting)
                                   :user-service    (ig/ref :boundary/user-service)
                                   :db-context      (ig/ref :boundary/db-context)
@@ -143,6 +144,7 @@
        :boundary/db-context      db
        :boundary/logging         (get active :boundary/logging {:provider :no-op})
        :boundary/metrics         (get active :boundary/metrics {:provider :no-op})
+       :boundary/tracing         (get active :boundary/tracing {:provider :no-op})
        :boundary/error-reporting (get active :boundary/error-reporting {:provider :no-op})
        :boundary/router          router
        :boundary/i18n            i18n-cfg

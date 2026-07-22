@@ -27,9 +27,11 @@
             [boundary.observability.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.observability.metrics.shell.adapters.datadog :as metrics-datadog]
             [boundary.observability.metrics.shell.adapters.prometheus :as metrics-prometheus]
+            [boundary.observability.metrics.shell.adapters.otlp :as metrics-otlp]
             [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.tracing.shell.adapters.no-op :as tracing-no-op]
             [boundary.observability.tracing.shell.adapters.logging :as tracing-logging]
+            [boundary.observability.tracing.shell.adapters.otlp :as tracing-otlp]
             [boundary.observability.logging.shell.adapters.stdout :as logging-stdout]
             [boundary.observability.logging.shell.adapters.slf4j :as logging-slf4j]
             [boundary.observability.errors.shell.adapters.no-op :as error-reporting-no-op]
@@ -146,7 +148,7 @@
                          :skip-interceptors? true}}}])))
 
 (defmethod ig/init-key :boundary/http-handler
-  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter error-reporter config tenant-service db-context cache i18n user-service request-capture? extra-middleware]}]
+  [_ {:keys [user-routes admin-routes tenant-routes membership-routes workflow-routes search-routes router logger metrics-emitter tracer error-reporter config tenant-service db-context cache i18n user-service request-capture? extra-middleware]}]
   (log/info "Initializing top-level HTTP handler with normalized routing and API versioning")
   (require 'boundary.platform.ports.http)
   (require 'boundary.platform.shell.interfaces.http.common)
@@ -376,6 +378,7 @@
         ;; Build system services map for HTTP interceptors
         system {:logger logger
                 :metrics-emitter metrics-emitter
+                :tracer tracer
                 :error-reporter error-reporter
                 :csrf csrf-config
                 :rate-limit rate-limit-config
@@ -482,6 +485,7 @@
                   :no-op          (metrics-no-op/create-metrics-component config)
                   :datadog-statsd (metrics-datadog/create-datadog-metrics-component config)
                   :prometheus     (metrics-prometheus/create-metrics-component config)
+                  :otlp           (metrics-otlp/create-metrics-component config)
                   ;; Future providers will be added here:
                   ;; :statsd (statsd-adapter/create-metrics-component config)
                   ;; :cloudwatch (cloudwatch-adapter/create-metrics-component config)
@@ -506,7 +510,7 @@
   (let [tracer (case (:provider config)
                  :no-op   (tracing-no-op/create-tracing-component config)
                  :logging (tracing-logging/create-tracing-component config)
-                 ;; Future providers: :otlp (OpenTelemetry exporter).
+                 :otlp    (tracing-otlp/create-tracing-component config)
                  (do
                    (log/warn "Unknown tracing provider, falling back to no-op"
                              {:provider (:provider config)})
@@ -515,7 +519,11 @@
     tracer))
 
 (defmethod ig/halt-key! :boundary/tracing
-  [_ _tracer]
+  [_ tracer]
+  ;; OTLP tracer owns an OpenTelemetry SDK with a batch processor — flush + shut
+  ;; it down so buffered spans are exported before the process exits.
+  (when (instance? boundary.observability.tracing.shell.adapters.otlp.OtlpTracer tracer)
+    (tracing-otlp/shutdown! tracer))
   (log/info "Tracing component halted"))
 
 ;; =============================================================================

@@ -150,10 +150,42 @@ started, has exceptions recorded + rethrown, and is always ended:
   (process! order))
 ```
 
-Providers via `:boundary/tracing {:provider …}`: `:no-op` (default — inert),
-`:logging` (logs span start/end + duration; dev visibility, not exportable).
-`:otlp` (OpenTelemetry export → SigNoz / Grafana Tempo / Jaeger / any collector)
-is a following slice.
+Providers via `:boundary/tracing {:provider …}`:
+
+| Provider | Behaviour |
+|----------|-----------|
+| `:no-op` (default) | Inert. Satisfies the port; records nothing. |
+| `:logging` | Logs span start/end + duration; dev visibility, not exportable. |
+| `:otlp` | Real OpenTelemetry export over OTLP/HTTP to **any** OTel collector — SigNoz, Grafana Tempo, Jaeger, Honeycomb, Datadog-via-OTel. Only the endpoint changes. |
+
+### Automatic spans
+
+- **HTTP** — the platform `http-request-tracing` interceptor starts a span per
+  request (`"HTTP <METHOD> <path>"`, tagged method/path/correlation-id/status);
+  no-op unless a tracer is wired, so it is always-on safe.
+- **Jobs** — the worker wraps each job execution in a `"job <type>"` span when a
+  `:tracer` is present in the worker config.
+
+Each is currently a per-unit **root** span; cross-thread parent/child linking
+(request → service → persistence) is a later enhancement (needs context support
+on the `ITracer` port).
+
+### `:otlp` configuration
+
+```clojure
+;; resources/conf/prod/config.edn
+{:boundary/tracing {:provider     :otlp
+                    ;; OTEL_EXPORTER_OTLP_ENDPOINT base; /v1/traces is appended.
+                    :endpoint     #or [#env OTEL_EXPORTER_OTLP_ENDPOINT "http://localhost:4318"]
+                    :protocol     :http/protobuf   ; only HTTP is bundled (no gRPC)
+                    :service-name #or [#env OTEL_SERVICE_NAME "boundary"]
+                    :timeout-ms   10000}}
+```
+
+Transport is OTLP/HTTP protobuf (okhttp sender bundled with
+`opentelemetry-exporter-otlp`). gRPC is intentionally **not** bundled — it would
+add grpc-netty to every classpath. The SDK is flushed + shut down on Integrant
+halt so buffered spans are exported before exit.
 
 ## Provider Configuration
 
@@ -175,6 +207,46 @@ returning an empty body.
 ```
 
 Point a Prometheus/Grafana Agent (or any OpenMetrics scraper) at `GET /metrics`.
+
+### OTLP (push to an OpenTelemetry collector)
+
+Bridges the metrics ports onto OpenTelemetry instruments (counter→LongCounter,
+gauge→DoubleGauge, histogram/summary→DoubleHistogram) and pushes them over
+OTLP/HTTP on a fixed interval. No backend-specific code — the same exporter
+feeds SigNoz, Grafana, Datadog-via-OTel, etc.
+
+```clojure
+;; resources/conf/prod/config.edn
+{:boundary/metrics {:provider     :otlp
+                    :endpoint     #or [#env OTEL_EXPORTER_OTLP_ENDPOINT "http://localhost:4318"]
+                    :protocol     :http/protobuf
+                    :service-name #or [#env OTEL_SERVICE_NAME "boundary"]
+                    :interval-ms  60000        ; push interval to the collector
+                    :timeout-ms   10000}}
+```
+
+Metrics are push-only, so the `IMetricsExporter` local-render methods
+(`export-metrics`) throw; `flush!` forces an OTLP flush (call on shutdown).
+
+### SigNoz (self-hosted OTLP validation target)
+
+SigNoz is OpenTelemetry-native — it ingests standard OTLP, so **no SigNoz adapter
+exists**. Point `:otlp` at a local SigNoz to see traces + metrics land:
+
+```bash
+git clone -b main https://github.com/SigNoz/signoz.git
+cd signoz/deploy/docker && docker compose up -d      # UI on http://localhost:3301
+```
+
+```bash
+# App → SigNoz OTLP receiver (HTTP)
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
+export OTEL_SERVICE_NAME="my-app"
+```
+
+Set both `:boundary/tracing` and `:boundary/metrics` to `:provider :otlp`. The
+same env vars retarget Grafana Tempo, Jaeger, Honeycomb, or Datadog-via-OTel —
+only the endpoint changes.
 
 ### no-op (Development and Tests)
 

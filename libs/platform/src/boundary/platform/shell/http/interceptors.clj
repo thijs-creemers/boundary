@@ -44,6 +44,7 @@
             [boundary.core.interceptor :as interceptor]
             [boundary.observability.logging.ports :as log-ports]
             [boundary.observability.metrics.ports :as metrics-ports]
+            [boundary.observability.tracing.ports :as tracing-ports]
             [boundary.observability.errors.core :as error-reporting]
             [boundary.platform.core.csrf :as csrf]
             [buddy.core.nonce :as nonce]
@@ -335,6 +336,42 @@
             (when-let [metrics-emitter (:metrics-emitter system)]
               (metrics-ports/increment metrics-emitter "http.requests.errors"
                                        {:method (name (:request-method request))}))
+            ctx)})
+
+(def http-request-tracing
+  "Starts a distributed-tracing span per HTTP request and ends it on completion,
+   recording the response status (and any exception). No-op unless a tracer is
+   wired into `:system` (:no-op tracer by default), so this is safe always-on.
+
+   The span is a per-request root: cross-thread propagation into service /
+   persistence spans is a later enhancement (would need context support on the
+   `ITracer` port)."
+  {:name :http-request-tracing
+   :enter (fn [{:keys [request system correlation-id] :as ctx}]
+            (if-let [tracer (:tracer system)]
+              (let [method (name (:request-method request))
+                    span   (tracing-ports/start-span!
+                            tracer
+                            (str "HTTP " (str/upper-case method) " " (:uri request))
+                            {:http.request.method method
+                             :url.path            (:uri request)
+                             :correlation-id      (str correlation-id)})]
+                (assoc-in ctx [:tracing :span] span))
+              ctx))
+   :leave (fn [{:keys [response system] :as ctx}]
+            (when-let [tracer (:tracer system)]
+              (when-let [span (get-in ctx [:tracing :span])]
+                (when-let [status (:status response)]
+                  (tracing-ports/set-attributes! tracer span
+                                                 {:http.response.status_code status}))
+                (tracing-ports/end-span! tracer span)))
+            ctx)
+   :error (fn [{:keys [system exception] :as ctx}]
+            (when-let [tracer (:tracer system)]
+              (when-let [span (get-in ctx [:tracing :span])]
+                (when exception
+                  (tracing-ports/record-exception! tracer span exception))
+                (tracing-ports/end-span! tracer span)))
             ctx)})
 
 (def http-error-reporting
@@ -940,6 +977,7 @@
 (def default-http-interceptors
   "Default HTTP interceptor stack for observability and error handling."
   [http-request-logging
+   http-request-tracing
    http-request-metrics
    http-error-reporting
    http-correlation-header
