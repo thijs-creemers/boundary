@@ -26,6 +26,8 @@
             [boundary.observability.logging.shell.adapters.no-op :as logging-no-op]
             [boundary.observability.metrics.shell.adapters.no-op :as metrics-no-op]
             [boundary.observability.metrics.shell.adapters.datadog :as metrics-datadog]
+            [boundary.observability.metrics.shell.adapters.prometheus :as metrics-prometheus]
+            [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.logging.shell.adapters.stdout :as logging-stdout]
             [boundary.observability.logging.shell.adapters.slf4j :as logging-slf4j]
             [boundary.observability.errors.shell.adapters.no-op :as error-reporting-no-op]
@@ -187,6 +189,20 @@
                                                             :headers {"Content-Type" "application/json"}
                                                             :body (cheshire.core/generate-string {:status "alive"})})
                                           :summary "Liveness check"
+                                          :no-doc true
+                                          :skip-interceptors? true}}}
+                         ;; Prometheus scrape endpoint. Serves the text exposition
+                         ;; format from the active metrics component; the :no-op /
+                         ;; :datadog-statsd providers return an empty body, the
+                         ;; :prometheus provider returns real metrics.
+                         {:path "/metrics"
+                          :methods {:get {:handler (fn [_]
+                                                     {:status  200
+                                                      :headers {"Content-Type" "text/plain; version=0.0.4; charset=utf-8"}
+                                                      :body    (if (satisfies? metrics-ports/IMetricsExporter metrics-emitter)
+                                                                 (metrics-ports/export-metrics metrics-emitter :prometheus)
+                                                                 "")})
+                                          :summary "Prometheus metrics scrape endpoint"
                                           :no-doc true
                                           :skip-interceptors? true}}}]
 
@@ -463,8 +479,8 @@
   (let [metrics (case (:provider config)
                   :no-op          (metrics-no-op/create-metrics-component config)
                   :datadog-statsd (metrics-datadog/create-datadog-metrics-component config)
+                  :prometheus     (metrics-prometheus/create-metrics-component config)
                   ;; Future providers will be added here:
-                  ;; :prometheus (prometheus-adapter/create-metrics-component config)
                   ;; :statsd (statsd-adapter/create-metrics-component config)
                   ;; :cloudwatch (cloudwatch-adapter/create-metrics-component config)
                   (do

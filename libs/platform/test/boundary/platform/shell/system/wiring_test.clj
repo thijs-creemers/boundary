@@ -7,6 +7,7 @@
             [boundary.i18n.shell.middleware]
             [boundary.observability.logging.shell.adapters.no-op]
             [boundary.observability.metrics.shell.adapters.no-op]
+            [boundary.observability.metrics.ports :as metrics-ports]
             [boundary.observability.errors.shell.adapters.no-op]
             [clojure.test :refer [deftest is testing]]
             [integrant.core :as ig]))
@@ -197,3 +198,41 @@
            (ig/init-key :boundary/metrics {:provider :mystery})))
     (is (= [:errors-no-op {:provider :mystery}]
            (ig/init-key :boundary/error-reporting {:provider :mystery})))))
+
+;; =============================================================================
+;; Prometheus metrics provider + /metrics endpoint (BOU-174)
+;; =============================================================================
+
+(deftest ^:unit metrics-component-selects-prometheus-provider
+  (testing ":provider :prometheus wires the Prometheus adapter, and it exports"
+    (let [c (ig/init-key :boundary/metrics {:provider :prometheus})]
+      (is (satisfies? metrics-ports/IMetricsExporter c))
+      (let [h (metrics-ports/register-counter! c :requests_total "Total requests" {})]
+        (metrics-ports/inc-counter! c h))
+      (let [out (metrics-ports/export-metrics c :prometheus)]
+        (is (re-find #"# TYPE requests_total counter" out))
+        (is (re-find #"requests_total\S* 1" out))))))
+
+(deftest ^:unit metrics-endpoint-serves-prometheus-text
+  (testing "the /metrics route exports the active component's Prometheus text"
+    (let [metrics (ig/init-key :boundary/metrics {:provider :prometheus})
+          h       (metrics-ports/register-counter! metrics :http_requests_total "reqs" {})
+          _       (metrics-ports/inc-counter! metrics h)
+          captured-routes (atom nil)
+          config  {:active {:boundary/settings {:name "B" :version "1"}}}]
+      (with-redefs [boundary.platform.ports.http/compile-routes
+                    (fn [_router routes _cfg] (reset! captured-routes routes) (fn [_] {:status 200}))
+                    boundary.platform.shell.interfaces.http.common/health-check-handler
+                    (fn [_ _ _] (fn [_] {:status 200}))
+                    boundary.platform.shell.http.versioning/apply-versioning (fn [routes _] (vec routes))
+                    boundary.platform.shell.http.versioning/wrap-handler-with-version-headers (fn [hh _] hh)]
+        (ig/init-key :boundary/http-handler
+                     {:user-routes {} :router ::r :logger ::l :metrics-emitter metrics
+                      :error-reporter ::e :config config}))
+      (let [metrics-route (first (filter #(= "/metrics" (:path %)) @captured-routes))
+            handler       (get-in metrics-route [:methods :get :handler])
+            resp          (handler {})]
+        (is (some? metrics-route) "/metrics route is mounted")
+        (is (= 200 (:status resp)))
+        (is (re-find #"text/plain" (get-in resp [:headers "Content-Type"])))
+        (is (re-find #"http_requests_total" (:body resp)))))))
