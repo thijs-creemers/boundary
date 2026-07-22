@@ -9,7 +9,7 @@
    - HTML response structure"
   (:require [boundary.user.shell.web-handlers :as web-handlers]
             [boundary.user.ports :as ports]
-            [boundary.external.ports :as external-ports]
+            [boundary.email.ports :as email-ports]
             [clojure.test :refer [deftest testing is]]
             [clojure.string :as str])
   (:import [java.util UUID]
@@ -509,13 +509,12 @@
   (testing "sends welcome email when send-welcome is checked and email-sender provided"
     (let [sent-emails (atom [])
           service (create-mock-service)
-          email-sender (reify external-ports/ISmtpProvider
+          email-sender (reify email-ports/EmailSenderProtocol
                          (send-email! [_ email]
                            (swap! sent-emails conj email)
                            {:success? true :message-id "msg-1"})
                          (send-email-async! [this email]
-                           (future (external-ports/send-email! this email)))
-                         (test-connection! [_] {:success? true}))
+                           (future (email-ports/send-email! this email))))
           config {:app-name "TestApp" :welcome-email-from "hello@test.com"}
           handler (web-handlers/create-user-htmx-handler service email-sender config)
           request {:form-params {"name" "Welcome User"
@@ -534,11 +533,10 @@
 
   (testing "gracefully handles welcome email failure"
     (let [service (create-mock-service)
-          email-sender (reify external-ports/ISmtpProvider
+          email-sender (reify email-ports/EmailSenderProtocol
                          (send-email! [_ _]
                            (throw (Exception. "SMTP connection refused")))
-                         (send-email-async! [_ _] (future {:success? false}))
-                         (test-connection! [_] {:success? false}))
+                         (send-email-async! [_ _] (future {:success? false})))
           config {:app-name "TestApp" :welcome-email-from "hello@test.com"}
           handler (web-handlers/create-user-htmx-handler service email-sender config)
           request {:form-params {"name" "Fail User"

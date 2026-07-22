@@ -4,6 +4,7 @@
          boundary/shared-ui  {:local/root "../shared-ui"}
          boundary/platform       {:local/root "../platform"}
          boundary/external       {:local/root "../external"}
+         boundary/email          {:local/root "../email"}
          boundary/tenant         {:local/root "../tenant"}
          boundary/cache          {:local/root "../cache"}
          boundary/observability  {:local/root "../observability"}
