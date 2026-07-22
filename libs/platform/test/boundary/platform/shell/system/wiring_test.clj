@@ -8,6 +8,7 @@
             [boundary.observability.logging.shell.adapters.no-op]
             [boundary.observability.metrics.shell.adapters.no-op]
             [boundary.observability.metrics.ports :as metrics-ports]
+            [boundary.observability.tracing.ports :as tracing-ports]
             [boundary.observability.errors.shell.adapters.no-op]
             [clojure.test :refer [deftest is testing]]
             [integrant.core :as ig]))
@@ -236,3 +237,9 @@
         (is (= 200 (:status resp)))
         (is (re-find #"text/plain" (get-in resp [:headers "Content-Type"])))
         (is (re-find #"http_requests_total" (:body resp)))))))
+
+(deftest ^:unit tracing-component-selects-provider
+  (testing ":no-op, :logging, and an unknown provider (falls back to no-op) all satisfy ITracer"
+    (is (satisfies? tracing-ports/ITracer (ig/init-key :boundary/tracing {:provider :no-op})))
+    (is (satisfies? tracing-ports/ITracer (ig/init-key :boundary/tracing {:provider :logging})))
+    (is (satisfies? tracing-ports/ITracer (ig/init-key :boundary/tracing {:provider :mystery})))))

@@ -13,6 +13,8 @@ Cross-cutting observability for services and persistence layers: structured logg
 | `boundary.observability.logging.ports` | `ILogger`, `IAuditLogger` protocols |
 | `boundary.observability.errors.ports` | `IErrorReporter`, `IErrorContext`, `IErrorFilter` protocols |
 | `boundary.observability.metrics.ports` | `IMetricsRegistry`, `IMetricsEmitter` protocols |
+| `boundary.observability.tracing.ports` | `ITracer` protocol (spans) |
+| `boundary.observability.tracing.core` | `with-span` macro |
 | `boundary.observability.shell.service-interceptors` | Service-layer operation wrappers |
 | `boundary.observability.shell.persistence-interceptors` | Persistence-layer query wrappers |
 | `boundary.observability.shell.adapters.*` | Provider implementations (no-op, Datadog, Sentry) |
@@ -133,6 +135,25 @@ The interceptor automatically:
 ```
 
 ---
+
+## Tracing
+
+Backend-agnostic spans behind `ITracer`. Wrap work with `with-span`; the span is
+started, has exceptions recorded + rethrown, and is always ended:
+
+```clojure
+(require '[boundary.observability.tracing.core :refer [with-span]]
+         '[boundary.observability.tracing.ports :as t])
+
+(with-span tracer [sp "handle-order" {:order-id id}]
+  (t/add-event! tracer sp "validated")
+  (process! order))
+```
+
+Providers via `:boundary/tracing {:provider …}`: `:no-op` (default — inert),
+`:logging` (logs span start/end + duration; dev visibility, not exportable).
+`:otlp` (OpenTelemetry export → SigNoz / Grafana Tempo / Jaeger / any collector)
+is a following slice.
 
 ## Provider Configuration
 
