@@ -28,6 +28,8 @@
             [boundary.observability.metrics.shell.adapters.datadog :as metrics-datadog]
             [boundary.observability.metrics.shell.adapters.prometheus :as metrics-prometheus]
             [boundary.observability.metrics.ports :as metrics-ports]
+            [boundary.observability.tracing.shell.adapters.no-op :as tracing-no-op]
+            [boundary.observability.tracing.shell.adapters.logging :as tracing-logging]
             [boundary.observability.logging.shell.adapters.stdout :as logging-stdout]
             [boundary.observability.logging.shell.adapters.slf4j :as logging-slf4j]
             [boundary.observability.errors.shell.adapters.no-op :as error-reporting-no-op]
@@ -493,6 +495,28 @@
 (defmethod ig/halt-key! :boundary/metrics
   [_ _metrics]
   (log/info "Metrics component halted"))
+
+;; =============================================================================
+;; Tracing Component
+;; =============================================================================
+
+(defmethod ig/init-key :boundary/tracing
+  [_ config]
+  (log/info "Initializing tracing component" {:provider (:provider config)})
+  (let [tracer (case (:provider config)
+                 :no-op   (tracing-no-op/create-tracing-component config)
+                 :logging (tracing-logging/create-tracing-component config)
+                 ;; Future providers: :otlp (OpenTelemetry exporter).
+                 (do
+                   (log/warn "Unknown tracing provider, falling back to no-op"
+                             {:provider (:provider config)})
+                   (tracing-no-op/create-tracing-component config)))]
+    (log/info "Tracing component initialized" {:provider (:provider config)})
+    tracer))
+
+(defmethod ig/halt-key! :boundary/tracing
+  [_ _tracer]
+  (log/info "Tracing component halted"))
 
 ;; =============================================================================
 ;; Error Reporting Component
