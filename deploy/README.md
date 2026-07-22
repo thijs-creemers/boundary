@@ -59,3 +59,9 @@ kubectl apply -f deploy/k8s/boundary.yaml
   zero-downtime rollouts.
 - **Heap** is container-aware by default (`-XX:MaxRAMPercentage=75`); override
   `JAVA_OPTS` to tune.
+- **`GET /metrics` is unauthenticated.** With `:boundary/metrics {:provider
+  :prometheus}` the app serves a Prometheus scrape endpoint at `/metrics` with no
+  auth (the scrape convention). It exposes internal counters and route
+  cardinality, so **do not route it through your public ingress** — restrict it
+  to the cluster/monitoring network (e.g. a k8s `NetworkPolicy`, or scrape the
+  pod IP directly and keep `/metrics` off the Service that backs the ingress).

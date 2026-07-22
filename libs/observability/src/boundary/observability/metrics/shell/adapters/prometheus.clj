@@ -74,12 +74,26 @@
       (str/replace "\\" "\\\\")
       (str/replace "\n" "\\n")))
 
+(defn- sanitize-metric-name
+  "Coerce a name to a valid Prometheus metric name: only [a-zA-Z0-9_:] are
+   allowed, and it may not start with a digit. Invalid chars become `_`."
+  [s]
+  (let [s (str/replace s #"[^a-zA-Z0-9_:]" "_")]
+    (if (re-find #"^[0-9]" s) (str "_" s) s)))
+
+(defn- sanitize-label-name
+  "Coerce a name to a valid Prometheus label name: only [a-zA-Z0-9_] (no `:`),
+   not starting with a digit. Invalid chars become `_`."
+  [s]
+  (let [s (str/replace s #"[^a-zA-Z0-9_]" "_")]
+    (if (re-find #"^[0-9]" s) (str "_" s) s)))
+
 (defn- sorted-label-pairs
   "Convert a label map into a deterministic, name-sorted seq of
-   [key-string escaped-value] pairs."
+   [sanitized-key-string escaped-value] pairs."
   [label-map]
   (->> label-map
-       (map (fn [[k v]] [(name k) (escape-label-value v)]))
+       (map (fn [[k v]] [(sanitize-label-name (name k)) (escape-label-value v)]))
        (sort-by first)))
 
 (defn- render-labels
@@ -218,7 +232,7 @@
         series (get (:series state) metric-name {})]
     (if (empty? series)
       []
-      (let [nm       (name metric-name)
+      (let [nm       (sanitize-metric-name (name metric-name))
             type-str (name (:type metric))
             header   (cond-> []
                        (and (:include-help? state) (:description metric))

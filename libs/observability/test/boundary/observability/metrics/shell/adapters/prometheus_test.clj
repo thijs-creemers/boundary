@@ -265,3 +265,19 @@
       (ports/inc-counter! emitter :shared 9)
       (let [text (ports/export-metrics exporter :prometheus)]
         (is (str/includes? text "shared{env=\"test\"} 9") (str text))))))
+
+(deftest ^:unit invalid-metric-and-label-names-are-sanitized
+  (testing "dots/hyphens in metric + label names become underscores (valid Prometheus)"
+    (let [c (prom/create-metrics-component {})
+          h (ports/register-counter! c :http.requests-total "reqs" {})]
+      (ports/inc-counter! c h 1 {:route.name "/a"})
+      (let [out (ports/export-metrics c :prometheus)]
+        (is (re-find #"http_requests_total" out))
+        (is (not (re-find #"http\.requests" out)))
+        (is (re-find #"route_name=\"/a\"" out))
+        (is (not (re-find #"route\.name" out))))))
+  (testing "a name starting with a digit gets an underscore prefix"
+    (let [c (prom/create-metrics-component {})
+          h (ports/register-counter! c (keyword "5xx") "5xx" {})]
+      (ports/inc-counter! c h)
+      (is (re-find #"(?m)^_5xx" (ports/export-metrics c :prometheus))))))
