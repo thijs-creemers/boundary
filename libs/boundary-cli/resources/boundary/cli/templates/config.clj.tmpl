@@ -14,8 +14,12 @@
             [integrant.core :as ig]
             [integrant.repl :as ig-repl]
             [boundary.user.schema :as user-schema]
-            ;; Loads Integrant init/halt multimethods for all system components.
+            ;; Loads Integrant init/halt multimethods for the platform components
+            ;; (db, http, router, observability). Feature-module wiring is loaded
+            ;; by the APP, not by platform (BOU-171/192/198): user below, optional
+            ;; modules dynamically in ig-config as they are enabled.
             [boundary.platform.shell.system.wiring]
+            [boundary.user.shell.module-wiring]
             ;; Registers :boundary/settings init-key defined in the generated app.
             [{{project-ns}}.system]))
 
@@ -95,7 +99,12 @@
         reports?  (boolean (:boundary/reports active))
         calendar? (boolean (:boundary/calendar active))
         ui-style? (boolean (:boundary/ui-style active))
-        ;; Load module wirings for modules not covered by platform wiring
+        ;; Load module wirings for enabled optional modules. Platform wiring does
+        ;; NOT load these (BOU-171/192/198) — the app owns its module loads.
+        _         (when tenant?   (require 'boundary.tenant.shell.module-wiring))
+        _         (when admin?    (require 'boundary.admin.shell.module-wiring))
+        _         (when workflow? (require 'boundary.workflow.shell.module-wiring))
+        _         (when search?   (require 'boundary.search.shell.module-wiring))
         _         (when ai?  (require 'boundary.ai.shell.module-wiring))
         _         (when geo? (require 'boundary.geo.shell.module-wiring))
 
@@ -117,10 +126,14 @@
                                   :db-context      (ig/ref :boundary/db-context)
                                   :i18n            (ig/ref :boundary/i18n)}
                            cache?    (assoc :cache              (ig/ref :boundary/cache))
+                           ;; Tenant middleware is built by the tenant lib's
+                           ;; :boundary/tenant-http-middleware component and injected
+                           ;; here via :extra-middleware (BOU-200) — the http-handler
+                           ;; no longer constructs it (and ignores :membership-service).
                            tenant?   (assoc :tenant-routes      (ig/ref :boundary/tenant-routes)
                                             :membership-routes  (ig/ref :boundary/membership-routes)
                                             :tenant-service     (ig/ref :boundary/tenant-service)
-                                            :membership-service (ig/ref :boundary/membership-service))
+                                            :extra-middleware   (ig/ref :boundary/tenant-http-middleware))
                            admin?    (assoc :admin-routes       (ig/ref :boundary/admin-routes))
                            workflow? (assoc :workflow-routes    (ig/ref :boundary/workflow-routes))
                            search?   (assoc :search-routes      (ig/ref :boundary/search-routes)))]
@@ -199,7 +212,13 @@
                                                :db-context     (ig/ref :boundary/db-context)
                                                :config         config}
               :boundary/membership-routes     {:service (ig/ref :boundary/membership-service)
-                                               :config  config}})
+                                               :config  config}
+              ;; Builds the tenant HTTP middleware seq (tenant resolution +
+              ;; membership); injected into :boundary/http-handler via
+              ;; :extra-middleware above (BOU-200).
+              :boundary/tenant-http-middleware {:tenant-service     (ig/ref :boundary/tenant-service)
+                                                :membership-service (ig/ref :boundary/membership-service)
+                                                :db-context         (ig/ref :boundary/db-context)}})
 
       ;; Admin module — enabled by `boundary add admin`
       admin?
