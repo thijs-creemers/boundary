@@ -11,10 +11,16 @@
    No external Prometheus client dependency is used — the exposition text is
    produced by this namespace directly.
 
-   Caveat: metric/label names are sanitized to valid Prometheus identifiers, but
-   names that COLLIDE after sanitization (e.g. :http.requests and :http-requests
-   both -> http_requests) are not de-duplicated and would render duplicate
-   series. Tracked in BOU-207.
+   Sanitization + collisions (BOU-207): metric/label names are sanitized to valid
+   Prometheus identifiers. Post-sanitization COLLISIONS are handled so the output
+   stays valid:
+   - Metric names: if a later registration sanitizes to the same name as an
+     already-registered different key (e.g. :http.requests then :http-requests,
+     both -> http_requests), the later one is logged and IGNORED — the first
+     registration wins (no duplicate `# TYPE` line).
+   - Label keys within a series: keys that sanitize to the same label name are
+     de-duplicated deterministically at render (the lexicographically-first
+     [name value] pair wins), so no duplicate label appears in a series.
 
    Series identity
    ---------------
@@ -40,7 +46,8 @@
   (:require
    [boundary.observability.metrics.ports :as ports]
    [boundary.observability.metrics.schema :as schema]
-   [clojure.string :as str]))
+   [clojure.string :as str]
+   [clojure.tools.logging :as log]))
 
 ;; =============================================================================
 ;; Formatting helpers
@@ -95,11 +102,19 @@
 
 (defn- sorted-label-pairs
   "Convert a label map into a deterministic, name-sorted seq of
-   [sanitized-key-string escaped-value] pairs."
+   [sanitized-key-string escaped-value] pairs. Keys that collide after
+   sanitization (e.g. :route.name and :route-name -> route_name) are
+   de-duplicated deterministically — the lexicographically-first [name value]
+   pair wins — so a series never emits a duplicate label name."
   [label-map]
   (->> label-map
        (map (fn [[k v]] [(sanitize-label-name (name k)) (escape-label-value v)]))
-       (sort-by first)))
+       (sort)                              ; by [name value] — deterministic
+       (reduce (fn [acc pair]
+                 (if (= (first pair) (first (peek acc)))
+                   acc                      ; same sanitized key as previous → drop
+                   (conj acc pair)))
+               [])))
 
 (defn- render-labels
   "Render ordered [key escaped-value] pairs as a Prometheus label block,
@@ -116,6 +131,19 @@
 (defn- registered?
   [state metric-name]
   (contains? (:metrics state) metric-name))
+
+(defn- name->prom
+  "The Prometheus metric name a registration key sanitizes to."
+  [k]
+  (sanitize-metric-name (name k)))
+
+(defn- collides-with
+  "If registering `mname` would sanitize to the same Prometheus metric name as an
+   already-registered DIFFERENT key, return that key; else nil."
+  [state mname]
+  (let [target (name->prom mname)]
+    (some (fn [k] (when (and (not= k mname) (= target (name->prom k))) k))
+          (keys (:metrics state)))))
 
 (defn- active?
   "True when the metric is registered and not disabled."
@@ -284,45 +312,55 @@
        lines->text))
 
 ;; =============================================================================
+;; Registration (collision-aware)
+;; =============================================================================
+
+(defn- do-register!
+  "Shared registration path. Idempotent on the same key. On a post-sanitization
+   metric-name collision with a DIFFERENT already-registered key, warn and skip
+   so the first registration wins (no duplicate `# TYPE`). `metric-map-fn`
+   receives the current state (histograms need `:default-buckets`). Returns
+   `mname` as the handle regardless."
+  [state-atom mname metric-map-fn]
+  (let [s        @state-atom
+        collider (collides-with s mname)]
+    (cond
+      (registered? s mname) mname
+
+      collider
+      (do (log/warn "Prometheus metric name collision after sanitization; ignoring later registration"
+                    {:metric mname :collides-with collider :sanitized (name->prom mname)})
+          mname)
+
+      :else
+      (do (swap! state-atom
+                 (fn [st]
+                   (if (registered? st mname)
+                     st
+                     (assoc-in st [:metrics mname] (metric-map-fn st)))))
+          mname))))
+
+;; =============================================================================
 ;; Component
 ;; =============================================================================
 
 (defrecord PrometheusMetricsComponent [state]
   ports/IMetricsRegistry
   (register-counter! [_ name description tags]
-    (swap! state (fn [s]
-                   (if (registered? s name)
-                     s
-                     (assoc-in s [:metrics name]
-                               {:type :counter :description description :tags (or tags {})}))))
-    name)
+    (do-register! state name (fn [_] {:type :counter :description description :tags (or tags {})})))
 
   (register-gauge! [_ name description tags]
-    (swap! state (fn [s]
-                   (if (registered? s name)
-                     s
-                     (assoc-in s [:metrics name]
-                               {:type :gauge :description description :tags (or tags {})}))))
-    name)
+    (do-register! state name (fn [_] {:type :gauge :description description :tags (or tags {})})))
 
   (register-histogram! [_ name description buckets tags]
-    (swap! state (fn [s]
-                   (if (registered? s name)
-                     s
-                     (let [bs (vec (sort (if (seq buckets) buckets (:default-buckets s))))]
-                       (assoc-in s [:metrics name]
-                                 {:type :histogram :description description
-                                  :buckets bs :tags (or tags {})})))))
-    name)
+    (do-register! state name
+                  (fn [st] {:type :histogram :description description
+                            :buckets (vec (sort (if (seq buckets) buckets (:default-buckets st))))
+                            :tags (or tags {})})))
 
   (register-summary! [_ name description quantiles tags]
-    (swap! state (fn [s]
-                   (if (registered? s name)
-                     s
-                     (assoc-in s [:metrics name]
-                               {:type :summary :description description
-                                :quantiles (vec quantiles) :tags (or tags {})}))))
-    name)
+    (do-register! state name (fn [_] {:type :summary :description description
+                                      :quantiles (vec quantiles) :tags (or tags {})})))
 
   (unregister! [_ name]
     (let [existed? (registered? @state name)]
