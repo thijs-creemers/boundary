@@ -6,9 +6,6 @@
             ;; The full-system boot here includes tenant/membership keys; load their
             ;; Integrant methods (platform no longer requires tenant — BOU-198).
             [boundary.tenant.shell.module-wiring]
-            ;; core-system-config now emits :boundary/email (BOU-206); load its
-            ;; init/halt methods so the full-system boot resolves the key.
-            [boundary.email.shell.module-wiring]
             [boundary.platform.shell.utils.port-manager :as port-manager]
             [clojure.test :refer [deftest testing is]]
             [integrant.core :as ig]

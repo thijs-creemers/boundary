@@ -12,6 +12,10 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]
+            ;; core-system-config emits :boundary/email unconditionally, so the
+            ;; config that references it self-registers the init/halt methods —
+            ;; every full-system boot (app + tests) then resolves the key.
+            [boundary.email.shell.module-wiring]
             [boundary.user.schema :as user-schema]))
 
 ;; =============================================================================

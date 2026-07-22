@@ -16,7 +16,6 @@
             ;; Load feature modules' Integrant init/halt methods at the app layer
             ;; so platform does not depend on the feature libs (BOU-171 / BOU-192).
             [boundary.user.shell.module-wiring]
-            [boundary.email.shell.module-wiring]
             [boundary.admin.shell.module-wiring]
             [boundary.workflow.shell.module-wiring]
             [boundary.search.shell.module-wiring]
