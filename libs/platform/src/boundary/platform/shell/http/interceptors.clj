@@ -340,33 +340,52 @@
                                                   "HTTP request duration (seconds)"
                                                   http-metrics-buckets {})}))
 
+(defn- request-method-label [request]
+  (name (or (:request-method request) :unknown)))
+
+(defn- record-request!
+  "Increment the `http.requests` counter and observe latency (seconds) for one
+   completed request, labelled by method + status. Runs on both the success
+   (:leave) and error (:error) paths so the counter covers *every* response —
+   error rate is then `http.requests.errors / http.requests`."
+  [metrics handles ctx status]
+  (let [{:keys [requests duration]} handles
+        tags {:method (request-method-label (:request ctx))
+              :status (str status)}]
+    (when requests
+      (metrics-ports/inc-counter! metrics requests 1 tags))
+    (when-let [start (get-in ctx [:timing :start])]
+      (when duration
+        (metrics-ports/observe-histogram!
+         metrics duration
+         (/ (double (- (System/nanoTime) start)) 1e9)
+         tags)))))
+
 (def http-request-metrics
   "Records HTTP request count, error count, and latency (seconds) on the metrics
-   emitter. Metric handles are registered once at wiring and threaded in as
+   emitter. `http.requests` is incremented for every response (success *and*
+   error, with a `status` label); `http.requests.errors` additionally counts the
+   error path. Handles are registered once at wiring and threaded in as
    `:metrics-handles` on the system map; a no-op when no metrics component is
    configured, so this is safe always-on."
   {:name :http-request-metrics
    :enter (fn [ctx]
             (assoc-in ctx [:timing :start] (System/nanoTime)))
-   :leave (fn [{:keys [request response system] :as ctx}]
+   :leave (fn [{:keys [response system] :as ctx}]
             (when-let [metrics (:metrics-emitter system)]
-              (let [{:keys [requests duration]} (:metrics-handles system)
-                    tags {:method (name (:request-method request))
-                          :status (str (:status response))}]
-                (when requests
-                  (metrics-ports/inc-counter! metrics requests 1 tags))
-                (when-let [start (get-in ctx [:timing :start])]
-                  (when duration
-                    (metrics-ports/observe-histogram!
-                     metrics duration
-                     (/ (double (- (System/nanoTime) start)) 1e9)
-                     tags)))))
+              (record-request! metrics (:metrics-handles system) ctx (:status response)))
             ctx)
-   :error (fn [{:keys [request system] :as ctx}]
+   :error (fn [{:keys [request response system] :as ctx}]
             (when-let [metrics (:metrics-emitter system)]
-              (when-let [errors (:errors (:metrics-handles system))]
-                (metrics-ports/inc-counter! metrics errors 1
-                                            {:method (name (:request-method request))})))
+              (let [handles (:metrics-handles system)
+                    ;; the http-error-handler interceptor runs before this one on
+                    ;; the reverse :error path, so a 5xx response is usually set.
+                    status   (or (:status response) 500)]
+                (record-request! metrics handles ctx status)
+                (when-let [errors (:errors handles)]
+                  (metrics-ports/inc-counter! metrics errors 1
+                                              {:method (request-method-label request)
+                                               :status (str status)}))))
             ctx)})
 
 (def http-request-tracing

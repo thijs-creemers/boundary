@@ -33,11 +33,27 @@
       (is (re-find #"http_request_duration_bucket\{[^}]*le=\"0.005\"[^}]*\} 1" out))
       (is (re-find #"http_request_duration_count\{[^}]*\} 1" out)))))
 
-(deftest ^:unit http-request-metrics-error-path-increments-error-counter
+(deftest ^:unit http-request-metrics-error-path-counts-request-and-error
   (let [[metrics _ system] (setup)
         enter ((:enter m) {:request {:request-method :post :uri "/orders"} :system system})]
-    ((:error m) (assoc enter :request {:request-method :post :uri "/orders"}))
-    (is (re-find #"http_requests_errors\{[^}]*method=\"post\"[^}]*\} 1"
+    ;; error handler set a 500 response before this interceptor's :error runs
+    ((:error m) (assoc enter
+                       :request {:request-method :post :uri "/orders"}
+                       :response {:status 500}))
+    (let [out (mp/export-metrics metrics :prometheus)]
+      (testing "the error counter increments (method + status labels)"
+        (is (re-find #"http_requests_errors\{[^}]*method=\"post\"[^}]*\} 1" out))
+        (is (re-find #"http_requests_errors\{[^}]*status=\"500\"[^}]*\} 1" out)))
+      (testing "the total request counter also counts the errored request"
+        (is (re-find #"http_requests\{[^}]*status=\"500\"[^}]*\} 1" out)))
+      (testing "latency is recorded for errored requests too"
+        (is (re-find #"http_request_duration_count\{[^}]*status=\"500\"[^}]*\} 1" out))))))
+
+(deftest ^:unit http-request-metrics-error-without-response-defaults-to-500
+  (let [[metrics _ system] (setup)
+        enter ((:enter m) {:request {:request-method :get :uri "/x"} :system system})]
+    ((:error m) (assoc enter :request {:request-method :get :uri "/x"}))
+    (is (re-find #"http_requests_errors\{[^}]*status=\"500\"[^}]*\} 1"
                  (mp/export-metrics metrics :prometheus)))))
 
 (deftest ^:unit http-request-metrics-no-op-without-metrics-component

@@ -198,10 +198,12 @@ no-op stub):
 | Metric | Type | Labels |
 |--------|------|--------|
 | `http.requests` | counter | `method`, `status` |
-| `http.requests.errors` | counter | `method` |
+| `http.requests.errors` | counter | `method`, `status` |
 | `http.request.duration` | histogram (seconds) | `method`, `status` |
 
-No-op safe: with `:provider :no-op` (default) these are inert.
+`http.requests` counts **every** response (success and error), so error rate is
+`http.requests.errors / http.requests`. No-op safe: with `:provider :no-op`
+(default) these are inert.
 
 ### Prometheus (`/metrics` scrape)
 
