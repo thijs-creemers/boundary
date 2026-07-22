@@ -190,52 +190,53 @@ bb scaffold field --module-name foo --entity Foo --name price --type decimal
 
 ### `bb scaffold integrate` — Module Integration
 
-After scaffolding a new module with `bb scaffold generate`, this tool wires it into the project's `deps.edn`, `tests.edn`, and `wiring.clj`. Purely rule-based — no AI needed.
+After scaffolding a new module with `bb scaffold generate`, this tool locates it and guides the remaining wiring. Purely rule-based — no AI needed.
 
 ```bash
-# Wire the "product" module into the project
+# Guide integration of the "product" module
 bb scaffold integrate product
 
-# Preview changes without writing any files
+# Module scaffolded under a custom base namespace
+bb scaffold integrate product --base-ns myapp
+
+# Preview only
 bb scaffold integrate product --dry-run
 
 # Also available via the scaffold:integrate task
 bb scaffold:integrate product
 ```
 
-**What it automates:**
+**What it does:** `bb scaffold generate [--base-ns NS]` writes a module to `src/<base-ns-path>/<module>/` (default base-ns `boundary`). Because `src`/`test` are already on the project's paths, the module is **already on the classpath and covered by the standard test suites** — there is nothing to patch into `deps.edn`/`tests.edn`. What remains is registering the module's Integrant components, which `integrate` guides:
 
-| Step | File Modified | What it does |
-|------|---------------|--------------|
-| Add source/test paths | `deps.edn` | Inserts `"libs/<module>/src"` and `"libs/<module>/test"` into `:paths` |
-| Add test suite | `tests.edn` | Adds a `{:id :<module>}` test suite entry for isolated test runs |
-| Add wiring require | `wiring.clj` | Adds `[boundary.<module>.shell.module-wiring]` to the require form |
-| Print config snippet | stdout | Generates an Integrant config template for manual insertion |
+| Step | Where | What |
+|------|-------|------|
+| Locate module | `src/<base-ns-path>/<module>/` | Discovers the module + whether it has HTTP routes / module-wiring |
+| Print config snippet | stdout | An Integrant config template to paste into `config.edn` |
+| Print wiring require | stdout | The `[<base-ns>.<module>.shell.module-wiring]` require to add to your app's config namespace (when the module ships one) |
 
 **Example output:**
 
 ```
 Boundary Module Integration — product
 
-Discovered: libs/product/
-  Source: libs/product/src
-  Tests:  libs/product/test
-  HTTP:   yes
-  Wiring: yes
+Discovered: src/boundary/product
+  Namespace: boundary.product.*
+  Tests:     test/boundary/product
+  HTTP:      yes
+  Wiring:    no
 
-  ✓ deps.edn      Added "libs/product/src" "libs/product/test" to :paths
-  ✓ tests.edn     Added {:id :product} test suite
-  ✓ wiring.clj    Added [boundary.product.shell.module-wiring] require
+✓ On the classpath — src/ and test/ are already on the project paths;
+  the module's tests run with clojure -M:test (no deps.edn/tests.edn changes).
 
-Manual steps remaining:
-  1. Add Integrant config to resources/conf/dev/config.edn:
+Register the module's Integrant components:
+  1. Add config to resources/conf/dev/config.edn (and test):
      (snippet shown)
-  2. Add matching config to resources/conf/test/config.edn
-  3. Run migrations: bb migrate up
-  4. Verify: clojure -M:test:db/h2 :product
+  2. This module has no shell/module_wiring.clj yet — add one to register its
+     Integrant keys, then require it from your app config.
+  3. Verify: clojure -M:test
 ```
 
-**Why config.edn modification is manual:** Config files use Aero reader tags (`#env`, `#or`, `#include`, `#merge`) that aren't standard EDN. Programmatic modification risks corrupting these tags, so the tool generates a snippet and prints it for the developer to insert.
+**Why config.edn modification is manual:** Config files use Aero reader tags (`#env`, `#or`, `#include`, `#merge`) that aren't standard EDN. Programmatic modification risks corrupting these tags, so the tool prints a snippet for the developer to insert.
 
 **Complete scaffolding workflow:**
 
@@ -252,7 +253,7 @@ bb scaffold integrate product
 bb migrate up
 
 # 5. Run tests
-clojure -M:test:db/h2 :product
+clojure -M:test
 ```
 
 ---
@@ -415,7 +416,7 @@ Translation files live in `libs/i18n/resources/boundary/i18n/translations/`.
 | `boundary.tools.ai` | AI CLI frontend (explain, gen-tests, sql, docs, admin-entity) |
 | `boundary.tools.doctor` | Config Doctor — rule-based config validation (6 checks) |
 | `boundary.tools.setup` | Config Setup Wizard — interactive + template-based config generation |
-| `boundary.tools.integrate` | Module Integration — wire scaffolded modules into deps/tests/wiring |
+| `boundary.tools.integrate` | Module Integration — locate scaffolded modules under src/ and guide Integrant config + wiring |
 | `boundary.tools.admin_entity` | Admin Entity Generator — Babashka wrapper for AI admin entity generation |
 | `boundary.tools.i18n` | i18n catalogue management (find/scan/missing/unused) |
 | `boundary.tools.admin` | First admin user creation wizard |

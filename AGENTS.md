@@ -21,7 +21,7 @@ bb scaffold ai "product module with name, price"   # AI-powered NL scaffolding (
 bb scaffold ai "product module with name, price" --yes  # AI-powered NL scaffolding (non-interactive)
 bb scaffold field --module-name invoice --entity Invoice --name amount --type decimal   # Add field to existing module
 bb scaffold endpoint --module-name invoice --path /invoices --method post --handler-name create-invoice  # Add HTTP endpoint
-bb scaffold integrate product                      # Wire scaffolded module into deps/tests/wiring
+bb scaffold integrate product                      # Guide integration of a scaffolded module (config + wiring)
 
 # Testing - All tests across all libraries
 clojure -M:test:db/h2                                    # All tests (default test profile uses H2 in-memory)
@@ -230,7 +230,7 @@ The quality gate `bb check:fcis` (run on every commit) enforces strict rules:
 | `bb scaffold ai "description"` | Generating module structure from natural language description |
 | `bb scaffold field --module-name {m} --entity {E} --name {field} --type {type}` | Adding a field to an existing module's schema |
 | `bb scaffold endpoint --module-name {m} --path {path} --method {method} --handler-name {name}` | Adding an HTTP endpoint to an existing module |
-| `bb scaffold integrate {module}` | Wiring a generated module into deps.edn, tests.edn, and system config |
+| `bb scaffold integrate {module}` | Guide integration of a generated module (Integrant config + wiring) |
 
 ### Scaffolder Best Practices for AI Agents
 
@@ -364,7 +364,7 @@ bb scaffold ai "product module with name, price" --yes  # AI-powered (non-intera
 
 **After scaffolding:**
 ```bash
-bb scaffold integrate {module-name}    # Wires your new module into deps/tests/wiring
+bb scaffold integrate {module-name}    # Guides integration of your new module (config + wiring)
 ```
 
 **For large features within existing modules:**
@@ -951,7 +951,7 @@ Clojure's `{:or {limit 20 offset 0}}` destructuring only fires for **absent** ke
 | `boundary.tools.ai` | `bb ai` |
 | `boundary.tools.doctor` | `bb doctor` — config validation (6 rule-based checks) |
 | `boundary.tools.setup` | `bb setup` — config setup wizard (interactive / flags / AI) |
-| `boundary.tools.integrate` | `bb scaffold integrate` — wire modules into deps/tests/wiring |
+| `boundary.tools.integrate` | `bb scaffold integrate` — guide module integration (Integrant config + wiring) |
 | `boundary.tools.i18n` | `bb i18n:find/scan/missing/unused` |
 | `boundary.tools.admin` | `bb create-admin` |
 | `boundary.tools.deploy` | `bb deploy` (handles all 24 libs) |
