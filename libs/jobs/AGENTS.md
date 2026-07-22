@@ -40,8 +40,26 @@ required, survives a Redis outage.
   on H2 and PostgreSQL, so its reliability tests run on the default H2 test DB.
 - The authoritative job is the JSON `payload` column (same wire format as the
   Redis adapter); the other columns exist only for ordering/claim/reclaim.
-- Transactional enqueue (outbox — enqueue in the caller's business-DB tx) is a
-  planned follow-up (BOU-181).
+
+### Transactional enqueue (outbox)
+
+Because the queue is a table in the same database, you can enqueue a job **in
+the caller's transaction** — it commits atomically with the business change, so
+a rolled-back business tx leaves no orphan job (no dual-write window). The queue
+row *is* the outbox row; no separate outbox table or relay is needed.
+
+```clojure
+(require '[next.jdbc :as jdbc]
+         '[boundary.jobs.shell.adapters.db :as db])
+
+(jdbc/with-transaction [tx ds]
+  (orders/create! tx order)              ; business write
+  (db/enqueue-in-tx! tx :emails receipt-job))  ; job, same tx
+;; commit -> both; rollback -> neither
+```
+
+Pass a caller-managed transaction (not a bare datasource, which would
+autocommit). A worker on the DB queue picks the job up after commit.
 
 ## Job Handler Signature
 
