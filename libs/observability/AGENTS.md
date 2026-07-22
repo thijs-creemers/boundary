@@ -136,6 +136,25 @@ The interceptor automatically:
 
 ## Provider Configuration
 
+### Prometheus (`/metrics` scrape)
+
+Pure-Clojure in-memory registry (`metrics.shell.adapters.prometheus`) that renders
+the Prometheus text exposition format — no external client dependency. When
+`:boundary/metrics {:provider :prometheus}` is active, platform mounts a
+**`GET /metrics`** endpoint that serves the scrape output (counters, gauges,
+histograms with `_bucket`/`_sum`/`_count`). Other providers leave `/metrics`
+returning an empty body.
+
+```clojure
+;; resources/conf/prod/config.edn
+{:boundary/metrics {:provider :prometheus
+                    :include-help-text true
+                    ;; optional default histogram buckets (seconds)
+                    :histogram-buckets [0.005 0.01 0.025 0.05 0.1 0.25 0.5 1 2.5 5 10]}}
+```
+
+Point a Prometheus/Grafana Agent (or any OpenMetrics scraper) at `GET /metrics`.
+
 ### no-op (Development and Tests)
 
 The default provider — all operations are silent. No configuration required.
