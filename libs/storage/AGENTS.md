@@ -4,11 +4,11 @@
 
 ## Purpose
 
-File storage abstraction with pluggable backends. Ships a local filesystem
-adapter and an AWS S3 / S3-compatible adapter behind a single `IFileStorage`
-port, plus pure file validation, a Java-AWT image processor (resize +
-thumbnails, no native deps), signed-URL generation, and Ring upload/download
-handlers.
+File storage abstraction with pluggable backends. Ships local filesystem, AWS
+S3 / S3-compatible, and Google Cloud Storage adapters behind a single
+`IFileStorage` port, plus pure file validation, a Java-AWT image processor
+(resize + thumbnails, no native deps), signed-URL generation, a
+`:boundary/storage` Integrant key, and Ring upload/download handlers.
 
 ## Key Namespaces
 
@@ -20,8 +20,10 @@ handlers.
 | `boundary.storage.shell.service` | `IStorageService` protocol + `StorageService` record — validation + storage + optional image processing |
 | `boundary.storage.shell.adapters.local` | `LocalFileStorage` — filesystem, content-addressed keys with directory sharding |
 | `boundary.storage.shell.adapters.s3` | `S3FileStorage` — AWS S3 / S3-compatible (MinIO, DO Spaces) via AWS SDK v2 |
+| `boundary.storage.shell.adapters.gcs` | `GCSFileStorage` — Google Cloud Storage via `google-cloud-storage`; V4 signed URLs |
 | `boundary.storage.shell.adapters.image-processor` | `JavaImageProcessor` — Java AWT / `javax.imageio` |
-| `boundary.storage.shell.http-handlers` | Ring handlers + `storage-routes` (Reitit) for upload/download/delete/url |
+| `boundary.storage.shell.module-wiring` | `:boundary/storage` + `:boundary/storage-routes` Integrant keys |
+| `boundary.storage.shell.http-handlers` | Ring handlers + `storage-routes` (normalized `:api` map format) |
 
 ## Ports
 
@@ -37,8 +39,10 @@ handlers.
 
 - `file-data` is `{:bytes <byte-array> :content-type <string>}`.
 - `metadata` is `{:filename <string> :path <optional> :visibility :public|:private}`.
-- Local `generate-signed-url` has no real signing — it returns the public URL
-  (from `url-base`) if configured, else `nil`.
+- Local `generate-signed-url` issues a real HMAC-SHA256 signed URL
+  (`?expires=<epoch>&signature=<hex>`) when `:signing-secret` is configured;
+  the serving route enforces it via `local/verify-signed-url`. Without a secret
+  it falls back to the plain public URL (or `nil` if `:url-base` is unset).
 
 ### `IImageProcessor` — optional image ops
 
@@ -59,7 +63,8 @@ handlers.
 (def storage
   (local/create-local-storage
     {:base-path "uploads"          ; required — root dir
-     :url-base  "https://cdn.example.com/files" ; optional — enables :url + signed-url fallback
+     :url-base  "https://cdn.example.com/files" ; optional — enables :url + signed URLs
+     :signing-secret "hmac-key"    ; optional — enables real signed, expiring URLs
      :create-directories? true     ; default true
      :logger    logger}))          ; optional
 ```
@@ -92,16 +97,45 @@ handlers.
 - Signed URLs use `S3Presigner` (`X-Amz-*` query params); public objects get a
   direct `https://{bucket}.s3.amazonaws.com/{key}` URL.
 
-> Note: `schema.clj` also defines `GCSStorageConfig` and `:adapter :gcs` in the
-> `StorageConfig` enum, but **there is no GCS adapter** — only `:local` and
-> `:s3` are implemented.
+### GCS (`create-gcs-storage` / `close-gcs-storage`)
 
-## Wiring (`create-storage-service`)
+```clojure
+(require '[boundary.storage.shell.adapters.gcs :as gcs])
 
-The library ships **factory functions, not an Integrant `init-key`** — the host
-app constructs and wires the service. `boundary-cli`'s module catalogue suggests
-a `:boundary/storage` config key, but no `defmethod ig/init-key :boundary/storage`
-exists in this lib; wire it yourself.
+(def storage
+  (gcs/create-gcs-storage
+    {:bucket           "my-bucket"   ; required
+     :project-id       "my-project"  ; required
+     :credentials-path "sa.json"     ; optional — else Application Default Credentials
+     :prefix           "app/"        ; optional — key prefix
+     :public-read?     false         ; optional — controls public-URL emission
+     :logger           logger}))
+
+(gcs/close-gcs-storage storage)      ; releases the GCS client — call on shutdown
+```
+
+- GCS key: `{prefix}/{timestamp}-{uuid8}.{ext}`.
+- `generate-signed-url` uses GCS V4 signing (needs service-account credentials);
+  returns `nil` + logs on failure.
+
+## Wiring — `:boundary/storage` Integrant key
+
+`boundary.storage.shell.module-wiring` ships `defmethod ig/init-key
+:boundary/storage`, dispatching on `:provider` (`:local` / `:s3` / `:gcs`). It
+builds the adapter + a default image processor and returns
+`{:provider <kw> :storage <IFileStorage> :service <IStorageService>}`; the
+halt-key closes the S3/GCS client. `:boundary/storage-routes` turns the service
+into normalized `:api` routes. The config matches the `boundary new` catalogue
+(`:local` accepts `:root` as an alias for `:base-path`):
+
+```clojure
+:boundary/storage {:provider :local :root "uploads"}
+;; or :s3 / :gcs — see the adapter configs above
+:boundary/storage-routes {:storage (ig/ref :boundary/storage)}
+```
+
+To wire the factories by hand instead (no Integrant), use
+`create-storage-service`:
 
 ```clojure
 (require '[boundary.storage.shell.service :as service])
@@ -164,9 +198,10 @@ adapter (`store-file`, `retrieve-file`, `file-exists?`, `delete-file`,
 
 ## HTTP endpoints (`storage-routes`)
 
-`(http-handlers/storage-routes svc {:base-path "/api/v1/storage"})` returns
-**Reitit-style** route vectors (not the normalized module-`:api` map format —
-mount them directly in a Reitit router, not via the module route mechanism):
+`(http-handlers/storage-routes svc {:base-path "/storage"})` returns the
+framework's **normalized module `:api` map format** — a vector of
+`{:path … :methods {…}}` maps. Paths carry NO `/api` prefix (versioning adds
+`/api/v1`). Mount via the module route mechanism (`:boundary/storage-routes`):
 
 | Method | Path | Handler |
 |--------|------|---------|
@@ -188,15 +223,17 @@ Errors are emitted as RFC-7807 problem details via
 3. **Image processor is optional.** `upload-image` only builds a thumbnail
    `(when (and create-thumbnail image-processor) ...)`; a failed thumbnail does
    not fail the original upload.
-4. **`upload-image` currently hard-codes `:content-type "image/jpeg"`** for the
-   stored original (see the `; Will be detected properly` TODO) — content-type
-   is not sniffed from the bytes there.
-5. **S3 resources must be released** — call `close-s3-storage` on shutdown to
-   close the `S3Client` and `S3Presigner`.
-6. **Local signed URLs are not signed** — they return the public `url-base` URL,
-   or `nil` if `:url-base` is unset. Use S3 for real time-limited access.
-7. **No GCS adapter** despite `GCSStorageConfig` / `:gcs` existing in schema.
-8. **No Integrant key** is shipped; wire the factories in the host system.
+4. **`upload-image` detects the original content-type** from the filename
+   extension (`mime-type-from-extension`), falling back to `image/jpeg` for
+   unknown extensions — a PNG/WebP/GIF keeps its real type.
+5. **Cloud resources must be released** — call `close-s3-storage` /
+   `close-gcs-storage` on shutdown (the `:boundary/storage` halt-key does this).
+6. **Local signed URLs** are real HMAC-SHA256 signatures **only with a
+   `:signing-secret`**; the serving route must call `local/verify-signed-url`
+   to enforce expiry (the filesystem adapter can't). Without a secret the URL is
+   the plain public one.
+7. **GCS public-read?** controls public-URL *emission*, not object ACLs — make
+   the bucket/object publicly accessible via GCS itself for those URLs to work.
 
 ## Testing
 

@@ -122,9 +122,14 @@
       (let [{:keys [create-thumbnail thumbnail-size]} options
             thumbnail-size (or thumbnail-size 200)
 
+            ;; Preserve the real content type — detect from the filename extension
+            ;; rather than assuming JPEG (a PNG/WebP/GIF upload must keep its type).
+            original-content-type (or (validation/mime-type-from-extension (:filename metadata))
+                                      "image/jpeg")
+
             ;; Upload original image
             original-data {:bytes image-bytes
-                           :content-type "image/jpeg"}  ; Will be detected properly
+                           :content-type original-content-type}
 
             original-result (upload-file this original-data metadata
                                          (assoc options :allowed-types (vec validation/image-mime-types)))
