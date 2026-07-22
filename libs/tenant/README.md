@@ -97,9 +97,9 @@ Tenant middleware lives in the **tenant** library (`boundary.tenant.shell.tenant
             :users (list-tenant-users db-ctx tenant-id)}}))
 ```
 
-**Middleware locations:**
-- **Platform lib:** `wrap-tenant-resolution` (resolves tenant from request), `wrap-tenant-schema` (sets DB search_path), `wrap-multi-tenant` (combines both)
-- **Tenant lib:** `wrap-tenant-membership` (checks user membership in tenant)
+**Middleware locations** (all in the tenant lib since BOU-198):
+- `boundary.tenant.shell.tenant-middleware`: `wrap-tenant-resolution` (resolves tenant from request), `wrap-tenant-schema` (sets DB search_path), `wrap-multi-tenant` (combines both)
+- `boundary.tenant.shell.membership-middleware`: `wrap-tenant-membership` (checks user membership in tenant)
 
 ## Tenant Provisioning
 
@@ -358,6 +358,22 @@ See [Cache Module README](../cache/README.md#tenant-scoping) for details.
 ;; All operations automatically scoped to tenant - no data leakage!
 ```
 
+## Tenant Management REST API
+
+When the tenant module is wired, it exposes a REST API for tenant administration
+under `/api/v1/tenants` (JSON responses; standard 400/404/500 error handling):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET`    | `/api/v1/tenants?limit=&offset=&status=` | List tenants (filtered, paginated) |
+| `POST`   | `/api/v1/tenants` | Create tenant (`{"name","slug","status"}`) |
+| `GET`    | `/api/v1/tenants/:id` | Get tenant by id |
+| `PUT`    | `/api/v1/tenants/:id` | Update tenant |
+| `DELETE` | `/api/v1/tenants/:id` | Soft-delete tenant |
+| `POST`   | `/api/v1/tenants/:id/suspend` | Suspend tenant (blocks access) |
+| `POST`   | `/api/v1/tenants/:id/activate` | Re-activate tenant |
+| `POST`   | `/api/v1/tenants/:id/provision` | Provision schema (PostgreSQL only) |
+
 ## Configuration
 
 ### Integrant Configuration
@@ -374,11 +390,23 @@ See [Cache Module README](../cache/README.md#tenant-scoping) for details.
   :logger #ig/ref :boundary/logger
   :error-reporter #ig/ref :boundary/error-reporter}
  
- :boundary/tenant-middleware
+ :boundary/membership-service
+ {:repository #ig/ref :boundary/membership-repository
+  :logger #ig/ref :boundary/logger}
+
+ ;; Builds the tenant HTTP middleware seq (tenant resolution + membership).
+ ;; The app injects it into platform's http-handler via :extra-middleware (BOU-200),
+ ;; so platform never requires the tenant lib directly.
+ :boundary/tenant-http-middleware
  {:tenant-service #ig/ref :boundary/tenant-service
-  :resolver :subdomain  ; :subdomain, :header, or custom fn
-  :require-tenant? false}}  ; Pass true to wrap-tenant-resolution to enforce
+  :membership-service #ig/ref :boundary/membership-service
+  :db-context #ig/ref :boundary/db-context}}
 ```
+
+Under the Boundary app wiring (`boundary.config`), these keys are added
+automatically and `:boundary/tenant-http-middleware` is referenced by
+`:boundary/http-handler`'s `:extra-middleware` — no manual middleware mounting
+is required.
 
 ### Database Migrations
 
@@ -524,9 +552,9 @@ clojure -M:test:db/h2 --focus boundary.tenant.shell.provisioning-test  # Provisi
 - `(wrap-tenant-schema handler db-ctx)` - Automatic schema switching
 - `(wrap-multi-tenant handler service db-ctx opts)` - Combines resolution + schema switching
 
-**`boundary.tenant.shell.middleware`** (tenant lib):
+**`boundary.tenant.shell.membership-middleware`** (tenant lib):
 
-- `(wrap-tenant-membership handler membership-service)` - Verify user membership in tenant
+- `(wrap-tenant-membership membership-service handler)` - Verify user membership in tenant
 
 ## Architecture
 
@@ -535,7 +563,7 @@ The tenant module follows **Functional Core / Imperative Shell**:
 - **Core** (`core/tenant.clj`): Pure tenant logic (validation, calculations)
 - **Shell** (`shell/service.clj`): Service layer with I/O
 - **Shell** (`shell/provisioning.clj`): Schema management
-- **Shell** (`shell/middleware.clj`): HTTP tenant resolution
+- **Shell** (`shell/tenant_middleware.clj`, `shell/membership_middleware.clj`): HTTP tenant resolution + membership
 - **Ports** (`ports.clj`): Protocol definitions
 
 ## Database Support
