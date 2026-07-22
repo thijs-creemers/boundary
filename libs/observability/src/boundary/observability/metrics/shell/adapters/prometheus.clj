@@ -11,6 +11,11 @@
    No external Prometheus client dependency is used — the exposition text is
    produced by this namespace directly.
 
+   Caveat: metric/label names are sanitized to valid Prometheus identifiers, but
+   names that COLLIDE after sanitization (e.g. :http.requests and :http-requests
+   both -> http_requests) are not de-duplicated and would render duplicate
+   series. Tracked in BOU-207.
+
    Series identity
    ---------------
    Each metric value is keyed by (metric-name, label-set), where the label-set
