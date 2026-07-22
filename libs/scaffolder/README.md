@@ -29,7 +29,14 @@ Code generation tool for creating new Boundary modules following the Functional 
 
 ## Creating a New Project
 
-Use the `new` command to generate a starter project with full Integrant wiring, database setup, and a complete FC/IS structure.
+> **Use `boundary new` for new projects.** The Boundary CLI (`boundary new <name>`,
+> from `boundary-cli`) is the canonical, actively-maintained project generator — it
+> produces the current template (`src/boundary/config.clj`, `src/<project>/system.clj`,
+> `.env`, `bb.edn`, tests, hooks). The scaffolder's own `new` command below is a
+> lower-level/legacy generator kept for embedding; it emits a different, simpler
+> layout (`src/<name>/app.clj`) and does **not** match a `boundary new` project.
+
+To generate the legacy starter layout directly from the scaffolder:
 
 ```bash
 clojure -M:dev -m boundary.scaffolder.shell.cli-entry new --name myapp

@@ -19,8 +19,8 @@ Essential commands, conventions, and patterns for working with the Boundary Fram
 bb scaffold                                        # Interactive module scaffolding wizard
 bb scaffold ai "product module with name, price"   # AI-powered NL scaffolding (interactive confirm)
 bb scaffold ai "product module with name, price" --yes  # AI-powered NL scaffolding (non-interactive)
-bb scaffold --field :invoice-id :string            # Add field to existing module
-bb scaffold --endpoint post create-invoice         # Add HTTP endpoint to existing module
+bb scaffold field --module-name invoice --entity Invoice --name amount --type decimal   # Add field to existing module
+bb scaffold endpoint --module-name invoice --path /invoices --method post --handler-name create-invoice  # Add HTTP endpoint
 bb scaffold integrate product                      # Wire scaffolded module into deps/tests/wiring
 
 # Testing - All tests across all libraries
@@ -224,8 +224,8 @@ The quality gate `bb check:fcis` (run on every commit) enforces strict rules:
 |---------|----------|
 | `bb scaffold` | Creating a new module from scratch (interactive wizard) |
 | `bb scaffold ai "description"` | Generating module structure from natural language description |
-| `bb scaffold --field {type} {name}` | Adding a field to an existing module's schema |
-| `bb scaffold --endpoint {method} {name}` | Adding an HTTP endpoint to an existing module |
+| `bb scaffold field --module-name {m} --entity {E} --name {field} --type {type}` | Adding a field to an existing module's schema |
+| `bb scaffold endpoint --module-name {m} --path {path} --method {method} --handler-name {name}` | Adding an HTTP endpoint to an existing module |
 | `bb scaffold integrate {module}` | Wiring a generated module into deps.edn, tests.edn, and system config |
 
 ### Scaffolder Best Practices for AI Agents
@@ -235,10 +235,10 @@ The quality gate `bb check:fcis` (run on every commit) enforces strict rules:
 bb scaffold ai "invoice module with number, date, amount, status" --yes
 ```
 
-**RULE 2:** Use `bb scaffold --field` instead of manually editing schema.clj:
+**RULE 2:** Use `bb scaffold field` instead of manually editing schema.clj:
 ```bash
 # Instead of manually adding to schema.clj:
-bb scaffold --field :invoice-id :string "Unique invoice identifier"
+bb scaffold field --module-name invoice --entity Invoice --name invoice-id --type string
 ```
 
 **RULE 3:** After scaffolding, immediately run integration:
