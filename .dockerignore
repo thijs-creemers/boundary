@@ -1,0 +1,21 @@
+# Keep the build context lean for `docker build` (root Dockerfile).
+.git
+.github
+target
+**/target
+.cpcache
+**/.cpcache
+.clj-kondo/.cache
+node_modules
+logs
+*.log
+dev-database.db
+*.db
+.env
+.env.*
+examples
+deploy
+docs
+dev-docs
+*.jar
+.DS_Store

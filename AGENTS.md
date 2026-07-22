@@ -81,7 +81,11 @@ clj-paren-repair <file>                            # Fix parentheses
 
 # Build
 clojure -T:build clean && clojure -T:build uber    # Build uberjar
-java -jar target/boundary-*.jar server             # Run standalone jar
+java -jar target/boundary-*.jar server             # Run standalone jar (HTTP server)
+java -jar target/boundary-*.jar worker             # Run as a background worker (no HTTP listener)
+
+# Deploy (see deploy/README.md)
+docker build -t boundary:latest .                  # Prod image (root Dockerfile; server + worker modes)
 
 # Database Migrations
 clojure -M:migrate up                              # Run migrations

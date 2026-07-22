@@ -3,11 +3,13 @@
    
    Provides unified entry point that can run the application in different modes:
    - server: Start HTTP server (default)
+   - worker: Start a background worker (no HTTP listener)
    - cli: Run CLI commands
-   
+
    Usage:
      java -jar boundary-standalone.jar              # Start HTTP server
      java -jar boundary-standalone.jar server       # Start HTTP server explicitly
+     java -jar boundary-standalone.jar worker       # Start a background worker
      java -jar boundary-standalone.jar cli [args]   # Run CLI commands"
   (:require [boundary.config :as config]
             [boundary.platform.shell.system.wiring] ; Required for Integrant init functions
@@ -33,6 +35,7 @@
   (println)
   (println "Modes:")
   (println "  server  - Start HTTP server (default)")
+  (println "  worker  - Start a background worker (no HTTP listener)")
   (println "  cli     - Run CLI commands")
   (println "  help    - Show this help message")
   (println)
@@ -47,32 +50,56 @@
   (println "  BND_ENV=prod java -jar boundary.jar server")
   (println "  java -jar boundary.jar cli user list"))
 
+(def http-surface-keys
+  "Integrant keys that make up the HTTP-serving surface. A worker node omits
+   them so it binds no port and runs only background components."
+  [:boundary/http-server :boundary/http-handler :boundary/dashboard])
+
+(defn worker-ig-config
+  "The Integrant config for a worker node: the full system minus the HTTP
+   surface (no Jetty listener, no route tree). Background components — jobs,
+   scheduled tasks, realtime — still start. This is the counterpart to `server`
+   that makes the web/worker split in scaling.adoc achievable."
+  [ig-config]
+  (apply dissoc ig-config http-surface-keys))
+
+(defn- boot-and-block!
+  "Init `ig-config`, install a shutdown hook that halts it gracefully, and block
+   until the JVM is signalled to stop."
+  [what ig-config]
+  (let [system (ig/init ig-config)]
+    (log/info (str "Boundary " what " started successfully"))
+    (log/info "Press Ctrl+C to stop")
+    (.addShutdownHook
+     (Runtime/getRuntime)
+     (Thread. (fn []
+                (log/info "Shutdown signal received, stopping...")
+                (try
+                  (ig/halt! system)
+                  (log/info "Stopped gracefully")
+                  (catch Exception e
+                    (log/error e "Error during shutdown"))))))
+    ;; Block forever (until Ctrl+C / SIGTERM)
+    @(promise)))
+
 (defn- start-server!
-  "Start the HTTP server and block."
+  "Start the full system including the HTTP server and block."
   []
   (log/info "Starting Boundary HTTP server")
   (try
-    (let [cfg (config/load-config)
-          ig-config (config/ig-config cfg)
-          system (ig/init ig-config)]
-      (log/info "Boundary HTTP server started successfully")
-      (log/info "Press Ctrl+C to stop the server")
-
-      ;; Add shutdown hook for graceful shutdown
-      (.addShutdownHook
-       (Runtime/getRuntime)
-       (Thread. (fn []
-                  (log/info "Shutdown signal received, stopping server...")
-                  (try
-                    (ig/halt! system)
-                    (log/info "Server stopped gracefully")
-                    (catch Exception e
-                      (log/error e "Error during shutdown"))))))
-
-      ;; Block forever (until Ctrl+C)
-      @(promise))
+    (boot-and-block! "HTTP server" (config/ig-config (config/load-config)))
     (catch Exception e
       (log/error e "Failed to start server")
+      (System/exit 1))))
+
+(defn- start-worker!
+  "Start the system without the HTTP surface (background worker) and block."
+  []
+  (log/info "Starting Boundary worker (no HTTP listener)")
+  (try
+    (boot-and-block! "worker" (worker-ig-config (config/ig-config (config/load-config))))
+    (catch Exception e
+      (log/error e "Failed to start worker")
       (System/exit 1))))
 
 (defn- run-cli!
@@ -101,6 +128,9 @@
     (case (str/lower-case (or mode "server"))
       "server"
       (start-server!)
+
+      "worker"
+      (start-worker!)
 
       "cli"
       (run-cli! remaining-args)
