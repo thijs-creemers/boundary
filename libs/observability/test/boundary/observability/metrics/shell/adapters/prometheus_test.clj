@@ -281,3 +281,44 @@
           h (ports/register-counter! c (keyword "5xx") "5xx" {})]
       (ports/inc-counter! c h)
       (is (re-find #"(?m)^_5xx" (ports/export-metrics c :prometheus))))))
+
+;; ============================================================================
+;; Post-sanitization collisions (BOU-207)
+;; ============================================================================
+
+(deftest ^:unit metric-name-collision-first-registration-wins
+  (testing "two keys sanitizing to the same metric name → later one ignored"
+    (let [c (prom/create-metrics-component {})]
+      (ports/register-counter! c :http.requests "first" {})
+      (ports/register-counter! c :http-requests "second (collides)" {})
+      (ports/inc-counter! c :http.requests 2 {})
+      (ports/inc-counter! c :http-requests 5 {}) ; no-op: not registered
+      (let [out (ports/export-metrics c :prometheus)]
+        (is (= 1 (count (re-seq #"(?m)^# TYPE http_requests " out)))
+            "exactly one # TYPE line for http_requests")
+        (is (re-find #"(?m)^http_requests 2$" out)
+            "only the first metric's value is emitted")
+        (is (not (re-find #"http_requests 5" out))
+            "the colliding registration recorded nothing")))))
+
+(deftest ^:unit colliding-metric-registration-is-not-added
+  (let [c (prom/create-metrics-component {})]
+    (ports/register-counter! c :http.requests "first" {})
+    (ports/register-counter! c :http-requests "collides" {})
+    (testing "the collider is absent from the registry"
+      (is (some? (ports/get-metric c :http.requests)))
+      (is (nil? (ports/get-metric c :http-requests))))))
+
+(deftest ^:unit label-key-collision-is-deduped-in-a-series
+  (testing "two label keys sanitizing to the same name → single label, deterministic"
+    (let [c (prom/create-metrics-component {})]
+      (ports/register-counter! c :hits "hits" {})
+      (ports/inc-counter! c :hits 1 {:route.name "x" :route-name "y"})
+      (let [out  (ports/export-metrics c :prometheus)
+            line (->> (str/split-lines out)
+                      (filter #(str/starts-with? % "hits{"))
+                      first)]
+        (is (= 1 (count (re-seq #"route_name=" line)))
+            "exactly one route_name label in the series")
+        (is (str/includes? line "route_name=\"x\"")
+            "lexicographically-first value wins deterministically")))))
