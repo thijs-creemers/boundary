@@ -1,81 +1,103 @@
 (ns boundary.tools.integrate-test
   (:require [clojure.test :refer [deftest is testing]]
-            [boundary.tools.integrate :as integrate]))
+            [clojure.java.io :as io]
+            [boundary.tools.integrate :as integrate])
+  (:import [java.nio.file Files]
+           [java.nio.file.attribute FileAttribute]))
+
+(defn- tmp-root [] (.toFile (Files/createTempDirectory "integrate-test" (make-array FileAttribute 0))))
+
+(defn- touch! [root & path-segs]
+  (let [f (apply io/file root path-segs)]
+    (io/make-parents f)
+    (spit f "")
+    f))
 
 ;; =============================================================================
-;; patch-deps-edn
+;; base-ns-path
 ;; =============================================================================
 
-(deftest ^:unit patch-deps-edn-test
-  (let [sample-deps (str ":paths [\"src\"\n"
-                         "           \"libs/core/src\" \"libs/core/test\"\n"
-                         "           \"libs/admin/src\" \"libs/admin/test\"]")]
-
-    (testing "adds source and test paths for new module"
-      (let [[result changes] (integrate/patch-deps-edn sample-deps "product")]
-        (is (seq changes))
-        (is (re-find #"\"libs/product/src\"" result))
-        (is (re-find #"\"libs/product/test\"" result))))
-
-    (testing "is idempotent — no changes if already present"
-      (let [deps-with-product (str sample-deps "\n           \"libs/product/src\" \"libs/product/test\"")
-            [_result changes] (integrate/patch-deps-edn deps-with-product "product")]
-        (is (empty? changes))))))
+(deftest ^:unit base-ns-path-test
+  (is (= "boundary" (integrate/base-ns-path nil)))
+  (is (= "boundary" (integrate/base-ns-path "boundary")))
+  (is (= "myapp" (integrate/base-ns-path "myapp")))
+  (is (= "com/acme" (integrate/base-ns-path "com.acme"))))
 
 ;; =============================================================================
-;; patch-tests-edn
+;; discover-module — reads src/<base-ns-path>/<module>/ (where generate writes)
 ;; =============================================================================
 
-(deftest ^:unit patch-tests-edn-test
-  (let [sample-tests (str ":tests [{:id :core\n"
-                          "           :test-paths [\"libs/core/test\"]\n"
-                          "           :ns-patterns [\"boundary.core.*-test\"]}]")]
+(deftest ^:unit discover-module-finds-module-under-src
+  (testing "default base-ns -> src/boundary/<module>/"
+    (let [root (tmp-root)]
+      (touch! root "src" "boundary" "product" "schema.clj")
+      (touch! root "src" "boundary" "product" "shell" "http.clj")
+      (let [m (integrate/discover-module "product" nil root)]
+        (is (some? m))
+        (is (= "boundary.product" (:module-ns m)))
+        (is (= "src/boundary/product" (:src-path m)))
+        (is (true? (:has-routes? m)))          ; shell/http.clj present
+        (is (false? (:has-wiring? m))))))       ; no module_wiring.clj
 
-    (testing "adds new test suite"
-      (let [[result changes] (integrate/patch-tests-edn sample-tests "product")]
-        (is (seq changes))
-        (is (re-find #":id :product" result))
-        (is (re-find #"\"libs/product/test\"" result))))
+  (testing "custom base-ns -> src/<base-ns-path>/<module>/"
+    (let [root (tmp-root)]
+      (touch! root "src" "myapp" "product" "schema.clj")
+      (let [m (integrate/discover-module "product" "myapp" root)]
+        (is (some? m))
+        (is (= "myapp.product" (:module-ns m)))
+        (is (= "src/myapp/product" (:src-path m)))
+        (is (false? (:has-routes? m))))))
 
-    (testing "is idempotent — no changes if already present"
-      (let [tests-with-product (str sample-tests
-                                    "\n          {:id :product\n"
-                                    "           :test-paths [\"libs/product/test\"]\n"
-                                    "           :ns-patterns [\"boundary.product.*-test\"]}")
-            [_result changes] (integrate/patch-tests-edn tests-with-product "product")]
-        (is (empty? changes))))))
+  (testing "dotted base-ns -> nested path"
+    (let [root (tmp-root)]
+      (touch! root "src" "com" "acme" "product" "schema.clj")
+      (is (= "com.acme.product" (:module-ns (integrate/discover-module "product" "com.acme" root))))))
+
+  (testing "module absent -> nil (and NOT found under the old libs/ location)"
+    (let [root (tmp-root)]
+      (touch! root "libs" "product" "src" "boundary" "product" "schema.clj") ; old layout
+      (is (nil? (integrate/discover-module "product" nil root))))))
 
 ;; =============================================================================
-;; patch-wiring
+;; round-trip: the path generate writes is the path integrate discovers
 ;; =============================================================================
 
-(deftest ^:unit patch-wiring-test
-  (let [sample-wiring (str "(ns boundary.platform.shell.system.wiring\n"
-                           "  (:require [boundary.admin.shell.module-wiring]\n"
-                           "            [boundary.user.shell.module-wiring]))")]
-
-    (testing "adds new module-wiring require"
-      (let [[result changes] (integrate/patch-wiring sample-wiring "product")]
-        (is (seq changes))
-        (is (re-find #"boundary\.product\.shell\.module-wiring" result))))
-
-    (testing "is idempotent — no changes if already wired"
-      (let [wiring-with-product (str sample-wiring
-                                     "\n            [boundary.product.shell.module-wiring]")
-            [_result changes] (integrate/patch-wiring wiring-with-product "product")]
-        (is (empty? changes))))))
+(deftest ^:unit generate-integrate-round-trip-path-contract
+  ;; `bb scaffold generate [--base-ns NS]` writes files at
+  ;; src/<base-ns-path>/<module>/... (scaffolder shell/service.clj). Recreate that
+  ;; exact layout and assert integrate discovers it — the two halves now agree.
+  (doseq [base-ns [nil "myapp" "com.acme"]]
+    (let [root (tmp-root)
+          bnp  (integrate/base-ns-path base-ns)]
+      (touch! root "src" bnp "product" "schema.clj")
+      (touch! root "src" bnp "product" "ports.clj")
+      (touch! root "src" bnp "product" "shell" "service.clj")
+      (touch! root "test" bnp "product" "shell" "service_test.clj")
+      (let [m (integrate/discover-module "product" base-ns root)]
+        (is (some? m) (str "discovered for base-ns " (pr-str base-ns)))
+        (is (= (str "src/" bnp "/product") (:src-path m)))
+        (is (= (str "test/" bnp "/product") (:test-path m)))))))
 
 ;; =============================================================================
 ;; generate-config-snippet
 ;; =============================================================================
 
 (deftest ^:unit generate-config-snippet-test
-  (testing "generates basic config snippet"
+  (testing "basic config snippet"
     (let [snippet (integrate/generate-config-snippet "product" false)]
       (is (re-find #":boundary/product" snippet))
       (is (re-find #":enabled\? true" snippet))
       (is (not (re-find #":base-path" snippet)))))
 
   (testing "includes base-path for modules with routes"
-    (let [snippet (integrate/generate-config-snippet "product" true)]
-      (is (re-find #":base-path \"/api/product\"" snippet)))))
+    (is (re-find #":base-path \"/api/product\"" (integrate/generate-config-snippet "product" true)))))
+
+;; =============================================================================
+;; arg parsing
+;; =============================================================================
+
+(deftest ^:unit parse-args-test
+  (is (= "product" (:module (integrate/parse-args ["product"]))))
+  (is (= "myapp" (:base-ns (integrate/parse-args ["product" "--base-ns" "myapp"]))))
+  (is (true? (:dry-run? (integrate/parse-args ["product" "--dry-run"]))))
+  (is (true? (:help (integrate/parse-args ["--help"])))))
