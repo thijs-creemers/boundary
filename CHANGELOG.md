@@ -7,11 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+Framework Quality (Phase 0–2, 2026-07) security hardening:
+
+- **`boundary-user`**: JWT algorithm pinned and startup fails fast on a weak secret — a `JWT_SECRET` of ≥32 chars is now required, with a separate CSRF secret (BOU-163, #253).
+- **`boundary-user`**: MFA TOTP secrets are encrypted at rest and backup codes are hashed (BOU-162, #252).
+- **`boundary-user`**: IDOR closed on the user API routes (`/users`, `/users/:id`) — a caller can no longer read or modify another user by id (BOU-190, #280).
+- **`boundary-user`**: sessions are rotated on password and role change, defeating fixation and stale-privilege reuse (BOU-191, #281).
+- **`boundary-user`**: user-management web routes are mounted behind authz guards and the web user-detail page is admin-only (BOU-197, #286, #287).
+- **`boundary-platform`**: 5xx responses no longer leak exception internals, and the admin error flash no longer echoes raw exception messages (BOU-161, BOU-182, #250, #260).
+- **`boundary-platform`**: hardened security response headers and session-cookie attributes; brute-force lockout and session-fixation coverage; a dedicated authz negative-path suite (RBAC / IDOR / cross-tenant) (BOU-168, #272, #274, #275).
+- **`boundary-jobs`**: reliable Redis dequeue — jobs are no longer lost when a worker crashes mid-dequeue (BOU-160, #248).
+- **docs-site**: patched a js-yaml DoS (GHSA-h67p-54hq-rp68) and a brace-expansion advisory (#251).
+- **Phase 1 production blockers**: secure session-cookie defaults, tenant migration provisioning, and PostgreSQL in CI (BOU-158/159/164, #247).
+
 ### Added
 
 - **`boundary-cli`**: `boundary agents update` (+ generated `bb agents:update` task) refreshes the framework-owned sections of a project's `AGENTS.md` after a Boundary upgrade. The marker-delimited blocks (`gen:fc-is`, `gen:naming`, `gen:pitfalls`, `boundary:available-modules`) are re-rendered from the installed CLI's template and spliced in place; everything outside the markers — team notes, custom sections — is left untouched, the `installed-modules` block is treated as project state, and installed modules stay removed from the refreshed available table (mirroring `boundary add`). `--check` exits 1 when the file is stale, for CI. Idempotent (#236).
 - **dev tooling**: Hot-path benchmark harness (`clojure -M:bench hotpaths`, `dev/boundary/bench/hotpaths.clj`) measuring current-vs-proposed implementations for each performance-assessment finding: raw vs compiled Malli validation, reflective vs protocol logger dispatch, DB result-set case-conversion passes, and i18n marker resolution. Notable negative result recorded: memoizing case-conversion keys is *slower* than plain `str/replace` — the DB-layer fix targets pass elimination, not caching (#232).
 - **`boundary-cli`**: The generated `AGENTS.md` template now opens the "Adding new functionality" workflow with **Step -1 — check existing Boundary modules FIRST**: run `boundary list modules` and prefer `boundary add <module>` + its ports before writing custom code. Coding agents working in bootstrapped projects were reimplementing functionality that existing modules (auth, storage, jobs, email, cache, search, payments, …) already provide (#232).
+
+Framework Quality (Phase 0–2, 2026-07):
+
+- **`boundary-observability`**: a Prometheus metrics adapter with a `GET /metrics` scrape endpoint; a backend-agnostic tracing port (`ITracer` + the `with-span` macro) with no-op and logging adapters; and an OpenTelemetry **OTLP** exporter for both traces and metrics, plus automatic per-request HTTP spans and per-job worker spans. One vendor-neutral OTLP/HTTP exporter feeds any OTel backend (SigNoz, Grafana Tempo, Jaeger, Datadog-via-OTel) (BOU-174, #304, #305, #306).
+- **`boundary-storage`**: a Google Cloud Storage adapter (V4 signed URLs); a `:boundary/storage` Integrant key dispatching `:local` / `:s3` / `:gcs`; and real HMAC-signed, expiring URLs for the local adapter (BOU-206, #308).
+- **`boundary-email`**: an in-memory `EmailQueueProtocol` implementation (bounded retry); `:boundary/email` + `:boundary/email-queue` Integrant keys; and user welcome mail routed through the email lib (BOU-206, #309).
+- **`boundary-jobs`**: a DB-backed job queue adapter (durable background jobs without Redis) with transactional outbox enqueue (BOU-181, #299, #300).
+- **deployment**: a production Dockerfile, a `worker` run mode (no HTTP listener), and a production configuration guard (BOU-173, #298).
+- **`boundary-scaffolder`**: module namespace + path parameterization via `--base-ns`, and an app-first `bb scaffold integrate` flow (BOU-205, #302, #303).
+- **quality gates**: `check:poms` (published-POM boundary-dep completeness) with a publishable `boundary-shared-ui` (BOU-202, #289); a `check:test-tags` gate with test-pyramid tag backfill across all libs (BOU-166, #262–#266); a `check:test-meta` gate (BOU-184, #255); and a full-system boot test against embedded PostgreSQL (BOU-183, #261).
+- **downstream upgrade path** for the Phase-2 refactors, documented for consuming apps (BOU-204, #294).
+- **docs**: a runnable in-repo example (`examples/todo`) with CI smoke, 7 missing library READMEs, expanded module `AGENTS.md` guides, and multi-tenancy usage docs relocated to the tenant README (BOU-175, BOU-201, #295, #296, #297, #292).
+- **tests**: property tests for the snake↔kebab conversion boundary and RRULE recurrence; contract round-trip tests for user/session persistence and admin auto-CRUD; restored + hardened ring-jetty adapter tests (BOU-167, BOU-172, #268–#271, #249).
+- **Phase 0 quick-wins**: first-run experience, POM/hygiene fixes, and repository trust signals (BOU-152…157, #246).
 
 ### Changed
 
@@ -30,12 +59,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **`boundary-user`**: JWT signing secret resolved from the environment once per process instead of a `System/getenv` call on every token sign/verify.
   - **`boundary-jobs`**: worker Redis heartbeat throttled to `:heartbeat-interval-ms` (default 5000 ms, key TTL 60 s) instead of one round-trip per loop iteration — under load the loop spins once per job.
 
+Framework Quality (Phase 0–2, 2026-07) — architecture & FC/IS:
+
+- **FC/IS core purity** (BOU-165, #254): definition registries and process guards moved out of `core/` into the shell; `core/` may no longer throw or hold mutable state, enforced by `check:fcis`. Follow-ups: audience filter/composition validation moved to the shell (BOU-185, #256), the validation rule registry split into a pure core + stateful shell (BOU-188, #258), and legitimate core exemptions reclassified inline (BOU-186, #257).
+- **dependency-cycle dissolution**: the platform↔user cycle broken via app-layer wiring (BOU-171, #279); platform back-edges to admin/workflow/search removed (BOU-192, #282); shared Hiccup UI extracted into `boundary-shared-ui`, dissolving admin↔user (BOU-193/194, #283); tenant HTTP middleware relocated out of platform and its wiring moved to the app layer (BOU-198/200, #284, #291); parallel search stacks merged into `libs/search` (BOU-169, #276).
+- **dead-code / honesty**: 15 previously-undeclared deps declared and module layout exceptions documented (BOU-196, #285); 5 dead cross-cutting protocols dropped from `user/ports` (BOU-170, #277); dead admin `http/support` helpers removed (#293); admin `core/ui` and `shell/http` split into focused namespaces behind a facade (BOU-195, #288).
+- **`boundary-observability`**: HTTP request metrics now emit through the real `IMetricsEmitter` (request count, error count, latency histogram) instead of a no-op stub, so they reach any active provider (BOU-208, #307).
+- **deploy**: publish order is derived via a topological sort of the inter-library dependency graph (BOU-203, #290).
+
 ### Fixed
 
 - **`boundary-platform`**: PostgreSQL session settings (`statement_timeout`, `TimeZone=UTC`, `ApplicationName`) now reach **every** pooled connection via JDBC URL properties — the previous `SET` statements only affected the single pooled connection that happened to execute them, leaving the statement-timeout guard effectively unset on the rest of the pool. `reWriteBatchedInserts=true` enabled while at it (#232).
 - **build**: the uberjar silently omitted 13 libraries (email, tenant, realtime, payments, external, workflow, search, reports, calendar, geo, ai, i18n, ui-style, push, audience) because `build.clj` hardcoded 9 source dirs; the list now derives from deps.edn `:paths`, so new libs are packaged automatically. Also enables `-Dclojure.compiler.direct-linking=true` and resolves a LICENSE file-vs-directory merge conflict between dependency jars (#232).
 - **`boundary-email`** / **`boundary-external`**: `Attachment` schemas used `:bytes`, which is not a schema in Malli's default registry — `valid-email?`, `valid-email-input?` and `explain-email-errors` threw `:malli.core/invalid-schema` on every call (latent: zero callers; surfaced by compiling validators at namespace load). Fixed to `bytes?` with regression tests (#232).
 - **`boundary-user`**: `find-active-users-by-role`, `find-users-created-since` and `find-users-by-email-domain` ran `SELECT … ORDER BY created_at DESC` with **no LIMIT** — unbounded memory/latency as data grows. All three now default to the platform's `max-pagination-limit` (1000) via `build-pagination`; new `{:limit :offset}` options arities added to `IUserRepository` (base arities delegate), `nil` limit/offset guarded at the SQL assembly point.
+
+Framework Quality (Phase 0–2, 2026-07):
+
+- **`boundary-observability`**: Prometheus metric/label names that collide after sanitization (e.g. `:http.requests` and `:http-requests` both → `http_requests`) are handled deterministically — a later colliding metric registration is logged and ignored (first wins), and colliding label keys within a series are de-duplicated — instead of rendering invalid exposition (BOU-207, #310).
+- **`boundary-audience`**: the `account-tenure :neq` filter now maps to SQL `<>` (BOU-189, #259).
+- **`boundary-platform`**: enum `CHECK` constraints are now idempotent across H2 reconnects (#273).
 
 ## [1.0.1-alpha-36] - 2026-07-02
 
