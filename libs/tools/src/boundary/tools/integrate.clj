@@ -4,9 +4,10 @@
 ;; Module Integration — wire a scaffolded module into the running system.
 ;;
 ;; Usage (via bb.edn task):
-;;   bb scaffold integrate product                 # Wire the "product" module
+;;   bb scaffold integrate product                 # Guide integration of "product"
 ;;   bb scaffold integrate product --base-ns myapp # Module under myapp.product.*
-;;   bb scaffold integrate product --dry-run       # Preview without writing
+;;
+;; This command only reads + prints guidance; it never writes files.
 ;;
 ;; A module scaffolded by `bb scaffold generate` lands in
 ;; `src/<base-ns-path>/<module>/` (BOU-205). Because `src`/`test` are already on
@@ -134,9 +135,8 @@
   (println (bold "bb scaffold integrate") " — Guide integration of a scaffolded module")
   (println)
   (println "Usage:")
-  (println "  bb scaffold integrate <module>              Guide integration")
+  (println "  bb scaffold integrate <module>              Guide integration (read-only)")
   (println "  bb scaffold integrate <module> --base-ns NS Module under NS.<module>.*")
-  (println "  bb scaffold integrate <module> --dry-run    Preview only")
   (println)
   (println "What it does:")
   (println "  1. Locates the module under src/<base-ns>/<module>/")

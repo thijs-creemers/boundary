@@ -430,7 +430,7 @@
        "  bb scaffold endpoint            Interactive wizard for adding an endpoint\n"
        "  bb scaffold adapter             Interactive wizard for adding an adapter\n"
        "  bb scaffold ai <description> [--yes]    AI-powered module generation from NL description\n"
-       "  bb scaffold integrate <module> [--dry-run]  Wire module into deps/tests/wiring\n"
+       "  bb scaffold integrate <module> [--base-ns NS]  Guide integration of a scaffolded module\n"
        "\n"
        "Non-interactive passthrough (when args are provided directly):\n"
        "  bb scaffold generate --module-name foo --entity Foo --field bar:string\n"
