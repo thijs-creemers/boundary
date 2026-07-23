@@ -11,12 +11,12 @@ PSP (Payment Service Provider) abstraction — a single `IPaymentProvider` proto
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-payments {:mvn/version "1.0.1-alpha-42"}}}
+{:deps {org.boundary-app/boundary-payments {:mvn/version "1.0.0-beta-1"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[org.boundary-app/boundary-payments "1.0.1-alpha-42"]
+[org.boundary-app/boundary-payments "1.0.0-beta-1"]
 ```
 
 ## Features

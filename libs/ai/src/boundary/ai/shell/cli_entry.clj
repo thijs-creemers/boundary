@@ -37,7 +37,7 @@
 
 ;; Must match libs/tools/src/boundary/tools/scaffold.clj scaffolder-version.
 ;; Update both together on each release.
-(def ^:private scaffolder-version "1.0.1-alpha-42")
+(def ^:private scaffolder-version "1.0.0-beta-1")
 
 ;; =============================================================================
 ;; Service bootstrap

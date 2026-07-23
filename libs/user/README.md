@@ -11,12 +11,12 @@ Complete user management and authentication system with MFA support, session man
 
 **deps.edn** (recommended):
 ```clojure
-{:deps {org.boundary-app/boundary-user {:mvn/version "1.0.1-alpha-42"}}}
+{:deps {org.boundary-app/boundary-user {:mvn/version "1.0.0-beta-1"}}}
 ```
 
 **Leiningen**:
 ```clojure
-[org.boundary-app/boundary-user "1.0.1-alpha-42"]
+[org.boundary-app/boundary-user "1.0.0-beta-1"]
 ```
 
 ## Features
@@ -178,7 +178,7 @@ libs/user/src/boundary/user/
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `boundary/platform` | 1.0.1-alpha-42 | HTTP, database |
+| `boundary/platform` | 1.0.0-beta-1 | HTTP, database |
 | `buddy-hashers` | 2.0.167 | Password hashing |
 | `buddy-sign` | 3.6.1-359 | JWT tokens |
 | `one-time` | 0.8.0 | TOTP generation |
