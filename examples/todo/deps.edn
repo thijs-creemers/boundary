@@ -5,7 +5,7 @@
          ;; Boundary core — pulled straight from this repository via :local/root,
          ;; so the example runs against the checked-out source with no publish
          ;; step. In a real project you would use the published coordinate:
-         ;;   org.boundary-app/boundary-core {:mvn/version "1.0.1-alpha-42"}
+         ;;   org.boundary-app/boundary-core {:mvn/version "1.0.0-beta-1"}
          org.boundary-app/boundary-core    {:local/root "../../libs/core"}
 
          ;; H2 (in-memory) + next.jdbc for the persistence shell.

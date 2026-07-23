@@ -18,7 +18,7 @@ Add as a **`:dev` alias** extra-dep so it never reaches production:
 {:aliases
  {:dev
   {:extra-deps
-   {org.boundary-app/boundary-devtools {:mvn/version "1.0.1-alpha-42"}}}}}
+   {org.boundary-app/boundary-devtools {:mvn/version "1.0.0-beta-1"}}}}}
 ```
 
 ## Features
