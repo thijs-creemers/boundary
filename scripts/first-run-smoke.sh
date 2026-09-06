@@ -347,6 +347,20 @@ bash -ic "cd /root/demo && set -a && . ./.env && set +a && clojure -M:repl" >/tm
 for _ in $(seq 1 90); do (echo > /dev/tcp/127.0.0.1/7888) 2>/dev/null && break; sleep 2; done
 (echo > /dev/tcp/127.0.0.1/7888) 2>/dev/null || { tail -25 /tmp/repl.log; fail "nREPL never came up"; }
 bash -ic "clj-nrepl-eval -p 7888 \"(go)\"" >/tmp/go.log 2>&1 || { tail -15 /tmp/go.log; fail "(go) failed"; }
+
+# With SMOKE_AI set, ask the system about the module *before* probing HTTP.
+# clj-nrepl-eval exits 0 even when (go) threw, so a wiring failure otherwise
+# surfaces as a downstream "/api-docs/ returned 000" that names nothing.
+# Computed value, not a literal: clj-nrepl-eval echoes its input, so grepping
+# for text the expression contains would always match.
+if [ -n "${SMOKE_AI:-}" ]; then
+  bash -ic "clj-nrepl-eval -p 7888 \"(str (quote ai-wired=) (some? (get integrant.repl.state/system :wagoe/ai-service)))\"" >/tmp/ai-wired.log 2>&1 \
+    || { tail -10 /tmp/ai-wired.log; fail "could not ask the running system about :wagoe/ai-service"; }
+  grep -q "ai-wired=true" /tmp/ai-wired.log \
+    || { echo "--- (go) output: ---"; tail -15 /tmp/go.log
+         fail "(go) did not put :wagoe/ai-service in the system — the enabled module did not wire (BOU-414)"; }
+  ok "AI service wired into the running system"
+fi
 CODE=000
 for _ in $(seq 1 45); do
   # `|| true`, not `|| echo 000`: on connection refused curl already prints 000
@@ -360,18 +374,6 @@ done
 [ "$CODE" = "200" ] || { tail -25 /tmp/repl.log; fail "/api-docs/ returned $CODE, expected 200"; }
 ok "/api-docs/ returned 200"
 
-# With SMOKE_AI set, a server being up is not enough — BOU-414 was the module
-# failing to wire, and a boot that quietly dropped it would pass every check
-# below. Computed value, not a literal: clj-nrepl-eval echoes its input, so
-# grepping for text the expression contains would always match.
-if [ -n "${SMOKE_AI:-}" ]; then
-  bash -ic "clj-nrepl-eval -p 7888 \"(str (quote ai-wired=) (some? (get integrant.repl.state/system :wagoe/ai-service)))\"" >/tmp/ai-wired.log 2>&1 \
-    || { tail -10 /tmp/ai-wired.log; fail "could not ask the running system about :wagoe/ai-service"; }
-  grep -q "ai-wired=true" /tmp/ai-wired.log \
-    || { tail -10 /tmp/ai-wired.log
-         fail "(go) came up without :wagoe/ai-service in the system — the enabled module did not wire (BOU-414)"; }
-  ok "AI service wired into the running system"
-fi
 
 # ── does the module quickstart scaffolded serve anything? ───────────────────
 # The check above only proves that *some* server is up. /api-docs/ is served by
