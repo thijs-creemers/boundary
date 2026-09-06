@@ -366,7 +366,8 @@
    [:payment :stripe]      "com.wagoe/wagoe-payments"
    [:payment :mollie]      "com.wagoe/wagoe-payments"
    [:cache :redis]         "com.wagoe/wagoe-cache"
-   [:cache :in-memory]     "com.wagoe/wagoe-cache"})
+   [:cache :in-memory]     "com.wagoe/wagoe-cache"
+   [:email :smtp]          "com.wagoe/wagoe-external"})
 
 (deftest ^:unit setup-choices-resolve-in-a-generated-project-test
   (testing "every value bb setup accepts has its dependency in top-level :deps"
@@ -383,14 +384,14 @@
   ;; gate would report success having checked nothing.
   (testing "there is something to check"
     (is (seq (top-level-deps)))
-    (is (<= 13 (count choice->coordinate)))
+    (is (<= 14 (count choice->coordinate)))
     (is (<= 5 (count setup/valid-choices))))
 
   (testing "the table covers every choice, so a new provider cannot slip through"
     (doseq [[flag values] setup/valid-choices
             value         values
-            ;; :none writes no config key, and :email writes no module key.
-            :when (and (not= :none value) (not= :email flag))]
+            ;; :none is the only value that writes no config key.
+            :when (not= :none value)]
       (is (contains? choice->coordinate [flag value])
           (str "bb setup --" (name flag) " " (name value)
                " is accepted but this test names no dependency for it —"
