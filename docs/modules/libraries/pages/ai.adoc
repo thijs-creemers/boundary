@@ -36,6 +36,37 @@ bb ai docs --module libs/user --type openapi
 bb ai docs --module libs/user --type readme
 ----
 
+== Prerequisites per provider
+
+The config a provider needs is written by `bb setup --ai-provider <name>`;
+what the provider needs *outside* the config is this table. The project boots
+without any of it — the first AI call is what fails.
+
+[cols="1,3"]
+|===
+|Provider |Before the first call answers
+
+|`:ollama`
+|Install Ollama (https://ollama.com/download), pull the configured model
+(`ollama pull qwen2.5-coder:7b` for the default), and keep it running —
+the service calls `localhost:11434`. No API key, no data leaves the machine.
+
+|`:anthropic`
+|Create a key at https://console.anthropic.com/settings/keys and export
+`ANTHROPIC_API_KEY` (or put it in `.env`).
+
+|`:openai`
+|Create a key at https://platform.openai.com/api-keys and export
+`OPENAI_API_KEY`.
+
+|`:replicate`
+|Create a token at https://replicate.com/account/api-tokens and export
+`REPLICATE_API_TOKEN`.
+|===
+
+`bb doctor --ci` names a missing key for the hosted providers. It does not
+probe whether Ollama is running.
+
 == Provider strategy
 
 Offline-first by default: uses Ollama (no data leaves the machine).

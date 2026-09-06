@@ -396,3 +396,30 @@
           (str "bb setup --" (name flag) " " (name value)
                " is accepted but this test names no dependency for it —"
                " add one, or confirm it needs none")))))
+
+;; =============================================================================
+;; A chosen AI provider tells you what it needs (BOU-415)
+;; =============================================================================
+
+(deftest ^:unit ai-provider-prerequisites-cover-every-provider-test
+  (testing "every provider bb setup accepts has closing steps; :none has none"
+    (is (= (disj (set (:ai-provider setup/valid-choices)) :none)
+           (set (keys setup/ai-provider-prerequisites))))
+    (is (nil? (setup/ai-provider-prerequisites :none))))
+
+  (testing "hosted providers name the exact variable their config reads"
+    (doseq [[provider env-var] {:anthropic "ANTHROPIC_API_KEY"
+                                :openai    "OPENAI_API_KEY"
+                                :replicate "REPLICATE_API_TOKEN"}]
+      (is (some #(str/includes? % env-var)
+                (setup/ai-provider-prerequisites provider))
+          (str (name provider) " steps must name " env-var
+               " — the variable doctor will ask for"))))
+
+  (testing "the ollama pull command fetches the model the config names"
+    (let [config (setup/build-config (assoc minimal-spec :ai-provider :ollama) "dev")
+          pull   (some #(when (str/includes? % "ollama pull") %)
+                       (setup/ai-provider-prerequisites :ollama))]
+      (is (some? pull))
+      (is (str/includes? config (str/replace pull #"^.*ollama pull " ""))
+          "telling the user to pull a model the config does not use helps nobody"))))
