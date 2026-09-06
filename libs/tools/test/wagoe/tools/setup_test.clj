@@ -320,3 +320,79 @@
           test-config (setup/build-config minimal-spec "test")]
       (is (str/includes? dev-config "\"my-app-dev\""))
       (is (str/includes? test-config "\"my-app-test\"")))))
+
+;; =============================================================================
+;; What bb setup enables must be on the classpath the app boots on
+;; =============================================================================
+
+(def ^:private generated-deps-path
+  "wagoe-cli/resources/wagoe/cli/templates/deps.edn.tmpl")
+
+(defn- top-level-deps
+  "The dependency lines of the generated deps.edn `:deps` map.
+
+   Aliases are excluded deliberately: `-M:run` and `(go)` see only `:deps`, and
+   a library parked in an alias is exactly how BOU-414 shipped. Comments are
+   stripped, because the prose here names the very coordinates this asserts —
+   matching them would let a comment stand in for the dependency and the gate
+   would pass while the project could not boot."
+  []
+  (let [src (lib-source generated-deps-path)]
+    (->> (str/split-lines (subs src 0 (str/index-of src ":aliases")))
+         (remove #(str/starts-with? (str/triml %) ";;"))
+         (str/join "\n"))))
+
+(defn- declares?
+  "Whether `deps` declares `coordinate` as a dependency, not merely mentions it."
+  [deps coordinate]
+  (boolean (re-find (re-pattern (str (java.util.regex.Pattern/quote coordinate)
+                                     #"\s+\{:mvn/version"))
+                    deps)))
+
+(def ^:private choice->coordinate
+  "The dependency each `bb setup` value needs once it writes its config key.
+
+   Keyed by the value the user passes, so a new provider added to
+   `valid-choices` without a dependency shows up here as a gap."
+  {[:database :postgresql] "org.postgresql/postgresql"
+   [:database :mysql]      "com.mysql/mysql-connector-j"
+   [:database :sqlite]     "org.xerial/sqlite-jdbc"
+   [:database :h2]         "com.h2database/h2"
+   [:ai-provider :ollama]    "com.wagoe/wagoe-ai"
+   [:ai-provider :anthropic] "com.wagoe/wagoe-ai"
+   [:ai-provider :openai]    "com.wagoe/wagoe-ai"
+   [:ai-provider :replicate] "com.wagoe/wagoe-ai"
+   [:payment :mock]        "com.wagoe/wagoe-payments"
+   [:payment :stripe]      "com.wagoe/wagoe-payments"
+   [:payment :mollie]      "com.wagoe/wagoe-payments"
+   [:cache :redis]         "com.wagoe/wagoe-cache"
+   [:cache :in-memory]     "com.wagoe/wagoe-cache"
+   [:email :smtp]          "com.wagoe/wagoe-external"})
+
+(deftest ^:unit setup-choices-resolve-in-a-generated-project-test
+  (testing "every value bb setup accepts has its dependency in top-level :deps"
+    (let [deps (top-level-deps)]
+      (doseq [[[flag value] coordinate] choice->coordinate]
+        (is (declares? deps coordinate)
+            (str "bb setup --" (name flag) " " (name value)
+                 " writes a config key, but " coordinate
+                 " is not in the generated project's top-level :deps."
+                 " The project will not boot (BOU-414)")))))
+
+  ;; Both loops below are only as good as what they iterate. An empty table or
+  ;; an empty valid-choices would make every assertion above vacuous and the
+  ;; gate would report success having checked nothing.
+  (testing "there is something to check"
+    (is (seq (top-level-deps)))
+    (is (<= 14 (count choice->coordinate)))
+    (is (<= 5 (count setup/valid-choices))))
+
+  (testing "the table covers every choice, so a new provider cannot slip through"
+    (doseq [[flag values] setup/valid-choices
+            value         values
+            ;; :none is the only value that writes no config key.
+            :when (not= :none value)]
+      (is (contains? choice->coordinate [flag value])
+          (str "bb setup --" (name flag) " " (name value)
+               " is accepted but this test names no dependency for it —"
+               " add one, or confirm it needs none")))))
