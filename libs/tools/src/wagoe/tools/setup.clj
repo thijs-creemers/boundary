@@ -206,6 +206,25 @@
        "  :wagoe/error-reporting\n"
        "  {:provider :no-op}\n"))
 
+(def ^:private default-ollama-model
+  "Written into the config and named in the wizard's closing steps, so the
+   `ollama pull` we tell the user to run fetches the model we configured."
+  "qwen2.5-coder:7b")
+
+(def ai-provider-prerequisites
+  "What each provider needs before its first call answers, shown after setup
+   writes the config. The config is valid without any of this — BOU-414 made
+   the project boot — so this is the only place the user hears about it."
+  {:ollama    ["Install Ollama: https://ollama.com/download"
+               (str "Pull the configured model:  ollama pull " default-ollama-model)
+               "Keep Ollama running — the service calls localhost:11434"]
+   :anthropic ["Create an API key: https://console.anthropic.com/settings/keys"
+               "Export it:  export ANTHROPIC_API_KEY=<key>   (or add it to .env)"]
+   :openai    ["Create an API key: https://platform.openai.com/api-keys"
+               "Export it:  export OPENAI_API_KEY=<key>   (or add it to .env)"]
+   :replicate ["Create an API token: https://replicate.com/account/api-tokens"
+               "Export it:  export REPLICATE_API_TOKEN=<token>   (or add it to .env)"]})
+
 (defn- ai-template [provider env]
   (case provider
     :none ""
@@ -215,7 +234,7 @@
            "  {:provider :no-op}\n")
       (str "  :wagoe/ai-service\n"
            "  {:provider :ollama\n"
-           "   :model    #or [#env AI_MODEL \"qwen2.5-coder:7b\"]\n"
+           "   :model    #or [#env AI_MODEL \"" default-ollama-model "\"]\n"
            "   :base-url #or [#env OLLAMA_URL \"http://localhost:11434\"]}\n"))
     :anthropic
     (if (= env "test")
@@ -430,7 +449,7 @@
                                  [:mysql      "MySQL/MariaDB"]])
 
         ai-provider (select-option "AI provider"
-                                   [[:ollama    "Local AI via Ollama (no API key needed)"]
+                                   [[:ollama    "Local AI via Ollama (no API key, but needs Ollama installed + a pulled model)"]
                                     [:anthropic "Anthropic Claude (requires ANTHROPIC_API_KEY)"]
                                     [:openai    "OpenAI GPT (requires OPENAI_API_KEY)"]
                                     [:replicate "Hosted models via Replicate (requires REPLICATE_API_TOKEN)"]
@@ -490,7 +509,12 @@
     (println (dim "Next steps:"))
     (println (dim "  1. Copy .env.example to .env and fill in your values"))
     (println (dim "  2. Run: bb migrate up"))
-    (println (dim "  3. Run: bb doctor  (to verify your config)"))))
+    (println (dim "  3. Run: bb doctor  (to verify your config)"))
+    (when-let [steps (ai-provider-prerequisites (:ai-provider spec))]
+      (println)
+      (println (yellow (str "Before " (name (:ai-provider spec)) " answers:")))
+      (doseq [s steps]
+        (println (dim (str "  - " s)))))))
 
 ;; =============================================================================
 ;; Display summary
