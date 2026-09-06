@@ -219,11 +219,11 @@
                (str "Pull the configured model:  ollama pull " default-ollama-model)
                "Keep Ollama running — the service calls localhost:11434"]
    :anthropic ["Create an API key: https://console.anthropic.com/settings/keys"
-               "Export it:  export ANTHROPIC_API_KEY=<key>   (or add it to .env)"]
+               "Export it:  export ANTHROPIC_API_KEY=<key>   (or add it to .env and run: source .env)"]
    :openai    ["Create an API key: https://platform.openai.com/api-keys"
-               "Export it:  export OPENAI_API_KEY=<key>   (or add it to .env)"]
+               "Export it:  export OPENAI_API_KEY=<key>   (or add it to .env and run: source .env)"]
    :replicate ["Create an API token: https://replicate.com/account/api-tokens"
-               "Export it:  export REPLICATE_API_TOKEN=<token>   (or add it to .env)"]})
+               "Export it:  export REPLICATE_API_TOKEN=<token>   (or add it to .env and run: source .env)"]})
 
 (defn- ai-template [provider env]
   (case provider
