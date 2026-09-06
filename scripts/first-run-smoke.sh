@@ -61,7 +61,7 @@ PLATFORM_ARG=()
 echo "── First-run smoke test"
 echo "   image:  $IMAGE${SMOKE_PLATFORM:+  (platform: $SMOKE_PLATFORM)}"
 echo "   repo:   $REPO_ROOT"
-echo "   target: $TARGET"
+echo "   target: $TARGET${SMOKE_AI:+   ai: $SMOKE_AI}"
 echo
 
 docker run --rm \
@@ -69,6 +69,7 @@ docker run --rm \
   -v "$REPO_ROOT:/repo:ro" \
   -e REPO=/repo \
   -e "TARGET=$TARGET" \
+  -e "SMOKE_AI=${SMOKE_AI:-}" \
   "$IMAGE" bash -euo pipefail -c '
 fail() { echo; echo "SMOKE FAILURE: $*"; exit 1; }
 ok()   { echo "  ok — $*"; }
@@ -232,6 +233,21 @@ $LOCAL"
   ok "every com.wagoe dep is a published version ($PINNED in deps.edn)"
 fi
 
+# ── optional: enable an AI provider before quickstart (BOU-414) ─────────────
+# SMOKE_AI runs `bb setup --ai-provider <x>` here, in the order BOU-414
+# reproduced: setup writes :wagoe/ai-service into :active, quickstart keeps an
+# existing config (BOU-228), and the boot below then has to wire the module.
+# beta-6 and beta-7 shipped projects this bricked — wagoe-ai sat only in the
+# :mcp alias, and (go) died on a wiring namespace missing from the classpath.
+# No Ollama server runs here; wiring is what boots, the first call is not made.
+if [ -n "${SMOKE_AI:-}" ]; then
+  bash -ic "bb setup --database sqlite --ai-provider ${SMOKE_AI}" >/tmp/setup-ai.log 2>&1 \
+    || { tail -20 /tmp/setup-ai.log; fail "bb setup --ai-provider ${SMOKE_AI} exited non-zero"; }
+  grep -vE "^\s*;;" resources/conf/dev/config.edn | grep -q ":wagoe/ai-service" \
+    || fail "setup accepted --ai-provider ${SMOKE_AI} but wrote no :wagoe/ai-service key — this cell would be checking nothing"
+  ok "AI provider ${SMOKE_AI} enabled in config"
+fi
+
 # ── 4. quickstart ───────────────────────────────────────────────────────────
 echo "[4/9] bb quickstart"
 set -a; . ./.env 2>/dev/null || true; set +a
@@ -343,6 +359,19 @@ for _ in $(seq 1 45); do
 done
 [ "$CODE" = "200" ] || { tail -25 /tmp/repl.log; fail "/api-docs/ returned $CODE, expected 200"; }
 ok "/api-docs/ returned 200"
+
+# With SMOKE_AI set, a server being up is not enough — BOU-414 was the module
+# failing to wire, and a boot that quietly dropped it would pass every check
+# below. Computed value, not a literal: clj-nrepl-eval echoes its input, so
+# grepping for text the expression contains would always match.
+if [ -n "${SMOKE_AI:-}" ]; then
+  bash -ic "clj-nrepl-eval -p 7888 \"(str (quote ai-wired=) (some? (get integrant.repl.state/system :wagoe/ai-service)))\"" >/tmp/ai-wired.log 2>&1 \
+    || { tail -10 /tmp/ai-wired.log; fail "could not ask the running system about :wagoe/ai-service"; }
+  grep -q "ai-wired=true" /tmp/ai-wired.log \
+    || { tail -10 /tmp/ai-wired.log
+         fail "(go) came up without :wagoe/ai-service in the system — the enabled module did not wire (BOU-414)"; }
+  ok "AI service wired into the running system"
+fi
 
 # ── does the module quickstart scaffolded serve anything? ───────────────────
 # The check above only proves that *some* server is up. /api-docs/ is served by
