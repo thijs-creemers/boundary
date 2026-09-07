@@ -260,3 +260,14 @@
   (let [args (scaffold/with-base-ns
                ["endpoint" "--module-name" "product" "--output-dir" "--dry-run"])]
     (is (some #{"--base-ns"} args))))
+
+(deftest ^:unit a-malformed-command-is-passed-through-for-the-scaffolder-to-reject
+  ;; A bare trailing --base-ns parses as a missing-argument error. Appending our
+  ;; pair after it would hand the scaffolder `--base-ns --base-ns <computed>`,
+  ;; which its non-strict parse reads as base-ns = "--base-ns" — scaffolded
+  ;; garbage instead of a rejection. Same for --output-dir, whose consumed flag
+  ;; becomes a directory name.
+  (doseq [args [["endpoint" "--module-name" "product" "--base-ns"]
+                ["endpoint" "--module-name" "product" "--output-dir"]]]
+    (is (= args (scaffold/with-base-ns args))
+        (str "malformed " (last args) " must reach the scaffolder untouched"))))

@@ -179,9 +179,15 @@
 
    parse-opts flags every option outside the spec as an error but still parses
    the ones it knows — hand-scanning the vector instead is how three parser
-   disagreements shipped in a row (BOU-364)."
+   disagreements shipped in a row (BOU-364). Unknown-option errors are routine
+   (the argv is full of options only the scaffolder specs); a missing-argument
+   error can only be about one of these three, and is surfaced so the caller
+   does not append into a command the scaffolder must reject."
   [args]
-  (:options (cli/parse-opts args base-ns-option-specs)))
+  (let [{:keys [options errors]} (cli/parse-opts args base-ns-option-specs)]
+    (assoc options
+           :malformed? (boolean (some #(str/starts-with? % "Missing required argument")
+                                      errors)))))
 
 (defn with-base-ns
   "Add `--base-ns` unless the caller named one.
@@ -203,9 +209,14 @@
    under `shop`, and the guards added in BOU-364 then refused a module that is
    really there."
   [args]
-  (let [{:keys [module-name output-dir base-ns]} (parsed-base-ns-opts args)
+  (let [{:keys [module-name output-dir base-ns malformed?]} (parsed-base-ns-opts args)
         root (or output-dir (System/getProperty "user.dir"))]
     (cond
+      ;; A bare trailing `--base-ns` or `--output-dir` parses as an error, not a
+      ;; value. Appending our pair would feed it a flag as its argument — the
+      ;; scaffolder would scaffold under the namespace `--base-ns` instead of
+      ;; rejecting the command. Pass it through untouched and let it reject.
+      malformed?  args
       base-ns     args
       module-name (into (vec args) ["--base-ns" (project/module-base-ns module-name root)])
       :else       (into (vec args) ["--base-ns" (project/base-ns root)]))))
