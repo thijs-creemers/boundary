@@ -53,8 +53,9 @@ the service calls `localhost:11434`. No API key, no data leaves the machine.
 
 |`:anthropic`
 |Create a key at https://console.anthropic.com/settings/keys and export
-`ANTHROPIC_API_KEY` (or put it in `.env` and `source .env` — nothing loads
-that file automatically).
+`ANTHROPIC_API_KEY` (or put it in `.env` and load it with
+`set -a; source .env; set +a` — plain `source` does not export, so the
+JVM would not see it).
 
 |`:openai`
 |Create a key at https://platform.openai.com/api-keys and export
