@@ -35,6 +35,8 @@ for what is public API, what is internal, and how deprecations are announced.
   could not boot** (BOU-414). Those libraries now ship in the generated `deps.edn`.
 - **`bb setup` now closes with what your AI provider needs** (BOU-415) — install and
   pull for Ollama, key URL and export for the hosted three.
+- **`bb setup` dropped the dev error enricher `wagoe new` configured** (BOU-416). If
+  setup rewrote your config, add `:wagoe/dev-error-enricher {}` under dev `:active`.
 - **`bb repl` gave you no prompt to type `(go)` into** (BOU-403). It now starts the
   prompt and the nREPL server; `clojure -M:repl` stays headless for editors.
 - **The stability page said the wrong current version** (BOU-413). It read `1.0.0-beta-6`
