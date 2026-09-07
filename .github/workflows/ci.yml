@@ -1473,6 +1473,10 @@ jobs:
       - name: Run first-run smoke test
         env:
           SMOKE_TARGET: worktree
+          # install.sh's release lookup honours GITHUB_TOKEN (BOU-410) —
+          # 5000 requests/hour instead of 60 per shared runner IP, which is
+          # the throttle that has been failing this job at step [2/9].
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/first-run-smoke.sh
 
   test-summary:

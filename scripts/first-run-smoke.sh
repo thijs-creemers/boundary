@@ -70,6 +70,7 @@ docker run --rm \
   -e REPO=/repo \
   -e "TARGET=$TARGET" \
   -e "SMOKE_AI=${SMOKE_AI:-}" \
+  -e "GITHUB_TOKEN=${GITHUB_TOKEN:-}" \
   "$IMAGE" bash -euo pipefail -c '
 fail() { echo; echo "SMOKE FAILURE: $*"; exit 1; }
 ok()   { echo "  ok — $*"; }

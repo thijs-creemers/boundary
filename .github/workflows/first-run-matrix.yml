@@ -60,6 +60,7 @@ jobs:
       - name: First-run smoke
         env:
           SMOKE_IMAGE: ${{ matrix.image }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/first-run-smoke.sh
 
   smoke-released:
@@ -87,6 +88,7 @@ jobs:
         env:
           SMOKE_IMAGE: ubuntu:24.04
           SMOKE_TARGET: released
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/first-run-smoke.sh
 
   # BOU-414 lived in the seam these two measure: `bb setup --ai-provider <x>`
@@ -103,6 +105,7 @@ jobs:
         env:
           SMOKE_IMAGE: ubuntu:24.04
           SMOKE_AI: ollama
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/first-run-smoke.sh
 
   smoke-released-ai:
@@ -117,6 +120,7 @@ jobs:
           SMOKE_IMAGE: ubuntu:24.04
           SMOKE_TARGET: released
           SMOKE_AI: ollama
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./scripts/first-run-smoke.sh
 
   adversarial:
