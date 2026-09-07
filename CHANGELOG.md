@@ -33,6 +33,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 - **`bb scaffold` reads its options with the same parser the scaffolder runs** (BOU-378).
   One parser decides what `--output-dir` and friends mean; the namespace cannot drift.
+- **`bb scaffold integrate` no longer re-indents your whole config** (BOU-359). It adds
+  the module key and touches nothing else, on every machine.
 
 ## [1.0.0-beta-8] — 2026-09-07
 

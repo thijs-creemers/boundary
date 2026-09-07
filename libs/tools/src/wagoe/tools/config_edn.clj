@@ -14,8 +14,7 @@
 ;; they drift.
 
 (ns wagoe.tools.config-edn
-  (:require [babashka.process :as process]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.string :as str]))
 
 (defn- lex
@@ -127,13 +126,17 @@
     (str (subs text 0 idx) snippet (subs text idx))
     text))
 
-(defn- paren-repair!
-  "Run clj-paren-repair over a file, if it is installed. A safety net, not the
-   mechanism: the insertion above is already balanced."
-  [path]
-  (try
-    (process/shell {:continue true :out :string :err :string} "clj-paren-repair" path)
-    (catch Exception _ nil)))
+(defn- balanced?
+  "Whether braces balance in `text`, counted over code only.
+
+   The invariant the insertion must preserve. The old safety net shelled out to
+   clj-paren-repair, which re-indents the whole file — so the bytes depended on
+   which repair tool was on the PATH, every integrate reshuffled a reviewed
+   file's diff, and the regen check had to stop comparing indentation to cope
+   (BOU-359). A check holds the invariant; a reformatter replaces it."
+  [text]
+  (zero? (reduce (fn [d c] (case c \{ (inc d) \} (dec d) d))
+                 0 (code-only text))))
 
 (defn inject-key!
   "Add `snippet` to the `:active` map of the config at `path`.
@@ -152,6 +155,9 @@
           (nil? (active-closing-brace text))            :no-active-section
           dry-run?                                      :written
           :else (let [out (insert-before-active-close text snippet)]
-                  (spit path out)
-                  (paren-repair! path)
-                  :written))))))
+                  (if (and (balanced? out) (some? (active-closing-brace out)))
+                    (do (spit path out) :written)
+                    ;; Refuse rather than write a config the app cannot read.
+                    ;; Unreachable for a balanced snippet into a balanced file;
+                    ;; this is what stands where the reformatter used to.
+                    :insert-would-unbalance)))))))

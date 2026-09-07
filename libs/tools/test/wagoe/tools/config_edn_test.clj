@@ -107,3 +107,39 @@
   (let [once  (sut/insert-before-active-close sample "\n  :wagoe/tasks\n  {:enabled? true}\n")]
     (is (= :already-present (sut/key-status once ":wagoe/tasks")))
     (is (= :absent (sut/key-status sample ":wagoe/tasks")))))
+
+(deftest ^:unit injection-changes-no-byte-outside-the-insertion
+  ;; The old post-insert "safety net" shelled out to clj-paren-repair, which
+  ;; re-indents the whole file — so integrate's bytes depended on which repair
+  ;; tool was on the PATH, and every run reshuffled a reviewed diff (BOU-359).
+  ;; The contract now: every pre-existing line survives byte-identically.
+  (let [text    (str "{;; hand-written comment, odd   indentation\n"
+                     " :active\n"
+                     " {  :wagoe/settings\n"
+                     "    {:name \"x\"}\n"
+                     "}\n"
+                     " :inactive\n"
+                     " {}}\n")
+        out     (sut/insert-before-active-close text "\n  :wagoe/tasks {}\n")
+        ;; The snippet's own trailing newline leaves one blank line at the
+        ;; insertion point; the fixture has no blank lines, so dropping blanks
+        ;; strips only what the insertion added.
+        removed (remove #(or (str/blank? %) (str/includes? % "wagoe/tasks"))
+                        (str/split-lines out))]
+    (is (= (str/split-lines text) removed)
+        "only the inserted lines may differ — nothing is reformatted")))
+
+(deftest ^:unit injection-refuses-to-write-an-unbalanced-result
+  ;; Unreachable for a balanced snippet; this is what stands where the
+  ;; reformatter used to. Exercised through the private check via inject-key!.
+  (let [dir  (.toFile (java.nio.file.Files/createTempDirectory
+                       "wagoe-config-edn" (make-array java.nio.file.attribute.FileAttribute 0)))
+        path (str dir "/config.edn")]
+    (try
+      (spit path "{:active\n {}\n :inactive {}}\n")
+      (is (= :insert-would-unbalance
+             (sut/inject-key! path ":wagoe/broken" "\n  :wagoe/broken {\n" {})))
+      (is (str/includes? (slurp path) ":active")
+          "the file is untouched when the insertion is refused")
+      (is (not (str/includes? (slurp path) ":wagoe/broken")))
+      (finally (doseq [f (reverse (file-seq dir))] (.delete f))))))
