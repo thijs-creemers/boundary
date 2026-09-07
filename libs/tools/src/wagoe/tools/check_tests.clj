@@ -124,53 +124,80 @@
    11 wrong findings is a gate people learn to ignore (BOU-365)."
   #{"check-snapshot!"})
 
-(def ^:private allow-placeholder-marker
-  "Metadata escape hatch: `(deftest ^:wagoe/allow-placeholder name …)` exempts
-   one test, in the file, where a reviewer sees it — the same shape as
-   `^:wagoe/allow-throw` in check:fcis."
-  ":wagoe/allow-placeholder")
-
 (defn- name-part [head] (last (str/split head #"/")))
 
-(defn- discarded?
-  "Whether the form opening at `start` is reader-discarded (`#_`) or sits
-   inside a `(comment …)` form — never defined, so not a placeholder."
-  [cleaned comment-extents start]
-  (or (some #(and (:end %) (< (:start %) start (:end %))) comment-extents)
-      (let [i (loop [i (dec start)]
-                (if (and (>= i 0) (Character/isWhitespace (.charAt ^String cleaned i)))
-                  (recur (dec i)) i))]
-        (and (>= i 1)
-             (= \_ (.charAt ^String cleaned i))
-             (= \# (.charAt ^String cleaned (dec i)))))))
+(defn- blank-spans
+  "`text` with each {:start :end} span replaced by spaces, newlines kept."
+  [^String text spans]
+  (let [sb (StringBuilder. text)]
+    (doseq [{:keys [start end]} spans
+            i (range start (min end (count text)))
+            :when (not= \newline (.charAt sb i))]
+      (.setCharAt sb i \space))
+    (str sb)))
+
+(defn- unevaluated-blanked
+  "`text` with `#_`-discarded, quoted and `(comment …)` regions blanked.
+
+   What remains is what actually runs — so an `(is …)` inside a discard no
+   longer counts as an assertion, a draft deftest inside `#_(do …)` is not
+   scanned at all, and a `(= x x)` inside quoted data is not a tautology,
+   however deeply any of them nests (BOU-365 review)."
+  [text]
+  (blank-spans text
+               (concat (parsing/unevaluated-extents text)
+                       ;; Both quote spellings and comment forms: `'(…)` is
+                       ;; reader syntax (unevaluated-extents), `(quote …)` and
+                       ;; `(comment …)` are forms with heads.
+                       (for [head ["comment" "quote"]
+                             e    (parsing/form-extents text head)
+                             :when (:end e)]
+                         (select-keys e [:start :end])))))
 
 (defn- exempt-by-metadata?
-  "Whether the deftest carries `^:wagoe/allow-placeholder` in its metadata —
-   the region between the operator and the test name, nowhere else. A body
-   that merely mentions the keyword as data is not an exemption."
-  [body]
-  (when-let [[_ meta-region] (re-find #"^\(\s*\S+\s+((?:\^(?:\{[^}]*\}|\S+)\s+)*)" body)]
-    (str/includes? (or meta-region "") allow-placeholder-marker)))
+  "Whether the deftest carries the `:wagoe/allow-placeholder` key in its
+   metadata — the chunks between the operator and the test name, nowhere
+   else, spelled exactly. Walks the `^…` entries structurally: a nested
+   metadata map (`^{:kaocha.testable/meta {…}}`) is one balanced chunk, so a
+   marker after it is still seen; a misspelling is not an exemption; and a
+   body that mentions the keyword as data is not one either."
+  [^String body]
+  (let [n (count body)
+        after-head (loop [i 1]
+                     (if (and (< i n) (Character/isWhitespace (.charAt body i)))
+                       (recur (inc i))
+                       (loop [j i]
+                         (if (and (< j n) (not (Character/isWhitespace (.charAt body j))))
+                           (recur (inc j)) j))))]
+    (loop [i after-head]
+      (let [i (loop [i i]
+                (if (and (< i n) (Character/isWhitespace (.charAt body i)))
+                  (recur (inc i)) i))]
+        (when (and (< i n) (= \^ (.charAt body i)))
+          (let [chunk-end (if (and (< (inc i) n) (= \{ (.charAt body (inc i))))
+                            (loop [e (+ i 2), depth 1]
+                              (cond (zero? depth) e
+                                    (>= e n)      n
+                                    :else (recur (inc e) (case (.charAt body e)
+                                                           \{ (inc depth)
+                                                           \} (dec depth)
+                                                           depth))))
+                            (loop [e (inc i)]
+                              (if (and (< e n) (not (Character/isWhitespace (.charAt body e))))
+                                (recur (inc e)) e)))
+                chunk (subs body i chunk-end)]
+            (or (some? (re-find #":wagoe/allow-placeholder(?![\w?!*+<>=-])" chunk))
+                (recur chunk-end))))))))
 
 (defn- tautologies
-  "Identical-token `(= x x)` matches inside the is/are forms of `body`,
-   skipping quoted data: a leading `'`/`` ` `` on the form, or a surrounding
-   `(quote …)`, means the equality is a value under test, not an assertion."
+  "Identical-token `(= x x)` matches inside the is/are forms of `body`.
+   `body` must already have unevaluated regions blanked, so quoted data —
+   at any nesting depth — cannot match."
   [body]
   (for [{:keys [start end]} (concat (parsing/form-extents body "is")
                                     (parsing/form-extents body "are"))
         :when end
-        :let [assert-text  (subs body start end)
-              quote-spans  (filter :end (parsing/form-extents assert-text "quote"))
-              matcher      (re-matcher #"\(\s*=\s+([^\s()\[\]{}]+)\s+\1\s*\)" assert-text)]
-        m (loop [acc []]
-            (if (.find matcher)
-              (let [at     (.start matcher)
-                    quoted (or (and (pos? at)
-                                    (contains? #{\' \`} (.charAt ^String assert-text (dec at))))
-                               (some #(< (:start %) at (:end %)) quote-spans))]
-                (recur (if quoted acc (conj acc (.group matcher)))))
-              acc))]
+        [m _] (re-seq #"\(\s*=\s+([^\s()\[\]{}]+)\s+\1\s*\)" (subs body start end))]
     m))
 
 (defn scan-content-structural
@@ -184,12 +211,13 @@
    `(t/deftest …)` counts; `#_`-discarded and `(comment …)`-wrapped drafts
    do not — they are never defined, so they cannot pass vacuously."
   [file raw]
-  (let [cleaned         (parsing/strip-comments-and-strings raw)
-        comment-extents (filter :end (parsing/form-extents cleaned "comment"))]
-    (for [{:keys [start end line]} (parsing/form-extents cleaned "deftest")
+  ;; Blanking unevaluated regions FIRST answers three review findings at once:
+  ;; a deftest inside #_(do …) never appears as an extent, an (is …) inside a
+  ;; discard is not an assertion, and quoted (= x x) data is not a tautology.
+  (let [live (unevaluated-blanked (parsing/strip-comments-and-strings raw))]
+    (for [{:keys [start end line]} (parsing/form-extents live "deftest")
           :when end
-          :when (not (discarded? cleaned comment-extents start))
-          :let [body (subs cleaned start end)]
+          :let [body (subs live start end)]
           :when (not (exempt-by-metadata? body))
           finding
           (concat
@@ -203,11 +231,26 @@
               :content (str "tautology: " (str/trim (str/replace m #"\s+" " ")))}))]
       finding)))
 
+(defn exempted-line-ranges
+  "[start-line end-line] of every deftest exempted by metadata.
+
+   The escape hatch exempts the *test*, so the shape regexes must honour it
+   too — `(deftest ^:wagoe/allow-placeholder stub (is true))` was exempt from
+   the structural scan and still failed on the regex one (BOU-365 review)."
+  [raw]
+  (let [live (unevaluated-blanked (parsing/strip-comments-and-strings raw))]
+    (for [{:keys [start end line]} (parsing/form-extents live "deftest")
+          :when (and end (exempt-by-metadata? (subs live start end)))]
+      [line (+ line (count (filter #(= \newline %) (subs live start end))))])))
+
 (defn- scan-file
   "Scan a file on disk for placeholder assertions."
   [file]
-  (let [raw (slurp file)]
-    (concat (scan-content file raw)
+  (let [raw     (slurp file)
+        exempt  (exempted-line-ranges raw)
+        exempt? (fn [{:keys [line]}]
+                  (some (fn [[a b]] (<= a line b)) exempt))]
+    (concat (remove exempt? (scan-content file raw))
             (scan-content-structural file raw))))
 
 ;; ---------------------------------------------------------------------------

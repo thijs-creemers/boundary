@@ -169,3 +169,41 @@
                "m.clj" "(deftest ^:wagoe/allow-placeholder stub (todo))")))
   (is (empty? (ct/scan-content-structural
                "m.clj" "(deftest ^{:wagoe/allow-placeholder true} stub (todo))"))))
+
+;; =============================================================================
+;; Review round 3 (BOU-365)
+;; =============================================================================
+
+(deftest ^:unit the-escape-hatch-covers-the-regex-findings-too
+  ;; (deftest ^:wagoe/allow-placeholder stub (is true)) was exempt from the
+  ;; structural scan and still failed the shape regexes — one hatch, both scans.
+  (let [src "(deftest ^:wagoe/allow-placeholder stub (is true))\n(deftest live (is true))"
+        exempt (ct/exempted-line-ranges src)]
+    (is (= [[1 1]] exempt))
+    (testing "the live placeholder on the next line is still caught"
+      (is (some #(= 2 (:line %)) (ct/scan-content "x.clj" src))))))
+
+(deftest ^:unit a-discarded-assertion-does-not-count-as-one
+  (is (= 1 (count (ct/scan-content-structural
+                   "x.clj" "(deftest x #_(is (= 1 2)) (setup))")))
+      "the only assertion is discarded — the test runs nothing")
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "(deftest x #_(is (= 1 2)) (is (pos? (f))))"))
+      "a live assertion next to a discarded one still counts"))
+
+(deftest ^:unit a-draft-inside-a-discarded-container-is-not-scanned
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "#_(do (deftest draft (setup)))"))))
+
+(deftest ^:unit deeply-nested-quoted-equality-is-not-a-tautology
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "(deftest gen (is (= '(foo (= x x)) actual)))"))))
+
+(deftest ^:unit metadata-parsing-is-structural
+  (testing "a marker after a nested metadata map is seen"
+    (is (empty? (ct/scan-content-structural
+                 "x.clj"
+                 "(deftest ^{:kaocha.testable/meta {:unit true}} ^:unit ^:wagoe/allow-placeholder stub (todo))"))))
+  (testing "a misspelled marker is not an exemption"
+    (is (seq (ct/scan-content-structural
+              "x.clj" "(deftest ^:wagoe/allow-placeholder-typo stub (todo))")))))

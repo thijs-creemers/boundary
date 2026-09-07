@@ -344,3 +344,58 @@
                 (recur (inc i) line acc)))
 
             :else (recur (inc i) line acc)))))))
+
+(defn- balanced-span
+  "End index (exclusive) of the delimited or atomic form starting at `i`,
+   or nil when the file ends first. Handles (), [] and {} jointly."
+  [^String content i]
+  (let [n (count content)
+        c (.charAt content i)]
+    (if (contains? #{\( \[ \{} c)
+      (loop [e (inc i), depth 1]
+        (cond
+          (zero? depth) e
+          (>= e n)      nil
+          :else (recur (inc e)
+                       (cond
+                         (contains? #{\( \[ \{} (.charAt content e)) (inc depth)
+                         (contains? #{\) \] \}} (.charAt content e)) (dec depth)
+                         :else depth))))
+      (loop [e i]
+        (if (and (< e n) (symbol-char? (.charAt content e)))
+          (recur (inc e))
+          (if (= e i) (inc i) e))))))
+
+(defn unevaluated-extents
+  "Spans of source the reader keeps but never evaluates: `#_form` discards and
+   `'`/`` ` ``-quoted forms. [{:start :end}], over stripped source.
+
+   Exists so a scan can blank these before asking what a form *does* — an
+   assertion inside `#_(is …)` runs nothing, and a `(= x x)` inside quoted
+   data asserts nothing, in either direction (BOU-365 review, rounds 2–3).
+   `(comment …)` bodies are a form, not reader syntax — get those from
+   `form-extents`."
+  [^String content]
+  (let [n (count content)]
+    (loop [i 0, acc (transient [])]
+      (if (>= i n)
+        (persistent! acc)
+        (let [c (.charAt content i)]
+          (cond
+            (and (= c \#) (< (inc i) n) (= \_ (.charAt content (inc i))))
+            (let [j (loop [j (+ i 2)]
+                      (if (and (< j n) (Character/isWhitespace (.charAt content j)))
+                        (recur (inc j)) j))
+                  end (when (< j n) (balanced-span content j))]
+              (if end
+                (recur end (conj! acc {:start i :end end}))
+                (recur (inc i) acc)))
+
+            (and (contains? #{\' \`} c) (< (inc i) n)
+                 (contains? #{\( \[ \{} (.charAt content (inc i))))
+            (let [end (balanced-span content (inc i))]
+              (if end
+                (recur end (conj! acc {:start i :end end}))
+                (recur (inc i) acc)))
+
+            :else (recur (inc i) acc)))))))
