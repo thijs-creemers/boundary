@@ -160,6 +160,7 @@
                                       :written           (str (green "✓") " " (if dry-run? "would add to" "added to"))
                                       :already-present   (str (green "✓") " already in")
                                       :no-active-section (str (red "✗") " no :active section in")
+                                      :insert-would-unbalance (str (red "✗") " insertion would unbalance")
                                       :no-file           (str (dim "–") " not found:"))
                                " " (cyan (str "resources/conf/" env "/config.edn"))))
                  result)))]
@@ -170,6 +171,10 @@
           ;; or to a CI wrapper reading $?.
           (some #{:no-active-section} results)
           (do (println (red "No :active section — nothing was written."))
+              (System/exit 1))
+
+          (some #{:insert-would-unbalance} results)
+          (do (println (red "Insertion would unbalance the config — nothing was written."))
               (System/exit 1))
 
           (every? #{:no-file} results)

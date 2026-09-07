@@ -16,7 +16,6 @@
    the last release would go green while this checkout was broken — the same
    trap `scripts/first-run-smoke.sh` documents at length."
   (:require [babashka.fs :as fs]
-            [clojure.edn :as edn]
             [babashka.process :refer [shell]]
             [clojure.string :as str]))
 
@@ -171,28 +170,15 @@
   (str/replace s #"\d{14}" "<timestamp>"))
 
 (defn- normalize
-  "The comparable form of one file's contents.
+  "The comparable form of one file's contents: the contents.
 
-   EDN is compared as data, everything else as text. `bb scaffold integrate`
-   edits config.edn with babashka's built-in rewrite-clj, and both the
-   indentation and where it puts a closing brace depend on the babashka
-   version — CI installs the latest, a contributor has whatever they have. As
-   text those files disagreed between machines with no commit behind it, which
-   is the fastest way to teach people to ignore a check.
-
-   The cost is real and worth naming: reading EDN discards comments, and the
-   generated config files are heavily commented. A template change to a comment
-   alone is not reported for `.edn` files. Everything else — every source file,
-   every SQL migration, every markdown page — is still compared byte for byte.
-
-   Aero tags (`#env`, `#or`, `#profile`) are not readable here, so the default
-   handler keeps them as data rather than failing."
-  [path contents]
-  (if (str/ends-with? path ".edn")
-    (try
-      (pr-str (edn/read-string {:default (fn [tag v] [tag v])} contents))
-      (catch Exception _ contents))
-    contents))
+   Every file compares byte for byte. `.edn` used to be compared as parsed
+   data because `bb scaffold integrate` re-indented config.edn differently
+   per machine — that was clj-paren-repair running as a post-insert \"safety
+   net\", removed in BOU-359. The insertion is deterministic now, so a comment
+   or indentation change in a template is reportable again."
+  [_path contents]
+  contents)
 
 (defn- tree
   "path -> contents, for comparing two generated trees.
