@@ -260,3 +260,28 @@
       (testing "one assertion, one row"
         (is (= 1 (count (scan "(deftest t (is (= true true)))")))))
       (finally (doseq [x (reverse (file-seq dir))] (.delete x))))))
+
+;; =============================================================================
+;; Review round 5 (BOU-365)
+;; =============================================================================
+
+(deftest ^:unit the-marker-exempts-only-on-the-test-name
+  ;; Metadata on an early body symbol used to exempt the whole test.
+  (is (empty? (ct/exempted-extents
+               "(deftest ^:unit live (setup) ^:wagoe/allow-placeholder todo (is true))"))
+      "a marked symbol in the body grants no exemption — the (is true) stays a regex finding")
+  (is (seq (ct/scan-content-structural
+            "x.clj" "(deftest live (setup) ^:wagoe/allow-placeholder todo)"))
+      "and a no-assertion test cannot exempt itself from the body either")
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "(deftest ^:unit ^:wagoe/allow-placeholder stub (todo))"))
+      "on the name, alongside other metadata, it still exempts"))
+
+(deftest ^:unit the-babashka-reader-branch-is-scanned-too
+  ;; libs/tools tests execute under bb, so the :bb branch is the live one
+  ;; there — parsing with :clj alone made it invisible.
+  (is (= 1 (count (ct/scan-content-structural
+                   "x.clj" "#?(:bb (deftest x (setup)) :clj (def x 1))"))))
+  (testing "and a placeholder in the :clj branch is still seen"
+    (is (= 1 (count (ct/scan-content-structural
+                     "x.clj" "#?(:clj (deftest x (setup)) :bb (def x 1))"))))))

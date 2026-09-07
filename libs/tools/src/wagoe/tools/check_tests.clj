@@ -136,13 +136,23 @@
    is elided before we ever look, quoted forms arrive as data, and `^…` lands
    in (meta …). Verified against every test file in this repository — 380
    files, zero parse failures. Unknown reader tags pass their value through."
-  [raw]
+  [raw features]
   (e/parse-string-all raw
                       {:all          true
                        :auto-resolve (fn [a] (if (= a :current) (symbol "this.ns") (symbol (str a))))
                        :readers      (fn [_tag] identity)
-                       :features     #{:clj}
+                       :features     features
                        :read-cond    :allow}))
+
+(def ^:private feature-branches
+  "Both reader-conditional branches get scanned, and findings union.
+
+   libs/tools runs its tests under Babashka (AGENTS.md's test surfaces), so a
+   `#?(:bb (deftest …))` branch is the one that executes there — parsing with
+   :clj alone made such a test invisible to the gate (BOU-365 review). Scanning
+   both sides is surface-agnostic: a branch that runs anywhere is checked, and
+   a placeholder in a branch that runs nowhere is still a placeholder."
+  [#{:clj} #{:bb}])
 
 (defn- deftest-forms
   "Every `(deftest …)`/`(t/deftest …)` form in `forms`, at any depth, not
@@ -163,13 +173,14 @@
     @out))
 
 (defn- exempt?
-  "Whether the deftest's *name symbol* carries the exact top-level
-   `:wagoe/allow-placeholder` metadata key. Edamame merges `^…` into
-   (meta …), so a keyword sitting in a value position, a misspelling, or a
-   mention in the body is not an exemption."
+  "Whether the deftest's *name symbol* — the second element, nothing later —
+   carries the exact top-level `:wagoe/allow-placeholder` metadata key.
+   Edamame merges `^…` into (meta …); scanning further into the body let a
+   marked symbol anywhere in the first forms exempt the whole test
+   (BOU-365 review, round 5)."
   [deftest-form]
-  (boolean (some #(and (symbol? %) (:wagoe/allow-placeholder (meta %)))
-                 (take 4 (rest deftest-form)))))
+  (let [nm (second deftest-form)]
+    (boolean (and (symbol? nm) (:wagoe/allow-placeholder (meta nm))))))
 
 (defn- evaluated-heads
   "Names of every operator position reachable at runtime under `form` —
@@ -231,24 +242,26 @@
    executes no assertion (`is`/`are`/named helper), and an `is`/`are` whose
    asserted expression is an identical-argument equality."
   [file raw]
-  (for [form (deftest-forms (parse-forms raw))
-        :when (not (exempt? form))
-        :let [line (or (:row (meta form)) 0)]
-        finding
-        (concat
-         ;; evaluated-heads yields bare names — (name 'a/b) is "b".
-         (when (empty? (set/intersection
-                        (evaluated-heads form)
-                        (set/union assertion-heads assertion-helper-names)))
-           [{:file (str file) :line line
-             :content "deftest without any assertion (is/are/known helper)"}])
-         (for [site (assertion-sites form)
-               :when (tautological-assertion? site)]
-           {:file (str file) :line (or (:row (meta site)) line)
-            :content (str "tautology: " (pr-str (case (name (first site))
-                                                  "is" (second site)
-                                                  (first (drop 2 site)))))}))]
-    finding))
+  (distinct
+   (for [features feature-branches
+         form (deftest-forms (parse-forms raw features))
+         :when (not (exempt? form))
+         :let [line (or (:row (meta form)) 0)]
+         finding
+         (concat
+          ;; evaluated-heads yields bare names — (name 'a/b) is "b".
+          (when (empty? (set/intersection
+                         (evaluated-heads form)
+                         (set/union assertion-heads assertion-helper-names)))
+            [{:file (str file) :line line
+              :content "deftest without any assertion (is/are/known helper)"}])
+          (for [site (assertion-sites form)
+                :when (tautological-assertion? site)]
+            {:file (str file) :line (or (:row (meta site)) line)
+             :content (str "tautology: " (pr-str (case (name (first site))
+                                                   "is" (second site)
+                                                   (first (drop 2 site)))))}))]
+     finding)))
 
 (defn exempted-extents
   "{:row :col :end-row :end-col} of every metadata-exempted deftest.
@@ -257,9 +270,11 @@
    source extent, not line: an exempt stub and a live placeholder sharing a
    line must not shield each other (BOU-365 review, round 4)."
   [raw]
-  (for [form (deftest-forms (parse-forms raw))
-        :when (exempt? form)]
-    (select-keys (meta form) [:row :col :end-row :end-col])))
+  (distinct
+   (for [features feature-branches
+         form (deftest-forms (parse-forms raw features))
+         :when (exempt? form)]
+     (select-keys (meta form) [:row :col :end-row :end-col]))))
 
 (defn- offset->row-col
   [^String raw offset]
