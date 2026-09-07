@@ -19,6 +19,7 @@
             [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [clojure.tools.cli :as cli]
             [babashka.process :refer [shell]]))
 
 ;; =============================================================================
@@ -163,41 +164,24 @@
      (str "{:deps {com.wagoe/wagoe-scaffolder " coord " "
           "rewrite-clj/rewrite-clj {:mvn/version \"" rewrite-clj-version "\"}}}"))))
 
-(defn- long-opt
-  "Value of long option `opt` in `args`, resolved the way tools.cli resolves it.
+(def base-ns-option-specs
+  "The three options with-base-ns reads, specced as the scaffolder CLI declares
+   them so both sides parse one command line identically (BOU-378). A test pins
+   these names against libs/scaffolder's cli.clj, since libs/tools cannot
+   require it. No :default on --output-dir: nil here falls back to user.dir,
+   which is what the scaffolder's \".\" resolves to anyway."
+  [[nil "--module-name NAME"]
+   [nil "--output-dir DIR"]
+   [nil "--base-ns NS"]])
 
-   Both `--opt value` and `--opt=value` are valid, and a repeated option is
-   last-wins regardless of which form each occurrence used:
+(defn- parsed-base-ns-opts
+  "The three options as tools.cli reads them off a full scaffolder argv.
 
-     [\"--output-dir=/a\" \"--output-dir\" \"/b\"]  => /b
-     [\"--output-dir\" \"/b\" \"--output-dir=/a\"]  => /a
-
-   So this walks the arguments in order and keeps the last value it sees.
-   Scanning for the bare token missed the `=` form entirely, and preferring the
-   `=` form wherever it sat disagreed with tools.cli on an overridden default —
-   either way `with-base-ns` read the namespace from one project while the
-   scaffolder edited another, and the BOU-364 guards then rejected a module
-   that is really there."
-  [opt args]
-  (let [eq (str opt "=")]
-    (loop [[a & more] (seq args)
-           found      nil]
-      (cond
-        (nil? a)                 found
-        (str/starts-with? a eq)  (recur more (subs a (count eq)))
-        (= a opt)                (let [v (first more)]
-                                   ;; Not the next token unconditionally:
-                                   ;; `--output-dir --dry-run` would otherwise
-                                   ;; read the next flag as a directory.
-                                   (if (and v (not (str/starts-with? v "--")))
-                                     (recur (rest more) v)
-                                     (recur more found)))
-        :else                    (recur more found)))))
-
-(defn- has-long-opt?
-  "Whether `opt` was given at all, in either form."
-  [opt args]
-  (boolean (some #(or (= opt %) (str/starts-with? % (str opt "="))) args)))
+   parse-opts flags every option outside the spec as an error but still parses
+   the ones it knows — hand-scanning the vector instead is how three parser
+   disagreements shipped in a row (BOU-364)."
+  [args]
+  (:options (cli/parse-opts args base-ns-option-specs)))
 
 (defn with-base-ns
   "Add `--base-ns` unless the caller named one.
@@ -219,13 +203,12 @@
    under `shop`, and the guards added in BOU-364 then refused a module that is
    really there."
   [args]
-  (let [module (long-opt "--module-name" args)
-        root   (or (long-opt "--output-dir" args)
-                   (System/getProperty "user.dir"))]
+  (let [{:keys [module-name output-dir base-ns]} (parsed-base-ns-opts args)
+        root (or output-dir (System/getProperty "user.dir"))]
     (cond
-      (has-long-opt? "--base-ns" args) args
-      module (into (vec args) ["--base-ns" (project/module-base-ns module root)])
-      :else  (into (vec args) ["--base-ns" (project/base-ns root)]))))
+      base-ns     args
+      module-name (into (vec args) ["--base-ns" (project/module-base-ns module-name root)])
+      :else       (into (vec args) ["--base-ns" (project/base-ns root)]))))
 
 (defn run-clojure!
   "Shell out to the Clojure scaffolder CLI with given args. Streams output to terminal.
