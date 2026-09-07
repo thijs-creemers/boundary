@@ -423,3 +423,28 @@
       (is (some? pull))
       (is (str/includes? config (str/replace pull #"^.*ollama pull " ""))
           "telling the user to pull a model the config does not use helps nobody"))))
+
+;; =============================================================================
+;; setup regenerates what wagoe new wrote — it must not write less (BOU-416)
+;; =============================================================================
+
+(deftest ^:unit setup-dev-config-covers-wagoe-new-template-test
+  (testing "every :active key the wagoe new dev template writes, setup writes too"
+    ;; Only the :active section counts. Both generators also have :inactive,
+    ;; and a key demoted there is the regression this test exists to catch —
+    ;; scanning the whole string would call that parity.
+    (let [active-of #(let [start (str/index-of % ":active")
+                           end   (str/index-of % ":inactive")]
+                       (is (and start end (< start end))
+                           "config must have :active before :inactive — cannot slice")
+                       (subs % start end))
+          strip     #(str/replace % #"(?m)^\s*;;.*$" "")
+          keys-of   #(set (re-seq #":wagoe[./][a-z-]+\b" (strip (active-of %))))
+          template  (keys-of (lib-source "wagoe-cli/resources/wagoe/cli/templates/dev-config.edn.tmpl"))
+          setup*    (keys-of (setup/build-config (assoc full-spec :database :sqlite) "dev"))]
+      (is (<= 5 (count template))
+          "template keys parsed — an empty set would make the parity below vacuous")
+      (is (empty? (set/difference template setup*))
+          (str "bb setup regenerates the whole config, so a key it lacks is "
+               "un-shipped for anyone who runs it. Missing: "
+               (set/difference template setup*))))))
