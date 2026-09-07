@@ -145,14 +145,13 @@
                        :read-cond    :allow}))
 
 (def ^:private feature-branches
-  "Both reader-conditional branches get scanned, and findings union.
-
-   libs/tools runs its tests under Babashka (AGENTS.md's test surfaces), so a
-   `#?(:bb (deftest …))` branch is the one that executes there — parsing with
-   :clj alone made such a test invisible to the gate (BOU-365 review). Scanning
-   both sides is surface-agnostic: a branch that runs anywhere is checked, and
-   a placeholder in a branch that runs nowhere is still a placeholder."
-  [#{:clj} #{:bb}])
+  "The feature sets of the runtimes this repository actually tests on:
+   the JVM (:clj) and Babashka, which enables *both* :clj and :bb — so
+   `#?(:clj A :bb B)` under bb takes A (first match), and a nested
+   `#?(:clj #?(:bb X))` does reach X. An exclusive #{:bb} set models a
+   runtime that does not exist and reads both wrong (BOU-365 review,
+   round 6). Findings union across the two."
+  [#{:clj} #{:clj :bb}])
 
 (defn- deftest-forms
   "Every `(deftest …)`/`(t/deftest …)` form in `forms`, at any depth, not
@@ -263,18 +262,22 @@
                                                    (first (drop 2 site)))))}))]
      finding)))
 
-(defn exempted-extents
-  "{:row :col :end-row :end-col} of every metadata-exempted deftest.
-
-   The hatch exempts the test, so the shape regexes honour it too — and by
-   source extent, not line: an exempt stub and a live placeholder sharing a
-   line must not shield each other (BOU-365 review, round 4)."
+(defn- branch-extents
+  "Per feature branch: the extents of every deftest, split by exemption.
+   [{:deftests [...] :exempt [...]}], one entry per feature-branches element."
   [raw]
-  (distinct
-   (for [features feature-branches
-         form (deftest-forms (parse-forms raw features))
-         :when (exempt? form)]
-     (select-keys (meta form) [:row :col :end-row :end-col]))))
+  (for [features feature-branches
+        :let [forms (deftest-forms (parse-forms raw features))]]
+    {:deftests (map #(select-keys (meta %) [:row :col :end-row :end-col]) forms)
+     :exempt   (for [f forms :when (exempt? f)]
+                 (select-keys (meta f) [:row :col :end-row :end-col]))}))
+
+(defn exempted-extents
+  "{:row :col :end-row :end-col} of every metadata-exempted deftest, across
+   all feature branches. Informational union; the per-branch judgement that
+   scan-file needs lives in `branch-extents`."
+  [raw]
+  (distinct (mapcat :exempt (branch-extents raw))))
 
 (defn- offset->row-col
   [^String raw offset]
@@ -295,11 +298,23 @@
    see `(is (= true true))`, and two findings for one assertion reads as two
    problems (BOU-365 review, round 4)."
   [file]
-  (let [raw     (slurp file)
-        exempt  (exempted-extents raw)
-        keep?   (fn [{:keys [offset]}]
-                  (or (nil? offset)
-                      (not-any? #(within? % (offset->row-col raw offset)) exempt)))]
+  (let [raw      (slurp file)
+        branches (branch-extents raw)
+        ;; Suppress a shape finding only when EVERY branch that reads its
+        ;; region as a deftest also exempts it. A name marked in one reader
+        ;; branch — #?(:bb stub :clj ^:wagoe/allow-placeholder stub) — leaves
+        ;; the other branch's variant live, and a union of exemptions let the
+        ;; marked branch shield it (BOU-365 review, round 6).
+        keep?    (fn [{:keys [offset]}]
+                   (or (nil? offset)
+                       (let [pos      (offset->row-col raw offset)
+                             judging  (filter (fn [{:keys [deftests]}]
+                                                (some #(within? % pos) deftests))
+                                              branches)]
+                         (or (empty? judging)
+                             (not-every? (fn [{:keys [exempt]}]
+                                           (some #(within? % pos) exempt))
+                                         judging)))))]
     (->> (concat (filter keep? (scan-content file raw))
                  (scan-content-structural file raw))
          (map #(dissoc % :offset))

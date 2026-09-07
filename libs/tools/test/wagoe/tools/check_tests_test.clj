@@ -285,3 +285,27 @@
   (testing "and a placeholder in the :clj branch is still seen"
     (is (= 1 (count (ct/scan-content-structural
                      "x.clj" "#?(:clj (deftest x (setup)) :bb (def x 1))"))))))
+
+;; =============================================================================
+;; Review round 6 (BOU-365)
+;; =============================================================================
+
+(deftest ^:unit babashka-enables-both-features
+  ;; bb's real feature set is #{:clj :bb}: a nested #?(:clj #?(:bb …)) reaches
+  ;; the inner branch there, and #?(:clj A :bb B) takes A. An exclusive #{:bb}
+  ;; parse modelled a runtime that does not exist.
+  (is (= 1 (count (ct/scan-content-structural
+                   "x.clj" "#?(:clj #?(:bb (deftest x (setup)) :default nil))")))
+      "the nested :bb branch is reachable under Babashka and gets scanned"))
+
+(deftest ^:unit an-exemption-in-one-branch-does-not-shield-the-other
+  (let [dir  (.toFile (java.nio.file.Files/createTempDirectory
+                       "wagoe-ct6" (make-array java.nio.file.attribute.FileAttribute 0)))
+        f    (io/file dir "branch_test.clj")
+        scan #(do (spit f %) (#'ct/scan-file f))]
+    (try
+      (testing "a conditionally marked name leaves the unmarked variant live"
+        (is (= 1 (count (scan "(deftest #?(:bb stub :clj ^:wagoe/allow-placeholder stub) (is true))")))))
+      (testing "a name marked in every branch is exempt everywhere"
+        (is (empty? (scan "(deftest #?(:bb ^:wagoe/allow-placeholder stub :clj ^:wagoe/allow-placeholder stub) (is true))"))))
+      (finally (doseq [x (reverse (file-seq dir))] (.delete x))))))
