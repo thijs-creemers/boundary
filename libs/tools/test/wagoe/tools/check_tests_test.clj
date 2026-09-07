@@ -100,8 +100,8 @@
         regex      (ct/scan-content "planted.clj" planted)
         lines      (set (map :line (concat structural regex)))]
     (is (contains? lines 1) "no-assertion deftest")
-    (is (contains? lines 3) "(is (= 1 1)) tautology")
-    (is (contains? lines 5) "are-tautology")
+    (is (contains? lines 4) "(is (= 1 1)) tautology — reported at the assertion")
+    (is (contains? lines 6) "are-tautology — reported at the assertion")
     (is (contains? lines 8) "(is ... true) split placeholder — the match starts at (is")))
 
 (deftest ^:unit assertion-helpers-are-recognised-by-name
@@ -178,8 +178,9 @@
   ;; (deftest ^:wagoe/allow-placeholder stub (is true)) was exempt from the
   ;; structural scan and still failed the shape regexes — one hatch, both scans.
   (let [src "(deftest ^:wagoe/allow-placeholder stub (is true))\n(deftest live (is true))"
-        exempt (ct/exempted-line-ranges src)]
-    (is (= [[1 1]] exempt))
+        exempt (ct/exempted-extents src)]
+    (is (= 1 (count exempt)))
+    (is (= 1 (:row (first exempt))))
     (testing "the live placeholder on the next line is still caught"
       (is (some #(= 2 (:line %)) (ct/scan-content "x.clj" src))))))
 
@@ -207,3 +208,55 @@
   (testing "a misspelled marker is not an exemption"
     (is (seq (ct/scan-content-structural
               "x.clj" "(deftest ^:wagoe/allow-placeholder-typo stub (todo))")))))
+
+;; =============================================================================
+;; Review round 4 (BOU-365) — the reader decides, not a lexer
+;; =============================================================================
+
+(deftest ^:unit a-discarded-string-does-not-swallow-the-next-assertion
+  ;; #_"note" before a real assertion: the lexical scan blanked the string
+  ;; first, so #_ attached to the (is …) and a failing test looked vacuous.
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "(deftest x #_\"note\" (is (= 1 2)))"))))
+
+(deftest ^:unit reader-prefixed-discards-are-fully-consumed
+  (testing "#_#(…), #_#{…}, #_^:m (…) — the whole form is discarded"
+    (is (= 1 (count (ct/scan-content-structural
+                     "x.clj" "(deftest x #_#(is (= a b)) (setup))"))))
+    (is (= 1 (count (ct/scan-content-structural
+                     "x.clj" "(deftest x #_^:m (is (= a b)) (setup))"))))))
+
+(deftest ^:unit whitespace-between-quote-and-form-is-still-quoted
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "(deftest gen (is (= ' (foo (= x x)) actual)))"))))
+
+(deftest ^:unit the-marker-must-be-a-top-level-metadata-key
+  (testing "the keyword in a value position is not an exemption"
+    (is (seq (ct/scan-content-structural
+              "x.clj" "(deftest ^{:other :wagoe/allow-placeholder} stub (todo))"))))
+  (testing "a suffixed spelling is not an exemption"
+    (is (seq (ct/scan-content-structural
+              "x.clj" "(deftest ^:wagoe/allow-placeholder.foo stub (todo))")))))
+
+(deftest ^:unit a-meaningful-nested-equality-is-not-a-tautology
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "(deftest nan (is (false? (= ##NaN ##NaN))))"))
+      "only the asserted expression counts, and NaN is not equal to itself")
+  (is (empty? (ct/scan-content-structural
+               "x.clj" "(deftest r (is (= (rand) (rand))))"))
+      "equal collection forms are not equal values"))
+
+(deftest ^:unit exemption-is-extent-scoped-and-findings-deduplicate
+  ;; Through the private scan-file seam: exempt stub and live placeholder on
+  ;; ONE line — the live one must survive the filter; and one (is (= true
+  ;; true)) must yield one row, not a regex row plus a tautology row.
+  (let [dir  (.toFile (java.nio.file.Files/createTempDirectory
+                       "wagoe-ct" (make-array java.nio.file.attribute.FileAttribute 0)))
+        f    (io/file dir "one_line_test.clj")
+        scan #(do (spit f %) (#'ct/scan-file f))]
+    (try
+      (testing "same-line exempt + live: live still caught"
+        (is (= 1 (count (scan "(deftest ^:wagoe/allow-placeholder stub (is true)) (deftest live (is true))")))))
+      (testing "one assertion, one row"
+        (is (= 1 (count (scan "(deftest t (is (= true true)))")))))
+      (finally (doseq [x (reverse (file-seq dir))] (.delete x))))))

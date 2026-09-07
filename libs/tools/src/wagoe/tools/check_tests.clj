@@ -8,6 +8,7 @@
 (ns wagoe.tools.check-tests
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [edamame.core :as e]
             [clojure.set :as set]
             [clojure.string :as str]
             [wagoe.tools.ansi :as ansi]
@@ -104,6 +105,8 @@
                          (recur (conj matches
                                       {:file    (str file)
                                        :line    (offset->line-number raw (.start matcher))
+                                       ;; for extent-scoped exemption filtering
+                                       :offset  (.start matcher)
                                        :content (str/trim (str/replace (.group matcher) #"\s+" " "))}))
                          matches)))))
          (distinct))))
@@ -124,134 +127,173 @@
    11 wrong findings is a gate people learn to ignore (BOU-365)."
   #{"check-snapshot!"})
 
-(defn- name-part [head] (last (str/split head #"/")))
+(defn- parse-forms
+  "`raw` as data, read by edamame — the reader, not a lexer imitating one.
 
-(defn- blank-spans
-  "`text` with each {:start :end} span replaced by spaces, newlines kept."
-  [^String text spans]
-  (let [sb (StringBuilder. text)]
-    (doseq [{:keys [start end]} spans
-            i (range start (min end (count text)))
-            :when (not= \newline (.charAt sb i))]
-      (.setCharAt sb i \space))
-    (str sb)))
+   Four review rounds of lexical scanning each ended on a reader-syntax corner
+   the lexer missed: `#_\"note\"`, `#_#(…)`, a quote separated from its form by
+   whitespace, metadata semantics. Reading settles all of them at once: `#_`
+   is elided before we ever look, quoted forms arrive as data, and `^…` lands
+   in (meta …). Verified against every test file in this repository — 380
+   files, zero parse failures. Unknown reader tags pass their value through."
+  [raw]
+  (e/parse-string-all raw
+                      {:all          true
+                       :auto-resolve (fn [a] (if (= a :current) (symbol "this.ns") (symbol (str a))))
+                       :readers      (fn [_tag] identity)
+                       :features     #{:clj}
+                       :read-cond    :allow}))
 
-(defn- unevaluated-blanked
-  "`text` with `#_`-discarded, quoted and `(comment …)` regions blanked.
+(defn- deftest-forms
+  "Every `(deftest …)`/`(t/deftest …)` form in `forms`, at any depth, not
+   descending into `quote` or `comment` — a draft in a comment form and a
+   deftest-shaped list in quoted data are never defined."
+  [forms]
+  (let [out (volatile! [])]
+    (letfn [(walk [x]
+              (when (coll? x)
+                (let [head (when (seq? x) (first x))]
+                  (cond
+                    (and (symbol? head) (contains? #{"quote" "comment"} (name head)))
+                    nil
+                    (and (symbol? head) (= "deftest" (name head)))
+                    (do (vswap! out conj x) (run! walk (rest x)))
+                    :else (run! walk (seq x))))))]
+      (run! walk forms))
+    @out))
 
-   What remains is what actually runs — so an `(is …)` inside a discard no
-   longer counts as an assertion, a draft deftest inside `#_(do …)` is not
-   scanned at all, and a `(= x x)` inside quoted data is not a tautology,
-   however deeply any of them nests (BOU-365 review)."
-  [text]
-  (blank-spans text
-               (concat (parsing/unevaluated-extents text)
-                       ;; Both quote spellings and comment forms: `'(…)` is
-                       ;; reader syntax (unevaluated-extents), `(quote …)` and
-                       ;; `(comment …)` are forms with heads.
-                       (for [head ["comment" "quote"]
-                             e    (parsing/form-extents text head)
-                             :when (:end e)]
-                         (select-keys e [:start :end])))))
+(defn- exempt?
+  "Whether the deftest's *name symbol* carries the exact top-level
+   `:wagoe/allow-placeholder` metadata key. Edamame merges `^…` into
+   (meta …), so a keyword sitting in a value position, a misspelling, or a
+   mention in the body is not an exemption."
+  [deftest-form]
+  (boolean (some #(and (symbol? %) (:wagoe/allow-placeholder (meta %)))
+                 (take 4 (rest deftest-form)))))
 
-(defn- exempt-by-metadata?
-  "Whether the deftest carries the `:wagoe/allow-placeholder` key in its
-   metadata — the chunks between the operator and the test name, nowhere
-   else, spelled exactly. Walks the `^…` entries structurally: a nested
-   metadata map (`^{:kaocha.testable/meta {…}}`) is one balanced chunk, so a
-   marker after it is still seen; a misspelling is not an exemption; and a
-   body that mentions the keyword as data is not one either."
-  [^String body]
-  (let [n (count body)
-        after-head (loop [i 1]
-                     (if (and (< i n) (Character/isWhitespace (.charAt body i)))
-                       (recur (inc i))
-                       (loop [j i]
-                         (if (and (< j n) (not (Character/isWhitespace (.charAt body j))))
-                           (recur (inc j)) j))))]
-    (loop [i after-head]
-      (let [i (loop [i i]
-                (if (and (< i n) (Character/isWhitespace (.charAt body i)))
-                  (recur (inc i)) i))]
-        (when (and (< i n) (= \^ (.charAt body i)))
-          (let [chunk-end (if (and (< (inc i) n) (= \{ (.charAt body (inc i))))
-                            (loop [e (+ i 2), depth 1]
-                              (cond (zero? depth) e
-                                    (>= e n)      n
-                                    :else (recur (inc e) (case (.charAt body e)
-                                                           \{ (inc depth)
-                                                           \} (dec depth)
-                                                           depth))))
-                            (loop [e (inc i)]
-                              (if (and (< e n) (not (Character/isWhitespace (.charAt body e))))
-                                (recur (inc e)) e)))
-                chunk (subs body i chunk-end)]
-            (or (some? (re-find #":wagoe/allow-placeholder(?![\w?!*+<>=-])" chunk))
-                (recur chunk-end))))))))
+(defn- evaluated-heads
+  "Names of every operator position reachable at runtime under `form` —
+   `quote`d and `comment`ed subtrees excluded."
+  [form]
+  (let [out (volatile! #{})]
+    (letfn [(walk [x]
+              (when (coll? x)
+                (let [head (when (seq? x) (first x))]
+                  (when (symbol? head)
+                    (if (contains? #{"quote" "comment"} (name head))
+                      nil
+                      (do (vswap! out conj (name head))
+                          (run! walk (rest x)))))
+                  (when-not (and (seq? x) (symbol? (first x)))
+                    (run! walk (seq x))))))]
+      (walk form))
+    @out))
 
-(defn- tautologies
-  "Identical-token `(= x x)` matches inside the is/are forms of `body`.
-   `body` must already have unevaluated regions blanked, so quoted data —
-   at any nesting depth — cannot match."
-  [body]
-  (for [{:keys [start end]} (concat (parsing/form-extents body "is")
-                                    (parsing/form-extents body "are"))
-        :when end
-        [m _] (re-seq #"\(\s*=\s+([^\s()\[\]{}]+)\s+\1\s*\)" (subs body start end))]
-    m))
+(defn- tautological-assertion?
+  "Whether the expression a single `is`/`are` actually asserts is an
+   identical-argument equality. Only the asserted expression counts — a
+   nested `(= x x)` in a message or under `false?` is someone's data, not a
+   vacuous assertion. Collection arguments are excluded: `(= (rand) (rand))`
+   is equal as forms and different as values. NaN needs no case — `=` on two
+   read `##NaN`s is already false."
+  [form]
+  (let [head (and (seq? form) (symbol? (first form)) (name (first form)))
+        asserted (case head
+                   "is"  (second form)
+                   "are" (first (drop 2 form))   ; (are [bindings] template …)
+                   nil)]
+    (boolean
+     (and (seq? asserted)
+          (symbol? (first asserted))
+          (= "=" (name (first asserted)))
+          (= 3 (count asserted))
+          (not (coll? (second asserted)))
+          (= (second asserted) (nth asserted 2))))))
+
+(defn- assertion-sites
+  "Every evaluated `is`/`are` form under `form`, for the tautology check."
+  [form]
+  (let [out (volatile! [])]
+    (letfn [(walk [x]
+              (when (coll? x)
+                (let [head (when (seq? x) (first x))]
+                  (cond
+                    (and (symbol? head) (contains? #{"quote" "comment"} (name head))) nil
+                    :else (do (when (and (symbol? head)
+                                         (contains? #{"is" "are"} (name head)))
+                                (vswap! out conj x))
+                              (run! walk (seq x)))))))]
+      (walk form))
+    @out))
 
 (defn scan-content-structural
-  "Form-level findings the shape regexes cannot see (BOU-365).
-
-   - a deftest none of whose calls is an assertion or a named helper —
-     a test that asserts nothing passes by definition;
-   - an identical-token `(= x x)` inside its is/are forms — true whatever
-     x is, which covers `(is (= 1 1))` and the `are`-tautology alike.
-
-   `(t/deftest …)` counts; `#_`-discarded and `(comment …)`-wrapped drafts
-   do not — they are never defined, so they cannot pass vacuously."
+  "Form-level findings the shape regexes cannot see (BOU-365): a deftest that
+   executes no assertion (`is`/`are`/named helper), and an `is`/`are` whose
+   asserted expression is an identical-argument equality."
   [file raw]
-  ;; Blanking unevaluated regions FIRST answers three review findings at once:
-  ;; a deftest inside #_(do …) never appears as an extent, an (is …) inside a
-  ;; discard is not an assertion, and quoted (= x x) data is not a tautology.
-  (let [live (unevaluated-blanked (parsing/strip-comments-and-strings raw))]
-    (for [{:keys [start end line]} (parsing/form-extents live "deftest")
-          :when end
-          :let [body (subs live start end)]
-          :when (not (exempt-by-metadata? body))
-          finding
-          (concat
-           (when (empty? (set/intersection
-                          (set (map (comp name-part :head) (parsing/call-forms body)))
-                          (set/union assertion-heads assertion-helper-names)))
-             [{:file (str file) :line line
-               :content "deftest without any assertion (is/are/known helper)"}])
-           (for [m (tautologies body)]
-             {:file (str file) :line line
-              :content (str "tautology: " (str/trim (str/replace m #"\s+" " ")))}))]
-      finding)))
+  (for [form (deftest-forms (parse-forms raw))
+        :when (not (exempt? form))
+        :let [line (or (:row (meta form)) 0)]
+        finding
+        (concat
+         ;; evaluated-heads yields bare names — (name 'a/b) is "b".
+         (when (empty? (set/intersection
+                        (evaluated-heads form)
+                        (set/union assertion-heads assertion-helper-names)))
+           [{:file (str file) :line line
+             :content "deftest without any assertion (is/are/known helper)"}])
+         (for [site (assertion-sites form)
+               :when (tautological-assertion? site)]
+           {:file (str file) :line (or (:row (meta site)) line)
+            :content (str "tautology: " (pr-str (case (name (first site))
+                                                  "is" (second site)
+                                                  (first (drop 2 site)))))}))]
+    finding))
 
-(defn exempted-line-ranges
-  "[start-line end-line] of every deftest exempted by metadata.
+(defn exempted-extents
+  "{:row :col :end-row :end-col} of every metadata-exempted deftest.
 
-   The escape hatch exempts the *test*, so the shape regexes must honour it
-   too — `(deftest ^:wagoe/allow-placeholder stub (is true))` was exempt from
-   the structural scan and still failed on the regex one (BOU-365 review)."
+   The hatch exempts the test, so the shape regexes honour it too — and by
+   source extent, not line: an exempt stub and a live placeholder sharing a
+   line must not shield each other (BOU-365 review, round 4)."
   [raw]
-  (let [live (unevaluated-blanked (parsing/strip-comments-and-strings raw))]
-    (for [{:keys [start end line]} (parsing/form-extents live "deftest")
-          :when (and end (exempt-by-metadata? (subs live start end)))]
-      [line (+ line (count (filter #(= \newline %) (subs live start end))))])))
+  (for [form (deftest-forms (parse-forms raw))
+        :when (exempt? form)]
+    (select-keys (meta form) [:row :col :end-row :end-col])))
+
+(defn- offset->row-col
+  [^String raw offset]
+  (let [before (subs raw 0 (min offset (count raw)))
+        row    (inc (count (filter #(= \newline %) before)))
+        col    (inc (- (count before) (inc (or (str/last-index-of before "\n") -1))))]
+    [row col]))
+
+(defn- within?
+  [{:keys [row col end-row end-col]} [r c]]
+  (and (or (> r row) (and (= r row) (>= c col)))
+       (or (< r end-row) (and (= r end-row) (<= c end-col)))))
 
 (defn- scan-file
-  "Scan a file on disk for placeholder assertions."
+  "Scan a file on disk for placeholder assertions.
+
+   One row per (file, line): the shape regexes and the structural scan both
+   see `(is (= true true))`, and two findings for one assertion reads as two
+   problems (BOU-365 review, round 4)."
   [file]
   (let [raw     (slurp file)
-        exempt  (exempted-line-ranges raw)
-        exempt? (fn [{:keys [line]}]
-                  (some (fn [[a b]] (<= a line b)) exempt))]
-    (concat (remove exempt? (scan-content file raw))
-            (scan-content-structural file raw))))
+        exempt  (exempted-extents raw)
+        keep?   (fn [{:keys [offset]}]
+                  (or (nil? offset)
+                      (not-any? #(within? % (offset->row-col raw offset)) exempt)))]
+    (->> (concat (filter keep? (scan-content file raw))
+                 (scan-content-structural file raw))
+         (map #(dissoc % :offset))
+         (reduce (fn [{:keys [seen acc]} {:keys [file line] :as f}]
+                   (if (seen [file line])
+                     {:seen seen :acc acc}
+                     {:seen (conj seen [file line]) :acc (conj acc f)}))
+                 {:seen #{} :acc []})
+         :acc)))
 
 ;; ---------------------------------------------------------------------------
 ;; Misplaced deftest metadata (BOU-184)
