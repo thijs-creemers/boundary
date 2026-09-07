@@ -230,3 +230,44 @@
 
       (finally
         (doseq [d [a b]] (doseq [f (reverse (file-seq d))] (.delete f)))))))
+
+;; =============================================================================
+;; One parser: the spec here must be the scaffolder's spec (BOU-378)
+;; =============================================================================
+
+(deftest ^:unit base-ns-option-specs-match-the-scaffolder-cli
+  ;; libs/tools cannot require libs/scaffolder, so with-base-ns carries its own
+  ;; narrow copy of the three option specs. This reads the scaffolder's cli.clj
+  ;; source and fails if any of the three is renamed out from under the copy —
+  ;; the drift that two independent parsers turned into three shipped bugs.
+  (let [cli-src (or (some #(when (.exists (io/file %)) (slurp %))
+                          ["libs/scaffolder/src/wagoe/scaffolder/cli.clj"
+                           "../scaffolder/src/wagoe/scaffolder/cli.clj"])
+                    (throw (ex-info "scaffolder cli.clj not found — cannot compare" {})))
+        names   (map second scaffold/base-ns-option-specs)]
+    (is (= 3 (count names)) "the narrow spec covers exactly the options with-base-ns reads")
+    (doseq [n names]
+      (is (str/includes? cli-src (str "\"" n "\""))
+          (str "with-base-ns specs " n " but the scaffolder CLI no longer declares it — "
+               "the two parsers are drifting apart again")))))
+
+(deftest ^:unit with-base-ns-takes-the-next-token-as-a-value-like-tools-cli
+  ;; The hand parser refused a flag-looking token as a value; tools.cli — the
+  ;; parser the scaffolder actually runs — takes the next token unconditionally.
+  ;; Agreement is the requirement, so this pins the tools.cli reading: the bogus
+  ;; directory means module-base-ns finds nothing there and with-base-ns still
+  ;; appends a --base-ns rather than silently reading the caller's project.
+  (let [args (scaffold/with-base-ns
+               ["endpoint" "--module-name" "product" "--output-dir" "--dry-run"])]
+    (is (some #{"--base-ns"} args))))
+
+(deftest ^:unit a-malformed-command-is-passed-through-for-the-scaffolder-to-reject
+  ;; A bare trailing --base-ns parses as a missing-argument error. Appending our
+  ;; pair after it would hand the scaffolder `--base-ns --base-ns <computed>`,
+  ;; which its non-strict parse reads as base-ns = "--base-ns" — scaffolded
+  ;; garbage instead of a rejection. Same for --output-dir, whose consumed flag
+  ;; becomes a directory name.
+  (doseq [args [["endpoint" "--module-name" "product" "--base-ns"]
+                ["endpoint" "--module-name" "product" "--output-dir"]]]
+    (is (= args (scaffold/with-base-ns args))
+        (str "malformed " (last args) " must reach the scaffolder untouched"))))

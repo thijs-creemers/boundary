@@ -29,6 +29,11 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`bb scaffold` reads its options with the same parser the scaffolder runs** (BOU-378).
+  One parser decides what `--output-dir` and friends mean; the namespace cannot drift.
+
 ## [1.0.0-beta-8] — 2026-09-07
 
 ### Fixed
