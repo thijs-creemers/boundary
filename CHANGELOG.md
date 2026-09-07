@@ -35,6 +35,8 @@ for what is public API, what is internal, and how deprecations are announced.
   One parser decides what `--output-dir` and friends mean; the namespace cannot drift.
 - **`bb scaffold integrate` no longer re-indents your whole config** (BOU-359). It adds
   the module key and touches nothing else, on every machine.
+- **`bb check:placeholder-tests` now catches a deftest that asserts nothing** (BOU-365),
+  and `(= x x)` tautologies. Exempt a stub with `^:wagoe/allow-placeholder`.
 
 ## [1.0.0-beta-8] — 2026-09-07
 

@@ -8,6 +8,7 @@
 (ns wagoe.tools.check-tests
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.set :as set]
             [clojure.string :as str]
             [wagoe.tools.ansi :as ansi]
             [wagoe.tools.parsing :as parsing]))
@@ -107,10 +108,61 @@
                          matches)))))
          (distinct))))
 
+;; ---------------------------------------------------------------------------
+;; Form-level analysis (BOU-365)
+;; ---------------------------------------------------------------------------
+
+(def assertion-heads
+  "Operators that make a deftest assert something."
+  #{"is" "are"})
+
+(def assertion-helper-names
+  "Helpers that assert internally, matched on the name after any alias — so
+   `snapshot-io/check-snapshot!` and a re-aliased copy both count. The named
+   list the ticket asks for: without it the snapshot suite's 11 real tests
+   would be the gate's first 11 false positives, and a gate that opens with
+   11 wrong findings is a gate people learn to ignore (BOU-365)."
+  #{"check-snapshot!"})
+
+(def ^:private allow-placeholder-marker
+  "Metadata escape hatch: `(deftest ^:wagoe/allow-placeholder name …)` exempts
+   one test, in the file, where a reviewer sees it — the same shape as
+   `^:wagoe/allow-throw` in check:fcis."
+  ":wagoe/allow-placeholder")
+
+(defn- name-part [head] (last (str/split head #"/")))
+
+(defn scan-content-structural
+  "Form-level findings the shape regexes cannot see (BOU-365).
+
+   - a deftest none of whose calls is an assertion or a named helper —
+     a test that asserts nothing passes by definition;
+   - an identical-token `(= x x)` inside a deftest — true whatever x is,
+     which covers `(is (= 1 1))` and the `are`-tautology alike."
+  [file raw]
+  (let [cleaned (parsing/strip-comments-and-strings raw)]
+    (for [{:keys [start end line]} (parsing/form-extents cleaned "deftest")
+          :when end
+          :let [body (subs cleaned start end)]
+          :when (not (str/includes? body allow-placeholder-marker))
+          finding
+          (concat
+           (when (empty? (set/intersection
+                          (set (map (comp name-part :head) (parsing/call-forms body)))
+                          (set/union assertion-heads assertion-helper-names)))
+             [{:file (str file) :line line
+               :content "deftest without any assertion (is/are/known helper)"}])
+           (for [[m _] (re-seq #"\(\s*=\s+([^\s()\[\]{}]+)\s+\1\s*\)" body)]
+             {:file (str file) :line line
+              :content (str "tautology: " (str/trim (str/replace m #"\s+" " ")))}))]
+      finding)))
+
 (defn- scan-file
   "Scan a file on disk for placeholder assertions."
   [file]
-  (scan-content file (slurp file)))
+  (let [raw (slurp file)]
+    (concat (scan-content file raw)
+            (scan-content-structural file raw))))
 
 ;; ---------------------------------------------------------------------------
 ;; Misplaced deftest metadata (BOU-184)

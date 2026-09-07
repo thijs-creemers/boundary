@@ -77,3 +77,53 @@
     (let [vs (scan-tags "(ns x)\n(deftest ^{:kaocha.testable/meta {:unit true}} a (is true))\n")]
       (is (= 1 (count vs)))
       (is (= 0 (:count (first vs)))))))
+
+;; =============================================================================
+;; Form-level analysis (BOU-365) — the ticket's four planted placeholders
+;; =============================================================================
+
+(def ^:private planted
+  (str "(deftest ^:unit does-nothing\n"
+       "  (let [x (+ 1 1)] x))\n"
+       "(deftest ^:unit tautology\n"
+       "  (is (= 1 1)))\n"
+       "(deftest ^:unit are-tautology\n"
+       "  (are [x] (= x x) 1 2 3))\n"
+       "(deftest ^:unit split\n"
+       "  (is\n   true))\n"))
+
+(deftest ^:unit all-four-planted-placeholders-are-reported
+  ;; The seven regexes found one of these four. Form-level analysis finds the
+  ;; other three: a deftest with no assertion at all, and identical-token
+  ;; tautologies in `is` and `are`.
+  (let [structural (ct/scan-content-structural "planted.clj" planted)
+        regex      (ct/scan-content "planted.clj" planted)
+        lines      (set (map :line (concat structural regex)))]
+    (is (contains? lines 1) "no-assertion deftest")
+    (is (contains? lines 3) "(is (= 1 1)) tautology")
+    (is (contains? lines 5) "are-tautology")
+    (is (contains? lines 8) "(is ... true) split placeholder — the match starts at (is")))
+
+(deftest ^:unit assertion-helpers-are-recognised-by-name
+  (testing "a deftest asserting through a named helper is not a placeholder"
+    (is (empty? (ct/scan-content-structural
+                 "snap.clj"
+                 "(deftest snap (snapshot-io/check-snapshot! :k (f)))"))))
+  (testing "the helper list is what makes that pass — an unknown helper fails"
+    (is (seq (ct/scan-content-structural
+              "snap.clj"
+              "(deftest snap (snapshot-io/verify-somehow! :k (f)))")))))
+
+(deftest ^:unit the-placeholder-escape-hatch-is-explicit-metadata
+  (is (empty? (ct/scan-content-structural
+               "stub.clj"
+               "(deftest ^:wagoe/allow-placeholder stub (todo))"))))
+
+(deftest ^:unit an-escaped-quote-inside-a-string-does-not-blank-the-assertion
+  ;; The old three-pass stripper ate the \" inside the string as a character
+  ;; literal, broke the quote pairing, and blanked real code after it — on
+  ;; prometheus_test.clj that swallowed an (is ...) whole and made a real test
+  ;; look like a placeholder (BOU-365).
+  (is (empty? (ct/scan-content-structural
+               "esc.clj"
+               "(deftest esc\n  (is (str/includes? t \"path=\\\"a\\\\b\\\"\")))"))))
