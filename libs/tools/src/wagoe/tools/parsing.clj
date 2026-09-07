@@ -12,9 +12,9 @@
 ;; ---------------------------------------------------------------------------
 
 (defn strip-comments-and-strings
-  "Replace character literals, string contents and comments with spaces,
-   preserving line structure, so scanners only ever match executable code.
-   The surrounding quotes of a string survive; its interior does not."
+  "Replace character literals, whole string literals (delimiters included)
+   and comments with spaces, preserving line structure, so scanners only
+   ever match executable code."
   [content]
   ;; One pass with lexer state, not three sequential regexes. The regexes ran
   ;; the character-literal pass first — deliberate, so the `(` in `\(` never
@@ -37,14 +37,18 @@
                              len (inc (count (or lit "")))]
                          (dotimes [_ len] (.append sb \space))
                          (recur (+ i len) :code))
-              (= c \") (do (.append sb c) (recur (inc i) :string))
+              ;; The delimiters go too: `(is (some? "lit"))` must strip to
+              ;; `(is (some?        ))` so the whitespace-argument patterns in
+              ;; check_tests keep matching — keeping the quotes silently turned
+              ;; two of them off (BOU-365 review).
+              (= c \") (do (.append sb \space) (recur (inc i) :string))
               (= c \;) (do (.append sb \space) (recur (inc i) :comment))
               :else    (do (.append sb c) (recur (inc i) :code)))
 
             :string
             (cond
               (= c \\) (do (.append sb "  ") (recur (+ i 2) :string))
-              (= c \") (do (.append sb c) (recur (inc i) :code))
+              (= c \") (do (.append sb \space) (recur (inc i) :code))
               (= c \newline) (do (.append sb c) (recur (inc i) :string))
               :else    (do (.append sb \space) (recur (inc i) :string)))
 
@@ -299,7 +303,9 @@
 
    Exists because \"is there an assertion inside this deftest\" needs the
    deftest's extent, which no regex over shapes can give (BOU-365). Nested
-   occurrences are all reported: scanning continues inside a matched form."
+   occurrences are all reported: scanning continues inside a matched form.
+   `head` matches the bare operator and any alias-qualified spelling of it —
+   `(t/deftest …)` under `[clojure.test :as t]` is still a deftest."
   [content head]
   (let [n (count content)]
     (loop [i 0, line 1, acc (transient [])]
@@ -321,7 +327,7 @@
                           (recur (inc k))
                           k))
                   tok (subs content j k)]
-              (if (= tok head)
+              (if (or (= tok head) (.endsWith ^String tok (str "/" head)))
                 (let [end (loop [e (inc i), depth 1]
                             (cond
                               ;; zero? first: a form whose matching `)` is the

@@ -127,3 +127,45 @@
   (is (empty? (ct/scan-content-structural
                "esc.clj"
                "(deftest esc\n  (is (str/includes? t \"path=\\\"a\\\\b\\\"\")))"))))
+
+;; =============================================================================
+;; Review findings on the first cut (BOU-365)
+;; =============================================================================
+
+(deftest ^:unit string-argument-placeholders-still-match-after-stripping
+  ;; The lexer rewrite briefly kept string delimiters, which silently turned
+  ;; off the whitespace-argument patterns for (is (some? "x")) and
+  ;; (is (string? "x")).
+  (is (= 1 (count (ct/scan-content "s.clj" "(deftest x (is (some? \"lit\")))"))))
+  (is (= 1 (count (ct/scan-content "s.clj" "(deftest x (is (string? \"lit\")))")))))
+
+(deftest ^:unit discarded-and-commented-drafts-are-not-placeholders
+  (is (empty? (ct/scan-content-structural
+               "d.clj" "(comment\n  (deftest draft (todo)))")))
+  (is (empty? (ct/scan-content-structural
+               "d.clj" "#_(deftest draft (todo))")))
+  (testing "a live deftest next to a discarded one is still checked"
+    (is (= 1 (count (ct/scan-content-structural
+                     "d.clj" "#_(deftest draft (todo))\n(deftest live (setup))"))))))
+
+(deftest ^:unit an-alias-qualified-deftest-is-still-a-deftest
+  (is (= 1 (count (ct/scan-content-structural
+                   "q.clj" "(t/deftest empty-one (setup))")))))
+
+(deftest ^:unit quoted-equality-data-is-not-a-tautology
+  (is (empty? (ct/scan-content-structural
+               "g.clj" "(deftest gen (is (= '(= x x) actual)))")))
+  (is (empty? (ct/scan-content-structural
+               "g.clj" "(deftest gen (is (= (quote (= x x)) actual)))")))
+  (testing "an executed identical-token equality is still flagged"
+    (is (= 1 (count (ct/scan-content-structural
+                     "g.clj" "(deftest t (is (= x x)))"))))))
+
+(deftest ^:unit the-marker-exempts-only-from-metadata-position
+  (is (seq (ct/scan-content-structural
+            "m.clj" "(deftest sneaky (log :wagoe/allow-placeholder))"))
+      "the keyword as body data is not an exemption")
+  (is (empty? (ct/scan-content-structural
+               "m.clj" "(deftest ^:wagoe/allow-placeholder stub (todo))")))
+  (is (empty? (ct/scan-content-structural
+               "m.clj" "(deftest ^{:wagoe/allow-placeholder true} stub (todo))"))))

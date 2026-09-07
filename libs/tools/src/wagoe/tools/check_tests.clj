@@ -132,19 +132,65 @@
 
 (defn- name-part [head] (last (str/split head #"/")))
 
+(defn- discarded?
+  "Whether the form opening at `start` is reader-discarded (`#_`) or sits
+   inside a `(comment …)` form — never defined, so not a placeholder."
+  [cleaned comment-extents start]
+  (or (some #(and (:end %) (< (:start %) start (:end %))) comment-extents)
+      (let [i (loop [i (dec start)]
+                (if (and (>= i 0) (Character/isWhitespace (.charAt ^String cleaned i)))
+                  (recur (dec i)) i))]
+        (and (>= i 1)
+             (= \_ (.charAt ^String cleaned i))
+             (= \# (.charAt ^String cleaned (dec i)))))))
+
+(defn- exempt-by-metadata?
+  "Whether the deftest carries `^:wagoe/allow-placeholder` in its metadata —
+   the region between the operator and the test name, nowhere else. A body
+   that merely mentions the keyword as data is not an exemption."
+  [body]
+  (when-let [[_ meta-region] (re-find #"^\(\s*\S+\s+((?:\^(?:\{[^}]*\}|\S+)\s+)*)" body)]
+    (str/includes? (or meta-region "") allow-placeholder-marker)))
+
+(defn- tautologies
+  "Identical-token `(= x x)` matches inside the is/are forms of `body`,
+   skipping quoted data: a leading `'`/`` ` `` on the form, or a surrounding
+   `(quote …)`, means the equality is a value under test, not an assertion."
+  [body]
+  (for [{:keys [start end]} (concat (parsing/form-extents body "is")
+                                    (parsing/form-extents body "are"))
+        :when end
+        :let [assert-text  (subs body start end)
+              quote-spans  (filter :end (parsing/form-extents assert-text "quote"))
+              matcher      (re-matcher #"\(\s*=\s+([^\s()\[\]{}]+)\s+\1\s*\)" assert-text)]
+        m (loop [acc []]
+            (if (.find matcher)
+              (let [at     (.start matcher)
+                    quoted (or (and (pos? at)
+                                    (contains? #{\' \`} (.charAt ^String assert-text (dec at))))
+                               (some #(< (:start %) at (:end %)) quote-spans))]
+                (recur (if quoted acc (conj acc (.group matcher)))))
+              acc))]
+    m))
+
 (defn scan-content-structural
   "Form-level findings the shape regexes cannot see (BOU-365).
 
    - a deftest none of whose calls is an assertion or a named helper —
      a test that asserts nothing passes by definition;
-   - an identical-token `(= x x)` inside a deftest — true whatever x is,
-     which covers `(is (= 1 1))` and the `are`-tautology alike."
+   - an identical-token `(= x x)` inside its is/are forms — true whatever
+     x is, which covers `(is (= 1 1))` and the `are`-tautology alike.
+
+   `(t/deftest …)` counts; `#_`-discarded and `(comment …)`-wrapped drafts
+   do not — they are never defined, so they cannot pass vacuously."
   [file raw]
-  (let [cleaned (parsing/strip-comments-and-strings raw)]
+  (let [cleaned         (parsing/strip-comments-and-strings raw)
+        comment-extents (filter :end (parsing/form-extents cleaned "comment"))]
     (for [{:keys [start end line]} (parsing/form-extents cleaned "deftest")
           :when end
+          :when (not (discarded? cleaned comment-extents start))
           :let [body (subs cleaned start end)]
-          :when (not (str/includes? body allow-placeholder-marker))
+          :when (not (exempt-by-metadata? body))
           finding
           (concat
            (when (empty? (set/intersection
@@ -152,7 +198,7 @@
                           (set/union assertion-heads assertion-helper-names)))
              [{:file (str file) :line line
                :content "deftest without any assertion (is/are/known helper)"}])
-           (for [[m _] (re-seq #"\(\s*=\s+([^\s()\[\]{}]+)\s+\1\s*\)" body)]
+           (for [m (tautologies body)]
              {:file (str file) :line line
               :content (str "tautology: " (str/trim (str/replace m #"\s+" " ")))}))]
       finding)))
