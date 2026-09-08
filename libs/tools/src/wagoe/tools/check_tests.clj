@@ -99,31 +99,42 @@
   (let [ns-form (first (filter #(and (seq? %) (symbol? (first %))
                                      (= "ns" (name (first %))))
                                parsed))
-        aliases (for [clause ns-form
+        specs   (for [clause ns-form
                       :when (and (seq? clause) (= :require (first clause)))
                       spec  (rest clause)
-                      :when (and (vector? spec) (= 'clojure.test (first spec)))
-                      [k v] (partition 2 (rest spec))
-                      :when (= :as k)]
-                  (str v))]
-    (into #{"clojure.test"} aliases)))
+                      :when (and (vector? spec) (= 'clojure.test (first spec)))]
+                  (apply hash-map (rest spec)))
+        aliases (into #{"clojure.test"}
+                      (keep #(some-> (:as %) str) specs))
+        renames (into {}
+                      (for [spec specs
+                            [from to] (:rename spec)]
+                        [(str to) (str from)]))]
+    {:aliases aliases :renames renames}))
 
-(defn- test-op?
-  "Whether symbol `sym` denotes one of the clojure.test operators in `ops`.
-   A bare `is` counts — the universal :refer style; a qualified one counts
-   only when its namespace part resolves to clojure.test via `aliases`."
-  [aliases ops sym]
-  (and (symbol? sym)
-       (contains? ops (name sym))
-       (or (nil? (namespace sym))
-           (contains? aliases (namespace sym)))))
+(defn- resolve-op
+  "The clojure.test operator `sym` denotes, restricted to `ops`, or nil.
+
+   A bare `is` counts — the universal :refer style; a renamed one —
+   `:refer [is] :rename {is check}` — counts as its original; a qualified
+   one counts only when its namespace part is clojure.test or an alias of
+   it. Anything else, including `pred/is` from another library, is an
+   ordinary function (BOU-365 review, rounds 9–10)."
+  [{:keys [aliases renames]} ops sym]
+  (when (symbol? sym)
+    (let [n (name sym)
+          n (get renames n n)]
+      (when (and (contains? ops n)
+                 (or (nil? (namespace sym))
+                     (contains? aliases (namespace sym))))
+        n))))
 
 (defn- deftest-forms
   "Every deftest form in `forms` — bare or spelled through a clojure.test
    alias — at any depth, not descending into `quote` or `comment`: a draft
    in a comment form and a deftest-shaped list in quoted data are never
    defined."
-  [forms aliases]
+  [forms env]
   (let [out (volatile! [])]
     (letfn [(walk [x]
               (when (coll? x)
@@ -131,7 +142,7 @@
                   (cond
                     (and (symbol? head) (contains? #{"quote" "comment"} (name head)))
                     nil
-                    (test-op? aliases #{"deftest"} head)
+                    (resolve-op env #{"deftest"} head)
                     (do (vswap! out conj x) (run! walk (rest x)))
                     :else (run! walk (seq x))))))]
       (run! walk forms))
@@ -168,15 +179,15 @@
   "Every evaluated clojure.test `is`/`are` form under `form` — bare or via a
    clojure.test alias. `(pred/is true)` from some other namespace is an
    ordinary call and is not collected."
-  [form aliases]
+  [form env]
   (let [out (volatile! [])]
     (letfn [(walk [x]
               (when (coll? x)
                 (let [head (when (seq? x) (first x))]
                   (cond
                     (and (symbol? head) (contains? #{"quote" "comment"} (name head))) nil
-                    :else (do (when (test-op? aliases #{"is" "are"} head)
-                                (vswap! out conj x))
+                    :else (do (when-let [op (resolve-op env #{"is" "are"} head)]
+                                (vswap! out conj {:site x :op op}))
                               (run! walk (seq x)))))))]
       (walk form))
     @out))
@@ -185,25 +196,55 @@
   "The expression a single `is`/`are` actually asserts: the second element of
    an `is`, the template of an `are`. Only this counts — a nested shape in a
    message or under `false?` is someone's data, not a vacuous assertion."
-  [site]
-  (case (name (first site))
+  [op site]
+  (case op
     "is"  (second site)
     "are" (first (drop 2 site))
     nil))
 
-(defn- tautological?
-  "An identical-argument equality: `(= x x)` is true whatever x is, covering
-   `(is (= 1 1))` and the `are` template alike. Collection arguments are
-   excluded — `(= (rand) (rand))` is equal as forms and different as values —
+(defn- core-op?
+  "Whether `sym` is the clojure.core operator named `n` — unqualified or
+   spelled clojure.core/n. `(domain/some? v)` and `(domain/= x x)` are
+   somebody else's functions with their own semantics, not the core
+   predicates these checks reason about (BOU-365 review, round 10)."
+  [sym n]
+  (and (symbol? sym)
+       (= n (name sym))
+       (or (nil? (namespace sym))
+           (= "clojure.core" (namespace sym)))))
+
+(defn- pure-literal?
+  "No function call anywhere inside — the only rows for which substituting
+   one expression twice cannot yield two different values."
+  [x]
+  (if (coll? x)
+    (and (not (seq? x)) (every? pure-literal? (seq x)))
+    true))
+
+(defn- identical-arg-equality?
+  "`(= x x)`: core equality, three elements, identical non-collection args.
+   `(= (rand) (rand))` is excluded — equal as forms, different as values —
    and `(= ##NaN ##NaN)` needs no case: it is already unequal."
   [asserted]
   (boolean
    (and (seq? asserted)
-        (symbol? (first asserted))
-        (= "=" (name (first asserted)))
+        (core-op? (first asserted) "=")
         (= 3 (count asserted))
         (not (coll? (second asserted)))
         (= (second asserted) (nth asserted 2)))))
+
+(defn- tautological?
+  "Whether the site can only ever compare a value with itself.
+
+   For `is`, the asserted expression alone decides. For `are`, the template
+   is instantiated per row — `(are [x] (= x x) (next-value))` expands to
+   `(= (next-value) (next-value))`, two evaluations that may differ — so the
+   template shape condemns the site only when every row is a pure literal
+   (BOU-365 review, round 10)."
+  [op site asserted]
+  (and (identical-arg-equality? asserted)
+       (or (not= "are" op)
+           (every? pure-literal? (drop 3 site)))))
 
 (defn- placeholder-shape
   "Why the asserted expression can only succeed, or nil when it can fail.
@@ -217,18 +258,18 @@
     (true? asserted) "asserts the literal true"
 
     (and (seq? asserted) (symbol? (first asserted)))
-    (let [head (name (first asserted))
+    (let [op   (first asserted)
           args (rest asserted)
           [a b] args]
       (cond
-        (and (contains? #{"some?" "string?"} head)
+        (and (or (core-op? op "some?") (core-op? op "string?"))
              (= 1 (count args)) (string? a))
-        (str "(" head " <string literal>) is always true")
+        (str "(" (name op) " <string literal>) is always true")
 
-        (and (= "not" head) (= 1 (count args)) (contains? #{nil false} a))
+        (and (core-op? op "not") (= 1 (count args)) (contains? #{nil false} a))
         "(not nil/false) is always true"
 
-        (and (= "instance?" head) (= 2 (count args))
+        (and (core-op? op "instance?") (= 2 (count args))
              (symbol? a) (= "Exception" (name a)) (symbol? b))
         "(instance? Exception e) is always true inside catch Exception"
 
@@ -237,9 +278,12 @@
     :else nil))
 
 (defn- within?
+  "Edamame's :end-col is exclusive — one past the closing delimiter — so the
+   upper bound is strict: a form starting exactly at an exempt form's
+   :end-col is its neighbour, not its content (BOU-365 review, round 10)."
   [{:keys [row col end-row end-col]} [r c]]
   (and (or (> r row) (and (= r row) (>= c col)))
-       (or (< r end-row) (and (= r end-row) (<= c end-col)))))
+       (or (< r end-row) (and (= r end-row) (< c end-col)))))
 
 (defn- branch-findings
   "All findings for one reader feature set: assertion-free deftests, and
@@ -247,8 +291,8 @@
    can only succeed. Sites inside an exempted deftest are skipped."
   [file raw features]
   (let [parsed  (parse-forms raw features)
-        aliases (test-aliases parsed)
-        dtests  (deftest-forms parsed aliases)
+        env     (test-aliases parsed)
+        dtests  (deftest-forms parsed env)
         exempt  (for [f dtests :when (exempt? f)]
                   (select-keys (meta f) [:row :col :end-row :end-col]))
         exempt-site? (fn [site]
@@ -257,23 +301,23 @@
     (concat
      (for [form dtests
            :when (not (exempt? form))
-           :when (and (empty? (assertion-sites form aliases))
+           :when (and (empty? (assertion-sites form env))
                       (empty? (set/intersection (evaluated-heads form)
                                                 assertion-helper-names)))]
        {:file (str file) :line (or (:row (meta form)) 0)
         :content "deftest without any assertion (is/are/known helper)"})
      (for [top parsed
-           site (assertion-sites top aliases)
+           {:keys [site op]} (assertion-sites top env)
            :when (not (exempt-site? site))
            ;; The same hatch, one assertion wide: `^:wagoe/allow-placeholder
            ;; (t/is true "Snapshot matches")` marks a deliberate reporting
            ;; sentinel — snapshot_io.clj emits four — in the file, where a
            ;; reviewer sees it.
            :when (not (:wagoe/allow-placeholder (meta site)))
-           :let [asserted (asserted-expr site)
+           :let [asserted (asserted-expr op site)
                  shape    (placeholder-shape asserted)
                  finding  (cond
-                            (tautological? asserted)
+                            (tautological? op site asserted)
                             (str "tautology: " (pr-str asserted))
                             shape
                             (str "placeholder: " (pr-str asserted) " — " shape))]

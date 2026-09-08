@@ -376,3 +376,36 @@
     (is (= 1 (count (ct/scan-content-structural
                      "x.clj" (with-ns "(defn helper [] (t/is true \"sentinel\"))"))))
         "an unmarked one is a finding — the marker is what exempts")))
+
+;; =============================================================================
+;; Review round 10 (BOU-365) — and the full decision-surface sweep
+;; =============================================================================
+
+(deftest ^:unit the-gate-decision-surface
+  ;; Table-driven: every resolution/classification rule with its negative,
+  ;; so the next edge case has a row to join instead of a review round.
+  (doseq [[note path src expected]
+          [;; -- operator resolution --------------------------------------
+           ["bare is"                       "x.clj" "(deftest t (is true))" 1]
+           ["renamed is counts as is"       "x.clj" "(ns x (:require [clojure.test :refer [deftest is] :rename {is check}]))\n(deftest t (check true))" 1]
+           ["renamed is: real assertion passes" "x.clj" "(ns x (:require [clojure.test :refer [deftest is] :rename {is check}]))\n(deftest t (check (pos? (f))))" 0]
+           ["renamed deftest is a deftest"  "x.clj" "(ns x (:require [clojure.test :refer [deftest] :rename {deftest dt}]))\n(dt t (setup))" 1]
+           ["fully qualified clojure.test/is" "x.clj" "(deftest t (clojure.test/is true))" 1]
+           ;; -- shape operators must be core ------------------------------
+           ["domain/some? is not core some?" "x.clj" "(ns x (:require [my.domain :as domain] [clojure.test :refer [deftest is]]))\n(deftest t (is (domain/some? \"v\")))" 0]
+           ["clojure.core/some? still is"    "x.clj" "(deftest t (is (clojure.core/some? \"v\")))" 1]
+           ["domain/= is not core ="         "x.clj" "(ns x (:require [my.domain :as domain] [clojure.test :refer [deftest is]]))\n(deftest t (is (domain/= x x)))" 0]
+           ;; -- are rows decide the tautology ------------------------------
+           ["are with literal rows"          "x.clj" "(deftest t (are [x] (= x x) 1 2 3))" 1]
+           ["are with a call row can differ" "x.clj" "(deftest t (are [x] (= x x) (next-value)))" 0]
+           ["are with a call inside a row"   "x.clj" "(deftest t (are [x] (= x x) [1 (f)]))" 0]]]
+    (is (= expected (count (ct/scan-content-structural path src)))
+        (str note ": " (pr-str src)))))
+
+(deftest ^:unit the-exemption-stops-at-its-closing-paren
+  ;; Edamame's :end-col is exclusive; with <= the assertion starting exactly
+  ;; there was swallowed by the exemption.
+  (let [hits (ct/scan-content-structural
+              "x.clj"
+              "(deftest ^:wagoe/allow-placeholder stub (todo))(is true)")]
+    (is (= 1 (count hits)) "the adjacent (is true) is a neighbour, not exempt content")))
