@@ -51,11 +51,18 @@
    hex), return true iff the signature matches and the URL has not expired.
 
    The serving route is responsible for calling this before streaming a private
-   file — the local adapter cannot enforce it at the filesystem layer."
+   file — the local adapter cannot enforce it at the filesystem layer.
+
+   Total on any input a query string can produce: Ring gives a repeated
+   parameter as a vector, and a vector reached `(long …)` as a
+   ClassCastException — a 500 where the answer is simply \"not a valid
+   signature\" (BOU-346 review). Anything that is not a single scalar is
+   invalid, which is also the fail-closed reading of an ambiguous request."
   [signing-secret file-key {:keys [expires signature]}]
   (boolean
-   (when (and signing-secret file-key expires signature)
-     (let [exp (if (string? expires) (parse-long expires) expires)]
+   (when (and signing-secret file-key (string? signature))
+     (let [exp (cond (integer? expires) expires
+                     (string? expires)  (parse-long expires))]
        (and exp
             (>= (long exp) (now-epoch-seconds))
             (constant-time=? signature

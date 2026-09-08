@@ -149,6 +149,15 @@
       (is (= 403 (:status (call (assoc params "signature" "deadbeef"))))))
     (testing "a valid, unexpired signature is served"
       (is (= 200 (:status (call params)))))
+    (testing "a repeated parameter is a 403, not a 500"
+      ;; Ring hands a repeated query parameter over as a vector, and a vector
+      ;; reached (long …) as a ClassCastException — a generic 500 where the
+      ;; answer is \"not a valid signature\" (BOU-346 review).
+      (doseq [bad [(assoc params "expires" ["1" "2"])
+                   (assoc params "signature" ["a" "b"])
+                   (assoc params "expires" "not-a-number")]]
+        (is (= 403 (:status (call bad))) (pr-str bad))))
+
     (testing "without a configured secret the route serves as before"
       (is (= 200 (:status ((sut/download-file-handler svc nil)
                            {:path-params {:file-key key} :query-params {}})))))))
