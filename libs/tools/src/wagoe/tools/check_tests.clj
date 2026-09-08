@@ -267,10 +267,15 @@
    [{:deftests [...] :exempt [...]}], one entry per feature-branches element."
   [raw]
   (for [features feature-branches
-        :let [forms (deftest-forms (parse-forms raw features))]]
-    {:deftests (map #(select-keys (meta %) [:row :col :end-row :end-col]) forms)
-     :exempt   (for [f forms :when (exempt? f)]
-                 (select-keys (meta f) [:row :col :end-row :end-col]))}))
+        :let [parsed (parse-forms raw features)
+              forms  (deftest-forms parsed)]]
+    {:deftests   (map #(select-keys (meta %) [:row :col :end-row :end-col]) forms)
+     :exempt     (for [f forms :when (exempt? f)]
+                   (select-keys (meta f) [:row :col :end-row :end-col]))
+     ;; every is/are the reader sees as *evaluated*, anywhere in the file —
+     ;; #_-discarded, quoted and comment-wrapped ones never appear here
+     :assertions (for [top parsed, site (assertion-sites top)]
+                   (select-keys (meta site) [:row :col :end-row :end-col]))}))
 
 (defn exempted-extents
   "{:row :col :end-row :end-col} of every metadata-exempted deftest, across
@@ -308,13 +313,24 @@
         keep?    (fn [{:keys [offset]}]
                    (or (nil? offset)
                        (let [pos      (offset->row-col raw offset)
+                             ;; The shape regexes are text; the reader knows
+                             ;; whether the match ever runs. Each pattern
+                             ;; anchors on the `(` of an (is …), so the match
+                             ;; must START an evaluated site — containment is
+                             ;; not enough, since quoted data inside a live
+                             ;; assertion sits within its extent (round 7).
+                             runs?    (some (fn [{:keys [assertions]}]
+                                              (some #(= [(:row %) (:col %)] pos)
+                                                    assertions))
+                                            branches)
                              judging  (filter (fn [{:keys [deftests]}]
                                                 (some #(within? % pos) deftests))
                                               branches)]
-                         (or (empty? judging)
-                             (not-every? (fn [{:keys [exempt]}]
-                                           (some #(within? % pos) exempt))
-                                         judging)))))]
+                         (and runs?
+                              (or (empty? judging)
+                                  (not-every? (fn [{:keys [exempt]}]
+                                                (some #(within? % pos) exempt))
+                                              judging))))))]
     (->> (concat (filter keep? (scan-content file raw))
                  (scan-content-structural file raw))
          (map #(dissoc % :offset))

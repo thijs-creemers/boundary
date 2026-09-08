@@ -309,3 +309,23 @@
       (testing "a name marked in every branch is exempt everywhere"
         (is (empty? (scan "(deftest #?(:bb ^:wagoe/allow-placeholder stub :clj ^:wagoe/allow-placeholder stub) (is true))"))))
       (finally (doseq [x (reverse (file-seq dir))] (.delete x))))))
+
+;; =============================================================================
+;; Review round 7 (BOU-365)
+;; =============================================================================
+
+(deftest ^:unit the-shape-regexes-honour-unevaluated-regions-too
+  ;; The structural scan skipped #_/quote/comment; the regex scan still flagged
+  ;; placeholders inside them — one gate, two philosophies.
+  (let [dir  (.toFile (java.nio.file.Files/createTempDirectory
+                       "wagoe-ct7" (make-array java.nio.file.attribute.FileAttribute 0)))
+        f    (io/file dir "uneval_test.clj")
+        scan #(do (spit f %) (#'ct/scan-file f))]
+    (try
+      (testing "discarded, comment-wrapped and quoted (is true) never run"
+        (is (empty? (scan "(deftest t #_(is true) (is (pos? (f))))")))
+        (is (empty? (scan "(comment (deftest c (is true)))\n(deftest live (is (pos? (f))))")))
+        (is (empty? (scan "(deftest q (is (= x '(is true))))"))))
+      (testing "a live (is true) is still a finding"
+        (is (= 1 (count (scan "(deftest t (is true))")))))
+      (finally (doseq [x (reverse (file-seq dir))] (.delete x))))))
