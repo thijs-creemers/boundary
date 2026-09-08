@@ -13,6 +13,27 @@
 ;; Parsing Helpers
 ;; ============================================================================
 
+(defn- repeated-params
+  "Names in `m` whose value is not a single scalar.
+
+   Ring gives a repeated query or form parameter as a vector, and every
+   consumer here — `parse-int-safe`, `keyword`, `str/split` — throws on one,
+   turning `?expiration=1&expiration=2` into a 500. A repeated parameter is
+   also genuinely ambiguous: silently taking one of the two would weaken an
+   upload constraint the caller asked for. So it is refused, by name
+   (BOU-346 review)."
+  [m ks]
+  (seq (for [k ks
+             :let [v (get m k)]
+             :when (and (some? v) (not (string? v)))]
+         k)))
+
+(defn- repeated-params-response
+  [names]
+  (problem-details/bad-request
+   (str "Repeated parameter(s): " (str/join ", " names))
+   {:repeated-parameters (vec names)}))
+
 (defn- parse-int-safe
   "Parse string to int, returning nil on invalid input."
   [^String s]
@@ -81,21 +102,25 @@
   - allowed-extensions: Comma-separated list of allowed extensions"
   [storage-service]
   (fn [{:keys [multipart-params query-params]}]
-    (let [file (get multipart-params "file")
-          path (get multipart-params "path")
-          visibility-str (get multipart-params "visibility")
-          visibility (when visibility-str
-                       (keyword visibility-str))
+    (if-let [bad (or (repeated-params multipart-params ["path" "visibility"])
+                     (repeated-params query-params
+                                      ["max-size" "allowed-types" "allowed-extensions"]))]
+      (repeated-params-response bad)
+      (let [file (get multipart-params "file")
+            path (get multipart-params "path")
+            visibility-str (get multipart-params "visibility")
+            visibility (when visibility-str
+                         (keyword visibility-str))
 
-          ;; Extract validation options from query params
-          max-size (when-let [ms (get query-params "max-size")]
-                     (parse-int-safe ms))
-          allowed-types (when-let [types (get query-params "allowed-types")]
-                          (str/split types #","))
-          allowed-extensions (when-let [exts (get query-params "allowed-extensions")]
-                               (str/split exts #","))]
+            ;; Extract validation options from query params
+            max-size (when-let [ms (get query-params "max-size")]
+                       (parse-int-safe ms))
+            allowed-types (when-let [types (get query-params "allowed-types")]
+                            (str/split types #","))
+            allowed-extensions (when-let [exts (get query-params "allowed-extensions")]
+                                 (str/split exts #","))]
 
-      (if-not file
+        (if-not file
         (problem-details/bad-request
          "Missing required field: file"
          {:missing-field "file"})
@@ -123,7 +148,7 @@
           (catch Exception e
             (problem-details/internal-server-error
              "Failed to upload file"
-             {:error (.getMessage e)})))))))
+             {:error (.getMessage e)}))))))))
 
 (defn upload-image-handler
   "Handler for image upload endpoint with processing options.
@@ -136,15 +161,18 @@
   - thumbnail-size: Thumbnail max dimension in pixels (optional, default: 200)"
   [storage-service]
   (fn [{:keys [multipart-params]}]
-    (let [file (get multipart-params "file")
-          path (get multipart-params "path")
-          visibility-str (get multipart-params "visibility")
-          visibility (when visibility-str (keyword visibility-str))
-          create-thumbnail (= "true" (get multipart-params "create-thumbnail"))
-          thumbnail-size (when-let [size (get multipart-params "thumbnail-size")]
-                           (parse-int-safe size))]
+    (if-let [bad (repeated-params multipart-params
+                                  ["path" "visibility" "create-thumbnail" "thumbnail-size"])]
+      (repeated-params-response bad)
+      (let [file (get multipart-params "file")
+            path (get multipart-params "path")
+            visibility-str (get multipart-params "visibility")
+            visibility (when visibility-str (keyword visibility-str))
+            create-thumbnail (= "true" (get multipart-params "create-thumbnail"))
+            thumbnail-size (when-let [size (get multipart-params "thumbnail-size")]
+                             (parse-int-safe size))]
 
-      (if-not file
+        (if-not file
         (problem-details/bad-request
          "Missing required field: file"
          {:missing-field "file"})
@@ -174,7 +202,7 @@
           (catch Exception e
             (problem-details/internal-server-error
              "Failed to upload image"
-             {:error (.getMessage e)})))))))
+             {:error (.getMessage e)}))))))))
 
 (defn download-file-handler
   "Handler for file download endpoint.
@@ -252,12 +280,14 @@
   - expiration: Expiration time in seconds (optional, default: 3600)"
   [storage-service]
   (fn [{:keys [path-params query-params]}]
-    (let [file-key (get path-params :file-key)
-          expiration (if-let [exp (get query-params "expiration")]
-                       (parse-int-safe exp)
-                       3600)]
+    (if-let [bad (repeated-params query-params ["expiration"])]
+      (repeated-params-response bad)
+      (let [file-key (get path-params :file-key)
+            expiration (if-let [exp (get query-params "expiration")]
+                         (parse-int-safe exp)
+                         3600)]
 
-      (if-not file-key
+        (if-not file-key
         (problem-details/bad-request
          "Missing required parameter: file-key"
          {:missing-parameter "file-key"})
@@ -270,7 +300,7 @@
 
           (problem-details/not-found
            "File not found or URL generation failed"
-           {:file-key file-key}))))))
+           {:file-key file-key})))))))
 
 ;; ============================================================================
 ;; Route Definitions

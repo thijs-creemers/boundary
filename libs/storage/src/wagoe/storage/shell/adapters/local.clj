@@ -45,6 +45,28 @@
 (defn- now-epoch-seconds ^long []
   (quot (System/currentTimeMillis) 1000))
 
+(defn canonical-key
+  "A storage key in the one form signatures are computed over: forward
+   slashes.
+
+   `path-join` yields the platform separator, so on Windows a key is stored
+   and signed as `2a\\photo.jpg` while the URL — and therefore the key the
+   router hands back — carries `2a/photo.jpg`. Signing one form and verifying
+   the other made every freshly issued signed URL 403 on that platform
+   (BOU-346 review)."
+  [file-key]
+  (some-> file-key str (str/replace "\\" "/")))
+
+(defn- sign-url
+  "`base-url` with the `expires`/`signature` query a signed local URL carries.
+   One place, so the URL a stored file reports and the URL the route accepts
+   cannot disagree."
+  [signing-secret file-key base-url expiration-seconds]
+  (let [k       (canonical-key file-key)
+        expires (+ (now-epoch-seconds) (long (or expiration-seconds 3600)))
+        sig     (hmac-sha256-hex signing-secret (str k ":" expires))]
+    (str base-url "?expires=" expires "&signature=" sig)))
+
 (defn verify-signed-url
   "Verify a signed local-storage URL. Given the configured `signing-secret`, the
    `file-key`, and the URL's query params (`:expires` epoch-seconds, `:signature`
@@ -66,7 +88,8 @@
        (and exp
             (>= (long exp) (now-epoch-seconds))
             (constant-time=? signature
-                             (hmac-sha256-hex signing-secret (str file-key ":" exp))))))))
+                             (hmac-sha256-hex signing-secret
+                                              (str (canonical-key file-key) ":" exp))))))))
 
 (defn- compute-sha256
   "Compute SHA-256 hash of bytes."
@@ -174,8 +197,14 @@
             _ (Files/write file-path bytes (make-array java.nio.file.OpenOption 0))
 
             ;; Generate URL if url-base is configured
+            ;; Signed when a secret is configured: the download route rejects
+            ;; an unsigned URL, so reporting one would hand the caller a link
+            ;; that 403s (BOU-346 review).
             url (when url-base
-                  (str url-base "/" (str/replace storage-key "\\" "/")))]
+                  (let [base (str url-base "/" (canonical-key storage-key))]
+                    (if signing-secret
+                      (sign-url signing-secret storage-key base nil)
+                      base)))]
 
         (when logger
           (logging/info logger "File stored"
@@ -281,11 +310,9 @@
     ;; "<key>:<expires>", with an expiry the serving route enforces via
     ;; `verify-signed-url`). Without a secret we fall back to the plain public URL.
     (when url-base
-      (let [base (str url-base "/" (str/replace file-key "\\" "/"))]
+      (let [base (str url-base "/" (canonical-key file-key))]
         (if signing-secret
-          (let [expires (+ (now-epoch-seconds) (long (or expiration-seconds 3600)))
-                sig     (hmac-sha256-hex signing-secret (str file-key ":" expires))]
-            (str base "?expires=" expires "&signature=" sig))
+          (sign-url signing-secret file-key base expiration-seconds)
           base)))))
 
 ;; ============================================================================
