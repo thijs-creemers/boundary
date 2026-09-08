@@ -1,5 +1,6 @@
 (ns wagoe.tools.check-tests-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [wagoe.tools.check-tests :as ct]))
 
@@ -148,7 +149,12 @@
 
 (deftest ^:unit an-alias-qualified-deftest-is-still-a-deftest
   (is (= 1 (count (ct/scan-content-structural
-                   "q.clj" "(t/deftest empty-one (setup))")))))
+                   "q.clj"
+                   "(ns q (:require [clojure.test :as t]))\n(t/deftest empty-one (setup))"))))
+  (testing "an alias that is not clojure.test defines nothing"
+    (is (empty? (ct/scan-content-structural
+                 "q.clj"
+                 "(ns q (:require [other.lib :as t]))\n(t/deftest empty-one (setup))")))))
 
 (deftest ^:unit quoted-equality-data-is-not-a-tautology
   (is (empty? (ct/scan-content-structural
@@ -275,38 +281,45 @@
                "x.clj" "(deftest ^:unit ^:wagoe/allow-placeholder stub (todo))"))
       "on the name, alongside other metadata, it still exempts"))
 
-(deftest ^:unit the-babashka-reader-branch-is-scanned-too
-  ;; libs/tools tests execute under bb, so the :bb branch is the live one
-  ;; there — parsing with :clj alone made it invisible.
-  (is (= 1 (count (ct/scan-content-structural
-                   "x.clj" "#?(:bb (deftest x (setup)) :clj (def x 1))"))))
-  (testing "and a placeholder in the :clj branch is still seen"
+(deftest ^:unit reader-features-follow-the-test-surface
+  ;; libs/tools tests execute under bb (features #{:clj :bb}); everything
+  ;; else on the JVM (#{:clj}). A branch no runtime of the surface selects
+  ;; is dead code, not a finding.
+  (testing "on the bb surface the :bb arm is live"
     (is (= 1 (count (ct/scan-content-structural
-                     "x.clj" "#?(:clj (deftest x (setup)) :bb (def x 1))"))))))
+                     "libs/tools/test/x.clj"
+                     "#?(:bb (deftest x (setup)) :clj (def x 1))")))))
+  (testing "on a JVM surface the same file has no live deftest"
+    (is (empty? (ct/scan-content-structural
+                 "libs/core/test/x.clj"
+                 "#?(:bb (deftest x (setup)) :clj (def x 1))"))))
+  (testing "a dead :default arm under the bb surface is not a finding"
+    (is (empty? (ct/scan-content-structural
+                 "libs/tools/test/x.clj"
+                 "#?(:clj #?(:bb (deftest real (is (pos? (f)))) :default (deftest x (is true))))")))))
 
 ;; =============================================================================
 ;; Review round 6 (BOU-365)
 ;; =============================================================================
 
 (deftest ^:unit babashka-enables-both-features
-  ;; bb's real feature set is #{:clj :bb}: a nested #?(:clj #?(:bb …)) reaches
-  ;; the inner branch there, and #?(:clj A :bb B) takes A. An exclusive #{:bb}
-  ;; parse modelled a runtime that does not exist.
+  ;; bb's feature set is #{:clj :bb}: a nested #?(:clj #?(:bb …)) reaches the
+  ;; inner branch on the bb surface.
   (is (= 1 (count (ct/scan-content-structural
-                   "x.clj" "#?(:clj #?(:bb (deftest x (setup)) :default nil))")))
-      "the nested :bb branch is reachable under Babashka and gets scanned"))
+                   "libs/tools/test/x.clj"
+                   "#?(:clj #?(:bb (deftest x (setup)) :default nil))")))))
 
-(deftest ^:unit an-exemption-in-one-branch-does-not-shield-the-other
-  (let [dir  (.toFile (java.nio.file.Files/createTempDirectory
-                       "wagoe-ct6" (make-array java.nio.file.attribute.FileAttribute 0)))
-        f    (io/file dir "branch_test.clj")
-        scan #(do (spit f %) (#'ct/scan-file f))]
-    (try
-      (testing "a conditionally marked name leaves the unmarked variant live"
-        (is (= 1 (count (scan "(deftest #?(:bb stub :clj ^:wagoe/allow-placeholder stub) (is true))")))))
-      (testing "a name marked in every branch is exempt everywhere"
-        (is (empty? (scan "(deftest #?(:bb ^:wagoe/allow-placeholder stub :clj ^:wagoe/allow-placeholder stub) (is true))"))))
-      (finally (doseq [x (reverse (file-seq dir))] (.delete x))))))
+(deftest ^:unit a-conditional-marker-follows-the-arm-the-surface-reads
+  ;; Each surface reads exactly one arm of the conditional; the marker
+  ;; exempts only where the arm carrying it is the one selected.
+  (testing "bb surface reads the unmarked :bb arm — the placeholder is live"
+    (is (= 1 (count (ct/scan-content-structural
+                     "libs/tools/test/b.clj"
+                     "(deftest #?(:bb stub :clj ^:wagoe/allow-placeholder stub) (is true))")))))
+  (testing "JVM surface reads the marked :clj arm — exempt"
+    (is (empty? (ct/scan-content-structural
+                 "libs/core/test/b.clj"
+                 "(deftest #?(:bb stub :clj ^:wagoe/allow-placeholder stub) (is true))")))))
 
 ;; =============================================================================
 ;; Review round 7 (BOU-365)
@@ -343,14 +356,23 @@
   ;; The old regexes matched bare `(is` only, so `(t/is true)` passed by
   ;; accident of aliasing — four real sentinels in snapshot_io.clj were
   ;; invisible until the reader-based scan looked.
-  (is (= 1 (count (ct/scan-content-structural
-                   "x.clj" "(deftest x (t/is true))")))))
+  (let [hits (ct/scan-content-structural
+              "x.clj"
+              "(ns x (:require [clojure.test :as t]))\n(deftest x (t/is true))")]
+    (is (= 1 (count hits)))
+    (is (str/includes? (:content (first hits)) "placeholder")
+        "found as a placeholder assertion, not as a no-assertion deftest"))
+  (testing "an is from a different namespace is an ordinary call"
+    (is (empty? (ct/scan-content-structural
+                 "x.clj"
+                 "(ns x (:require [my.predicates :as pred] [clojure.test :refer [deftest is]]))\n(deftest x (pred/is true) (is (pos? (f))))")))))
 
 (deftest ^:unit the-hatch-also-works-one-assertion-wide
-  (is (empty? (ct/scan-content-structural
-               "x.clj"
-               "(defn helper [] ^:wagoe/allow-placeholder (t/is true \"sentinel\"))"))
-      "a marked reporting sentinel in a helper is deliberate")
-  (is (= 1 (count (ct/scan-content-structural
-                   "x.clj" "(defn helper [] (t/is true \"sentinel\"))")))
-      "an unmarked one is a finding — the marker is what exempts"))
+  (let [with-ns #(str "(ns x (:require [clojure.test :as t]))\n" %)]
+    (is (empty? (ct/scan-content-structural
+                 "x.clj"
+                 (with-ns "(defn helper [] ^:wagoe/allow-placeholder (t/is true \"sentinel\"))")))
+        "a marked reporting sentinel in a helper is deliberate")
+    (is (= 1 (count (ct/scan-content-structural
+                     "x.clj" (with-ns "(defn helper [] (t/is true \"sentinel\"))"))))
+        "an unmarked one is a finding — the marker is what exempts")))

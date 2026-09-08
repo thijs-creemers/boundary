@@ -52,10 +52,6 @@
   [content offset]
   (inc (count (filter #(= \newline %) (subs content 0 (min offset (count content)))))))
 
-(def assertion-heads
-  "Operators that make a deftest assert something."
-  #{"is" "are"})
-
 (def assertion-helper-names
   "Helpers that assert internally, matched on the name after any alias — so
    `snapshot-io/check-snapshot!` and a re-aliased copy both count. The named
@@ -78,18 +74,56 @@
                        :features     features
                        :read-cond    :allow}))
 
-(def ^:private feature-branches
-  "The feature sets of the runtimes this repository actually tests on:
-   the JVM (:clj) and Babashka, which enables *both* :clj and :bb — so
-   `#?(:clj A :bb B)` under bb takes A (first match), and a nested
-   `#?(:clj #?(:bb X))` does reach X. Findings union across the two."
-  [#{:clj} #{:clj :bb}])
+(defn- features-for
+  "The reader feature sets of the runtimes that actually execute `file`.
+
+   Per surface, not a union: libs/tools and scripts/ run under Babashka only
+   (AGENTS.md, test surfaces), whose reader enables *both* :clj and :bb —
+   `#?(:clj A :bb B)` takes A there, and a nested `#?(:clj #?(:bb X))`
+   reaches X. Everything else runs on the JVM only. Scanning a branch no
+   runtime selects reported dead placeholders and failed CI on valid tests
+   (BOU-365 review, round 9)."
+  [file]
+  (let [path (str file)]
+    (if (or (str/includes? path "libs/tools/test")
+            (str/includes? path "scripts/"))
+      [#{:clj :bb}]
+      [#{:clj}])))
+
+(defn- test-aliases
+  "The namespace names that mean clojure.test in `parsed` — clojure.test
+   itself plus every alias the ns form gives it. A qualified `pred/is` from
+   some other library is an ordinary function, not an assertion (BOU-365
+   review, round 9)."
+  [parsed]
+  (let [ns-form (first (filter #(and (seq? %) (symbol? (first %))
+                                     (= "ns" (name (first %))))
+                               parsed))
+        aliases (for [clause ns-form
+                      :when (and (seq? clause) (= :require (first clause)))
+                      spec  (rest clause)
+                      :when (and (vector? spec) (= 'clojure.test (first spec)))
+                      [k v] (partition 2 (rest spec))
+                      :when (= :as k)]
+                  (str v))]
+    (into #{"clojure.test"} aliases)))
+
+(defn- test-op?
+  "Whether symbol `sym` denotes one of the clojure.test operators in `ops`.
+   A bare `is` counts — the universal :refer style; a qualified one counts
+   only when its namespace part resolves to clojure.test via `aliases`."
+  [aliases ops sym]
+  (and (symbol? sym)
+       (contains? ops (name sym))
+       (or (nil? (namespace sym))
+           (contains? aliases (namespace sym)))))
 
 (defn- deftest-forms
-  "Every `(deftest …)`/`(t/deftest …)` form in `forms`, at any depth, not
-   descending into `quote` or `comment` — a draft in a comment form and a
-   deftest-shaped list in quoted data are never defined."
-  [forms]
+  "Every deftest form in `forms` — bare or spelled through a clojure.test
+   alias — at any depth, not descending into `quote` or `comment`: a draft
+   in a comment form and a deftest-shaped list in quoted data are never
+   defined."
+  [forms aliases]
   (let [out (volatile! [])]
     (letfn [(walk [x]
               (when (coll? x)
@@ -97,7 +131,7 @@
                   (cond
                     (and (symbol? head) (contains? #{"quote" "comment"} (name head)))
                     nil
-                    (and (symbol? head) (= "deftest" (name head)))
+                    (test-op? aliases #{"deftest"} head)
                     (do (vswap! out conj x) (run! walk (rest x)))
                     :else (run! walk (seq x))))))]
       (run! walk forms))
@@ -131,16 +165,17 @@
     @out))
 
 (defn- assertion-sites
-  "Every evaluated `is`/`are` form under `form`."
-  [form]
+  "Every evaluated clojure.test `is`/`are` form under `form` — bare or via a
+   clojure.test alias. `(pred/is true)` from some other namespace is an
+   ordinary call and is not collected."
+  [form aliases]
   (let [out (volatile! [])]
     (letfn [(walk [x]
               (when (coll? x)
                 (let [head (when (seq? x) (first x))]
                   (cond
                     (and (symbol? head) (contains? #{"quote" "comment"} (name head))) nil
-                    :else (do (when (and (symbol? head)
-                                         (contains? #{"is" "are"} (name head)))
+                    :else (do (when (test-op? aliases #{"is" "are"} head)
                                 (vswap! out conj x))
                               (run! walk (seq x)))))))]
       (walk form))
@@ -211,23 +246,24 @@
    evaluated sites whose asserted expression is a tautology or a shape that
    can only succeed. Sites inside an exempted deftest are skipped."
   [file raw features]
-  (let [parsed (parse-forms raw features)
-        dtests (deftest-forms parsed)
-        exempt (for [f dtests :when (exempt? f)]
-                 (select-keys (meta f) [:row :col :end-row :end-col]))
+  (let [parsed  (parse-forms raw features)
+        aliases (test-aliases parsed)
+        dtests  (deftest-forms parsed aliases)
+        exempt  (for [f dtests :when (exempt? f)]
+                  (select-keys (meta f) [:row :col :end-row :end-col]))
         exempt-site? (fn [site]
                        (let [m (meta site)]
                          (boolean (some #(within? % [(:row m) (:col m)]) exempt))))]
     (concat
      (for [form dtests
            :when (not (exempt? form))
-           :when (empty? (set/intersection
-                          (evaluated-heads form)
-                          (set/union assertion-heads assertion-helper-names)))]
+           :when (and (empty? (assertion-sites form aliases))
+                      (empty? (set/intersection (evaluated-heads form)
+                                                assertion-helper-names)))]
        {:file (str file) :line (or (:row (meta form)) 0)
         :content "deftest without any assertion (is/are/known helper)"})
      (for [top parsed
-           site (assertion-sites top)
+           site (assertion-sites top aliases)
            :when (not (exempt-site? site))
            ;; The same hatch, one assertion wide: `^:wagoe/allow-placeholder
            ;; (t/is true "Snapshot matches")` marks a deliberate reporting
@@ -251,7 +287,7 @@
    (BOU-250); `-main` exits the process, so it cannot serve as the seam."
   [file raw]
   (distinct
-   (mapcat #(branch-findings file raw %) feature-branches)))
+   (mapcat #(branch-findings file raw %) (features-for file))))
 
 (defn exempted-extents
   "{:row :col :end-row :end-col} of every metadata-exempted deftest, across
@@ -259,8 +295,9 @@
    inside branch-findings."
   [raw]
   (distinct
-   (for [features feature-branches
-         form (deftest-forms (parse-forms raw features))
+   (for [features [#{:clj} #{:clj :bb}]
+         :let [parsed (parse-forms raw features)]
+         form (deftest-forms parsed (test-aliases parsed))
          :when (exempt? form)]
      (select-keys (meta form) [:row :col :end-row :end-col]))))
 
