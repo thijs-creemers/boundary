@@ -3,7 +3,9 @@
             [clojure.java.io :as io]
             [wagoe.storage.shell.http-handlers :as sut]
             [wagoe.storage.shell.service :as service]
-            [wagoe.storage.shell.adapters.local :as local]))
+            [wagoe.storage.shell.adapters.local :as local]
+            [wagoe.storage.ports]
+            [clojure.string]))
 
 (def test-dir "target/test-http-handlers-storage")
 
@@ -119,3 +121,34 @@
       (let [resp (handler {:path-params {:file-key file-key}
                            :query-params {}})]
         (is (#{200 404} (:status resp)))))))
+
+(deftest ^:unit a-signed-download-route-refuses-what-it-did-not-sign
+  ;; A configured signing secret means the URLs this module issues expire.
+  ;; The route that serves them has to enforce that, or the signature is
+  ;; decoration — and mounting made this route reachable (BOU-346 review).
+  ;;
+  ;; Signed through the adapter's own generate-signed-url, so the test cannot
+  ;; drift from the format the module actually issues.
+  (let [secret  "s3cr3t"
+        key     "photo.jpg"
+        storage (local/create-local-storage {:base-path test-dir
+                                             :url-base  "http://x/files"
+                                             :signing-secret secret})
+        svc     (service/create-storage-service {:storage storage})
+        _       (do (.mkdirs (io/file test-dir))
+                    (spit (io/file test-dir key) "content"))
+        signed  (wagoe.storage.ports/generate-signed-url storage key 3600)
+        params  (into {} (for [kv (rest (clojure.string/split signed #"[?&]"))
+                               :let [[k v] (clojure.string/split kv #"=")]]
+                           [k v]))
+        handler (sut/download-file-handler svc secret)
+        call    #(handler {:path-params {:file-key key} :query-params %})]
+    (testing "unsigned is refused"
+      (is (= 403 (:status (call {})))))
+    (testing "a bogus signature is refused"
+      (is (= 403 (:status (call (assoc params "signature" "deadbeef"))))))
+    (testing "a valid, unexpired signature is served"
+      (is (= 200 (:status (call params)))))
+    (testing "without a configured secret the route serves as before"
+      (is (= 200 (:status ((sut/download-file-handler svc nil)
+                           {:path-params {:file-key key} :query-params {}})))))))

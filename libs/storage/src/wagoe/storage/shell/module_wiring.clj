@@ -63,7 +63,12 @@
 (defmethod ig/init-key :wagoe/storage-routes
   [_ {:keys [storage]}]
   (log/info "Initializing storage routes")
-  {:api    (http-handlers/storage-routes (:service storage))
+  ;; The signing secret travels with the routes: when one is configured the
+  ;; URLs this module issues are signed and expiring, and the route that
+  ;; serves them has to enforce that (BOU-346 review).
+  {:api    (http-handlers/storage-routes
+            (:service storage)
+            {:signing-secret (:signing-secret (:storage storage))})
    :web    []
    :static []})
 

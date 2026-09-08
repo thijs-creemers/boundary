@@ -89,13 +89,25 @@
    before the check existed (BOU-346 review)."
   [base-path file-key]
   (when (and base-path file-key)
-    (let [root   (.toAbsolutePath (Paths/get base-path (into-array String [])))
-          target (.resolve root (Paths/get (str file-key) (into-array String [])))
-          ;; normalize collapses `..`; toRealPath would also follow symlinks
-          ;; but demands existence, and callers ask about missing keys too.
-          norm   (.normalize target)]
-      (when (.startsWith norm (.normalize root))
-        (.toString norm)))))
+    (let [empty-opts (make-array java.nio.file.LinkOption 0)
+          real       (fn [^java.nio.file.Path p]
+                       (try (.toRealPath p empty-opts) (catch Exception _ nil)))
+          root       (.normalize (.toAbsolutePath (Paths/get base-path (into-array String []))))
+          root-real  (or (real root) root)
+          target     (.normalize (.resolve root (Paths/get (str file-key) (into-array String []))))
+          ;; Normalizing collapses `..`, but it does not resolve symlinks — a
+          ;; link inside the root pointing out of it passed the check and its
+          ;; target was read (BOU-346 review). toRealPath resolves them, and
+          ;; demands existence, so it is applied to the deepest ancestor that
+          ;; does exist: enough to catch a linked directory on the way down,
+          ;; while a key that is simply absent still answers "not here".
+          existing   (loop [p target]
+                       (cond (nil? p)                      nil
+                             (Files/exists p empty-opts)   p
+                             :else                         (recur (.getParent p))))
+          anchor     (some-> existing real)]
+      (when (and anchor (.startsWith anchor root-real))
+        (.toString target)))))
 
 (defn- sanitize-path
   "Sanitize a path segment to prevent directory traversal."

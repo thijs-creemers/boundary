@@ -3,6 +3,7 @@
 
   Provides Ring-compatible handlers for file operations."
   (:require [wagoe.storage.shell.service :as service]
+            [wagoe.storage.shell.adapters.local :as local]
             [wagoe.platform.core.http.problem-details :as problem-details]
             [clojure.java.io :as io]
             [clojure.string :as str])
@@ -180,25 +181,44 @@
 
   Path parameter:
   - file-key: Storage key of the file"
-  [storage-service]
-  (fn [{:keys [path-params]}]
-    (let [file-key (get path-params :file-key)]
+  ([storage-service] (download-file-handler storage-service nil))
+  ([storage-service signing-secret]
+   (fn [{:keys [path-params query-params]}]
+     (let [file-key (get path-params :file-key)]
 
-      (if-not file-key
-        (problem-details/bad-request
-         "Missing required parameter: file-key"
-         {:missing-parameter "file-key"})
+       (cond
+         (not file-key)
+         (problem-details/bad-request
+          "Missing required parameter: file-key"
+          {:missing-parameter "file-key"})
 
-        (if-let [file-data (service/download-file storage-service file-key)]
-          {:status 200
-           :headers {"Content-Type" (:content-type file-data)
-                     "Content-Length" (str (:size file-data))
-                     "Content-Disposition" (str "attachment; filename=\"" file-key "\"")}
-           :body (io/input-stream (:bytes file-data))}
+        ;; A configured signing secret means the URLs this module hands out are
+        ;; signed and expiring — so the route that serves them must say no to
+        ;; an unsigned or stale request, or the signature is decoration
+        ;; (libs/storage/AGENTS.md; BOU-346 review).
+         (and signing-secret
+              (not (local/verify-signed-url
+                    signing-secret file-key
+                    {:expires   (get query-params "expires")
+                     :signature (get query-params "signature")})))
+         (problem-details/problem-details->response
+          {:type   "https://api.example.com/problems/forbidden"
+           :title  "Forbidden"
+           :status 403
+           :detail "Missing, invalid or expired signature"})
 
-          (problem-details/not-found
-           "File not found"
-           {:file-key file-key}))))))
+         :else
+
+         (if-let [file-data (service/download-file storage-service file-key)]
+           {:status 200
+            :headers {"Content-Type" (:content-type file-data)
+                      "Content-Length" (str (:size file-data))
+                      "Content-Disposition" (str "attachment; filename=\"" file-key "\"")}
+            :body (io/input-stream (:bytes file-data))}
+
+           (problem-details/not-found
+            "File not found"
+            {:file-key file-key})))))))
 
 (defn delete-file-handler
   "Handler for file deletion endpoint.
@@ -269,7 +289,7 @@
   - storage-service: Instance of IStorageService
   - options: Map with optional :base-path (default: \"/storage\")"
   ([storage-service] (storage-routes storage-service {}))
-  ([storage-service {:keys [base-path] :or {base-path "/storage"}}]
+  ([storage-service {:keys [base-path signing-secret] :or {base-path "/storage"}}]
    ;; `{*file-key}` catches the whole key, slashes included: the local adapter
    ;; sharded every key it hands back (`2a/photo.jpg`), so a single-segment
    ;; `:file-key` could never match the key it had just returned (BOU-346).
@@ -284,7 +304,7 @@
              :description "Upload an image and optionally create a thumbnail."}}]
 
     [(str base-path "/download/{*file-key}")
-     {:get {:handler (download-file-handler storage-service)
+     {:get {:handler (download-file-handler storage-service signing-secret)
             :summary "Download a file"
             :swagger file-key-swagger}}]
 
