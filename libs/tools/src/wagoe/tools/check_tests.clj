@@ -84,7 +84,7 @@
    runtime selects reported dead placeholders and failed CI on valid tests
    (BOU-365 review, round 9)."
   [file]
-  (let [path (str file)]
+  (let [path (str/replace (str file) "\\" "/")]   ; File.toString is \ on Windows
     (if (or (str/includes? path "libs/tools/test")
             (str/includes? path "scripts/"))
       [#{:clj :bb}]
@@ -109,8 +109,14 @@
         renames (into {}
                       (for [spec specs
                             [from to] (:rename spec)]
-                        [(str to) (str from)]))]
-    {:aliases aliases :renames renames}))
+                        [(str to) (str from)]))
+        excluded (set (for [clause ns-form
+                            :when (and (seq? clause) (= :refer-clojure (first clause)))
+                            [k v] (partition 2 (rest clause))
+                            :when (= :exclude k)
+                            sym v]
+                        (str sym)))]
+    {:aliases aliases :renames renames :core-excluded excluded}))
 
 (defn- resolve-op
   "The clojure.test operator `sym` denotes, restricted to `ops`, or nil.
@@ -129,6 +135,28 @@
                      (contains? aliases (namespace sym))))
         n))))
 
+(defn- core-op?
+  "Whether `sym` is the clojure.core operator named `n` — unqualified, or
+   spelled clojure.core/n. `(domain/some? v)` and `(domain/= x x)` are
+   somebody else's functions with their own semantics (round 10), and an
+   unqualified name the ns excludes via `:refer-clojure :exclude` is a local
+   definition, not core (round 11). Lexical shadowing — `(let [= f] …)` —
+   is out of a static scanner's reach; the escape hatch covers that corner."
+  [{:keys [core-excluded]} sym n]
+  (and (symbol? sym)
+       (= n (name sym))
+       (or (= "clojure.core" (namespace sym))
+           (and (nil? (namespace sym))
+                (not (contains? core-excluded n))))))
+
+(defn- unevaluated-head?
+  "Whether `head` is the real quote or comment operator — the reader's bare
+   `quote`, or core `comment`. `(foo/comment …)` is an ordinary qualified
+   call whose arguments run (BOU-365 review, round 11)."
+  [env head]
+  (boolean (or (core-op? env head "quote")
+               (core-op? env head "comment"))))
+
 (defn- deftest-forms
   "Every deftest form in `forms` — bare or spelled through a clojure.test
    alias — at any depth, not descending into `quote` or `comment`: a draft
@@ -140,7 +168,7 @@
               (when (coll? x)
                 (let [head (when (seq? x) (first x))]
                   (cond
-                    (and (symbol? head) (contains? #{"quote" "comment"} (name head)))
+                    (unevaluated-head? env head)
                     nil
                     (resolve-op env #{"deftest"} head)
                     (do (vswap! out conj x) (run! walk (rest x)))
@@ -159,14 +187,14 @@
 
 (defn- evaluated-heads
   "Names of every operator position reachable at runtime under `form` —
-   `quote`d and `comment`ed subtrees excluded."
-  [form]
+   real `quote`/`comment` subtrees excluded."
+  [form env]
   (let [out (volatile! #{})]
     (letfn [(walk [x]
               (when (coll? x)
                 (let [head (when (seq? x) (first x))]
                   (when (symbol? head)
-                    (if (contains? #{"quote" "comment"} (name head))
+                    (if (unevaluated-head? env head)
                       nil
                       (do (vswap! out conj (name head))
                           (run! walk (rest x)))))
@@ -185,7 +213,7 @@
               (when (coll? x)
                 (let [head (when (seq? x) (first x))]
                   (cond
-                    (and (symbol? head) (contains? #{"quote" "comment"} (name head))) nil
+                    (unevaluated-head? env head) nil
                     :else (do (when-let [op (resolve-op env #{"is" "are"} head)]
                                 (vswap! out conj {:site x :op op}))
                               (run! walk (seq x)))))))]
@@ -202,17 +230,6 @@
     "are" (first (drop 2 site))
     nil))
 
-(defn- core-op?
-  "Whether `sym` is the clojure.core operator named `n` — unqualified or
-   spelled clojure.core/n. `(domain/some? v)` and `(domain/= x x)` are
-   somebody else's functions with their own semantics, not the core
-   predicates these checks reason about (BOU-365 review, round 10)."
-  [sym n]
-  (and (symbol? sym)
-       (= n (name sym))
-       (or (nil? (namespace sym))
-           (= "clojure.core" (namespace sym)))))
-
 (defn- pure-literal?
   "No function call anywhere inside — the only rows for which substituting
    one expression twice cannot yield two different values."
@@ -225,10 +242,10 @@
   "`(= x x)`: core equality, three elements, identical non-collection args.
    `(= (rand) (rand))` is excluded — equal as forms, different as values —
    and `(= ##NaN ##NaN)` needs no case: it is already unequal."
-  [asserted]
+  [env asserted]
   (boolean
    (and (seq? asserted)
-        (core-op? (first asserted) "=")
+        (core-op? env (first asserted) "=")
         (= 3 (count asserted))
         (not (coll? (second asserted)))
         (= (second asserted) (nth asserted 2)))))
@@ -241,8 +258,8 @@
    `(= (next-value) (next-value))`, two evaluations that may differ — so the
    template shape condemns the site only when every row is a pure literal
    (BOU-365 review, round 10)."
-  [op site asserted]
-  (and (identical-arg-equality? asserted)
+  [env op site asserted]
+  (and (identical-arg-equality? env asserted)
        (or (not= "are" op)
            (every? pure-literal? (drop 3 site)))))
 
@@ -253,7 +270,7 @@
    accepted exception, and fall out structurally: only the *literals* nil
    and false under `not` are flagged, never a call. (instance? Exception e)
    is flagged because inside `catch Exception` it is always true."
-  [asserted]
+  [env asserted]
   (cond
     (true? asserted) "asserts the literal true"
 
@@ -262,14 +279,14 @@
           args (rest asserted)
           [a b] args]
       (cond
-        (and (or (core-op? op "some?") (core-op? op "string?"))
+        (and (or (core-op? env op "some?") (core-op? env op "string?"))
              (= 1 (count args)) (string? a))
         (str "(" (name op) " <string literal>) is always true")
 
-        (and (core-op? op "not") (= 1 (count args)) (contains? #{nil false} a))
+        (and (core-op? env op "not") (= 1 (count args)) (contains? #{nil false} a))
         "(not nil/false) is always true"
 
-        (and (core-op? op "instance?") (= 2 (count args))
+        (and (core-op? env op "instance?") (= 2 (count args))
              (symbol? a) (= "Exception" (name a)) (symbol? b))
         "(instance? Exception e) is always true inside catch Exception"
 
@@ -302,7 +319,7 @@
      (for [form dtests
            :when (not (exempt? form))
            :when (and (empty? (assertion-sites form env))
-                      (empty? (set/intersection (evaluated-heads form)
+                      (empty? (set/intersection (evaluated-heads form env)
                                                 assertion-helper-names)))]
        {:file (str file) :line (or (:row (meta form)) 0)
         :content "deftest without any assertion (is/are/known helper)"})
@@ -315,9 +332,9 @@
            ;; reviewer sees it.
            :when (not (:wagoe/allow-placeholder (meta site)))
            :let [asserted (asserted-expr op site)
-                 shape    (placeholder-shape asserted)
+                 shape    (placeholder-shape env asserted)
                  finding  (cond
-                            (tautological? op site asserted)
+                            (tautological? env op site asserted)
                             (str "tautology: " (pr-str asserted))
                             shape
                             (str "placeholder: " (pr-str asserted) " — " shape))]

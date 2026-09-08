@@ -398,7 +398,16 @@
            ;; -- are rows decide the tautology ------------------------------
            ["are with literal rows"          "x.clj" "(deftest t (are [x] (= x x) 1 2 3))" 1]
            ["are with a call row can differ" "x.clj" "(deftest t (are [x] (= x x) (next-value)))" 0]
-           ["are with a call inside a row"   "x.clj" "(deftest t (are [x] (= x x) [1 (f)]))" 0]]]
+           ["are with a call inside a row"   "x.clj" "(deftest t (are [x] (= x x) [1 (f)]))" 0]
+           ;; -- round 11 ---------------------------------------------------
+           ["windows path still selects the bb surface"
+            "libs\\tools\\test\\x.clj" "#?(:bb (deftest x (setup)) :clj (def x 1))" 1]
+           ["foo/comment is an ordinary call whose arguments run"
+            "x.clj" "(ns x (:require [my.lib :as foo] [clojure.test :refer [deftest is]]))\n(deftest t (foo/comment (is true)) (is (pos? (f))))" 1]
+           ["bare comment still prunes"
+            "x.clj" "(deftest t (comment (is true)) (is (pos? (f))))" 0]
+           ["refer-clojure :exclude makes bare = a local fn"
+            "x.clj" "(ns x (:refer-clojure :exclude [=]) (:require [clojure.test :refer [deftest is]]))\n(deftest t (is (= x x)))" 0]]]
     (is (= expected (count (ct/scan-content-structural path src)))
         (str note ": " (pr-str src)))))
 
