@@ -44,7 +44,14 @@
         svc          (service/create-storage-service
                       {:storage file-storage :image-processor processor :logger logger})]
     (log/info "Storage component initialized" {:provider provider})
-    {:provider provider :storage file-storage :service svc}))
+    {:provider       provider
+     :storage        file-storage
+     :service        svc
+     ;; Where the routes sit, when they are mounted. Configurable because a
+     ;; signed URL has to arrive at the route that verifies it: the adapter
+     ;; emits `<url-base>/<key>?expires&signature`, so `:url-base` must be
+     ;; this route's public URL (BOU-346 review).
+     :http-base-path (:http-base-path config)}))
 
 (defmethod ig/halt-key! :wagoe/storage
   [_ {:keys [provider storage]}]
@@ -68,7 +75,8 @@
   ;; serves them has to enforce that (BOU-346 review).
   {:api    (http-handlers/storage-routes
             (:service storage)
-            {:signing-secret (:signing-secret (:storage storage))})
+            {:signing-secret (:signing-secret (:storage storage))
+             :base-path      (:http-base-path storage)})
    :web    []
    :static []})
 
@@ -92,7 +100,15 @@
    download, delete and signed-URL all act on any key the caller names, and
    the adapter cannot tell a private object from a public one. Mounting them
    on every application that stores a file would publish anonymous delete.
-   Enable it when the routes sit behind your own auth."
+   Enable it when the routes sit behind your own auth.
+
+   Two settings have to agree when `:signing-secret` is set, and nothing can
+   check it from here: `:http-base-path` places the routes (default
+   `/storage`, mounted under `/api/v1`), and `:url-base` is the public URL a
+   signed link points at. The adapter emits `<url-base>/<key>`, so `:url-base`
+   must resolve to this module's download route — the only thing that verifies
+   the signature. Aimed at a CDN instead, the link works and is never checked
+   (BOU-346 review)."
   [settings _ctx]
   (let [settings (or settings {:provider :local})
         ;; Explicitly true, not merely truthy. Config values reach this through

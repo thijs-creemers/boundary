@@ -334,7 +334,8 @@
   - storage-service: Instance of IStorageService
   - options: Map with optional :base-path (default: \"/storage\")"
   ([storage-service] (storage-routes storage-service {}))
-  ([storage-service {:keys [base-path signing-secret] :or {base-path "/storage"}}]
+  ([storage-service {:keys [base-path signing-secret]}]
+   (let [base-path (or base-path "/storage")]
    ;; `{*file-key}` catches the whole key, slashes included: the local adapter
    ;; sharded every key it hands back (`2a/photo.jpg`), so a single-segment
    ;; `:file-key` could never match the key it had just returned (BOU-346).
@@ -365,4 +366,4 @@
                       [{:name "file-key" :in "path" :required true :type "string"
                         :description "Storage key of the file"}
                        {:name "expiration" :in "query" :required false :type "integer"
-                        :description "Signed-URL lifetime in seconds (default 3600)"}]}}}]]))
+                        :description "Signed-URL lifetime in seconds (default 3600)"}]}}}]])))

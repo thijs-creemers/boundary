@@ -330,7 +330,11 @@
 
   Options:
   - :base-path - Root directory for file storage (required)
-  - :url-base - Base URL for accessing files (optional)
+  - :url-base - Public base URL files are reachable at (optional). A URL is
+    emitted as `<url-base>/<key>`, so with :signing-secret set this must be
+    the public URL of the mounted download route — that route is the only
+    thing that verifies the signature (BOU-346). Pointing it at a static
+    server or CDN instead means the signature is never checked.
   - :signing-secret - HMAC key enabling signed, expiring URLs (optional)
   - :create-directories? - Create base directory if missing (default: true)
   - :logger - Logger instance (optional)"
