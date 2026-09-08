@@ -31,6 +31,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **Three modules now do what they shipped** (BOU-346). Email's queued mode is wired,
+  storage's routes mount, and configured FCM push no longer throws at boot.
+
 - **`bb scaffold` reads its options with the same parser the scaffolder runs** (BOU-378).
   One parser decides what `--output-dir` and friends mean; the namespace cannot drift.
 - **`bb scaffold integrate` no longer re-indents your whole config** (BOU-359). It adds

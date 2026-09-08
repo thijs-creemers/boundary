@@ -24,3 +24,11 @@
     (is (= 0 (ports/queue-size queue)))
     (ports/queue-email! queue {:to ["x@y.z"] :from "a@b.c" :subject "s" :body "b"})
     (is (= 1 (ports/queue-size queue)))))
+
+(deftest ^:unit ig-config-ships-the-queue-the-docs-promise
+  ;; BOU-346: the queued mode was documented, its adapter shipped, and nothing
+  ;; ever wired it.
+  (let [{:keys [components]} (wagoe.email.shell.module-wiring/ig-config nil {})]
+    (is (contains? components :wagoe/email-queue))
+    (is (some? (:sender (:wagoe/email-queue components)))
+        "the queue wraps whatever sender is configured")))

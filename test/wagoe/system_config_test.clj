@@ -258,13 +258,8 @@
         ;; assemble. Every entry needs a reason; an entry that stops exempting
         ;; anything fails below, so the list shrinks rather than rots.
         not-assembled
-        {:wagoe/admin          "settings passthrough with no consumer — admin's components take the settings map directly. Dead key; removing it is BOU-346"
-         :wagoe/user-http-handler "superseded by platform's :wagoe/http-handler, which composes every module's routes. Dead key; removing it is BOU-346"
-         :wagoe/auth-user-repository "no consumer: :wagoe/auth-service takes :wagoe/user-repository. Dead key; removing it is BOU-346"
-         :wagoe/email-queue    "opt-in outbox nothing wires yet; BOU-346 decides whether it ships or goes"
-         :wagoe/audience-routes "REAL: audience ships HTTP routes no application mounts — the workflow-db-schema defect, in another module. BOU-346"
-         :wagoe/storage-routes  "REAL: storage ships HTTP routes no application mounts. BOU-346"
-         :wagoe.push/job-handlers "REAL: push enqueues :push/send and :push/broadcast jobs and nothing registers the handlers, so they are never processed. BOU-346"}
+        {:wagoe/audience-routes "blocked on BOU-419: the audience service requires an IUserDataSource that has no implementation anywhere, so the module cannot boot — mounting its routes waits on that adapter"
+         :wagoe.push/job-handlers "blocked on BOU-418: the jobs module wires no runtime (no registry, no worker loop), so there is nothing to register these handlers with"}
 
         defined  (into {}
                        (for [[_ lib] modules/framework-modules

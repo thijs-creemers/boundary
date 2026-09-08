@@ -5,7 +5,6 @@
   components so that shared system wiring does not depend directly on
   user shell namespaces."
   (:require [wagoe.user.shell.persistence :as user-persistence]
-            [wagoe.user.shell.auth-persistence :as auth-persistence]
             [wagoe.user.shell.service :as user-service]
             [wagoe.user.shell.auth :as user-auth]
             [wagoe.user.shell.mfa :as user-mfa]
@@ -31,17 +30,6 @@
 ;; =============================================================================
 ;; Auth User Repository
 ;; =============================================================================
-
-(defmethod ig/init-key :wagoe/auth-user-repository
-  [_ {:keys [ctx]}]
-  (log/info "Initializing auth user repository")
-  (let [repo (auth-persistence/create-auth-user-repository ctx)]
-    (log/info "Auth user repository initialized")
-    repo))
-
-(defmethod ig/halt-key! :wagoe/auth-user-repository
-  [_ _repo]
-  (log/info "Auth user repository halted (no cleanup needed)"))
 
 ;; =============================================================================
 ;; Session Repository
@@ -171,23 +159,6 @@
 (defmethod ig/halt-key! :wagoe/user-http-middleware
   [_ _mw]
   (log/info "User HTTP middleware halted (no cleanup needed)"))
-
-;; =============================================================================
-;; User HTTP Handler (DEPRECATED - Legacy Support REMOVED)
-;; =============================================================================
-
-(defmethod ig/init-key :wagoe/user-http-handler
-  [_ {:keys [user-service config]}]
-  (throw (ex-info "DEPRECATED: :wagoe/user-http-handler no longer supported"
-                  {:type :configuration-error
-                   :message "Legacy create-handler function has been removed"
-                   :migration "Use :wagoe/user-routes with top-level :wagoe/http-handler instead"
-                   :user-service user-service
-                   :config config})))
-
-(defmethod ig/halt-key! :wagoe/user-http-handler
-  [_ _handler]
-  (log/info "User HTTP handler halted"))
 
 ;; =============================================================================
 ;; User Database Schema

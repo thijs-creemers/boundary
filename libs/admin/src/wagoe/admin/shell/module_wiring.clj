@@ -20,10 +20,6 @@
 ;; Admin Config Component (pass-through holder referenced by other components)
 ;; =============================================================================
 
-(defmethod ig/init-key :wagoe/admin [_ config] config)
-
-(defmethod ig/halt-key! :wagoe/admin [_ _] nil)
-
 ;; =============================================================================
 ;; Schema Provider Component
 ;; =============================================================================

@@ -71,3 +71,19 @@
   [_ _routes]
   ;; Routes are pure data — no cleanup.
   nil)
+
+;; =============================================================================
+;; Module graph
+;; =============================================================================
+
+(defn ig-config
+  "This module's Integrant entries, for `wagoe.platform.shell.system.config`.
+
+   The routes ship with the module (BOU-346): storage used to define
+   `:wagoe/storage-routes` that no application ever mounted — the
+   workflow-db-schema defect, in another module."
+  [settings _ctx]
+  {:components
+   {:wagoe/storage        (or settings {:provider :local})
+    :wagoe/storage-routes {:storage (ig/ref :wagoe/storage)}}
+   :routes [(ig/ref :wagoe/storage-routes)]})

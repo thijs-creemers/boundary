@@ -50,3 +50,13 @@
             "paths carry no /api prefix (versioning adds it)"))
       (ig/halt-key! :wagoe/storage component))
     (finally (cleanup))))
+
+(deftest ^:unit ig-config-assembles-service-and-mounts-routes
+  ;; BOU-346: the routes component existed and no application ever mounted it.
+  ;; The module owns its graph now — settings in, service + routes out, routes
+  ;; contributed like every mounted module's.
+  (let [{:keys [components routes]} (wagoe.storage.shell.module-wiring/ig-config
+                                     {:provider :local :root "/tmp/x"} {})]
+    (is (contains? components :wagoe/storage))
+    (is (contains? components :wagoe/storage-routes))
+    (is (= 1 (count routes)) "the routes ref reaches the http-handler")))
