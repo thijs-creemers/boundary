@@ -29,10 +29,24 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ## [Unreleased]
 
+### Breaking
+
+- **`:wagoe/user-http-handler` is removed** (BOU-346). It has thrown on init since it was
+  deprecated; use `:wagoe/user-routes` with the top-level `:wagoe/http-handler`.
+
+### Deprecated
+
+- **`:wagoe/admin` and `:wagoe/auth-user-repository`** (BOU-346), both without consumers.
+  Drop them from your config; `:wagoe/auth-service` takes `:wagoe/user-repository`.
+
 ### Fixed
 
-- **Three modules now do what they shipped** (BOU-346). Email's queued mode is wired,
-  storage's routes mount, and configured FCM push no longer throws at boot.
+- **Email's queued mode is wired** (BOU-346). `:wagoe/email-queue` ships over the sender
+  you configured, instead of being documented and never built.
+- **Configured FCM push no longer throws at boot** (BOU-346). Set `:fcm-credentials`
+  `{:project-id … :credentials-path …}`; the old nested `:credentials` never worked.
+- **Storage can serve its own routes** (BOU-346). Opt in with `:expose-http? true`, and
+  put them behind your auth — they have none. Sharded keys now match.
 
 - **`bb scaffold` reads its options with the same parser the scaffolder runs** (BOU-378).
   One parser decides what `--output-dir` and friends mean; the namespace cannot drift.

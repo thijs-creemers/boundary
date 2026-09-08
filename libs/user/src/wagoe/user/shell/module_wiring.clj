@@ -5,6 +5,7 @@
   components so that shared system wiring does not depend directly on
   user shell namespaces."
   (:require [wagoe.user.shell.persistence :as user-persistence]
+            [wagoe.user.shell.auth-persistence :as auth-persistence]
             [wagoe.user.shell.service :as user-service]
             [wagoe.user.shell.auth :as user-auth]
             [wagoe.user.shell.mfa :as user-mfa]
@@ -15,6 +16,19 @@
 ;; =============================================================================
 ;; User Repository
 ;; =============================================================================
+
+;; DEPRECATED (BOU-346): no consumer — :wagoe/auth-service takes
+;; :wagoe/user-repository. Kept for one release: it builds a working
+;; repository when wired by hand, and the stability policy does not remove a
+;; working key in the release that first deprecates it.
+(defmethod ig/init-key :wagoe/auth-user-repository
+  [_ {:keys [ctx]}]
+  (log/info "Initializing auth user repository")
+  (auth-persistence/create-auth-user-repository ctx))
+
+(defmethod ig/halt-key! :wagoe/auth-user-repository
+  [_ _repo]
+  (log/info "Auth user repository halted (no cleanup needed)"))
 
 (defmethod ig/init-key :wagoe/user-repository
   [_ {:keys [ctx]}]

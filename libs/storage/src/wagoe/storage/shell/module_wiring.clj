@@ -79,11 +79,19 @@
 (defn ig-config
   "This module's Integrant entries, for `wagoe.platform.shell.system.config`.
 
-   The routes ship with the module (BOU-346): storage used to define
-   `:wagoe/storage-routes` that no application ever mounted — the
-   workflow-db-schema defect, in another module."
+   The routes component is assembled with the module (BOU-346 — it used to be
+   defined and never built by anyone), but mounting it is opt-in:
+   `:expose-http? true`.
+
+   Opt-in because these endpoints carry no authorization of their own: upload,
+   download, delete and signed-URL all act on any key the caller names, and
+   the adapter cannot tell a private object from a public one. Mounting them
+   on every application that stores a file would publish anonymous delete.
+   Enable it when the routes sit behind your own auth."
   [settings _ctx]
-  {:components
-   {:wagoe/storage        (or settings {:provider :local})
-    :wagoe/storage-routes {:storage (ig/ref :wagoe/storage)}}
-   :routes [(ig/ref :wagoe/storage-routes)]})
+  (let [settings (or settings {:provider :local})]
+    (cond-> {:components
+             {:wagoe/storage        settings
+              :wagoe/storage-routes {:storage (ig/ref :wagoe/storage)}}}
+      (:expose-http? settings)
+      (assoc :routes [(ig/ref :wagoe/storage-routes)]))))

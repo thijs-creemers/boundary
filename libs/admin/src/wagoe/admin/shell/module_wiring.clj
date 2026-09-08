@@ -24,6 +24,14 @@
 ;; Schema Provider Component
 ;; =============================================================================
 
+;; DEPRECATED (BOU-346): a settings passthrough with no consumer — admin's
+;; three components take the settings map directly. Kept for one release
+;; because it works when wired by hand, and the stability policy does not
+;; remove a working key in the release that first deprecates it.
+(defmethod ig/init-key :wagoe/admin [_ config] config)
+
+(defmethod ig/halt-key! :wagoe/admin [_ _] nil)
+
 (defmethod ig/init-key :wagoe/admin-schema-provider
   [_ {:keys [db-ctx config malli-schemas]}]
   (schema-repo/create-schema-repository db-ctx config malli-schemas))

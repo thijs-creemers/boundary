@@ -270,6 +270,9 @@
   - options: Map with optional :base-path (default: \"/storage\")"
   ([storage-service] (storage-routes storage-service {}))
   ([storage-service {:keys [base-path] :or {base-path "/storage"}}]
+   ;; `{*file-key}` catches the whole key, slashes included: the local adapter
+   ;; sharded every key it hands back (`2a/photo.jpg`), so a single-segment
+   ;; `:file-key` could never match the key it had just returned (BOU-346).
    [[(str base-path "/upload")
      {:post {:handler     (upload-file-handler storage-service)
              :summary     "Upload a file"
@@ -280,17 +283,17 @@
              :summary     "Upload an image with optional processing"
              :description "Upload an image and optionally create a thumbnail."}}]
 
-    [(str base-path "/download/:file-key")
+    [(str base-path "/download/{*file-key}")
      {:get {:handler (download-file-handler storage-service)
             :summary "Download a file"
             :swagger file-key-swagger}}]
 
-    [(str base-path "/delete/:file-key")
+    [(str base-path "/delete/{*file-key}")
      {:delete {:handler (delete-file-handler storage-service)
                :summary "Delete a file"
                :swagger file-key-swagger}}]
 
-    [(str base-path "/url/:file-key")
+    [(str base-path "/url/{*file-key}")
      {:get {:handler (get-file-url-handler storage-service)
             :summary "Get a direct or signed URL for a file"
             :swagger {:parameters
