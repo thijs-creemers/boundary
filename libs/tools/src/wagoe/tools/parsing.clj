@@ -4,8 +4,7 @@
 ;; Shared Clojure source-file parsing utilities used by the quality-gate
 ;; checkers (check_fcis, check_deps, check_tests).
 
-(ns wagoe.tools.parsing
-  (:require [clojure.string :as str]))
+(ns wagoe.tools.parsing)
 
 ;; ---------------------------------------------------------------------------
 ;; Source stripping — remove comments and string interiors so regex
@@ -13,30 +12,50 @@
 ;; ---------------------------------------------------------------------------
 
 (defn strip-comments-and-strings
-  "Replace comment text and string contents with spaces (preserving line
-   structure) so that regex matches only apply to executable code.
-   - Standalone character literals (\\\" outside strings) are replaced first
-   - String literals: contents between double-quotes -> spaces
-     (handles escaped quotes inside strings)
-   - Comment lines: everything from ; to end of line -> spaces"
+  "Replace character literals, whole string literals (delimiters included)
+   and comments with spaces, preserving line structure, so scanners only
+   ever match executable code."
   [content]
-  (-> content
-      ;; Blank every character literal — `\(`, `\;`, `\"`, `\space` — before
-      ;; anything else looks at the text. Only `\"` was handled here, which was
-      ;; enough while the scanners were line-based regexes, and stopped being
-      ;; enough when `call-forms` started treating every `(` as a form: the `(`
-      ;; inside `\(` opened one, so `(def dispatch {\( atom})` — pure code that
-      ;; stores a var in a map — was reported as holding mutable state
-      ;; (BOU-301). Named literals are matched before the single-character case
-      ;; so `\space` does not leave `pace` behind as a token.
-      (str/replace #"\\(?:newline|space|tab|formfeed|backspace|return|u[0-9a-fA-F]{4}|o[0-7]{1,3}|.)"
-                   (fn [m] (apply str (repeat (count m) \space))))
-      ;; Replace string contents with spaces (preserve newlines for line counting).
-      ;; Matches "..." including escaped quotes inside.
-      (str/replace #"\"(?:[^\"\\]|\\.)*\""
-                   (fn [m] (str/replace m #"[^\n]" " ")))
-      ;; Replace comment text with spaces
-      (str/replace #";[^\n]*" (fn [m] (apply str (repeat (count m) \space))))))
+  ;; One pass with lexer state, not three sequential regexes. The regexes ran
+  ;; the character-literal pass first — deliberate, so the `(` in `\(` never
+  ;; opened a form (BOU-301) — but that pass also ate the `\"` *inside* string
+  ;; literals, broke the quote pairing, and the string pass then blanked real
+  ;; code until the next stray quote. On prometheus_test.clj that swallowed an
+  ;; `(is ...)` whole, which is how a form-level scan (BOU-365) found it: only
+  ;; a lexer knows whether a backslash sits in code or in a string.
+  (let [n  (count content)
+        sb (StringBuilder. n)
+        named #"^(?:newline|space|tab|formfeed|backspace|return|u[0-9a-fA-F]{4}|o[0-7]{1,3}|.)"]
+    (loop [i 0, state :code]
+      (if (>= i n)
+        (str sb)
+        (let [c (.charAt ^String content i)]
+          (case state
+            :code
+            (cond
+              (= c \\) (let [lit (re-find named (subs content (inc i)))
+                             len (inc (count (or lit "")))]
+                         (dotimes [_ len] (.append sb \space))
+                         (recur (+ i len) :code))
+              ;; The delimiters go too: `(is (some? "lit"))` must strip to
+              ;; `(is (some?        ))` so the whitespace-argument patterns in
+              ;; check_tests keep matching — keeping the quotes silently turned
+              ;; two of them off (BOU-365 review).
+              (= c \") (do (.append sb \space) (recur (inc i) :string))
+              (= c \;) (do (.append sb \space) (recur (inc i) :comment))
+              :else    (do (.append sb c) (recur (inc i) :code)))
+
+            :string
+            (cond
+              (= c \\) (do (.append sb "  ") (recur (+ i 2) :string))
+              (= c \") (do (.append sb \space) (recur (inc i) :code))
+              (= c \newline) (do (.append sb c) (recur (inc i) :string))
+              :else    (do (.append sb \space) (recur (inc i) :string)))
+
+            :comment
+            (if (= c \newline)
+              (do (.append sb c) (recur (inc i) :code))
+              (do (.append sb \space) (recur (inc i) :comment)))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; String literal extraction

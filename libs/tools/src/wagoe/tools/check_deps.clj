@@ -259,6 +259,7 @@
    "one-time"               'one-time/one-time
    "dk.ative.docjure"       'dk.ative/docjure
    "clojure.tools.cli"      'org.clojure/tools.cli
+   "edamame.core"           'borkdude/edamame
    "clojure.tools.logging"  'org.clojure/tools.logging})
 
 (defn provider-of
@@ -294,24 +295,23 @@
      unzip -l \"$(find ~/.m2 -name 'clojure-1.12*.jar' | grep -v sources | head -1)\" \\
        | grep -oE 'clojure/[a-zA-Z_/-]+[.]clj$' \\
        | sed 's|^clojure/||;s|[.]clj$||' | tr '/' '.' | sed 's|_|-|g;s|^|clojure.|' | sort -u"
-  #{
-   "clojure.core" "clojure.core-deftype" "clojure.core-print"
-   "clojure.core-proxy" "clojure.core.protocols" "clojure.core.reducers"
-   "clojure.core.server" "clojure.data" "clojure.datafy"
-   "clojure.edn" "clojure.genclass" "clojure.gvec"
-   "clojure.inspector" "clojure.instant" "clojure.java.basis"
-   "clojure.java.basis.impl" "clojure.java.browse" "clojure.java.browse-ui"
-   "clojure.java.io" "clojure.java.javadoc" "clojure.java.process"
-   "clojure.java.shell" "clojure.main" "clojure.math"
-   "clojure.parallel" "clojure.pprint" "clojure.pprint.cl-format"
-   "clojure.pprint.column-writer" "clojure.pprint.dispatch" "clojure.pprint.pprint-base"
-   "clojure.pprint.pretty-writer" "clojure.pprint.print-table" "clojure.pprint.utilities"
-   "clojure.reflect" "clojure.reflect.java" "clojure.repl"
-   "clojure.repl.deps" "clojure.set" "clojure.stacktrace"
-   "clojure.string" "clojure.template" "clojure.test"
-   "clojure.test.junit" "clojure.test.tap" "clojure.tools.deps.interop"
-   "clojure.uuid" "clojure.walk" "clojure.xml"
-   "clojure.zip"})
+  #{"clojure.core" "clojure.core-deftype" "clojure.core-print"
+    "clojure.core-proxy" "clojure.core.protocols" "clojure.core.reducers"
+    "clojure.core.server" "clojure.data" "clojure.datafy"
+    "clojure.edn" "clojure.genclass" "clojure.gvec"
+    "clojure.inspector" "clojure.instant" "clojure.java.basis"
+    "clojure.java.basis.impl" "clojure.java.browse" "clojure.java.browse-ui"
+    "clojure.java.io" "clojure.java.javadoc" "clojure.java.process"
+    "clojure.java.shell" "clojure.main" "clojure.math"
+    "clojure.parallel" "clojure.pprint" "clojure.pprint.cl-format"
+    "clojure.pprint.column-writer" "clojure.pprint.dispatch" "clojure.pprint.pprint-base"
+    "clojure.pprint.pretty-writer" "clojure.pprint.print-table" "clojure.pprint.utilities"
+    "clojure.reflect" "clojure.reflect.java" "clojure.repl"
+    "clojure.repl.deps" "clojure.set" "clojure.stacktrace"
+    "clojure.string" "clojure.template" "clojure.test"
+    "clojure.test.junit" "clojure.test.tap" "clojure.tools.deps.interop"
+    "clojure.uuid" "clojure.walk" "clojure.xml"
+    "clojure.zip"})
 
 (def ^:private babashka-runtime-libs
   "Libraries that run under Babashka, which bundles the babashka.* namespaces.

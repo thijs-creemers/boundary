@@ -211,6 +211,8 @@
   ;; 4. Submit wrong code -> error shown, stays on MFA page
   ;; 5. Submit correct code -> redirected to dashboard
 
+  ;; Inside (comment …), so check:placeholder-tests ignores it — a draft is
+  ;; never defined. Move it out only together with a real body (BOU-365).
   (deftest ^:e2e mfa-required-second-step
     (testing "MFA-enabled user sees MFA code prompt and can complete login"
       (spel/with-testing-page [pg]
