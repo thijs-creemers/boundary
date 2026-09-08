@@ -36,8 +36,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Deprecated
 
-- **`:wagoe/admin` and `:wagoe/auth-user-repository`** (BOU-346), both without consumers.
-  Drop them from your config; `:wagoe/auth-service` takes `:wagoe/user-repository`.
+- **The `:wagoe/admin` and `:wagoe/auth-user-repository` Integrant components** (BOU-346).
+  Drop them from hand-written wiring — `:wagoe/admin` in `:active` stays the module switch.
 
 ### Fixed
 

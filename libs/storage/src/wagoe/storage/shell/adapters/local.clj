@@ -79,6 +79,24 @@
   [& segments]
   (.toString (Paths/get (first segments) (into-array String (rest segments)))))
 
+(defn- resolve-within-root
+  "The absolute path `file-key` names under `base-path`, or nil when it escapes.
+
+   Containment, not sanitising: `..` segments, absolute keys and symlinked
+   directories all resolve away before the comparison, so the check holds for
+   forms a string filter never anticipates. The mounted HTTP routes hand this
+   a caller-supplied key — `../../deps.edn` read a file outside the root
+   before the check existed (BOU-346 review)."
+  [base-path file-key]
+  (when (and base-path file-key)
+    (let [root   (.toAbsolutePath (Paths/get base-path (into-array String [])))
+          target (.resolve root (Paths/get (str file-key) (into-array String [])))
+          ;; normalize collapses `..`; toRealPath would also follow symlinks
+          ;; but demands existence, and callers ask about missing keys too.
+          norm   (.normalize target)]
+      (when (.startsWith norm (.normalize root))
+        (.toString norm)))))
+
 (defn- sanitize-path
   "Sanitize a path segment to prevent directory traversal."
   [segment]
@@ -167,10 +185,11 @@
 
   (retrieve-file [_ file-key]
     (try
-      (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (into-array String []))]
+      (let [full-path (resolve-within-root base-path file-key)
+            file-path (some-> full-path (Paths/get (into-array String [])))]
 
-        (when (Files/exists file-path (make-array java.nio.file.LinkOption 0))
+        (when (and file-path
+                   (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
           (let [bytes (Files/readAllBytes file-path)
                 size (alength bytes)
                 ;; Try to determine content type from extension
@@ -198,10 +217,11 @@
 
   (delete-file [_ file-key]
     (try
-      (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (into-array String []))]
+      (let [full-path (resolve-within-root base-path file-key)
+            file-path (some-> full-path (Paths/get (into-array String [])))]
 
-        (if (Files/exists file-path (make-array java.nio.file.LinkOption 0))
+        (if (and file-path
+                 (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
           (do
             (Files/delete file-path)
 
@@ -223,9 +243,11 @@
 
   (file-exists? [_ file-key]
     (try
-      (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (into-array String []))]
-        (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
+      (let [full-path (resolve-within-root base-path file-key)
+            file-path (some-> full-path (Paths/get (into-array String [])))]
+        (boolean
+         (and file-path
+              (Files/exists file-path (make-array java.nio.file.LinkOption 0)))))
 
       (catch Exception e
         (when logger

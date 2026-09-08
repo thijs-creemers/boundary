@@ -178,3 +178,38 @@
     (is (= "https://cdn.example.com/ab/file.png"
            (ports/generate-signed-url storage "ab/file.png" 3600))
         "no secret => unsigned public URL (no query string)")))
+
+(deftest ^:unit a-key-cannot-escape-the-storage-root
+  ;; The mounted HTTP routes pass a caller-supplied key straight through, and
+  ;; `{*file-key}` carries slashes — so `../../deps.edn` reached the adapter and
+  ;; read a file outside the root. Containment, checked on the resolved path
+  ;; (BOU-346 review).
+  (let [root    (str (java.nio.file.Files/createTempDirectory
+                      "wagoe-trav" (make-array java.nio.file.attribute.FileAttribute 0)))
+        outside (java.io.File. (str root "/../wagoe-trav-secret.txt"))
+        storage (sut/create-local-storage {:base-path root})]
+    (try
+      (spit outside "SECRET")
+      (spit (str root "/inside.txt") "fine")
+      (.mkdirs (java.io.File. (str root "/2a")))
+      (spit (str root "/2a/photo.jpg") "sharded")
+
+      (testing "an escaping key reads, deletes and exists as nothing"
+        (doseq [key ["../wagoe-trav-secret.txt"
+                     "../../etc/passwd"
+                     "2a/../../wagoe-trav-secret.txt"]]
+          (is (nil? (ports/retrieve-file storage key)) key)
+          (is (false? (ports/delete-file storage key)) key)
+          (is (false? (ports/file-exists? storage key)) key)))
+
+      (testing "and the file outside the root is untouched"
+        (is (.exists outside))
+        (is (= "SECRET" (slurp outside))))
+
+      (testing "keys inside the root still work, sharded ones included"
+        (is (some? (:bytes (ports/retrieve-file storage "inside.txt"))))
+        (is (some? (:bytes (ports/retrieve-file storage "2a/photo.jpg")))))
+
+      (finally
+        (.delete outside)
+        (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))))))
