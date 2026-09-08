@@ -2,7 +2,8 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.java.io :as io]
             [wagoe.storage.shell.adapters.local :as sut]
-            [wagoe.storage.ports :as ports])
+            [wagoe.storage.ports :as ports]
+            [clojure.string :as str])
 )
 
 (def test-dir "target/test-storage")
@@ -213,3 +214,62 @@
       (finally
         (.delete outside)
         (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))))))
+
+(deftest ^:unit every-filesystem-operation-is-root-contained
+  ;; The containment check was applied to retrieve/delete/exists and not to
+  ;; the write, so an upload naming a symlinked directory inside the root
+  ;; created files outside it (BOU-346 review). All four, one table.
+  (let [root    (str (java.nio.file.Files/createTempDirectory
+                      "wagoe-write" (make-array java.nio.file.attribute.FileAttribute 0)))
+        outside (str root "-outside")
+        storage (sut/create-local-storage {:base-path root})]
+    (try
+      (.mkdirs (java.io.File. outside))
+      (java.nio.file.Files/createSymbolicLink
+       (java.nio.file.Paths/get (str root "/link") (into-array String []))
+       (java.nio.file.Paths/get outside (into-array String []))
+       (make-array java.nio.file.attribute.FileAttribute 0))
+
+      (testing "a write through a symlinked directory is refused"
+        (is (thrown? Exception
+                     (ports/store-file storage
+                                       {:bytes (.getBytes "x") :content-type "text/plain"}
+                                       {:filename "evil.txt" :path "link"})))
+        (is (not (.exists (java.io.File. (str outside "/evil.txt"))))))
+
+      (testing "reads, deletes and existence through the same link are refused"
+        (spit (str outside "/secret.txt") "SECRET")
+        (is (nil?   (ports/retrieve-file storage "link/secret.txt")))
+        (is (false? (ports/delete-file   storage "link/secret.txt")))
+        (is (false? (ports/file-exists?  storage "link/secret.txt")))
+        (is (.exists (java.io.File. (str outside "/secret.txt")))))
+
+      (testing "ordinary and nested keys still store and read"
+        (let [{:keys [key]} (ports/store-file storage
+                                              {:bytes (.getBytes "ok") :content-type "text/plain"}
+                                              {:filename "ok.txt" :path "sub"})]
+          (is (some? key))
+          (is (some? (:bytes (ports/retrieve-file storage key))))))
+
+      (finally
+        (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))
+        (doseq [f (reverse (file-seq (java.io.File. outside)))] (.delete f))))))
+
+(deftest ^:unit a-blank-signing-secret-is-no-signing-secret
+  ;; A blank secret is truthy, so it selected the signing branch and
+  ;; SecretKeySpec threw "Empty key" — after the bytes were on disk, leaving
+  ;; the file orphaned (BOU-346 review).
+  (let [root (str (java.nio.file.Files/createTempDirectory
+                   "wagoe-blank" (make-array java.nio.file.attribute.FileAttribute 0)))]
+    (try
+      (doseq [secret ["" "   " nil]]
+        (let [storage (sut/create-local-storage {:base-path root
+                                                 :url-base "http://x"
+                                                 :signing-secret secret})
+              result  (ports/store-file storage
+                                        {:bytes (.getBytes "x") :content-type "text/plain"}
+                                        {:filename "a.txt"})]
+          (is (some? (:key result)) (pr-str secret))
+          (is (not (str/includes? (str (:url result)) "signature="))
+              (str "no signature is promised for secret " (pr-str secret)))))
+      (finally (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))))))

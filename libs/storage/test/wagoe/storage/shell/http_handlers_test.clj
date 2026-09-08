@@ -226,3 +226,26 @@
                                  {:expires   (get params "expires")
                                   :signature (get params "signature")})
         "a key signed in the platform form verifies against the slash form the router supplies")))
+
+(deftest ^:unit a-file-field-that-is-not-a-file-is-a-400
+  ;; Ring puts a vector under "file" when the field repeats and a string when
+  ;; it arrives as an ordinary text part. Both were truthy, so the
+  ;; missing-field guard passed them to extraction, which threw a 500
+  ;; (BOU-346 review).
+  (let [svc  (create-test-service)
+        good {:filename "a.txt" :content-type "text/plain"
+              :tempfile (doto (java.io.File/createTempFile "wagoe" ".txt") (spit "x"))}]
+    (doseq [[label handler value]
+            (for [[hlabel handler] [["upload" (sut/upload-file-handler svc)]
+                                    ["image"  (sut/upload-image-handler svc)]]
+                  [vlabel value]   [["vector" [good good]]
+                                    ["string" "not-a-file"]
+                                    ["absent" nil]]]
+              [(str hlabel "/" vlabel) handler value])]
+      (let [resp (try (handler {:multipart-params (if value {"file" value} {}) :query-params {}})
+                      (catch Exception e {:status 500 :threw (.getSimpleName (class e))}))]
+        (is (= 400 (:status resp))
+            (str label " => " (pr-str (select-keys resp [:status :threw]))))))
+    (testing "and a real file still uploads"
+      (is (= 201 (:status ((sut/upload-file-handler svc)
+                           {:multipart-params {"file" good} :query-params {}})))))))

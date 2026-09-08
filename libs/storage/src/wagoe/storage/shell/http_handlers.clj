@@ -28,6 +28,17 @@
              :when (and (some? v) (not (string? v)))]
          k)))
 
+(defn- multipart-file?
+  "Whether `v` is one uploaded file part rather than something else Ring can
+   put under the same name: a vector when the field repeats, a string when it
+   arrives as an ordinary text part. Both were truthy, so the missing-field
+   guard passed them through and extraction threw a 500 (BOU-346 review)."
+  [v]
+  (and (map? v)
+       (or (instance? java.io.File (:tempfile v))
+           (bytes? (:bytes v))
+           (string? (:content v)))))
+
 (defn- repeated-params-response
   [names]
   (problem-details/bad-request
@@ -120,9 +131,11 @@
             allowed-extensions (when-let [exts (get query-params "allowed-extensions")]
                                  (str/split exts #","))]
 
-        (if-not file
+        (if-not (multipart-file? file)
         (problem-details/bad-request
-         "Missing required field: file"
+         (if file
+           "Field 'file' must be an uploaded file"
+           "Missing required field: file")
          {:missing-field "file"})
 
         (try
@@ -172,9 +185,11 @@
             thumbnail-size (when-let [size (get multipart-params "thumbnail-size")]
                              (parse-int-safe size))]
 
-        (if-not file
+        (if-not (multipart-file? file)
         (problem-details/bad-request
-         "Missing required field: file"
+         (if file
+           "Field 'file' must be an uploaded file"
+           "Missing required field: file")
          {:missing-field "file"})
 
         (try

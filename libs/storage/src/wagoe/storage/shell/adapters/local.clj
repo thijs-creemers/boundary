@@ -186,8 +186,14 @@
                                      (validation/sanitize-filename filename))
                           (generate-storage-key bytes filename))
 
-            ;; Full filesystem path
-            full-path (path-join base-path storage-key)
+            ;; Full filesystem path — through the same containment check the
+            ;; read paths use. It was applied to retrieve/delete/exists and not
+            ;; to the write, so an upload naming a symlinked directory inside
+            ;; the root created or truncated files outside it (BOU-346 review).
+            full-path (or (resolve-within-root base-path storage-key)
+                          (throw (ex-info "Storage key resolves outside the storage root"
+                                          {:type :validation-error
+                                           :key  storage-key})))
             file-path (Paths/get full-path (into-array String []))
 
             ;; Ensure parent directory exists
@@ -346,4 +352,8 @@
                    :base-path base-path
                    :url-base url-base}))
 
-  (->LocalFileStorage base-path url-base signing-secret logger))
+  ;; A blank secret is not a secret: it is truthy, so it selected the signing
+  ;; branch and then SecretKeySpec threw "Empty key" — after the bytes were
+  ;; already on disk, leaving the file orphaned (BOU-346 review). Absent and
+  ;; blank mean the same thing here, and mean it before anything is written.
+  (->LocalFileStorage base-path url-base (not-empty (some-> signing-secret str/trim)) logger))
