@@ -94,9 +94,15 @@
    on every application that stores a file would publish anonymous delete.
    Enable it when the routes sit behind your own auth."
   [settings _ctx]
-  (let [settings (or settings {:provider :local})]
+  (let [settings (or settings {:provider :local})
+        ;; Explicitly true, not merely truthy. Config values reach this through
+        ;; `#env`, which yields strings — so `:expose-http? #env …` set to
+        ;; "false" would publish anonymous upload and delete. A flag that
+        ;; decides whether an unauthenticated surface is reachable fails
+        ;; closed on anything it does not recognise.
+        expose?  (contains? #{true "true"} (:expose-http? settings))]
     (cond-> {:components
              {:wagoe/storage        settings
               :wagoe/storage-routes {:storage (ig/ref :wagoe/storage)}}}
-      (:expose-http? settings)
+      expose?
       (assoc :routes [(ig/ref :wagoe/storage-routes)]))))

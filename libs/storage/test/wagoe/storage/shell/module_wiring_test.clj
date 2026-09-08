@@ -63,10 +63,16 @@
         (is (contains? components :wagoe/storage-routes))
         (is (empty? routes)
             "publishing anonymous upload/delete must be a decision, not a default")))
+    (testing "only an explicit true mounts them — #env yields strings"
+      (doseq [v [false "false" "no" nil 0]]
+        (is (empty? (:routes (wagoe.storage.shell.module-wiring/ig-config
+                              (assoc base :expose-http? v) {})))
+            (str "expose-http? " (pr-str v) " must not publish the routes"))))
     (testing ":expose-http? true mounts them"
-      (let [{:keys [routes]} (wagoe.storage.shell.module-wiring/ig-config
-                              (assoc base :expose-http? true) {})]
-        (is (= 1 (count routes)))))))
+      (doseq [v [true "true"]]
+        (is (= 1 (count (:routes (wagoe.storage.shell.module-wiring/ig-config
+                                  (assoc base :expose-http? v) {}))))
+            (pr-str v))))))
 
 (deftest ^:unit routes-address-the-sharded-keys-the-adapter-returns
   ;; The local adapter shards every key it hands back — `2a/photo.jpg` — so a
