@@ -142,7 +142,7 @@
   (if-not (devex-enabled?)
     ;; Pass-through mode when devex disabled
     (do
-      (t/is true "Snapshot check skipped (WAG_DEVEX_VALIDATION=false)")
+      ^:wagoe/allow-placeholder (t/is true "Snapshot check skipped (WAG_DEVEX_VALIDATION=false)")
       true)
 
     ;; Normal snapshot checking
@@ -159,14 +159,14 @@
         (update-snapshots?)
         (do
           (write-snapshot! actual-snap file-path)
-          (t/is true (str "Snapshot updated: " file-path))
+          ^:wagoe/allow-placeholder (t/is true (str "Snapshot updated: " file-path))
           true)
 
         ;; File doesn't exist - write it
         (not (.exists (io/file file-path)))
         (do
           (write-snapshot! actual-snap file-path)
-          (t/is true (str "Snapshot created: " file-path))
+          ^:wagoe/allow-placeholder (t/is true (str "Snapshot created: " file-path))
           true)
 
         ;; File exists - compare
@@ -179,7 +179,7 @@
               comparison (snapshot/compare-snapshots normalized-expected normalized-actual)]
           (if (:equal? comparison)
             (do
-              (t/is true "Snapshot matches")
+              ^:wagoe/allow-placeholder (t/is true "Snapshot matches")
               true)
             (let [diff-msg (format-unified-diff comparison)]
               (t/is false (str "Snapshot mismatch for " file-path "\n"

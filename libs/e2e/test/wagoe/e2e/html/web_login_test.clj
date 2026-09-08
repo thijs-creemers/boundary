@@ -211,10 +211,9 @@
   ;; 4. Submit wrong code -> error shown, stays on MFA page
   ;; 5. Submit correct code -> redirected to dashboard
 
-  ;; ^:wagoe/allow-placeholder: the body is a written-out plan, not a test —
-  ;; check:placeholder-tests would rightly flag it (BOU-365). Exempted here,
-  ;; where a reviewer sees it, until the MFA flow is implemented.
-  (deftest ^:e2e ^:wagoe/allow-placeholder mfa-required-second-step
+  ;; Inside (comment …), so check:placeholder-tests ignores it — a draft is
+  ;; never defined. Move it out only together with a real body (BOU-365).
+  (deftest ^:e2e mfa-required-second-step
     (testing "MFA-enabled user sees MFA code prompt and can complete login"
       (spel/with-testing-page [pg]
         ;; ... test body to be implemented ...

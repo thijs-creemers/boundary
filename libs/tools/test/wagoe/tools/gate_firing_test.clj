@@ -223,22 +223,22 @@
 
 (deftest ^:unit placeholder-tests-gate-fires-test
   (testing "a placeholder assertion is detected"
-    (let [hits (check-tests/scan-content
+    (let [hits (check-tests/scan-content-structural
                 "test.clj"
                 "(deftest thing-test\n  (is true))\n")]
       (is (seq hits) "(is true) is the assertion this gate exists to reject")))
 
   (testing "a real assertion is not flagged"
-    (is (empty? (check-tests/scan-content
+    (is (empty? (check-tests/scan-content-structural
                  "test.clj"
                  "(deftest thing-test\n  (is (= 2 (+ 1 1))))\n"))))
 
   (testing "a placeholder inside a comment is not flagged"
     ;; The gate strips comments and strings first; asserted so that stripping
     ;; cannot regress into either direction unnoticed.
-    (is (empty? (check-tests/scan-content
+    (is (empty? (check-tests/scan-content-structural
                  "test.clj"
-                 "(deftest thing-test\n  ;; was (is true)\n  (is (= 1 1)))\n")))))
+                 "(deftest thing-test\n  ;; was (is true)\n  (is (= 2 (+ 1 1))))\n")))))
 
 ;; =============================================================================
 ;; docs:lint

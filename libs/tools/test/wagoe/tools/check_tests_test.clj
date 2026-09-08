@@ -96,9 +96,7 @@
   ;; The seven regexes found one of these four. Form-level analysis finds the
   ;; other three: a deftest with no assertion at all, and identical-token
   ;; tautologies in `is` and `are`.
-  (let [structural (ct/scan-content-structural "planted.clj" planted)
-        regex      (ct/scan-content "planted.clj" planted)
-        lines      (set (map :line (concat structural regex)))]
+  (let [lines (set (map :line (ct/scan-content-structural "planted.clj" planted)))]
     (is (contains? lines 1) "no-assertion deftest")
     (is (contains? lines 4) "(is (= 1 1)) tautology — reported at the assertion")
     (is (contains? lines 6) "are-tautology — reported at the assertion")
@@ -136,8 +134,8 @@
   ;; The lexer rewrite briefly kept string delimiters, which silently turned
   ;; off the whitespace-argument patterns for (is (some? "x")) and
   ;; (is (string? "x")).
-  (is (= 1 (count (ct/scan-content "s.clj" "(deftest x (is (some? \"lit\")))"))))
-  (is (= 1 (count (ct/scan-content "s.clj" "(deftest x (is (string? \"lit\")))")))))
+  (is (= 1 (count (ct/scan-content-structural "s.clj" "(deftest x (is (some? \"lit\")))"))))
+  (is (= 1 (count (ct/scan-content-structural "s.clj" "(deftest x (is (string? \"lit\")))")))))
 
 (deftest ^:unit discarded-and-commented-drafts-are-not-placeholders
   (is (empty? (ct/scan-content-structural
@@ -174,15 +172,15 @@
 ;; Review round 3 (BOU-365)
 ;; =============================================================================
 
-(deftest ^:unit the-escape-hatch-covers-the-regex-findings-too
-  ;; (deftest ^:wagoe/allow-placeholder stub (is true)) was exempt from the
-  ;; structural scan and still failed the shape regexes — one hatch, both scans.
+(deftest ^:unit the-escape-hatch-covers-shape-findings-too
+  ;; (deftest ^:wagoe/allow-placeholder stub (is true)) must be exempt from
+  ;; every detector, and its neighbours must not be.
   (let [src "(deftest ^:wagoe/allow-placeholder stub (is true))\n(deftest live (is true))"
         exempt (ct/exempted-extents src)]
     (is (= 1 (count exempt)))
     (is (= 1 (:row (first exempt))))
     (testing "the live placeholder on the next line is still caught"
-      (is (some #(= 2 (:line %)) (ct/scan-content "x.clj" src))))))
+      (is (some #(= 2 (:line %)) (ct/scan-content-structural "x.clj" src))))))
 
 (deftest ^:unit a-discarded-assertion-does-not-count-as-one
   (is (= 1 (count (ct/scan-content-structural
@@ -329,3 +327,30 @@
       (testing "a live (is true) is still a finding"
         (is (= 1 (count (scan "(deftest t (is true))")))))
       (finally (doseq [x (reverse (file-seq dir))] (.delete x))))))
+
+;; =============================================================================
+;; Review round 8 (BOU-365) — one scanner, the reader
+;; =============================================================================
+
+(deftest ^:unit a-conditional-wrapped-placeholder-is-still-caught
+  ;; Edamame reports a conditional-selected form at the #? wrapper's position,
+  ;; which broke the old textual-liveness bridge. Judging the parsed form
+  ;; directly makes position irrelevant.
+  (is (= 1 (count (ct/scan-content-structural
+                   "x.clj" "(deftest x #?(:clj (is true) :bb (is (pos? (f)))))")))))
+
+(deftest ^:unit an-alias-qualified-assertion-is-judged-like-any-other
+  ;; The old regexes matched bare `(is` only, so `(t/is true)` passed by
+  ;; accident of aliasing — four real sentinels in snapshot_io.clj were
+  ;; invisible until the reader-based scan looked.
+  (is (= 1 (count (ct/scan-content-structural
+                   "x.clj" "(deftest x (t/is true))")))))
+
+(deftest ^:unit the-hatch-also-works-one-assertion-wide
+  (is (empty? (ct/scan-content-structural
+               "x.clj"
+               "(defn helper [] ^:wagoe/allow-placeholder (t/is true \"sentinel\"))"))
+      "a marked reporting sentinel in a helper is deliberate")
+  (is (= 1 (count (ct/scan-content-structural
+                   "x.clj" "(defn helper [] (t/is true \"sentinel\"))")))
+      "an unmarked one is a finding — the marker is what exempts"))
