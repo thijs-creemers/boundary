@@ -59,7 +59,10 @@
   (let [c (sut/system-config (config :wagoe/storage {:enabled? true :provider :local}))]
     (is (contains? c :wagoe/storage))
     (is (not (contains? c :wagoe/storage-repository)))
-    (is (empty? (get-in c [:wagoe/http-handler :module-routes])))))
+    ;; Not empty any more: storage contributes its own routes since BOU-346.
+    ;; What must NOT be here is a scaffolded graph's ref.
+    (is (= [(ig/ref :wagoe/storage-routes)]
+           (get-in c [:wagoe/http-handler :module-routes])))))
 
 (deftest ^:unit a-core-config-key-is-not-mistaken-for-a-module
   ;; :wagoe/http is a port number, not a module. Reading every :wagoe/* key as
