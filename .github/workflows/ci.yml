@@ -646,6 +646,49 @@ jobs:
       - name: Run config tests
         run: cd libs/config && clojure -M:test
 
+  test-app:
+    name: Test app (:unit suite)
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      # `:unit` spans every library's tests, so it inherits their services. The
+      # cache, events and jobs sweeps compare a Redis adapter against the others
+      # and fail loudly rather than silently comparing two backends where three
+      # were promised — which is how this job first ran red.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # The root `test/` tree: the BOU-326 wiring gate, the BOU-91 service-catalogue
+    # gate, and the application-level tests. No job ran the `:unit` suite, so
+    # those two gates were never executed in CI — a PR merged green while one of
+    # them was failing (BOU-422).
+    #
+    # `:unit` also lists every library's test path, so this repeats what the
+    # per-library jobs cover. Deliberate: the suites run in parallel, and
+    # narrowing the suite is a change to what `bb test:all` means locally, which
+    # is not worth risking to save wall-clock this job does not cost.
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Clojure + warm deps
+        uses: ./.github/actions/clojure-deps
+        with:
+          aliases: -M:test:test/all
+
+      - name: Run app + unit suite
+        env:
+          JWT_SECRET: "ci-test-secret-minimum-32-characters"
+          WAG_ENV: test
+        run: clojure -M:test:test/all :unit
+
   test-core:
     name: Test wagoe/core
     runs-on: ubuntu-latest
@@ -1482,12 +1525,13 @@ jobs:
   test-summary:
     name: All Tests Passed
     runs-on: ubuntu-latest
-    needs: [lint, branch-protection, first-run-smoke, build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-test-meta, check-test-tags, check-deps, check-ports, check-hygiene, check-changelog, check-doc-counts, check-versions, check-isolation, check-error-shape, check-isolation-matrix, check-poms, check-agents, check-no-boundary, build-uberjar, test-tools, example-smoke, test-i18n, test-config, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-events, test-jobs, test-tenant, test-audience, test-devtools, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai, test-mcp, test-wagoe-cli, test-shared-ui, e2e]
+    needs: [lint, branch-protection, first-run-smoke, build-ui-assets, docs-lint, agents-links, command-smoke, config-doctor, i18n-scan, check-fcis, check-placeholder-tests, check-test-meta, check-test-tags, check-deps, check-ports, check-hygiene, check-changelog, check-doc-counts, check-versions, check-isolation, check-error-shape, check-isolation-matrix, check-poms, check-agents, check-no-boundary, build-uberjar, test-tools, example-smoke, test-i18n, test-config, test-app, test-core, test-observability, test-platform, test-user, test-admin, test-ui-style, test-storage, test-cache, test-events, test-jobs, test-tenant, test-audience, test-devtools, test-email, test-realtime, test-workflow, test-search, test-scaffolder, test-external, test-payments, test-push, test-calendar, test-reports, test-geo, test-ai, test-mcp, test-wagoe-cli, test-shared-ui, e2e]
 
     steps:
       - name: Summary
         run: |
           echo "✅ All library tests passed!"
+          echo "  - the app itself (:unit suite — wiring + service-catalogue gates)"
           echo "Libraries tested:"
           echo "  - wagoe/core"
           echo "  - wagoe/observability"
