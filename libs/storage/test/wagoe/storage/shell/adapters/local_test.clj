@@ -3,8 +3,7 @@
             [clojure.java.io :as io]
             [wagoe.storage.shell.adapters.local :as sut]
             [wagoe.storage.ports :as ports]
-            [clojure.string :as str])
-)
+            [clojure.string :as str]))
 
 (def test-dir "target/test-storage")
 
@@ -250,6 +249,55 @@
                                               {:filename "ok.txt" :path "sub"})]
           (is (some? key))
           (is (some? (:bytes (ports/retrieve-file storage key))))))
+
+      (finally
+        (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))
+        (doseq [f (reverse (file-seq (java.io.File. outside)))] (.delete f))))))
+
+(deftest ^:unit a-dangling-symlink-cannot-carry-a-write-out-of-the-root
+  ;; The containment probe followed links, so a *dangling* link reported "does
+  ;; not exist", the walk anchored on its in-root parent, and Files/write then
+  ;; followed the link and created the file outside the root (BOU-421 review).
+  ;; A live link is the control: it must stay allowed when it resolves inside.
+  (let [root    (str (java.nio.file.Files/createTempDirectory
+                      "wagoe-dangling" (make-array java.nio.file.attribute.FileAttribute 0)))
+        outside (str root "-outside")
+        link    (fn [from to]
+                  (java.nio.file.Files/createSymbolicLink
+                   (java.nio.file.Paths/get from (into-array String []))
+                   (java.nio.file.Paths/get to (into-array String []))
+                   (make-array java.nio.file.attribute.FileAttribute 0)))
+        gone?   (fn [p] (java.nio.file.Files/exists
+                         (java.nio.file.Paths/get p (into-array String []))
+                         (into-array java.nio.file.LinkOption
+                                     [java.nio.file.LinkOption/NOFOLLOW_LINKS])))
+        storage (sut/create-local-storage {:base-path root})]
+    (try
+      (.mkdirs (java.io.File. (str root "/up")))
+      (.mkdirs (java.io.File. outside))
+      (link (str root "/up/pwned.txt") (str outside "/pwned.txt"))   ; dangling file
+      ;; One segment: `sanitize-path` strips separators, so a nested `:path`
+      ;; never reaches a link deeper than the first level.
+      (link (str root "/gone")         (str outside "/gone"))        ; dangling directory
+
+      (testing "a write onto a dangling link is refused, and creates nothing outside"
+        (is (thrown? Exception
+                     (ports/store-file storage
+                                       {:bytes (.getBytes "OWNED") :content-type "text/plain"}
+                                       {:filename "pwned.txt" :path "up"})))
+        (is (not (gone? (str outside "/pwned.txt")))))
+
+      (testing "and neither does a write under a dangling directory link"
+        (is (thrown? Exception
+                     (ports/store-file storage
+                                       {:bytes (.getBytes "OWNED") :content-type "text/plain"}
+                                       {:filename "x.txt" :path "gone"})))
+        (is (not (gone? (str outside "/gone")))))
+
+      (testing "a link that resolves inside the root is still served"
+        (spit (str root "/up/real.txt") "ok")
+        (link (str root "/up/alias.txt") (str root "/up/real.txt"))
+        (is (= "ok" (String. ^bytes (:bytes (ports/retrieve-file storage "up/alias.txt"))))))
 
       (finally
         (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))

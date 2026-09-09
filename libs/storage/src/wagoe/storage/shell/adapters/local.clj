@@ -135,9 +135,19 @@
           ;; demands existence, so it is applied to the deepest ancestor that
           ;; does exist: enough to catch a linked directory on the way down,
           ;; while a key that is simply absent still answers "not here".
+          ;;
+          ;; NOFOLLOW on the probe, because a *dangling* link is the case where
+          ;; following would lie: `Files/exists` reports false for it, the walk
+          ;; fell through to its in-root parent, and `Files/write` then followed
+          ;; the link and created the file outside the root (BOU-421 review).
+          ;; Seen as existing, it reaches toRealPath, which cannot resolve it —
+          ;; no anchor, no write. A link whose target does exist inside the root
+          ;; still resolves and is still allowed.
+          no-follow  (into-array java.nio.file.LinkOption
+                                 [java.nio.file.LinkOption/NOFOLLOW_LINKS])
           existing   (loop [p target]
                        (cond (nil? p)                      nil
-                             (Files/exists p empty-opts)   p
+                             (Files/exists p no-follow)    p
                              :else                         (recur (.getParent p))))
           anchor     (some-> existing real)]
       (when (and anchor
