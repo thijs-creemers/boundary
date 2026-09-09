@@ -84,8 +84,19 @@
   ;; `:user` when credentials are present — so an anonymous caller could list a
   ;; segment's user ids and delete the segment, and did (BOU-419 review).
   (when (empty? middleware)
-    (throw (ex-info (str "Audience routes must not be mounted without authorization "
-                         "middleware: they manage segments and expose member ids.")
+    ;; Refuses rather than serving them open, in both cases below — but the
+    ;; second is reached by a route nobody expects, so it says what to do.
+    ;;
+    ;;   nil  — the ref was pruned. `service audience` drops every user-owned
+    ;;          key, and the guard is one, so the vector never arrives.
+    ;;   []   — the user module contributed nothing, i.e. no user service.
+    (throw (ex-info (if (nil? middleware)
+                      (str "Audience routes need :wagoe/admin-only-middleware, which service "
+                           "selection dropped. Run `service audience user` — these endpoints "
+                           "manage segments and expose member ids, so they are not served "
+                           "without something to authorize against.")
+                      (str "Audience routes must not be mounted without authorization "
+                           "middleware: they manage segments and expose member ids."))
                     {:type :configuration-error :missing-key :middleware})))
   (log/info "Initializing audience routes" {:guards (count middleware)})
   {:api (audience-http/audience-api-routes (:resolver audience-service)

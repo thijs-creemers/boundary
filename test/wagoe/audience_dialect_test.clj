@@ -61,8 +61,10 @@
 (deftest ^:integration the-sweep-covers-every-reachable-adapter
   (is (= 4 (count (backends)))
       (str "MySQL is not reachable on 127.0.0.1:" mysql-port
-           " — this run compared " (count (backends))
-           " adapters, not four. Set WAGOE_TEST_MYSQL_PORT, or start one.")))
+           " — this run compared " (count (backends)) " adapters, not four.\n"
+           "  docker run -d --rm --name wagoe-mysql -e MYSQL_ROOT_PASSWORD=probe "
+           "-e MYSQL_DATABASE=audience -p 3306:3306 mysql:8\n"
+           "  or point the sweep elsewhere with WAGOE_TEST_MYSQL_PORT.")))
 
 (deftest ^:integration a-definition-round-trips-on-every-adapter
   (doseq [[label make] (backends)]

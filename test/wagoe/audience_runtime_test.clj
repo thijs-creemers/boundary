@@ -122,3 +122,27 @@
 
         (testing "and the segment an anonymous caller tried to delete is still there"
           (is (some? (audience-ports/find-audience store :secret-cohort))))))))
+
+(deftest ^:integration audience-as-a-service-keeps-its-guard
+  ;; `service audience` drops every user-owned key, and the authorization guard
+  ;; is one — so the routes component received no middleware and threw a
+  ;; message that named neither the cause nor the remedy (BOU-419 review).
+  ;;
+  ;; It still refuses: serving segment management unguarded is worse than not
+  ;; starting. What changed is that it says which command does work.
+  (let [config (audience-config)]
+    (testing "audience alone refuses, and says what to run instead"
+      (let [[svc-cfg _] (main/service-ig-config config #{:audience})
+            ex          (is (thrown? clojure.lang.ExceptionInfo (ig/init svc-cfg)))
+            message     (ex-message (ex-cause ex))]
+        (is (re-find #"service audience user" message)
+            (str "the refusal does not name the command that works: " message))))
+
+    (testing "and with the user module it boots, guard intact"
+      (let [[svc-cfg _] (main/service-ig-config config #{:audience :user})
+            system      (ig/init svc-cfg)]
+        (try
+          (is (seq (:api (:wagoe/audience-routes system))))
+          (is (seq (get-in svc-cfg [:wagoe/audience-routes :middleware]))
+              "the routes were mounted with no guard")
+          (finally (ig/halt! system)))))))

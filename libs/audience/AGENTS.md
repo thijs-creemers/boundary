@@ -251,6 +251,11 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 **`:account-tenure` and `:last-active` need PostgreSQL** — they compile
 `CURRENT_DATE - INTERVAL '… days'`, which H2 and SQLite do not parse (BOU-425).
 
+**As a service.** `service audience` refuses to start: its routes need the admin-only guard,
+which is a user-module component that service selection drops. Run `service audience user`.
+Refusing is deliberate — segment management served without authorization is worse than a
+service that does not come up (BOU-419).
+
 **Adapters.** The schema, store and cache are exercised against all four the framework
 ships — H2, SQLite, PostgreSQL and MySQL — by `test/wagoe/audience_dialect_test.clj`. MySQL
 needs a server: CI runs one as a service, and locally you point the sweep at a container with

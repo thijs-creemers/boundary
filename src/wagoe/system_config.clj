@@ -128,6 +128,10 @@
 
    :search   {:keys [:wagoe/search :wagoe/search-routes]}
 
+   ;; Its routes carry an admin-only guard that lives in the user module, so
+   ;; `service audience` alone refuses to start them — run `service audience
+   ;; user`. Duplicating user's keys here would give this service its own copy
+   ;; of the auth stack, which is what :rpc exists to avoid (BOU-419 review).
    :audience {:keys [:wagoe/audience-db-schema :wagoe/audience-user-source
                      :wagoe/audience :wagoe/audience-routes]}
 
