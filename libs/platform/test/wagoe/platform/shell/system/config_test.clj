@@ -59,7 +59,18 @@
   (let [c (sut/system-config (config :wagoe/storage {:enabled? true :provider :local}))]
     (is (contains? c :wagoe/storage))
     (is (not (contains? c :wagoe/storage-repository)))
+    ;; Empty: storage assembles a routes component since BOU-421 but mounts it
+    ;; only on `:expose-http? true`, because those endpoints carry no auth.
     (is (empty? (get-in c [:wagoe/http-handler :module-routes])))))
+
+(deftest ^:unit storage-mounts-its-routes-only-when-asked
+  ;; The opt-in half of the above: with `:expose-http?` the module's routes do
+  ;; reach the handler, through the same collection every module uses.
+  (let [c (sut/system-config (config :wagoe/storage {:enabled? true
+                                                     :provider :local
+                                                     :expose-http? true}))]
+    (is (= [(ig/ref :wagoe/storage-routes)]
+           (get-in c [:wagoe/http-handler :module-routes])))))
 
 (deftest ^:unit a-core-config-key-is-not-mistaken-for-a-module
   ;; :wagoe/http is a port number, not a module. Reading every :wagoe/* key as
