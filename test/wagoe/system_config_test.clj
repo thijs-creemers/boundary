@@ -259,8 +259,7 @@
         ;; anything fails below, so the list shrinks rather than rots.
         not-assembled
         {:wagoe/admin "DEPRECATED in this release (BOU-346): settings passthrough with no consumer. Removed a release after the deprecation ships, per the stability policy"
-         :wagoe/auth-user-repository "DEPRECATED in this release (BOU-346): no consumer — :wagoe/auth-service takes :wagoe/user-repository. Removed a release after the deprecation ships"
-         :wagoe/audience-routes "blocked on BOU-419: the audience service requires an IUserDataSource that has no implementation anywhere, so the module cannot boot — mounting its routes waits on that adapter"}
+         :wagoe/auth-user-repository "DEPRECATED in this release (BOU-346): no consumer — :wagoe/auth-service takes :wagoe/user-repository. Removed a release after the deprecation ships"}
 
         defined  (into {}
                        (for [[_ lib] modules/framework-modules

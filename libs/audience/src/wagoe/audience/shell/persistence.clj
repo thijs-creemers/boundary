@@ -18,6 +18,7 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
+            [clojure.string :as str]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
@@ -53,6 +54,63 @@
                   {:type (str (type value))})
         (throw (ex-info "Cannot deserialize JSON column value"
                         {:type (str (type value))})))))
+
+;; =============================================================================
+;; Schema
+;; =============================================================================
+;;
+;; The module had no schema component, so a booted application had the audience
+;; service and no `audience_segments` table: it started cleanly and threw on the
+;; first write (BOU-419). The DDL existed twice — a PostgreSQL migration and an
+;; H2 copy in the test fixture — and neither ran at boot.
+
+(defn- dialect
+  "`:h2`, `:postgresql`, or `:other`, from the connection's product name."
+  [datasource]
+  (with-open [conn (jdbc/get-connection datasource)]
+    (let [product (str/lower-case (str (.getDatabaseProductName (.getMetaData conn))))]
+      (cond
+        (str/includes? product "h2")         :h2
+        (str/includes? product "postgresql") :postgresql
+        :else                                :other))))
+
+(defn audience-ddl
+  "Portable DDL for the audience tables.
+
+   Two dialects differ in exactly two places: the UUID default and the JSON
+   column type. Written once here rather than kept as a migration plus a
+   hand-copied H2 version in the test fixture, which is how the two drifted."
+  [dialect]
+  (let [uuid-default (if (= :postgresql dialect) "gen_random_uuid()" "RANDOM_UUID()")
+        json-type    (if (= :postgresql dialect) "JSONB" "TEXT")]
+    [(str "CREATE TABLE IF NOT EXISTS audience_segments (
+             id            UUID DEFAULT " uuid-default " PRIMARY KEY,
+             audience_id   VARCHAR(255) NOT NULL UNIQUE,
+             label         VARCHAR(255) NOT NULL,
+             description   TEXT,
+             filters       " json-type " NOT NULL,
+             composition   " json-type ",
+             cache_config  " json-type ",
+             tags          " json-type ",
+             member_count  INTEGER DEFAULT 0,
+             cached_at     TIMESTAMP,
+             source        VARCHAR(50) DEFAULT 'dynamic',
+             created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+             updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+     "CREATE TABLE IF NOT EXISTS audience_memberships (
+        audience_id   UUID REFERENCES audience_segments(id) ON DELETE CASCADE,
+        user_id       UUID NOT NULL,
+        entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (audience_id, user_id))"
+     "CREATE INDEX IF NOT EXISTS idx_audience_memberships_user
+        ON audience_memberships(user_id)"]))
+
+(defn initialize-audience-schema!
+  "Create the audience tables if absent. Idempotent."
+  [datasource]
+  (log/info "Initializing audience schema")
+  (doseq [statement (audience-ddl (dialect datasource))]
+    (jdbc/execute! datasource [statement])))
 
 ;; =============================================================================
 ;; Keyword <-> string helpers
