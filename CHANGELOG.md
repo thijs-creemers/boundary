@@ -41,6 +41,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Added
 
+- **CI runs the `:unit` suite** (BOU-422). The root `test/` tree — two wiring gates among
+  them — was executed by no CI job, so a pull request could merge with one of them red.
 - **`worker` mode now runs jobs** (BOU-418). Enable `:wagoe/jobs {:provider :memory}`;
   modules contribute handlers, and `:workers {:count 0}` makes a web-only node.
 - **Storage's HTTP routes can be mounted** (BOU-421). Set `:expose-http? true`; they carry

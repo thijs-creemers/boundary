@@ -402,9 +402,16 @@
       (throw (ex-info "tests.edn not found — cannot verify the suite/CI lockstep" {:cwd cwd})))))
 
 (defn- declared-suites
-  "Suite ids in tests.edn, excluding the aggregate `:unit`."
+  "Suite ids in tests.edn.
+
+   `:unit` used to be excluded here as \"the aggregate\". It is also the suite
+   that holds the root `test/` tree — the BOU-326 wiring gate and the BOU-91
+   service-catalogue gate — and excluding it meant the lockstep below could not
+   notice that no CI job ran it. It did not, for as long as anyone had looked,
+   and a pull request merged green while the service-catalogue gate was failing
+   (BOU-422)."
   []
-  (->> (:tests (tests-edn)) (map :id) (remove #{:unit}) (map name) set))
+  (->> (:tests (tests-edn)) (map :id) (map name) set))
 
 (defn- ci-run-suites
   "{suite-name alias-string} for each `clojure -M:test… :<suite>` CI runs."
@@ -455,11 +462,18 @@
     (testing "clj-http-lite"
       (is (str/includes? (get in-ci "devtools" "") ":test/http")))
 
+    (testing "and the aggregate suite asks for all of them"
+      ;; `:unit` runs the root test/ tree *and* every library's, so it needs
+      ;; every heavy dep at once — `:test/all` is what composes them (BOU-422).
+      (is (= "-M:test:test/all" (get in-ci "unit"))
+          "the :unit suite spans every library and must request :test/all"))
+
     (testing "and nothing else pays for them"
       ;; The whole point: a suite that does not need the heavy deps must not
       ;; resolve them.
       (doseq [[s alias] in-ci
-              :when (not (#{"admin" "platform" "tenant" "observability" "devtools"} s))]
+              :when (not (#{"admin" "platform" "tenant" "observability" "devtools"
+                            "unit"} s))]
         (is (= "-M:test" alias)
             (str s " requests " alias " but needs nothing beyond :test"))))))
 
