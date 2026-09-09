@@ -471,3 +471,71 @@
        (ports/update-job-status! s (:id a) :running nil)
        (is (= [(:id a)] (map :id (ports/find-jobs s {:status :running})))
            (str label ": :status"))))))
+
+;; =============================================================================
+;; Queue and store together — where the backends disagreed
+;; =============================================================================
+;;
+;; Both cases below passed on in-memory and failed on db, which is exactly the
+;; shape a per-backend test file cannot see (BOU-418 review).
+
+(defn- pairs
+  "Each is [label make]; `make` returns [queue store stop!] sharing a backend."
+  []
+  (cond-> [["in-memory"
+            (fn [] (let [{:keys [queue store]} (mem/create-in-memory-jobs-system)]
+                     [queue store (fn [] nil)]))]
+           ["db"
+            (fn []
+              (let [ds (jdbc/get-datasource
+                        {:dbtype "h2:mem"
+                         :dbname (str "pair_" (System/nanoTime) ";DB_CLOSE_DELAY=-1")})]
+                (db/create-jobs-table! ds)
+                [(db/create-db-job-queue ds) (db/create-db-job-store ds) (fn [] nil)]))]]
+    @redis-up?
+    (conj ["redis"
+           (fn []
+             (let [pool (redis/create-redis-pool {:host "localhost" :port 6379
+                                                  :database redis-db})]
+               (with-open [^Jedis j (.getResource pool)] (.flushDB j))
+               [(redis/create-redis-job-queue pool)
+                (redis/create-redis-job-store pool)
+                (fn [] (redis/close-redis-pool! pool))]))])))
+
+(defn- each-pair
+  [f]
+  (doseq [[label make] (pairs)]
+    (testing label
+      (let [[queue store stop!] (make)]
+        (try (f queue store label) (finally (stop!)))))))
+
+(deftest ^:integration an-enqueued-job-is-known-to-the-store
+  ;; The DB queue wrote only `job_queue`, so the worker's `update-job-status!`
+  ;; found nothing: a completed job left no history and a failed one never
+  ;; reached the dead-letter queue.
+  (each-pair
+   (fn [queue store label]
+     (let [j (job)]
+       (ports/enqueue-job! queue :default j)
+       (is (some? (ports/find-job store (:id j)))
+           (str label ": the store has never heard of a job that was enqueued"))
+       (is (some? (ports/update-job-status! store (:id j) :running nil))
+           (str label ": the store cannot record an outcome for it"))))))
+
+(deftest ^:integration a-re-enqueued-job-survives-the-ack-that-follows-it
+  ;; The worker re-enqueues a job (missing handler, or a retry) and then acks
+  ;; the one it dequeued. The DB ack is `DELETE … WHERE id = ?`, so a
+  ;; re-enqueue carrying the same id was deleted by the ack that followed it;
+  ;; in-memory's ack is a no-op and hid it. The worker now enqueues after the
+  ;; ack — this pins the ordering hazard itself.
+  (each-pair
+   (fn [queue store label]
+     (let [j (job :queue :requeue)]
+       (ports/enqueue-job! queue :requeue j)
+       (let [got (ports/dequeue-job! queue :requeue "w1")]
+         (is (= (:id j) (:id got)) (str label ": setup")))
+       (ports/ack-job! queue :requeue "w1" (:id j))
+       (ports/enqueue-job! queue :requeue j)
+       (is (= 1 (ports/queue-size queue :requeue))
+           (str label ": a job re-enqueued after its ack is not on the queue"))
+       (is (some? store))))))

@@ -13,6 +13,7 @@
             [wagoe.config :as config]
             [wagoe.jobs.ports :as job-ports]
             [wagoe.main :as main]
+            [wagoe.push.ports :as push-ports]
             [wagoe.system-config :as sys-config]))
 
 (defn- jobs-config
@@ -97,3 +98,42 @@
             "the worker never ran the enqueued job")
         (is (some? (wait-for 5000 #(when (zero? (job-ports/queue-size queue :default)) true)))
             "the job was run but never left the queue")))))
+
+(deftest ^:integration push-work-lands-on-a-queue-a-worker-actually-polls
+  ;; Push enqueued on `:push` while the only worker pool polled `:default`, so
+  ;; with the documented default configuration every send and broadcast sat
+  ;; there untouched (BOU-418 review). Asserted on the queue draining rather
+  ;; than on delivery: whether push's handler then succeeds is push's business
+  ;; and has its own tests — this is about the job reaching a worker.
+  (with-worker-system
+    (fn [system]
+      (let [svc   (:wagoe.push/service system)
+            queue (:wagoe/job-queue system)]
+        (push-ports/send-push! svc :probe/hello {} {:user-id (random-uuid)})
+        (is (zero? (job-ports/queue-size queue :push))
+            "push work went to :push, which no worker polls")
+        (is (some? (wait-for 5000 #(when (zero? (job-ports/queue-size queue :default)) true)))
+            "a queued push was never picked up by a worker")))))
+
+(deftest ^:integration a-scheduled-push-is-not-sent-immediately
+  ;; `schedule-push!` put `:scheduled-at` on the job and called `enqueue-job!`.
+  ;; The adapters schedule on `:execute-at` and ignore `:scheduled-at`, so a
+  ;; push scheduled for an hour from now was ready to run at once — and would
+  ;; have gone out at once, as soon as its queue had a worker (BOU-418 review).
+  ;;
+  ;; Asserted on the job's own `:execute-at` rather than on a queue being
+  ;; empty: written the second way this test passed while the bug was present,
+  ;; because the job was on a different queue than the one it peeked.
+  (with-worker-system
+    (fn [system]
+      (let [svc    (:wagoe.push/service system)
+            store  (:wagoe/job-store system)
+            later  (.plusSeconds (java.time.Instant/now) 3600)
+            job-id (push-ports/schedule-push! svc :probe/later {} {:user-id (random-uuid)} later)
+            stored (job-ports/find-job store job-id)]
+        (is (some? stored) "the scheduled push never reached the store")
+        (is (some? (:execute-at stored))
+            "no :execute-at — every adapter treats that as ready to run now")
+        (is (.isAfter ^java.time.Instant (:execute-at stored)
+                      (.plusSeconds (java.time.Instant/now) 60))
+            (str "a push scheduled an hour out is due at " (pr-str (:execute-at stored))))))))

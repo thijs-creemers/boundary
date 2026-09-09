@@ -83,10 +83,17 @@
 
 ;; --- schema -----------------------------------------------------------------
 
+(declare create-job-store-table!)
+
 (defn create-jobs-table!
-  "Create the `job_queue` table + ready-scan index if absent. Portable DDL
-   (H2 + PostgreSQL). Call once at startup, or ship as a migration."
+  "Create the `job_queue` table + ready-scan index if absent, and `job_store`
+   with it. Portable DDL (H2 + PostgreSQL). Call once at startup, or ship as a
+   migration.
+
+   Both, because `enqueue-job!` writes a history row: a caller who created only
+   the queue table would fail on the next insert (BOU-418 review)."
   [ds]
+  (create-job-store-table! ds)
   (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS job_queue (
                         id            UUID PRIMARY KEY,
                         queue         VARCHAR(255) NOT NULL,
@@ -99,6 +106,54 @@
                         created_at    TIMESTAMP NOT NULL)"])
   (jdbc/execute! ds ["CREATE INDEX IF NOT EXISTS ix_job_queue_ready
                         ON job_queue (queue, status, priority_rank, created_at)"]))
+
+(defn create-job-store-table!
+  "Create the `job_store` table + its indexes if absent. Portable DDL
+   (H2 + PostgreSQL). Call once at startup, or ship as a migration."
+  [ds]
+  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS job_store (
+                        id           UUID PRIMARY KEY,
+                        job_type     VARCHAR(255),
+                        queue        VARCHAR(255),
+                        status       VARCHAR(20) NOT NULL,
+                        dead_letter  BOOLEAN NOT NULL DEFAULT FALSE,
+                        updated_at   TIMESTAMP NOT NULL,
+                        payload      VARCHAR(1000000) NOT NULL)"])
+  (jdbc/execute! ds ["CREATE INDEX IF NOT EXISTS ix_job_store_filters
+                        ON job_store (status, job_type, queue)"])
+  (jdbc/execute! ds ["CREATE INDEX IF NOT EXISTS ix_job_store_dead_letter
+                        ON job_store (dead_letter, updated_at)"]))
+
+(defn- kw-name [x] (when x (name x)))
+
+(defn- upsert-job!
+  "Write `job`, preserving `dead-letter?` when it is nil (i.e. leave the flag
+   alone). UPDATE-then-INSERT rather than MERGE or ON CONFLICT: those spell
+   differently on H2 and PostgreSQL, and this adapter's contract is portable SQL."
+  [ds job dead-letter?]
+  (let [now  (ts (Instant/now))
+        flag (boolean dead-letter?)
+        n    (::jdbc/update-count
+              (jdbc/execute-one!
+               ds
+               (if (nil? dead-letter?)
+                 ["UPDATE job_store SET job_type = ?, queue = ?, status = ?,
+                     updated_at = ?, payload = ? WHERE id = ?"
+                  (kw-name (:job-type job)) (kw-name (:queue job))
+                  (kw-name (or (:status job) :pending)) now (serialize-job job) (:id job)]
+                 ["UPDATE job_store SET job_type = ?, queue = ?, status = ?,
+                     dead_letter = ?, updated_at = ?, payload = ? WHERE id = ?"
+                  (kw-name (:job-type job)) (kw-name (:queue job))
+                  (kw-name (or (:status job) :pending)) flag now
+                  (serialize-job job) (:id job)])))]
+    (when (zero? n)
+      (jdbc/execute-one!
+       ds
+       ["INSERT INTO job_store (id, job_type, queue, status, dead_letter, updated_at, payload)
+           VALUES (?,?,?,?,?,?,?)"
+        (:id job) (kw-name (:job-type job)) (kw-name (:queue job))
+        (kw-name (or (:status job) :pending)) flag now (serialize-job job)]))
+    job))
 
 ;; --- adapter ----------------------------------------------------------------
 
@@ -154,6 +209,13 @@
       (ts (:execute-at job))
       (serialize-job job)
       (ts (:created-at job))])
+    ;; And into the store, on the same connectable — so a transactional enqueue
+    ;; commits the history row with the business change too. Without this the
+    ;; store never saw a job it had not been handed directly: the worker's
+    ;; `update-job-status!` found nothing, `ack-job!` deleted the queue row, and
+    ;; a completed job left no history while a failed one never dead-lettered
+    ;; (BOU-418 review).
+    (upsert-job! connectable (assoc job :queue queue-name) nil)
     job-id))
 
 (defrecord DbJobQueue [ds lease-ms]
@@ -284,54 +346,6 @@
 ;; too (`worker.clj` saves the exhausted job and marks it failed). So a durable
 ;; queue paired with an in-memory store loses every failed job on restart —
 ;; which is why the DB adapter has a store of its own (BOU-418).
-
-(defn create-job-store-table!
-  "Create the `job_store` table + its indexes if absent. Portable DDL
-   (H2 + PostgreSQL). Call once at startup, or ship as a migration."
-  [ds]
-  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS job_store (
-                        id           UUID PRIMARY KEY,
-                        job_type     VARCHAR(255),
-                        queue        VARCHAR(255),
-                        status       VARCHAR(20) NOT NULL,
-                        dead_letter  BOOLEAN NOT NULL DEFAULT FALSE,
-                        updated_at   TIMESTAMP NOT NULL,
-                        payload      VARCHAR(1000000) NOT NULL)"])
-  (jdbc/execute! ds ["CREATE INDEX IF NOT EXISTS ix_job_store_filters
-                        ON job_store (status, job_type, queue)"])
-  (jdbc/execute! ds ["CREATE INDEX IF NOT EXISTS ix_job_store_dead_letter
-                        ON job_store (dead_letter, updated_at)"]))
-
-(defn- kw-name [x] (when x (name x)))
-
-(defn- upsert-job!
-  "Write `job`, preserving `dead-letter?` when it is nil (i.e. leave the flag
-   alone). UPDATE-then-INSERT rather than MERGE or ON CONFLICT: those spell
-   differently on H2 and PostgreSQL, and this adapter's contract is portable SQL."
-  [ds job dead-letter?]
-  (let [now  (ts (Instant/now))
-        flag (boolean dead-letter?)
-        n    (::jdbc/update-count
-              (jdbc/execute-one!
-               ds
-               (if (nil? dead-letter?)
-                 ["UPDATE job_store SET job_type = ?, queue = ?, status = ?,
-                     updated_at = ?, payload = ? WHERE id = ?"
-                  (kw-name (:job-type job)) (kw-name (:queue job))
-                  (kw-name (or (:status job) :pending)) now (serialize-job job) (:id job)]
-                 ["UPDATE job_store SET job_type = ?, queue = ?, status = ?,
-                     dead_letter = ?, updated_at = ?, payload = ? WHERE id = ?"
-                  (kw-name (:job-type job)) (kw-name (:queue job))
-                  (kw-name (or (:status job) :pending)) flag now
-                  (serialize-job job) (:id job)])))]
-    (when (zero? n)
-      (jdbc/execute-one!
-       ds
-       ["INSERT INTO job_store (id, job_type, queue, status, dead_letter, updated_at, payload)
-           VALUES (?,?,?,?,?,?,?)"
-        (:id job) (kw-name (:job-type job)) (kw-name (:queue job))
-        (kw-name (or (:status job) :pending)) flag now (serialize-job job)]))
-    job))
 
 (defrecord DbJobStore [ds]
   ports/IJobStore

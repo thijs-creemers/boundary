@@ -130,6 +130,11 @@ APNs uses ES256 JWT authentication (team-id + key-id + P8 private key). JWT is m
 
 All three methods enqueue jobs and return a job UUID immediately — delivery is async.
 
+Jobs go on the `:default` queue, which is the one jobs' default worker pool
+polls. To isolate push on its own queue, set `:wagoe/push {:queue :push}` **and**
+`:wagoe/jobs {:workers {:queues [:default :push]}}` — a queue no pool names is
+never processed, and nothing says so (BOU-418).
+
 ## Job Handlers
 
 Two job types registered under `:wagoe.push/job-handlers`:

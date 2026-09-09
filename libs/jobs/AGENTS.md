@@ -28,7 +28,8 @@ Enabling `:wagoe/jobs` builds the runtime. Nothing else to assemble.
 :wagoe/jobs {:provider :memory        ; :memory | :db | :redis
              :lease-ms 60000          ; :db only — in-flight lease
              :redis    {:host "localhost" :port 6379}
-             :workers  {:count 1 :queue-name :default}}
+             :workers  {:count  1
+                        :queues [:default]}}   ; one pool per queue
 ```
 
 | Key | What it is |
@@ -36,11 +37,16 @@ Enabling `:wagoe/jobs` builds the runtime. Nothing else to assemble.
 | `:wagoe/job-queue` | `IJobQueue` — what you enqueue on, and what other modules take a ref to |
 | `:wagoe/job-store` | `IJobStore` — job history and the dead-letter queue |
 | `:wagoe/job-registry` | The handlers every enabled module contributed |
-| `:wagoe/job-workers` | The worker pool. `:count 0` builds none |
+| `:wagoe/job-workers` | One pool of `:count` workers per queue in `:queues` |
 
 Set `:workers {:count 0}` on a web node in the web/worker split — it enqueues
 and processes nothing. The default of 1 is a single process that does both,
 which is what an application without a deployment topology has.
+
+**A worker polls one queue.** Work enqueued on a queue no pool names is never
+processed and nothing reports it — push enqueued on `:push` while the only pool
+polled `:default`, and every push sat there (BOU-418). If a module enqueues on
+its own queue, list that queue here.
 
 **Contributing handlers.** A module ships a component returning
 `{job-type handler-fn}` and lists it under `:job-handlers` in its `ig-config`,
@@ -192,6 +198,14 @@ running → retrying → pending → running → ...
 - Exponential backoff: `delay = initial-delay * 2^retry-count`
 - Capped at 60 seconds with random jitter (±10%)
 - Dead letter queue after max retries exhausted
+- Tune with `:workers {:retry-config {:initial-delay-ms … :max-delay-ms … :jitter false}}`
+
+Until BOU-418 this section described something the worker did not do: a
+retryable failure was recorded as `:retrying`, acked, and never run again. The
+retry is scheduled **after** the ack, never before it — the DB adapter's
+`ack-job!` is `DELETE … WHERE id = ?`, so a re-enqueue carrying the same id was
+deleted by the ack that followed it. In-memory's ack is a no-op, which is why
+the loss showed on one backend only.
 
 ## Missing Handlers (multi-instance)
 

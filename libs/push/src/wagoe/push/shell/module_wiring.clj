@@ -36,9 +36,11 @@
   (persistence/->PushAnalyticsStore db))
 
 (defmethod ig/init-key :wagoe.push/service
-  [_ {:keys [device-store analytics-store fcm-provider apns-provider job-queue callback-secret]}]
-  (log/info "Push: initializing push service")
-  (service/->PushService device-store analytics-store fcm-provider apns-provider job-queue callback-secret))
+  [_ {:keys [device-store analytics-store fcm-provider apns-provider
+             job-queue queue-name callback-secret]}]
+  (log/info "Push: initializing push service" {:queue (or queue-name :default)})
+  (service/->PushService device-store analytics-store fcm-provider apns-provider
+                         job-queue (or queue-name :default) callback-secret))
 
 (defmethod ig/init-key :wagoe.push/job-handlers
   [_ {:keys [push-service _job-registry]}]
@@ -98,7 +100,16 @@
                                                    :apns-provider   (ig/ref :wagoe.push/apns-provider)
                                                    :callback-secret (:callback-secret settings)}
                                             jobs?
-                                            (assoc :job-queue (ig/ref :wagoe/job-queue)))
+                                            (assoc :job-queue  (ig/ref :wagoe/job-queue)
+                                                   ;; :default, because that is
+                                                   ;; the queue the default worker
+                                                   ;; polls. Push used to enqueue
+                                                   ;; on :push, which no worker
+                                                   ;; read (BOU-418 review); set
+                                                   ;; :queue here and list it in
+                                                   ;; jobs' :workers :queues to
+                                                   ;; get that isolation back.
+                                                   :queue-name (:queue settings :default)))
               :wagoe.push/routes          {:device-store    (ig/ref :wagoe.push/device-store)
                                            :analytics-store (ig/ref :wagoe.push/analytics-store)
                                            :callback-secret (:callback-secret settings)}}}

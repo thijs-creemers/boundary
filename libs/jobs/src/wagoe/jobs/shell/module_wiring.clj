@@ -121,11 +121,21 @@
 
 (defmethod ig/init-key :wagoe/job-workers
   [_ {:keys [queue store registry workers]}]
-  (let [count* (:count workers 1)]
+  (let [count*  (:count workers 1)
+        ;; One pool per queue. A worker polls a single queue, so a module that
+        ;; enqueues elsewhere is only served if a pool names that queue — push
+        ;; enqueued on :push while the only pool polled :default, and every
+        ;; push sat there (BOU-418 review). Naming the queues here is what
+        ;; makes that arrangement deliberate instead of silent.
+        queues  (or (seq (:queues workers))
+                    [(:queue-name workers :default)])]
     (if (pos? count*)
-      (worker/create-worker-pool (merge {:queue-name :default} workers
-                                        {:worker-count count*})
-                                 queue store registry)
+      (into []
+            (mapcat (fn [q]
+                      (worker/create-worker-pool
+                       (merge workers {:queue-name q :worker-count count*})
+                       queue store registry)))
+            queues)
       (do (log/info "Jobs: no workers started (:count 0) — this node enqueues only")
           []))))
 
