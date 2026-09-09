@@ -137,3 +137,19 @@
         (is (.isAfter ^java.time.Instant (:execute-at stored)
                       (.plusSeconds (java.time.Instant/now) 60))
             (str "a push scheduled an hour out is due at " (pr-str (:execute-at stored))))))))
+
+(deftest ^:integration the-runtime-exposes-its-statistics
+  ;; The in-memory and Redis adapters build an IJobStats, and the runtime held
+  ;; it without projecting a key for it. devtools' dashboard reads
+  ;; `:wagoe/job-stats` (falling back to the queue only if the queue happens to
+  ;; implement IJobStats, which none of them do), so its Jobs page reported
+  ;; zeros for a queue that was working (BOU-418 review).
+  (with-worker-system
+    (fn [system]
+      (let [stats (:wagoe/job-stats system)]
+        (is (some? stats)
+            "no :wagoe/job-stats — the dashboard has nothing to read")
+        (is (satisfies? job-ports/IJobStats stats)
+            "the component is there but does not answer the protocol devtools calls")
+        (is (map? (job-ports/job-stats stats))
+            "job-stats did not return a stats map")))))

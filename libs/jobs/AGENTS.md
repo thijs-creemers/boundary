@@ -36,6 +36,7 @@ Enabling `:wagoe/jobs` builds the runtime. Nothing else to assemble.
 |---|---|
 | `:wagoe/job-queue` | `IJobQueue` — what you enqueue on, and what other modules take a ref to |
 | `:wagoe/job-store` | `IJobStore` — job history and the dead-letter queue |
+| `:wagoe/job-stats` | `IJobStats` — what the devtools dashboard reads. nil under `:provider :db` |
 | `:wagoe/job-registry` | The handlers every enabled module contributed |
 | `:wagoe/job-workers` | One pool of `:count` workers per queue in `:queues` |
 

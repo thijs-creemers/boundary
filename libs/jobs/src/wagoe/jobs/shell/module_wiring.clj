@@ -13,10 +13,12 @@
    :wagoe/jobs-runtime
      Queue, store and stats from one adapter, so the three share a backend.
 
-   :wagoe/job-queue, :wagoe/job-store
-     What other modules take a ref to — `workflow` and `push` already document
-     `:job-queue`. Projections of the runtime rather than components of their
-     own, because the in-memory adapter's queue and store must share state.
+   :wagoe/job-queue, :wagoe/job-store, :wagoe/job-stats
+     What other modules and the devtools dashboard take a ref to — `workflow`
+     and `push` already document `:job-queue`. Projections of the runtime rather
+     than components of their own, because the in-memory adapter's queue and
+     store must share state. `:wagoe/job-stats` is nil under `:provider :db`,
+     which ships no IJobStats.
 
    :wagoe/job-registry
      The handler map every module contributed. Modules contribute handlers the
@@ -104,6 +106,13 @@
 (defmethod ig/init-key :wagoe/job-store [_ {:keys [runtime]}] (:store runtime))
 (defmethod ig/halt-key! :wagoe/job-store [_ _] nil)
 
+;; nil under `:provider :db`, which has no IJobStats — devtools reads this key
+;; and shows what it finds, so an absent implementation reads as absent rather
+;; than as an implementation that answers zero. The key was missing entirely
+;; and the dashboard's Jobs page showed zeros for a busy queue (BOU-418 review).
+(defmethod ig/init-key :wagoe/job-stats [_ {:keys [runtime]}] (:stats runtime))
+(defmethod ig/halt-key! :wagoe/job-stats [_ _] nil)
+
 ;; =============================================================================
 ;; Registry and workers
 ;; =============================================================================
@@ -164,6 +173,7 @@
                            :db-ctx   (ig/ref :wagoe/db-context)}
       :wagoe/job-queue    {:runtime (ig/ref :wagoe/jobs-runtime)}
       :wagoe/job-store    {:runtime (ig/ref :wagoe/jobs-runtime)}
+      :wagoe/job-stats    {:runtime (ig/ref :wagoe/jobs-runtime)}
       :wagoe/job-registry {:handler-maps []}
       :wagoe/job-workers  {:queue    (ig/ref :wagoe/job-queue)
                            :store    (ig/ref :wagoe/job-store)
