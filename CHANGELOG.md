@@ -45,8 +45,6 @@ for what is public API, what is internal, and how deprecations are announced.
   you configured, instead of being documented and never built.
 - **Configured FCM push no longer throws at boot** (BOU-346). Set `:fcm-credentials`
   `{:project-id … :credentials-path …}`; the old nested `:credentials` never worked.
-- **Storage can serve its own routes** (BOU-346). Opt in with `:expose-http? true`, and
-  put them behind your auth — they have none. Sharded keys now match.
 
 - **`bb scaffold` reads its options with the same parser the scaffolder runs** (BOU-378).
   One parser decides what `--output-dir` and friends mean; the namespace cannot drift.

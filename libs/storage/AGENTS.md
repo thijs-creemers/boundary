@@ -43,12 +43,6 @@ S3 / S3-compatible, and Google Cloud Storage adapters behind a single
   (`?expires=<epoch>&signature=<hex>`) when `:signing-secret` is configured;
   the serving route enforces it via `local/verify-signed-url`. Without a secret
   it falls back to the plain public URL (or `nil` if `:url-base` is unset).
-- **A signed URL is only checked where a route checks it.** The URL is built as
-  `<url-base>/<key>`, and the module's own download route
-  (`<http-base-path>/download/<key>`, mounted under `/api/v1` when
-  `:expose-http? true`) is the only thing that calls `verify-signed-url`. So
-  with a secret configured, point `:url-base` at that route. Aimed at a CDN or
-  a static server, the link resolves and the signature is never verified.
 
 ### `IImageProcessor` — optional image ops
 
@@ -69,9 +63,7 @@ S3 / S3-compatible, and Google Cloud Storage adapters behind a single
 (def storage
   (local/create-local-storage
     {:base-path "uploads"          ; required — root dir
-     ;; With :signing-secret, this must be the public URL of the mounted
-     ;; download route — nothing else verifies the signature.
-     :url-base  "https://app.example.com/api/v1/storage/download"
+     :url-base  "https://cdn.example.com/files" ; optional — enables :url + signed URLs
      :signing-secret "hmac-key"    ; optional — enables real signed, expiring URLs
      :create-directories? true     ; default true
      :logger    logger}))          ; optional

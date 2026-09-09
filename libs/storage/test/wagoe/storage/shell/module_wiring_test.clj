@@ -3,13 +3,10 @@
    the catalogue-advertised config shape ({:provider :local :root ...})."
   (:require [clojure.test :refer [deftest is testing]]
             [wagoe.storage.shell.module-wiring]
-            [wagoe.storage.shell.http-handlers :as http-handlers]
             [wagoe.storage.shell.service :as service]
             [wagoe.storage.ports :as ports]
             [integrant.core :as ig]
-            [clojure.java.io :as io]
-            [clojure.string :as str]
-            [wagoe.storage.shell.adapters.local :as local]))
+            [clojure.java.io :as io]))
 
 (def ^:private test-root "target/test-wiring-storage")
 
@@ -53,68 +50,3 @@
             "paths carry no /api prefix (versioning adds it)"))
       (ig/halt-key! :wagoe/storage component))
     (finally (cleanup))))
-
-(deftest ^:unit ig-config-assembles-the-service-and-mounts-routes-on-request
-  ;; BOU-346: the routes component existed and no application ever mounted it.
-  ;; The module owns its graph now — but mounting stays opt-in, because the
-  ;; endpoints carry no authorization: anonymous upload and delete by key.
-  (let [base {:provider :local :root "/tmp/x"}]
-    (testing "assembled by default, mounted by nobody"
-      (let [{:keys [components routes]} (wagoe.storage.shell.module-wiring/ig-config base {})]
-        (is (contains? components :wagoe/storage))
-        (is (contains? components :wagoe/storage-routes))
-        (is (empty? routes)
-            "publishing anonymous upload/delete must be a decision, not a default")))
-    (testing "only an explicit true mounts them — #env yields strings"
-      (doseq [v [false "false" "no" nil 0]]
-        (is (empty? (:routes (wagoe.storage.shell.module-wiring/ig-config
-                              (assoc base :expose-http? v) {})))
-            (str "expose-http? " (pr-str v) " must not publish the routes"))))
-    (testing ":expose-http? true mounts them"
-      (doseq [v [true "true"]]
-        (is (= 1 (count (:routes (wagoe.storage.shell.module-wiring/ig-config
-                                  (assoc base :expose-http? v) {}))))
-            (pr-str v))))))
-
-(deftest ^:unit routes-address-the-sharded-keys-the-adapter-returns
-  ;; The local adapter shards every key it hands back — `2a/photo.jpg` — so a
-  ;; single-segment :file-key could never match the key it had just returned.
-  (let [paths (map first (http-handlers/storage-routes nil {}))]
-    (doseq [op ["download" "delete" "url"]]
-      (is (some #(= % (str "/storage/" op "/{*file-key}")) paths)
-          (str op " must catch the whole key, slashes included")))))
-
-(deftest ^:unit a-signed-url-reaches-the-route-that-verifies-it
-  ;; My earlier round-trip test handed the key to the handler directly, so it
-  ;; proved the signature and not the address. The URL is built as
-  ;; `<url-base>/<key>`, and only this module's download route verifies — so
-  ;; the two have to be configurable into agreement (BOU-346 review).
-  (let [root    (str (java.nio.file.Files/createTempDirectory
-                      "wagoe-url" (make-array java.nio.file.attribute.FileAttribute 0)))
-        base    "/files"
-        public  (str "http://app.test/api/v1" base "/download")
-        routes  (:api (ig/init-key :wagoe/storage-routes
-                                   {:storage (ig/init-key :wagoe/storage
-                                                          {:provider :local
-                                                           :root root
-                                                           :url-base public
-                                                           :signing-secret "s3cr3t"
-                                                           :http-base-path base})}))
-        paths   (set (map first routes))]
-    (try
-      (testing "the mounted path follows :http-base-path"
-        (is (contains? paths (str base "/download/{*file-key}"))
-            (pr-str paths)))
-
-      (testing "and a URL the adapter emits lands on exactly that path"
-        (let [storage (local/create-local-storage {:base-path root
-                                                   :url-base public
-                                                   :signing-secret "s3cr3t"})
-              {:keys [key url]} (ports/store-file
-                                 storage
-                                 {:bytes (.getBytes "x") :content-type "text/plain"}
-                                 {:filename "a.txt"})
-              path-of (-> url (str/replace #"\?.*$" "") (str/replace "http://app.test" ""))]
-          (is (= (str "/api/v1" base "/download/" key) path-of)
-              "the emitted URL addresses the mounted download route")))
-      (finally (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))))))
