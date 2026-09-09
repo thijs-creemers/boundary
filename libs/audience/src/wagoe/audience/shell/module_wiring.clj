@@ -18,7 +18,8 @@
      Returns {:store <IAudienceRepository> :resolver <IAudienceResolver> :cache <IAudienceCache>}
 
    :wagoe/audience-routes
-     {:audience-service (ig/ref :wagoe/audience)}
+     {:audience-service (ig/ref :wagoe/audience)
+      :middleware       (ig/ref :wagoe/admin-only-middleware)}
 
      Returns {:api [...] :web [...]} for composition
      by the HTTP handler."
@@ -77,10 +78,22 @@
 ;; =============================================================================
 
 (defmethod ig/init-key :wagoe/audience-routes
-  [_ {:keys [audience-service]}]
-  (log/info "Initializing audience routes")
-  {:api (audience-http/audience-api-routes (:resolver audience-service) (:store audience-service))
-   :web (audience-http/audience-web-routes (:resolver audience-service) (:store audience-service))})
+  [_ {:keys [audience-service middleware]}]
+  ;; These endpoints create and delete segments and read their membership. They
+  ;; carried no route middleware, and the global authentication only *sets*
+  ;; `:user` when credentials are present — so an anonymous caller could list a
+  ;; segment's user ids and delete the segment, and did (BOU-419 review).
+  (when (empty? middleware)
+    (throw (ex-info (str "Audience routes must not be mounted without authorization "
+                         "middleware: they manage segments and expose member ids.")
+                    {:type :configuration-error :missing-key :middleware})))
+  (log/info "Initializing audience routes" {:guards (count middleware)})
+  {:api (audience-http/audience-api-routes (:resolver audience-service)
+                                           (:store audience-service)
+                                           middleware)
+   :web (audience-http/audience-web-routes (:resolver audience-service)
+                                           (:store audience-service)
+                                           middleware)})
 
 (defmethod ig/halt-key! :wagoe/audience-routes
   [_ _routes]
@@ -99,19 +112,28 @@
    routes were never mounted. Under that fallback the module could not have
    booted anyway — its `:user-data-source` had no implementation (BOU-419).
 
-   `:cache-service` is passed only when the cache module is on, the way
-   user-service takes its optional cache: a ref to a component the config does
-   not contain is a dangling ref, and the boot fails on it."
+   Two refs are conditional, for the same reason in both cases — a ref to a
+   component the config does not contain is a dangling ref that fails the boot:
+
+     `:cache-service`, the way user-service takes its optional cache;
+     `:wagoe/audience-routes`, which is mounted only when the user module is on,
+     because the authorization guard these endpoints need lives there. Without
+     it they are not mounted at all rather than mounted open (BOU-419 review)."
   [settings {:keys [enabled]}]
-  (let [settings (or settings {})]
-    {:components
-     {:wagoe/audience-db-schema   {:db-ctx (ig/ref :wagoe/db-context)}
-      :wagoe/audience-user-source {:db-ctx (ig/ref :wagoe/db-context)
-                                   :table  (:users-table settings)}
-      :wagoe/audience             (cond-> {:db-ctx           (ig/ref :wagoe/db-context)
-                                           :db-schema        (ig/ref :wagoe/audience-db-schema)
-                                           :user-data-source (ig/ref :wagoe/audience-user-source)}
-                                    (contains? (or enabled #{}) :wagoe/cache)
-                                    (assoc :cache-service (ig/ref :wagoe/cache)))
-      :wagoe/audience-routes      {:audience-service (ig/ref :wagoe/audience)}}
-     :routes [(ig/ref :wagoe/audience-routes)]}))
+  (let [enabled  (or enabled #{})
+        settings (or settings {})]
+    (cond-> {:components
+             {:wagoe/audience-db-schema   {:db-ctx (ig/ref :wagoe/db-context)}
+              :wagoe/audience-user-source {:db-ctx (ig/ref :wagoe/db-context)
+                                           :table  (:users-table settings)}
+              :wagoe/audience             (cond-> {:db-ctx           (ig/ref :wagoe/db-context)
+                                                   :db-schema        (ig/ref :wagoe/audience-db-schema)
+                                                   :user-data-source (ig/ref :wagoe/audience-user-source)}
+                                            (contains? enabled :wagoe/cache)
+                                            (assoc :cache-service (ig/ref :wagoe/cache)))}}
+
+      (contains? enabled :wagoe/user)
+      (-> (assoc-in [:components :wagoe/audience-routes]
+                    {:audience-service (ig/ref :wagoe/audience)
+                     :middleware       (ig/ref :wagoe/admin-only-middleware)})
+          (assoc :routes [(ig/ref :wagoe/audience-routes)])))))

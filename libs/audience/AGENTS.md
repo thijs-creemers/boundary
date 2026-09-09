@@ -244,6 +244,12 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 
 `:wagoe/audience-routes` returns `{:api [...] :web [...]}` for composition by the HTTP handler.
 
+**Mounting.** `:wagoe/audience-routes` is mounted only when the user module is enabled, and
+every route carries `:wagoe/admin-only-middleware` — these endpoints create and delete
+segments and read their member ids, and the global authentication only *sets* `:user` when
+credentials are present rather than demanding them. The routes component refuses to
+initialise with an empty middleware vector (BOU-419).
+
 **Note**: `:user-data-source` is required. Without it, `resolve-audience` will throw. Provide any implementation of `IUserDataSource`:
 
 ```clojure

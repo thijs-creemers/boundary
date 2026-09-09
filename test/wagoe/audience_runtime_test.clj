@@ -15,15 +15,28 @@
             [next.jdbc :as jdbc]
             [wagoe.audience.ports :as audience-ports]
             [wagoe.config :as config]
-            [wagoe.system-config :as sys-config])
+            [wagoe.main :as main]
+            [wagoe.system-config :as sys-config]
+            [support.handler-test-helpers :as h])
   (:import [java.util UUID]))
 
 (defn- audience-config []
   (-> (config/load-config {:profile :test})
       (assoc-in [:active :wagoe/audience] {:enabled? true})))
 
-(defn- with-system [f]
-  (let [system (ig/init (sys-config/ig-config (audience-config)))]
+(defn- with-system
+  "Boots without the HTTP server: it binds a fixed port from the test profile,
+   and a port already in use made these tests fail before an assertion ran
+   (BOU-419 review). The route tree is data and needs no listener."
+  [f]
+  (let [system (ig/init (main/worker-ig-config (sys-config/ig-config (audience-config))))]
+    (try (f system) (finally (ig/halt! system)))))
+
+(defn- with-http-handler
+  "Boots the handler but not the listener, for the requests below."
+  [f]
+  (let [system (ig/init (dissoc (sys-config/ig-config (audience-config))
+                                :wagoe/http-server))]
     (try (f system) (finally (ig/halt! system)))))
 
 (defn- insert-user!
@@ -77,3 +90,35 @@
             (is (= #{alice bob} (set (:user-ids result)))
                 (str "expected both users, got " (pr-str (:user-ids result))))
             (is (= 2 (:count result)))))))))
+
+(deftest ^:security ^:integration anonymous-callers-cannot-manage-audiences
+  ;; The routes carried no middleware of their own, and the global
+  ;; authentication only *sets* `:user` when credentials are present — it does
+  ;; not demand them. So mounting these published segment management to anyone:
+  ;; measured before the guard, `DELETE /api/v1/audiences/:id` answered 204 and
+  ;; the segment was gone, and `…/members` answered 200 with the user ids
+  ;; (BOU-419 review).
+  (with-http-handler
+    (fn [system]
+      (let [handler (:wagoe/http-handler system)
+            store   (:store (:wagoe/audience system))]
+        (audience-ports/save-audience store {:id :secret-cohort :label "S" :filters []})
+
+        (doseq [[label request]
+                [["list members" (h/make-get "/api/v1/audiences/secret-cohort/members")]
+                 ["preview"      (h/make-post "/api/v1/audiences/preview" {})]
+                 ["delete"       (h/make-delete "/api/v1/audiences/secret-cohort")]
+                 ["web list"     (h/make-get "/web/audiences")]]]
+          (testing (str "anonymous " label)
+            (let [{:keys [status headers]} (handler request)]
+              ;; A browser page redirects to the login form; an API answers
+              ;; 401/403. Both are refusals — what must not happen is the work.
+              (is (or (contains? #{401 403} status)
+                      (and (= 302 status)
+                           (re-find #"(?i)login|sign-?in" (str (get headers "Location")))))
+                  (str label " answered " status
+                       (when (= 302 status) (str " -> " (get headers "Location")))
+                       " to a caller with no credentials")))))
+
+        (testing "and the segment an anonymous caller tried to delete is still there"
+          (is (some? (audience-ports/find-audience store :secret-cohort))))))))
