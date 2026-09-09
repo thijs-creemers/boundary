@@ -55,4 +55,8 @@
    logs rather than delivers, so a project with no SMTP settings still boots and
    still shows you what it would have sent."
   [settings _ctx]
-  {:components {:wagoe/email (or settings {:provider :logging})}})
+  {:components {:wagoe/email       (or settings {:provider :logging})
+                ;; The queued mode the docs promise (BOU-346): an in-memory
+                ;; outbox over whatever sender is configured. Per-process and
+                ;; lost on restart, as its adapter says on the tin.
+                :wagoe/email-queue {:sender (ig/ref :wagoe/email)}}})

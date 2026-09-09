@@ -71,8 +71,16 @@
    it has an FCM account."
   [settings _ctx]
   {:components
-   {:wagoe.push/fcm-provider    {:provider    (if (:fcm-credentials settings) :fcm :mock)
-                                 :credentials (:fcm-credentials settings)}
+   ;; FCM settings spread like APNs' three lines below — the nested
+   ;; `:credentials` key never matched the init-key's `:project-id`/
+   ;; `:credentials-path`, so configured FCM threw at boot, always (BOU-346).
+   ;; :fcm only when both fields are present: a map of unset #env values is
+   ;; truthy and would select a provider that cannot construct.
+   {:wagoe.push/fcm-provider    (let [fc (:fcm-credentials settings)]
+                                  (merge {:provider (if (and (:project-id fc)
+                                                             (:credentials-path fc))
+                                                      :fcm :mock)}
+                                         fc))
     :wagoe.push/apns-provider   (merge {:provider (if (:apns-credentials settings) :apns :mock)}
                                        (:apns-credentials settings))
     :wagoe.push/device-store    {:db (ig/ref :wagoe/db-context)}

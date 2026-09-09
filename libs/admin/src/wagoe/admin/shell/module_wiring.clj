@@ -20,13 +20,20 @@
 ;; Admin Config Component (pass-through holder referenced by other components)
 ;; =============================================================================
 
-(defmethod ig/init-key :wagoe/admin [_ config] config)
-
-(defmethod ig/halt-key! :wagoe/admin [_ _] nil)
-
 ;; =============================================================================
 ;; Schema Provider Component
 ;; =============================================================================
+
+;; DEPRECATED (BOU-346): this *component* is a settings passthrough with no
+;; consumer — admin's three components take the settings map directly. Kept
+;; for one release because it works when wired by hand, and the stability
+;; policy does not remove a working key in the release that deprecates it.
+;;
+;; The `:wagoe/admin` key in `:active` is a different thing and is not
+;; deprecated: it is how an application switches the admin module on.
+(defmethod ig/init-key :wagoe/admin [_ config] config)
+
+(defmethod ig/halt-key! :wagoe/admin [_ _] nil)
 
 (defmethod ig/init-key :wagoe/admin-schema-provider
   [_ {:keys [db-ctx config malli-schemas]}]

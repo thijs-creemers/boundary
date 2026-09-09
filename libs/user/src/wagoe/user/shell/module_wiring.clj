@@ -17,6 +17,19 @@
 ;; User Repository
 ;; =============================================================================
 
+;; DEPRECATED (BOU-346): no consumer — :wagoe/auth-service takes
+;; :wagoe/user-repository. Kept for one release: it builds a working
+;; repository when wired by hand, and the stability policy does not remove a
+;; working key in the release that first deprecates it.
+(defmethod ig/init-key :wagoe/auth-user-repository
+  [_ {:keys [ctx]}]
+  (log/info "Initializing auth user repository")
+  (auth-persistence/create-auth-user-repository ctx))
+
+(defmethod ig/halt-key! :wagoe/auth-user-repository
+  [_ _repo]
+  (log/info "Auth user repository halted (no cleanup needed)"))
+
 (defmethod ig/init-key :wagoe/user-repository
   [_ {:keys [ctx]}]
   (log/info "Initializing user repository")
@@ -31,17 +44,6 @@
 ;; =============================================================================
 ;; Auth User Repository
 ;; =============================================================================
-
-(defmethod ig/init-key :wagoe/auth-user-repository
-  [_ {:keys [ctx]}]
-  (log/info "Initializing auth user repository")
-  (let [repo (auth-persistence/create-auth-user-repository ctx)]
-    (log/info "Auth user repository initialized")
-    repo))
-
-(defmethod ig/halt-key! :wagoe/auth-user-repository
-  [_ _repo]
-  (log/info "Auth user repository halted (no cleanup needed)"))
 
 ;; =============================================================================
 ;; Session Repository
@@ -171,23 +173,6 @@
 (defmethod ig/halt-key! :wagoe/user-http-middleware
   [_ _mw]
   (log/info "User HTTP middleware halted (no cleanup needed)"))
-
-;; =============================================================================
-;; User HTTP Handler (DEPRECATED - Legacy Support REMOVED)
-;; =============================================================================
-
-(defmethod ig/init-key :wagoe/user-http-handler
-  [_ {:keys [user-service config]}]
-  (throw (ex-info "DEPRECATED: :wagoe/user-http-handler no longer supported"
-                  {:type :configuration-error
-                   :message "Legacy create-handler function has been removed"
-                   :migration "Use :wagoe/user-routes with top-level :wagoe/http-handler instead"
-                   :user-service user-service
-                   :config config})))
-
-(defmethod ig/halt-key! :wagoe/user-http-handler
-  [_ _handler]
-  (log/info "User HTTP handler halted"))
 
 ;; =============================================================================
 ;; User Database Schema
