@@ -166,10 +166,8 @@
                    :requeue-count requeues :delay-ms delay-ms
                    :unhandled-for-ms (when first-seen (- now-ms first-seen)) :max-age-ms max-age-ms
                    :local-handlers (ports/list-handlers registry)})
-        ;; Returned, not enqueued: the caller's `finally` acks this job, and the
-        ;; DB adapter's ack is `DELETE … WHERE id = ?`, which deleted the row a
-        ;; re-enqueue here had just written. In-memory's ack is a no-op, so the
-        ;; loss showed on one backend only (BOU-418 review).
+        ;; Returned rather than enqueued here, so one place decides when the
+        ;; replacement is written relative to the ack — see the caller.
         ;;
         ;; Delayed via the scheduled set (see docstring): it leaves the ready
         ;; queue so this worker cannot immediately reacquire and tight-loop.
@@ -211,9 +209,9 @@
     (let [job-id   (:id job)
           job-type (:job-type job)
           tracer   (:tracer config)
-          ;; Anything to put back on the queue, held until after the ack below.
-          ;; See `handle-missing-handler!`: enqueueing before the ack lost the
-          ;; job on the DB backend, whose ack deletes by id (BOU-418 review).
+          ;; Anything to put back on the queue, enqueued in the `finally` just
+          ;; ahead of the ack. Held rather than enqueued at the decision point
+          ;; only so there is one place that does it.
           requeue  (atom nil)
           fail!
           (fn [error]
@@ -265,6 +263,18 @@
                   (log/error e "Unexpected error processing job" {:job-id job-id})))
 
               (finally
+                ;; The replacement goes back on the queue BEFORE the claim is
+                ;; released. Acking first opened a window in which the job was
+                ;; neither queued nor in flight, so a process that died there
+                ;; lost the retry outright — no reclaim could find it, on any
+                ;; backend (BOU-418 review). This order can only duplicate, and
+                ;; duplication is what at-least-once means.
+                (when-let [j @requeue]
+                  (ports/enqueue-job! queue (:queue-name worker-state) j)
+                  (log/info "Job re-queued" {:job-id      (:id j)
+                                             :job-type    (:job-type j)
+                                             :retry-count (:retry-count j)
+                                             :execute-at  (:execute-at j)}))
                 ;; Ack removes the job from this worker's in-flight processing list.
                 ;; By here the job is completed, re-enqueued for retry, or dead-lettered
                 ;; — no longer in flight. A crash BEFORE this point leaves it in the
@@ -278,13 +288,6 @@
           {:job.id (str job-id) :job.type (str job-type)}
           (fn [_span] (run-job!)))
         (run-job!))
-      ;; After the ack in `run-job!`'s finally, never before it.
-      (when-let [j @requeue]
-        (ports/enqueue-job! queue (:queue-name worker-state) j)
-        (log/info "Job re-queued" {:job-id      (:id j)
-                                   :job-type    (:job-type j)
-                                   :retry-count (:retry-count j)
-                                   :execute-at  (:execute-at j)}))
       true)))
 
 ;; =============================================================================

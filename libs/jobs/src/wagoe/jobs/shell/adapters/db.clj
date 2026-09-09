@@ -187,8 +187,14 @@
                                       "dual-write window")}))))
 
 (defn- insert-job!
-  "INSERT a job row using the given `connectable` — a datasource, a connection,
+  "Write a job row using the given `connectable` — a datasource, a connection,
    or an open `next.jdbc` transaction. Returns the job id.
+
+   An upsert, not a plain INSERT, because a worker re-enqueues a job it still
+   holds: on a retry or a re-route the row exists and is `processing`, and this
+   returns it to the ready (or scheduled) set and releases the claim. Writing it
+   as a fresh INSERT would violate the primary key; enqueueing under a new id
+   instead would break job identity across retries (BOU-418 review).
 
    PRIVATE on purpose. It accepts a datasource because `enqueue-job!` legitimately
    passes one (autocommit is correct for a non-transactional enqueue), so the
@@ -198,17 +204,27 @@
    `ports/enqueue-in-tx!`."
   [connectable queue-name job]
   (let [job-id     (:id job)
-        scheduled? (some? (:execute-at job))]
-    (jdbc/execute-one!
-     connectable
-     ["INSERT INTO job_queue
-         (id, queue, priority_rank, status, execute_at, payload, created_at)
-         VALUES (?,?,?,?,?,?,?)"
-      job-id (name queue-name) (priority-rank (:priority job))
-      (if scheduled? "scheduled" "ready")
-      (ts (:execute-at job))
-      (serialize-job job)
-      (ts (:created-at job))])
+        scheduled? (some? (:execute-at job))
+        status     (if scheduled? "scheduled" "ready")
+        updated    (::jdbc/update-count
+                    (jdbc/execute-one!
+                     connectable
+                     ["UPDATE job_queue
+                         SET queue = ?, priority_rank = ?, status = ?, execute_at = ?,
+                             payload = ?, locked_by = NULL, locked_at = NULL
+                         WHERE id = ?"
+                      (name queue-name) (priority-rank (:priority job)) status
+                      (ts (:execute-at job)) (serialize-job job) job-id]))]
+    (when (zero? updated)
+      (jdbc/execute-one!
+       connectable
+       ["INSERT INTO job_queue
+           (id, queue, priority_rank, status, execute_at, payload, created_at)
+           VALUES (?,?,?,?,?,?,?)"
+        job-id (name queue-name) (priority-rank (:priority job)) status
+        (ts (:execute-at job))
+        (serialize-job job)
+        (ts (:created-at job))]))
     ;; And into the store, on the same connectable — so a transactional enqueue
     ;; commits the history row with the business change too. Without this the
     ;; store never saw a job it had not been handed directly: the worker's
@@ -267,8 +283,15 @@
             (recur)))
         nil)))
 
-  (ack-job! [_ _queue-name _worker-id job-id]
-    (jdbc/execute-one! ds ["DELETE FROM job_queue WHERE id = ?" job-id])
+  (ack-job! [_ _queue-name worker-id job-id]
+    ;; Only the claim this worker still holds. An unconditional delete removed
+    ;; the row whatever its state, so a job re-enqueued for a retry — ready
+    ;; again, unlocked — was deleted by the ack that followed it, and a job
+    ;; another worker had reclaimed after a lease expiry was deleted out from
+    ;; under it (BOU-418 review).
+    (jdbc/execute-one! ds ["DELETE FROM job_queue
+                              WHERE id = ? AND locked_by = ? AND status = 'processing'"
+                           job-id worker-id])
     true)
 
   (reclaim-abandoned-jobs! [_ queue-name]

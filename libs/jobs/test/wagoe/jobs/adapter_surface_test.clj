@@ -480,21 +480,24 @@
 ;; shape a per-backend test file cannot see (BOU-418 review).
 
 (defn- pairs
-  "Each is [label make]; `make` returns [queue store stop!] sharing a backend."
+  "Each is [label make]; `make` takes options and returns [queue store stop!]
+   sharing a backend."
   []
   (cond-> [["in-memory"
-            (fn [] (let [{:keys [queue store]} (mem/create-in-memory-jobs-system)]
-                     [queue store (fn [] nil)]))]
+            (fn [_opts] (let [{:keys [queue store]} (mem/create-in-memory-jobs-system)]
+                          [queue store (fn [] nil)]))]
            ["db"
-            (fn []
+            (fn [opts]
               (let [ds (jdbc/get-datasource
                         {:dbtype "h2:mem"
                          :dbname (str "pair_" (System/nanoTime) ";DB_CLOSE_DELAY=-1")})]
                 (db/create-jobs-table! ds)
-                [(db/create-db-job-queue ds) (db/create-db-job-store ds) (fn [] nil)]))]]
+                [(db/create-db-job-queue ds :lease-ms (:lease-ms opts db/default-lease-ms))
+                 (db/create-db-job-store ds)
+                 (fn [] nil)]))]]
     @redis-up?
     (conj ["redis"
-           (fn []
+           (fn [_opts]
              (let [pool (redis/create-redis-pool {:host "localhost" :port 6379
                                                   :database redis-db})]
                (with-open [^Jedis j (.getResource pool)] (.flushDB j))
@@ -503,11 +506,12 @@
                 (fn [] (redis/close-redis-pool! pool))]))])))
 
 (defn- each-pair
-  [f]
-  (doseq [[label make] (pairs)]
-    (testing label
-      (let [[queue store stop!] (make)]
-        (try (f queue store label) (finally (stop!)))))))
+  ([f] (each-pair {} f))
+  ([opts f]
+   (doseq [[label make] (pairs)]
+     (testing label
+       (let [[queue store stop!] (make opts)]
+         (try (f queue store label) (finally (stop!))))))))
 
 (deftest ^:integration an-enqueued-job-is-known-to-the-store
   ;; The DB queue wrote only `job_queue`, so the worker's `update-job-status!`
@@ -523,19 +527,52 @@
            (str label ": the store cannot record an outcome for it"))))))
 
 (deftest ^:integration a-re-enqueued-job-survives-the-ack-that-follows-it
-  ;; The worker re-enqueues a job (missing handler, or a retry) and then acks
-  ;; the one it dequeued. The DB ack is `DELETE … WHERE id = ?`, so a
-  ;; re-enqueue carrying the same id was deleted by the ack that followed it;
-  ;; in-memory's ack is a no-op and hid it. The worker now enqueues after the
-  ;; ack — this pins the ordering hazard itself.
+  ;; The worker writes a replacement (a retry, or a re-route for a missing
+  ;; handler) and then acks the claim it holds. The replacement must go first:
+  ;; acking first leaves a window in which the job is neither queued nor in
+  ;; flight, and a process that dies there loses it with nothing to reclaim.
+  ;;
+  ;; That order needs an ack that only releases a claim. The DB ack deleted the
+  ;; row unconditionally, so it removed the replacement it found there — and
+  ;; would have deleted a job another worker had already reclaimed after a lease
+  ;; expiry. In-memory's ack is a no-op, so neither showed there (BOU-418
+  ;; review).
   (each-pair
-   (fn [queue store label]
+   (fn [queue _store label]
      (let [j (job :queue :requeue)]
        (ports/enqueue-job! queue :requeue j)
-       (let [got (ports/dequeue-job! queue :requeue "w1")]
-         (is (= (:id j) (:id got)) (str label ": setup")))
+       (is (= (:id j) (:id (ports/dequeue-job! queue :requeue "w1")))
+           (str label ": setup"))
+       ;; Replacement first, ack second — the order the worker uses.
+       (ports/enqueue-job! queue :requeue (assoc j :retry-count 1))
        (ports/ack-job! queue :requeue "w1" (:id j))
-       (ports/enqueue-job! queue :requeue j)
        (is (= 1 (ports/queue-size queue :requeue))
-           (str label ": a job re-enqueued after its ack is not on the queue"))
-       (is (some? store))))))
+           (str label ": the ack removed the replacement that preceded it"))
+       (is (= 1 (:retry-count (ports/dequeue-job! queue :requeue "w2")))
+           (str label ": the queued job is not the replacement"))))))
+
+(deftest ^:integration a-late-ack-does-not-destroy-a-job-someone-else-took-over
+  ;; Lease expiry hands the job to a second worker. The first worker's late ack
+  ;; must not destroy it — asserted on the job still being obtainable, not on a
+  ;; reclaim count: with no live worker heartbeats the Redis reclaim treats both
+  ;; owners as dead, so a count says nothing about who holds it.
+  (each-pair
+   {:lease-ms 1}
+   (fn [queue _store label]
+     (if (contains? known-differences (str label "/reclaim"))
+       ;; No in-flight list, so no takeover to protect — the documented
+       ;; difference, asserted rather than skipped.
+       (is (= {:reclaimed 0} (ports/reclaim-abandoned-jobs! queue :stolen)))
+       (let [j (job :queue :stolen)]
+         (ports/enqueue-job! queue :stolen j)
+         (ports/dequeue-job! queue :stolen "slow")
+         (Thread/sleep 50)
+         (ports/reclaim-abandoned-jobs! queue :stolen)
+         (is (= (:id j) (:id (ports/dequeue-job! queue :stolen "fast")))
+             (str label ": setup — the job was not reclaimed"))
+         ;; The previous owner acks, far too late.
+         (ports/ack-job! queue :stolen "slow" (:id j))
+         (Thread/sleep 50)
+         (ports/reclaim-abandoned-jobs! queue :stolen)
+         (is (= (:id j) (:id (ports/dequeue-job! queue :stolen "fast")))
+             (str label ": a late ack from the previous owner destroyed the job")))))))

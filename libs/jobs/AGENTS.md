@@ -202,11 +202,16 @@ running → retrying → pending → running → ...
 - Tune with `:workers {:retry-config {:initial-delay-ms … :max-delay-ms … :jitter false}}`
 
 Until BOU-418 this section described something the worker did not do: a
-retryable failure was recorded as `:retrying`, acked, and never run again. The
-retry is scheduled **after** the ack, never before it — the DB adapter's
-`ack-job!` is `DELETE … WHERE id = ?`, so a re-enqueue carrying the same id was
-deleted by the ack that followed it. In-memory's ack is a no-op, which is why
-the loss showed on one backend only.
+retryable failure was recorded as `:retrying`, acked, and never run again.
+
+The replacement is written **before** the claim is released, never after: acking
+first leaves a window in which the job is neither queued nor in flight, and a
+process that dies there loses it with nothing to reclaim. That order requires an
+ack that only releases a claim — the DB `ack-job!` deletes `WHERE id = ? AND
+locked_by = ? AND status = 'processing'`, and `enqueue-job!` upserts, so a
+re-enqueued job is ready and unlocked by the time the ack runs and is left
+alone. The same condition stops a late ack from deleting a job another worker
+reclaimed after a lease expiry.
 
 ## Missing Handlers (multi-instance)
 
