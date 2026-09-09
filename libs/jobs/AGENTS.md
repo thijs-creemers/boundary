@@ -18,6 +18,54 @@ Background job processing with priority queues, scheduled execution, automatic r
 | `wagoe.jobs.shell.adapters.db` | DB adapter (next.jdbc, H2/PostgreSQL) — durable jobs on your existing SQL database |
 | `wagoe.jobs.shell.worker` | Worker implementation: polling, processing, pool management |
 | `wagoe.jobs.shell.tenant-context` | Multi-tenant job execution with schema switching |
+| `wagoe.jobs.shell.module-wiring` | Integrant lifecycle: runtime, queue, store, registry, workers |
+
+## Integrant wiring
+
+Enabling `:wagoe/jobs` builds the runtime. Nothing else to assemble.
+
+```clojure
+:wagoe/jobs {:provider :memory        ; :memory | :db | :redis
+             :lease-ms 60000          ; :db only — in-flight lease
+             :redis    {:host "localhost" :port 6379}
+             :workers  {:count  1
+                        :queues [:default]}}   ; one pool per queue
+```
+
+| Key | What it is |
+|---|---|
+| `:wagoe/job-queue` | `IJobQueue` — what you enqueue on, and what other modules take a ref to |
+| `:wagoe/job-store` | `IJobStore` — job history and the dead-letter queue |
+| `:wagoe/job-stats` | `IJobStats` — what the devtools dashboard reads. nil under `:provider :db` |
+| `:wagoe/job-registry` | The handlers every enabled module contributed |
+| `:wagoe/job-workers` | One pool of `:count` workers per queue in `:queues` |
+
+Set `:workers {:count 0}` on a web node in the web/worker split — it enqueues
+and processes nothing. The default of 1 is a single process that does both,
+which is what an application without a deployment topology has.
+
+**A worker polls one queue.** Work enqueued on a queue no pool names is never
+processed and nothing reports it — push enqueued on `:push` while the only pool
+polled `:default`, and every push sat there (BOU-418). If a module enqueues on
+its own queue, list that queue here.
+
+**Contributing handlers.** A module ships a component returning
+`{job-type handler-fn}` and lists it under `:job-handlers` in its `ig-config`,
+the way routes are contributed:
+
+```clojure
+(defn ig-config [settings {:keys [enabled]}]
+  (cond-> {:components {:my/job-handlers {:service (ig/ref :my/service)}}}
+    (contains? enabled :wagoe/jobs)
+    (assoc :job-handlers [(ig/ref :my/job-handlers)])))
+```
+
+Guard it on `:wagoe/jobs` being enabled: without jobs there is no registry, and
+a ref to one is a dangling ref that fails the boot. `libs/push` is the worked
+example.
+
+Until BOU-418 this namespace wired none of this — `:wagoe/jobs` was a settings
+passthrough, so `java -jar wagoe.jar worker` booted and processed nothing.
 
 ## DB-backed adapter (`adapters.db`)
 
@@ -27,8 +75,12 @@ required, survives a Redis outage.
 ```clojure
 (require '[wagoe.jobs.shell.adapters.db :as db])
 (db/create-jobs-table! ds)                 ; once at startup (or ship as a migration)
+(db/create-job-store-table! ds)
 (def q (db/create-db-job-queue ds :lease-ms 60000))
+(def s (db/create-db-job-store ds))
 ```
+
+`:provider :db` in the config above does both calls for you.
 
 - Implements the same reliable-dequeue contract as Redis: `dequeue-job!` claims
   a row (status `processing`, `locked_by`/`locked_at`); `ack-job!` removes it;
@@ -40,6 +92,12 @@ required, survives a Redis outage.
   on H2 and PostgreSQL, so its reliability tests run on the default H2 test DB.
 - The authoritative job is the JSON `payload` column (same wire format as the
   Redis adapter); the other columns exist only for ordering/claim/reclaim.
+- `job_store` is the **history and dead-letter** table, separate from
+  `job_queue`, which holds only work still to do (`ack-job!` deletes the row).
+  The worker records outcomes on `IJobStore`, so a DB queue without a DB store
+  would lose every failed job on restart — which is what this adapter had until
+  BOU-418. `adapter_surface_test.clj` sweeps all three stores against one table
+  of cases, so the three cannot drift apart.
 
 ### Transactional enqueue (outbox)
 
@@ -141,6 +199,19 @@ running → retrying → pending → running → ...
 - Exponential backoff: `delay = initial-delay * 2^retry-count`
 - Capped at 60 seconds with random jitter (±10%)
 - Dead letter queue after max retries exhausted
+- Tune with `:workers {:retry-config {:initial-delay-ms … :max-delay-ms … :jitter false}}`
+
+Until BOU-418 this section described something the worker did not do: a
+retryable failure was recorded as `:retrying`, acked, and never run again.
+
+The replacement is written **before** the claim is released, never after: acking
+first leaves a window in which the job is neither queued nor in flight, and a
+process that dies there loses it with nothing to reclaim. That order requires an
+ack that only releases a claim — the DB `ack-job!` deletes `WHERE id = ? AND
+locked_by = ? AND status = 'processing'`, and `enqueue-job!` upserts, so a
+re-enqueued job is ready and unlocked by the time the ack runs and is left
+alone. The same condition stops a late ack from deleting a job another worker
+reclaimed after a lease expiry.
 
 ## Missing Handlers (multi-instance)
 

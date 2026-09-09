@@ -203,7 +203,12 @@
    component the catalogue misses is a test failure instead of a silent
    passenger."
   #{:wagoe/db-context :wagoe/logging :wagoe/metrics :wagoe/tracing
-    :wagoe/error-reporting :wagoe/router :wagoe/email :wagoe/cache
+    :wagoe/error-reporting :wagoe/router :wagoe/cache
+    ;; The sender and the outbox that ships over it, both infrastructure: any
+    ;; service may send mail. `:wagoe/email-queue` arrived with BOU-346 and was
+    ;; not listed, which made this test red on main — CI does not run the
+    ;; `:unit` suite, so nothing said so (BOU-422).
+    :wagoe/email :wagoe/email-queue
     ;; The application's own settings block. Every service reads it.
     :wagoe/settings
     :wagoe/i18n :wagoe/i18n-http-middleware

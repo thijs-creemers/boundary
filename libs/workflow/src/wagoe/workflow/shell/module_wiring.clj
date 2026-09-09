@@ -91,13 +91,19 @@
 
    :wagoe/workflow-db-schema creates the module's tables. Applications used to
    enumerate this graph by hand and none of them wired it, so `wagoe add
-   workflow` gave you a service whose tables did not exist (BOU-326)."
-  [_settings _ctx]
+   workflow` gave you a service whose tables did not exist (BOU-326).
+
+   `:job-queue` is passed only when the jobs module is enabled — the docstring
+   above has documented it since this module shipped, and nothing supplied it
+   (BOU-418)."
+  [_settings {:keys [enabled]}]
   {:components
    {:wagoe/workflow-db-schema {:ctx (ig/ref :wagoe/db-context)}
-    :wagoe/workflow           {:db-ctx         (ig/ref :wagoe/db-context)
-                               :db-schema      (ig/ref :wagoe/workflow-db-schema)
-                               :guard-registry {}}
+    :wagoe/workflow           (cond-> {:db-ctx         (ig/ref :wagoe/db-context)
+                                       :db-schema      (ig/ref :wagoe/workflow-db-schema)
+                                       :guard-registry {}}
+                                (contains? (or enabled #{}) :wagoe/jobs)
+                                (assoc :job-queue (ig/ref :wagoe/job-queue)))
     :wagoe/workflow-routes    {:workflow-service (ig/ref :wagoe/workflow)
                                :user-service     (ig/ref :wagoe/user-service)}}
    :routes [(ig/ref :wagoe/workflow-routes)]})

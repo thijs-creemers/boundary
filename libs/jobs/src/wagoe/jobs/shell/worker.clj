@@ -9,7 +9,8 @@
    - Scheduled job processing
    - Job handler registry
    - Comprehensive error handling"
-  (:require [wagoe.jobs.ports :as ports]
+  (:require [wagoe.jobs.core.job :as job]
+            [wagoe.jobs.ports :as ports]
             [wagoe.jobs.shell.adapters.redis :as redis-adapter]
             [wagoe.observability.tracing.ports :as tracing-ports]
             [clojure.tools.logging :as log])
@@ -139,12 +140,15 @@
                     :requeue-delay-ms    delay before a re-enqueue is pollable (default 1000)
                     :max-requeue-age-ms  age after which an unhandled job is dead-lettered (default 300000)
                     :max-requeues        hard backstop on re-enqueue attempts (default 10000)
-     queue        - IJobQueue
      store        - IJobStore
      registry     - IJobRegistry (this instance's handlers)
      worker-state - WorkerState
-     job          - The dequeued job map"
-  [config queue store registry worker-state job]
+     job          - The dequeued job map
+
+   Returns:
+     The job to re-enqueue once this one is acked, or nil when it was
+     dead-lettered. The caller enqueues it — see the note at the re-enqueue."
+  [config store registry worker-state job]
   (let [job-id       (:id job)
         job-type     (:job-type job)
         delay-ms     (or (:requeue-delay-ms config) 1000)
@@ -162,14 +166,16 @@
                    :requeue-count requeues :delay-ms delay-ms
                    :unhandled-for-ms (when first-seen (- now-ms first-seen)) :max-age-ms max-age-ms
                    :local-handlers (ports/list-handlers registry)})
-        ;; Delayed re-enqueue via the scheduled set (see docstring): leaves the
-        ;; ready queue so this worker can't immediately reacquire and tight-loop.
-        (ports/enqueue-job! queue (:queue-name worker-state)
-                            (-> job
-                                (update :metadata assoc
-                                        :first-missing-at (or first-seen now-ms)
-                                        :requeue-count (inc requeues))
-                                (assoc :execute-at (.plusMillis (Instant/now) (long delay-ms))))))
+        ;; Returned rather than enqueued here, so one place decides when the
+        ;; replacement is written relative to the ack — see the caller.
+        ;;
+        ;; Delayed via the scheduled set (see docstring): it leaves the ready
+        ;; queue so this worker cannot immediately reacquire and tight-loop.
+        (-> job
+            (update :metadata assoc
+                    :first-missing-at (or first-seen now-ms)
+                    :requeue-count (inc requeues))
+            (assoc :execute-at (.plusMillis (Instant/now) (long delay-ms)))))
       (let [reason (if aged-out?
                      (str "no worker handled it within " max-age-ms " ms")
                      (str "re-enqueue backstop of " max-requeues " attempts reached"))
@@ -183,7 +189,8 @@
         ;; the dead-letter queue instead of scheduling pointless retries.
         (ports/save-job! store (assoc job :retry-count (:max-retries job 3)))
         (ports/update-job-status! store job-id :failed error)
-        (swap! (:failed-count worker-state) inc)))))
+        (swap! (:failed-count worker-state) inc)
+        nil))))
 
 (defn- process-single-job!
   "Process a single job from queue.
@@ -202,6 +209,26 @@
     (let [job-id   (:id job)
           job-type (:job-type job)
           tracer   (:tracer config)
+          ;; Anything to put back on the queue, enqueued in the `finally` just
+          ;; ahead of the ack. Held rather than enqueued at the decision point
+          ;; only so there is one place that does it.
+          requeue  (atom nil)
+          fail!
+          (fn [error]
+            (let [updated (job/fail-job job error (Instant/now))]
+              (ports/update-job-status! store job-id :failed error)
+              (swap! (:failed-count worker-state) inc)
+              ;; The retry the docstring and the changelog promised and the
+              ;; code never scheduled: a retryable failure was recorded as
+              ;; :retrying, acked, and never run again (BOU-418 review).
+              ;; Decided from the job in hand rather than from the store's
+              ;; answer, so a store that has not seen this job cannot turn a
+              ;; retryable failure into a silent drop.
+              (when (= :retrying (:status updated))
+                (reset! requeue (job/prepare-retry updated
+                                                   (:retry-config config)
+                                                   (Instant/now)
+                                                   (rand-int 100))))))
           run-job!
           (fn []
             (reset! (:current-job worker-state) job)
@@ -219,12 +246,12 @@
                         (swap! (:processed-count worker-state) inc)
                         (log/info "Job completed successfully" {:job-id job-id}))
                       (do
-                        (ports/update-job-status! store job-id :failed (:error result))
-                        (swap! (:failed-count worker-state) inc)
+                        (fail! (:error result))
                         (log/warn "Job failed" {:job-id job-id :error (:error result)})))))
 
                 ;; No handler on this instance — re-enqueue (bounded), never silent DLQ.
-                (handle-missing-handler! config queue store registry worker-state job))
+                (reset! requeue
+                        (handle-missing-handler! config store registry worker-state job)))
 
               (catch Exception e
                 ;; Unexpected error during processing
@@ -232,11 +259,22 @@
                              :type            :handler-error
                              :exception-class (-> e class .getName)
                              :stacktrace      (with-out-str (.printStackTrace e))}]
-                  (ports/update-job-status! store job-id :failed error)
-                  (swap! (:failed-count worker-state) inc)
+                  (fail! error)
                   (log/error e "Unexpected error processing job" {:job-id job-id})))
 
               (finally
+                ;; The replacement goes back on the queue BEFORE the claim is
+                ;; released. Acking first opened a window in which the job was
+                ;; neither queued nor in flight, so a process that died there
+                ;; lost the retry outright — no reclaim could find it, on any
+                ;; backend (BOU-418 review). This order can only duplicate, and
+                ;; duplication is what at-least-once means.
+                (when-let [j @requeue]
+                  (ports/enqueue-job! queue (:queue-name worker-state) j)
+                  (log/info "Job re-queued" {:job-id      (:id j)
+                                             :job-type    (:job-type j)
+                                             :retry-count (:retry-count j)
+                                             :execute-at  (:execute-at j)}))
                 ;; Ack removes the job from this worker's in-flight processing list.
                 ;; By here the job is completed, re-enqueued for retry, or dead-lettered
                 ;; — no longer in flight. A crash BEFORE this point leaves it in the

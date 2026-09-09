@@ -1,6 +1,7 @@
 (ns wagoe.push.shell.service
   (:require [wagoe.push.ports :as ports]
             [wagoe.push.core.delivery :as delivery]
+            [wagoe.jobs.core.job :as job]
             [wagoe.jobs.ports :as job-ports]
             [clojure.tools.logging :as log])
   (:import [javax.crypto Mac]
@@ -44,42 +45,53 @@
              (delivery/build-apns-payload notification)
              (mapv :token devices)))))
 
+(defn- push-job
+  "A complete job map for the queue.
+
+   Built through `job/create-job` rather than by hand: the hand-built maps
+   carried no `:created-at`, `:retry-count` or `:max-retries`, so the DB adapter
+   threw serialising one and `fail-job` compared a retry count against nil
+   (BOU-418 review)."
+  [queue-name job-type args]
+  (job/create-job {:job-type job-type :queue queue-name :args args}
+                  (random-uuid)
+                  (java.time.Instant/now)))
+
 (defrecord PushService [device-store analytics-store
                         fcm-provider apns-provider
-                        job-queue callback-secret]
+                        job-queue queue-name callback-secret]
   ports/IPushService
 
   (send-push! [_ notification-id data opts]
-    (let [job {:id       (random-uuid)
-               :job-type :push/send
-               :args     {:notification-id notification-id
-                          :data            data
-                          :user-id         (:user-id opts)
-                          :locale          (:locale opts)}}]
+    (let [job (push-job queue-name :push/send
+                        {:notification-id notification-id
+                         :data            data
+                         :user-id         (:user-id opts)
+                         :locale          (:locale opts)})]
       (log/infof "Push: enqueueing %s for user %s" notification-id (:user-id opts))
-      (job-ports/enqueue-job! job-queue :push job)
+      (job-ports/enqueue-job! job-queue queue-name job)
       (:id job)))
 
   (schedule-push! [_ notification-id data opts scheduled-at]
-    (let [job {:id           (random-uuid)
-               :job-type     :push/send
-               :args         {:notification-id notification-id
-                              :data            data
-                              :user-id         (:user-id opts)
-                              :locale          (:locale opts)}
-               :scheduled-at scheduled-at}]
+    (let [job (push-job queue-name :push/send
+                        {:notification-id notification-id
+                         :data            data
+                         :user-id         (:user-id opts)
+                         :locale          (:locale opts)})]
       (log/infof "Push: scheduling %s for %s" notification-id scheduled-at)
-      (job-ports/enqueue-job! job-queue :push job)
+      ;; `schedule-job!`, not `enqueue-job!` with a `:scheduled-at` key: the
+      ;; adapters schedule on `:execute-at` and knew nothing of `:scheduled-at`,
+      ;; so a push scheduled for next week went out immediately (BOU-418 review).
+      (job-ports/schedule-job! job-queue queue-name job scheduled-at)
       (:id job)))
 
   (broadcast! [_ notification-id data opts]
-    (let [job {:id       (random-uuid)
-               :job-type :push/broadcast
-               :args     {:notification-id notification-id
-                          :data            data
-                          :platform        (:platform opts)
-                          :app-id          (:app-id opts)
-                          :locale          (:locale opts)}}]
+    (let [job (push-job queue-name :push/broadcast
+                        {:notification-id notification-id
+                         :data            data
+                         :platform        (:platform opts)
+                         :app-id          (:app-id opts)
+                         :locale          (:locale opts)})]
       (log/infof "Push: enqueueing broadcast %s" notification-id)
-      (job-ports/enqueue-job! job-queue :push job)
+      (job-ports/enqueue-job! job-queue queue-name job)
       (:id job))))

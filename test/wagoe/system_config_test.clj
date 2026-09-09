@@ -260,8 +260,7 @@
         not-assembled
         {:wagoe/admin "DEPRECATED in this release (BOU-346): settings passthrough with no consumer. Removed a release after the deprecation ships, per the stability policy"
          :wagoe/auth-user-repository "DEPRECATED in this release (BOU-346): no consumer — :wagoe/auth-service takes :wagoe/user-repository. Removed a release after the deprecation ships"
-         :wagoe/audience-routes "blocked on BOU-419: the audience service requires an IUserDataSource that has no implementation anywhere, so the module cannot boot — mounting its routes waits on that adapter"
-         :wagoe.push/job-handlers "blocked on BOU-418: the jobs module wires no runtime (no registry, no worker loop), so there is nothing to register these handlers with"}
+         :wagoe/audience-routes "blocked on BOU-419: the audience service requires an IUserDataSource that has no implementation anywhere, so the module cannot boot — mounting its routes waits on that adapter"}
 
         defined  (into {}
                        (for [[_ lib] modules/framework-modules

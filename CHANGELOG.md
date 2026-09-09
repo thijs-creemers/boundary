@@ -41,11 +41,17 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Added
 
+- **`worker` mode now runs jobs** (BOU-418). Enable `:wagoe/jobs {:provider :memory}`;
+  modules contribute handlers, and `:workers {:count 0}` makes a web-only node.
 - **Storage's HTTP routes can be mounted** (BOU-421). Set `:expose-http? true`; they carry
   no authorization of their own, so the mounting application must guard them.
 
 ### Fixed
 
+- **Scheduled pushes were never delivered** (BOU-418). `schedule-push!` enqueued into a
+  nil queue and no registry held its handlers; enable `:wagoe/jobs` and both are wired.
+- **The DB job adapter had no job store** (BOU-418), so its dead-letter queue was lost on
+  restart. `:provider :db` creates `job_store` alongside `job_queue`.
 - **Local storage let a caller escape `:base-path`** (BOU-421). `../` keys and symlinks read,
   wrote and deleted outside the root. Upgrade if you accept user-supplied keys.
 - **Signed storage URLs were never verified** (BOU-421). The download route enforces

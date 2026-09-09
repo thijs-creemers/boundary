@@ -33,7 +33,16 @@
                       (mock/->MockFCMProvider)
                       (mock/->MockAPNsProvider)
                       mock-queue
+                      :default
                       "test-callback-secret")]
     (ports/send-push! svc :test-push {:order-id "1"} {:user-id (random-uuid) :locale :en})
     (is (= 1 (count @jobs-atom)))
-    (is (= :push/send (:job-type (:job (first @jobs-atom)))))))
+    (is (= :push/send (:job-type (:job (first @jobs-atom)))))
+    ;; The queue a worker actually polls, and a job the adapters can serialise:
+    ;; push enqueued on :push, which no pool read, and hand-built job maps had
+    ;; no :created-at or retry budget (BOU-418 review).
+    (is (= :default (:queue (first @jobs-atom))))
+    (let [job (:job (first @jobs-atom))]
+      (is (some? (:created-at job)))
+      (is (= 3 (:max-retries job)))
+      (is (= 0 (:retry-count job))))))

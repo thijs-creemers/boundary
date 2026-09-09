@@ -439,3 +439,28 @@
           (is (wait-for #(true? @done) 5000) "job ran without a tracer")
           (finally
             (ports/stop-worker! worker-instance (:id (:state worker-instance)))))))))
+
+(deftest ^:unit a-retryable-failure-is-actually-retried
+  ;; The worker recorded :retrying and then acked, so the job left the queue and
+  ;; never ran again: every retryable failure was dropped after one attempt, on
+  ;; every backend. The docstring, the AGENTS page and the ack comment all said
+  ;; otherwise (BOU-418 review).
+  (testing "a handler that fails once is run again"
+    (let [{:keys [queue store]} *system*
+          calls (atom 0)]
+      (ports/register-handler! *registry* :flaky-job
+                               (fn [_args]
+                                 (if (= 1 (swap! calls inc))
+                                   (throw (ex-info "first attempt fails" {}))
+                                   {:success? true :result "ok"})))
+      (ports/enqueue-job! queue :default (create-test-job {:job-type :flaky-job}))
+      (let [w (worker/create-worker
+               {:queue-name :default :poll-interval-ms 25 :scheduled-interval-ms 50
+                ;; Tight backoff: the default is exponential from a second, and
+                ;; this is a test of whether the retry happens, not of when.
+                :retry-config {:initial-delay-ms 50 :max-delay-ms 100 :jitter false}}
+               queue store *registry*)]
+        (try
+          (is (wait-for #(>= @calls 2) 5000)
+              (str "the failed job was never retried — handler ran " @calls " time(s)"))
+          (finally (ports/stop-worker! w (:id (:state w)))))))))
