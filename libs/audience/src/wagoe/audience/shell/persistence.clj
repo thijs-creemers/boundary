@@ -108,7 +108,8 @@
                                         {:type :configuration-error :dialect dialect})))
         uuid-type uuid
         json-type json]
-    [(str "CREATE TABLE IF NOT EXISTS audience_segments (
+    (cond->
+     [(str "CREATE TABLE IF NOT EXISTS audience_segments (
              id            " uuid-type " PRIMARY KEY,
              audience_id   VARCHAR(255) NOT NULL UNIQUE,
              label         VARCHAR(255) NOT NULL,
@@ -122,13 +123,25 @@
              source        VARCHAR(50) DEFAULT 'dynamic',
              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
              updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+     ;; MySQL has no CREATE INDEX IF NOT EXISTS, so the index is declared
+     ;; inside the table, where CREATE TABLE IF NOT EXISTS makes it idempotent.
+     ;; Emitting the standalone form there failed the boot after the tables had
+     ;; already been created (BOU-419 review).
      (str "CREATE TABLE IF NOT EXISTS audience_memberships (
-             audience_id   " uuid-type " REFERENCES audience_segments(id) ON DELETE CASCADE,
+             audience_id   " uuid-type " NOT NULL,
              user_id       " uuid-type " NOT NULL,
              entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-             PRIMARY KEY (audience_id, user_id))")
-     "CREATE INDEX IF NOT EXISTS idx_audience_memberships_user
-        ON audience_memberships(user_id)"]))
+             PRIMARY KEY (audience_id, user_id)"
+          (if (= :mysql dialect)
+            ",
+             KEY idx_audience_memberships_user (user_id),
+             FOREIGN KEY (audience_id) REFERENCES audience_segments(id) ON DELETE CASCADE)"
+            ",
+             FOREIGN KEY (audience_id) REFERENCES audience_segments(id) ON DELETE CASCADE)"))]
+
+      (not= :mysql dialect)
+      (conj "CREATE INDEX IF NOT EXISTS idx_audience_memberships_user
+               ON audience_memberships(user_id)"))))
 
 (defn initialize-audience-schema!
   "Create the audience tables if absent. Idempotent."
@@ -159,7 +172,7 @@
     [:cast v :jsonb]
     v))
 
-(defn- uuid-value
+(defn uuid-value
   "A UUID as `dialect` stores it.
 
    H2 and PostgreSQL have a real UUID column and reject a string parameter —
@@ -359,7 +372,8 @@
      nil"
   [datasource audience-id user-ids]
   (when (seq user-ids)
-    (let [seg-uuid (find-segment-uuid datasource audience-id)]
+    (let [d        (dialect datasource)
+          seg-uuid (find-segment-uuid datasource audience-id)]
       (when-not seg-uuid
         (throw (ex-info "Cannot save memberships: audience segment not found in DB"
                         {:type :audience-not-found :audience-id audience-id})))
@@ -384,9 +398,13 @@
             (jdbc/execute-one!
              tx
              (sql/format {:insert-into :audience_memberships
+                          ;; Through `uuid-value`, because a CHAR(36) column
+                          ;; gets a Java-serialised UUID object otherwise —
+                          ;; MySQL rejected it as an "incorrect string value"
+                          ;; of \xAC\xED… (BOU-419 review).
                           :values      (mapv (fn [uid]
                                                {:audience_id seg-uuid
-                                                :user_id     uid})
+                                                :user_id     (uuid-value d uid)})
                                              chunk)})
              {:builder-fn rs/as-unqualified-lower-maps})))))))
 

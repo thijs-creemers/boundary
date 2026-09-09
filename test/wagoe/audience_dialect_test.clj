@@ -18,10 +18,27 @@
             [wagoe.audience.ports :as ports]
             [wagoe.audience.shell.persistence :as p]))
 
+(def ^:private mysql-port
+  "Where the sweep looks for MySQL. CI runs one as a service on 3306; set
+   `WAGOE_TEST_MYSQL_PORT` to point at a local container on another port."
+  (parse-long (or (System/getenv "WAGOE_TEST_MYSQL_PORT") "3306")))
+
+(defn- mysql-spec []
+  {:dbtype "mysql" :host "127.0.0.1" :port mysql-port
+   :dbname (or (System/getenv "WAGOE_TEST_MYSQL_DB") "audience")
+   :user "root" :password (or (System/getenv "WAGOE_TEST_MYSQL_PASSWORD") "probe")})
+
+(defonce ^:private mysql-up?
+  (delay (try
+           (with-open [c (jdbc/get-connection (jdbc/get-datasource (mysql-spec)))]
+             (some? (.getMetaData c)))
+           (catch Exception _ false))))
+
 (defn- backends
   "Each is [label make]; `make` returns [datasource stop!]."
   []
-  [["h2"     (fn [] [(jdbc/get-datasource
+  (cond->
+   [["h2"     (fn [] [(jdbc/get-datasource
                       {:dbtype "h2:mem"
                        :dbname (str "aud_" (System/nanoTime) ";DB_CLOSE_DELAY=-1")})
                      (fn [] nil)])]
@@ -30,11 +47,22 @@
                       [(jdbc/get-datasource {:dbtype "sqlite" :dbname f})
                        (fn [] (.delete (java.io.File. f)))]))]
    ["postgresql" (fn [] (let [pg (epg/start!)]
-                          [(epg/datasource pg) (fn [] (epg/stop! pg))]))]])
+                          [(epg/datasource pg) (fn [] (epg/stop! pg))]))]]
+    ;; MySQL needs a server, so it joins when one is reachable — and the case
+    ;; below says so loudly when it is not, rather than reporting three
+    ;; adapters as if that were the whole set.
+    @mysql-up?
+    (conj ["mysql"
+           (fn [] (let [ds (jdbc/get-datasource (mysql-spec))]
+                    (doseq [t ["audience_memberships" "audience_segments"]]
+                      (jdbc/execute! ds [(str "DROP TABLE IF EXISTS " t)]))
+                    [ds (fn [] nil)]))])))
 
 (deftest ^:integration the-sweep-covers-every-reachable-adapter
-  (is (= 3 (count (backends)))
-      "an adapter dropped out of the sweep; the cases below would say less than they look"))
+  (is (= 4 (count (backends)))
+      (str "MySQL is not reachable on 127.0.0.1:" mysql-port
+           " — this run compared " (count (backends))
+           " adapters, not four. Set WAGOE_TEST_MYSQL_PORT, or start one.")))
 
 (deftest ^:integration a-definition-round-trips-on-every-adapter
   (doseq [[label make] (backends)]

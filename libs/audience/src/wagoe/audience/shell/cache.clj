@@ -17,7 +17,8 @@
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs])
-  (:import [java.time Instant]
+  (:import [java.sql Timestamp]
+           [java.time Instant]
            [java.time.temporal ChronoUnit]))
 
 ;; =============================================================================
@@ -32,7 +33,13 @@
   (jdbc/execute-one!
    datasource
    (sql/format {:update :audience_segments
-                :set    {:cached_at    [:raw "CURRENT_TIMESTAMP"]
+                ;; Written from here, not by the database clock. A DB-side
+                ;; CURRENT_TIMESTAMP is wall time in the server's zone, and the
+                ;; driver converts it back using the JVM's — two hours of skew
+                ;; on a MySQL container, so every entry looked expired the
+                ;; moment it was written. Writing an Instant makes the write and
+                ;; the read cancel out, whatever either zone is (BOU-419 review).
+                :set    {:cached_at    (Timestamp/from (Instant/now))
                          :member_count member-count}
                 :where  [:= :audience_id (kw->str audience-id)]})
    {:builder-fn rs/as-unqualified-lower-maps}))
@@ -79,15 +86,21 @@
   (cond
     (instance? java.sql.Timestamp v) (.toInstant ^java.sql.Timestamp v)
     (instance? Instant v)            v
-    ;; SQLite's CURRENT_TIMESTAMP is UTC and comes back as a bare
-    ;; "yyyy-MM-dd HH:mm:ss" string. `Timestamp/valueOf` reads one in the
-    ;; JVM's local zone, which put every cache entry hours in the past and
-    ;; expired it on arrival — a TTL that silently never held (BOU-419 review).
+    ;; SQLite has no timestamp type: the driver stores the Instant it was
+    ;; given as epoch millis, which is the one representation with no zone in
+    ;; it at all.
+    (number? v)                      (Instant/ofEpochMilli (long v))
+    ;; SQLite has no timestamp type and hands back the bare
+    ;; "yyyy-MM-dd HH:mm:ss" string the driver wrote — wall time in the JVM's
+    ;; zone, since `stamp-segment!` writes an Instant through that driver. Read
+    ;; it back the same way, so the round trip is exact.
     (string? v)                      (try
                                        (.toInstant
                                         (java.time.LocalDateTime/parse
                                          (str/replace v " " "T"))
-                                        java.time.ZoneOffset/UTC)
+                                        (.getOffset (java.time.ZoneId/systemDefault)
+                                                    (java.time.LocalDateTime/parse
+                                                     (str/replace v " " "T"))))
                                        (catch Exception _
                                          (try (Instant/parse v)
                                               (catch Exception _ nil))))

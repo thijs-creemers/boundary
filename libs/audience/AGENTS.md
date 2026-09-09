@@ -251,10 +251,12 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 **`:account-tenure` and `:last-active` need PostgreSQL** — they compile
 `CURRENT_DATE - INTERVAL '… days'`, which H2 and SQLite do not parse (BOU-425).
 
-**Adapters.** The schema and store are exercised against H2, SQLite and PostgreSQL by
-`test/wagoe/audience_dialect_test.clj`. MySQL is in the type table (`CHAR(36)`, matching
-platform's own MySQL adapter) but is **not proven** — there is no MySQL service in CI. An
-adapter with no entry fails loudly at schema initialisation rather than emitting H2 syntax.
+**Adapters.** The schema, store and cache are exercised against all four the framework
+ships — H2, SQLite, PostgreSQL and MySQL — by `test/wagoe/audience_dialect_test.clj`. MySQL
+needs a server: CI runs one as a service, and locally you point the sweep at a container with
+`WAGOE_TEST_MYSQL_PORT`. Without one the sweep fails saying so, rather than comparing three
+and reporting a pass. An adapter with no entry in the type table fails loudly at schema
+initialisation rather than being handed H2 syntax.
 
 **Mounting.** `:wagoe/audience-routes` is mounted only when the user module is enabled, and
 every route carries `:wagoe/admin-only-middleware` — these endpoints create and delete
