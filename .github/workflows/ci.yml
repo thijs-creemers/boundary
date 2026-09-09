@@ -666,6 +666,23 @@ jobs:
           --health-timeout 3s
           --health-retries 10
 
+      # The audience adapter sweep compares H2, SQLite, PostgreSQL and MySQL.
+      # PostgreSQL is embedded and SQLite is a file; MySQL needs a server, and
+      # without one the sweep fails saying so rather than reporting three
+      # adapters as the whole set.
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: probe
+          MYSQL_DATABASE: audience
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -uroot -pprobe --silent"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
     # The root `test/` tree: the BOU-326 wiring gate, the BOU-91 service-catalogue
     # gate, and the application-level tests. No job ran the `:unit` suite, so
     # those two gates were never executed in CI — a PR merged green while one of
