@@ -45,21 +45,51 @@
 (defn- now-epoch-seconds ^long []
   (quot (System/currentTimeMillis) 1000))
 
+(defn canonical-key
+  "A storage key in the one form signatures are computed over: forward
+   slashes.
+
+   `path-join` yields the platform separator, so on Windows a key is stored
+   and signed as `2a\\photo.jpg` while the URL — and therefore the key the
+   router hands back — carries `2a/photo.jpg`. Signing one form and verifying
+   the other made every freshly issued signed URL 403 on that platform
+   (BOU-421)."
+  [file-key]
+  (some-> file-key str (str/replace "\\" "/")))
+
+(defn- sign-url
+  "`base-url` with the `expires`/`signature` query a signed local URL carries.
+   One place, so the URL a stored file reports and the URL the route accepts
+   cannot disagree."
+  [signing-secret file-key base-url expiration-seconds]
+  (let [k       (canonical-key file-key)
+        expires (+ (now-epoch-seconds) (long (or expiration-seconds 3600)))
+        sig     (hmac-sha256-hex signing-secret (str k ":" expires))]
+    (str base-url "?expires=" expires "&signature=" sig)))
+
 (defn verify-signed-url
   "Verify a signed local-storage URL. Given the configured `signing-secret`, the
    `file-key`, and the URL's query params (`:expires` epoch-seconds, `:signature`
    hex), return true iff the signature matches and the URL has not expired.
 
    The serving route is responsible for calling this before streaming a private
-   file — the local adapter cannot enforce it at the filesystem layer."
+   file — the local adapter cannot enforce it at the filesystem layer.
+
+   Total on any input a query string can produce: Ring gives a repeated
+   parameter as a vector, and a vector reached `(long …)` as a
+   ClassCastException — a 500 where the answer is simply \"not a valid
+   signature\" (BOU-421). Anything that is not a single scalar is
+   invalid, which is also the fail-closed reading of an ambiguous request."
   [signing-secret file-key {:keys [expires signature]}]
   (boolean
-   (when (and signing-secret file-key expires signature)
-     (let [exp (if (string? expires) (parse-long expires) expires)]
+   (when (and signing-secret file-key (string? signature))
+     (let [exp (cond (integer? expires) expires
+                     (string? expires)  (parse-long expires))]
        (and exp
             (>= (long exp) (now-epoch-seconds))
             (constant-time=? signature
-                             (hmac-sha256-hex signing-secret (str file-key ":" exp))))))))
+                             (hmac-sha256-hex signing-secret
+                                              (str (canonical-key file-key) ":" exp))))))))
 
 (defn- compute-sha256
   "Compute SHA-256 hash of bytes."
@@ -78,6 +108,57 @@
   "Join path segments safely."
   [& segments]
   (.toString (Paths/get (first segments) (into-array String (rest segments)))))
+
+(defn- resolve-within-root
+  "The absolute path `file-key` names under `base-path`, or nil when it escapes.
+
+   Containment, not sanitising: `..` segments, absolute keys and symlinked
+   directories all resolve away before the comparison, so the check holds for
+   forms a string filter never anticipates. The mounted HTTP routes hand this
+   a caller-supplied key — `../../deps.edn` read a file outside the root
+   before the check existed (BOU-421)."
+  [base-path file-key]
+  ;; A blank key is not a key: it resolves to the root itself, and
+  ;; `delete-file ""` then removed the storage root — the catch-all route
+  ;; matches `DELETE …/delete/` with an empty key (BOU-421). Refused
+  ;; here rather than in the handler, so every caller of the port is covered.
+  (when (and base-path (not (str/blank? (str file-key))))
+    (let [empty-opts (make-array java.nio.file.LinkOption 0)
+          real       (fn [^java.nio.file.Path p]
+                       (try (.toRealPath p empty-opts) (catch Exception _ nil)))
+          root       (.normalize (.toAbsolutePath (Paths/get base-path (into-array String []))))
+          root-real  (or (real root) root)
+          target     (.normalize (.resolve root (Paths/get (str file-key) (into-array String []))))
+          ;; Normalizing collapses `..`, but it does not resolve symlinks — a
+          ;; link inside the root pointing out of it passed the check and its
+          ;; target was read (BOU-421). toRealPath resolves them, and
+          ;; demands existence, so it is applied to the deepest ancestor that
+          ;; does exist: enough to catch a linked directory on the way down,
+          ;; while a key that is simply absent still answers "not here".
+          ;;
+          ;; NOFOLLOW on the probe, because a *dangling* link is the case where
+          ;; following would lie: `Files/exists` reports false for it, the walk
+          ;; fell through to its in-root parent, and `Files/write` then followed
+          ;; the link and created the file outside the root (BOU-421 review).
+          ;; Seen as existing, it reaches toRealPath, which cannot resolve it —
+          ;; no anchor, no write. A link whose target does exist inside the root
+          ;; still resolves and is still allowed.
+          no-follow  (into-array java.nio.file.LinkOption
+                                 [java.nio.file.LinkOption/NOFOLLOW_LINKS])
+          existing   (loop [p target]
+                       (cond (nil? p)                      nil
+                             (Files/exists p no-follow)    p
+                             :else                         (recur (.getParent p))))
+          anchor     (some-> existing real)]
+      (when (and anchor
+                 (.startsWith anchor root-real)
+                 ;; Strictly inside: the root is not a file this port
+                 ;; addresses. "", ".", "./" and "a/.." all resolve to it, and
+                 ;; `delete-file` then removed an empty storage root
+                 ;; (BOU-421).
+                 (not (.equals target root))
+                 (not (.equals (.normalize target) (.normalize root))))
+        (.toString target)))))
 
 (defn- sanitize-path
   "Sanitize a path segment to prevent directory traversal."
@@ -126,8 +207,14 @@
                                      (validation/sanitize-filename filename))
                           (generate-storage-key bytes filename))
 
-            ;; Full filesystem path
-            full-path (path-join base-path storage-key)
+            ;; Full filesystem path — through the same containment check the
+            ;; read paths use. It was applied to retrieve/delete/exists and not
+            ;; to the write, so an upload naming a symlinked directory inside
+            ;; the root created or truncated files outside it (BOU-421).
+            full-path (or (resolve-within-root base-path storage-key)
+                          (throw (ex-info "Storage key resolves outside the storage root"
+                                          {:type :validation-error
+                                           :key  storage-key})))
             file-path (Paths/get full-path (into-array String []))
 
             ;; Ensure parent directory exists
@@ -137,8 +224,14 @@
             _ (Files/write file-path bytes (make-array java.nio.file.OpenOption 0))
 
             ;; Generate URL if url-base is configured
+            ;; Signed when a secret is configured: the download route rejects
+            ;; an unsigned URL, so reporting one would hand the caller a link
+            ;; that 403s (BOU-421).
             url (when url-base
-                  (str url-base "/" (str/replace storage-key "\\" "/")))]
+                  (let [base (str url-base "/" (canonical-key storage-key))]
+                    (if signing-secret
+                      (sign-url signing-secret storage-key base nil)
+                      base)))]
 
         (when logger
           (logging/info logger "File stored"
@@ -167,10 +260,11 @@
 
   (retrieve-file [_ file-key]
     (try
-      (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (into-array String []))]
+      (let [full-path (resolve-within-root base-path file-key)
+            file-path (some-> full-path (Paths/get (into-array String [])))]
 
-        (when (Files/exists file-path (make-array java.nio.file.LinkOption 0))
+        (when (and file-path
+                   (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
           (let [bytes (Files/readAllBytes file-path)
                 size (alength bytes)
                 ;; Try to determine content type from extension
@@ -198,10 +292,11 @@
 
   (delete-file [_ file-key]
     (try
-      (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (into-array String []))]
+      (let [full-path (resolve-within-root base-path file-key)
+            file-path (some-> full-path (Paths/get (into-array String [])))]
 
-        (if (Files/exists file-path (make-array java.nio.file.LinkOption 0))
+        (if (and file-path
+                 (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
           (do
             (Files/delete file-path)
 
@@ -223,9 +318,11 @@
 
   (file-exists? [_ file-key]
     (try
-      (let [full-path (path-join base-path file-key)
-            file-path (Paths/get full-path (into-array String []))]
-        (Files/exists file-path (make-array java.nio.file.LinkOption 0)))
+      (let [full-path (resolve-within-root base-path file-key)
+            file-path (some-> full-path (Paths/get (into-array String [])))]
+        (boolean
+         (and file-path
+              (Files/exists file-path (make-array java.nio.file.LinkOption 0)))))
 
       (catch Exception e
         (when logger
@@ -240,11 +337,9 @@
     ;; "<key>:<expires>", with an expiry the serving route enforces via
     ;; `verify-signed-url`). Without a secret we fall back to the plain public URL.
     (when url-base
-      (let [base (str url-base "/" (str/replace file-key "\\" "/"))]
+      (let [base (str url-base "/" (canonical-key file-key))]
         (if signing-secret
-          (let [expires (+ (now-epoch-seconds) (long (or expiration-seconds 3600)))
-                sig     (hmac-sha256-hex signing-secret (str file-key ":" expires))]
-            (str base "?expires=" expires "&signature=" sig))
+          (sign-url signing-secret file-key base expiration-seconds)
           base)))))
 
 ;; ============================================================================
@@ -256,7 +351,11 @@
 
   Options:
   - :base-path - Root directory for file storage (required)
-  - :url-base - Base URL for accessing files (optional)
+  - :url-base - Public base URL files are reachable at (optional). A URL is
+    emitted as `<url-base>/<key>`, so with :signing-secret set this must be
+    the public URL of the mounted download route — that route is the only
+    thing that verifies the signature (BOU-421). Pointing it at a static
+    server or CDN instead means the signature is never checked.
   - :signing-secret - HMAC key enabling signed, expiring URLs (optional)
   - :create-directories? - Create base directory if missing (default: true)
   - :logger - Logger instance (optional)"
@@ -278,4 +377,8 @@
                    :base-path base-path
                    :url-base url-base}))
 
-  (->LocalFileStorage base-path url-base signing-secret logger))
+  ;; A blank secret is not a secret: it is truthy, so it selected the signing
+  ;; branch and then SecretKeySpec threw "Empty key" — after the bytes were
+  ;; already on disk, leaving the file orphaned (BOU-421). Absent and
+  ;; blank mean the same thing here, and mean it before anything is written.
+  (->LocalFileStorage base-path url-base (not-empty (some-> signing-secret str/trim)) logger))

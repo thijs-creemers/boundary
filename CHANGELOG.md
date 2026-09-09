@@ -39,8 +39,17 @@ for what is public API, what is internal, and how deprecations are announced.
 - **The `:wagoe/admin` and `:wagoe/auth-user-repository` Integrant components** (BOU-346).
   Drop them from hand-written wiring — `:wagoe/admin` in `:active` stays the module switch.
 
+### Added
+
+- **Storage's HTTP routes can be mounted** (BOU-421). Set `:expose-http? true`; they carry
+  no authorization of their own, so the mounting application must guard them.
+
 ### Fixed
 
+- **Local storage let a caller escape `:base-path`** (BOU-421). `../` keys and symlinks read,
+  wrote and deleted outside the root. Upgrade if you accept user-supplied keys.
+- **Signed storage URLs were never verified** (BOU-421). The download route enforces
+  `expires`/`signature`; point `:http-base-path` at wherever you mount the routes.
 - **Email's queued mode is wired** (BOU-346). `:wagoe/email-queue` ships over the sender
   you configured, instead of being documented and never built.
 - **Configured FCM push no longer throws at boot** (BOU-346). Set `:fcm-credentials`
