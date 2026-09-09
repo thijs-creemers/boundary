@@ -41,9 +41,9 @@
   nil)
 
 (defmethod ig/init-key :wagoe/audience-user-source
-  [_ {:keys [db-ctx table]}]
+  [_ {:keys [db-ctx table field-mapping]}]
   (log/info "Initializing audience user data source" {:table (or table :users)})
-  (user-sql/create-sql-user-data-source (:datasource db-ctx) table))
+  (user-sql/create-sql-user-data-source (:datasource db-ctx) table field-mapping))
 
 (defmethod ig/halt-key! :wagoe/audience-user-source
   [_ _source]
@@ -124,8 +124,9 @@
         settings (or settings {})]
     (cond-> {:components
              {:wagoe/audience-db-schema   {:db-ctx (ig/ref :wagoe/db-context)}
-              :wagoe/audience-user-source {:db-ctx (ig/ref :wagoe/db-context)
-                                           :table  (:users-table settings)}
+              :wagoe/audience-user-source {:db-ctx        (ig/ref :wagoe/db-context)
+                                           :table         (:users-table settings)
+                                           :field-mapping (:users-field-mapping settings)}
               :wagoe/audience             (cond-> {:db-ctx           (ig/ref :wagoe/db-context)
                                                    :db-schema        (ig/ref :wagoe/audience-db-schema)
                                                    :user-data-source (ig/ref :wagoe/audience-user-source)}

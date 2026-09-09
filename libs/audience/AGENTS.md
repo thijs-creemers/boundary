@@ -244,6 +244,13 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 
 `:wagoe/audience-routes` returns `{:api [...] :web [...]}` for composition by the HTTP handler.
 
+**Filter columns.** `:last-active` compiles to `last_active_at`; Wagoe's users table records
+`last_login`, so the shipped source translates it. Override with
+`:wagoe/audience {:users-field-mapping {…}}` for a schema that spells it differently again.
+
+**`:account-tenure` and `:last-active` need PostgreSQL** — they compile
+`CURRENT_DATE - INTERVAL '… days'`, which H2 and SQLite do not parse (BOU-425).
+
 **Adapters.** The schema and store are exercised against H2, SQLite and PostgreSQL by
 `test/wagoe/audience_dialect_test.clj`. MySQL is in the type table (`CHAR(36)`, matching
 platform's own MySQL adapter) but is **not proven** — there is no MySQL service in CI. An

@@ -10,6 +10,7 @@
    the cross-module coupling `bb check:ports` exists to prevent. `:table` is
    configurable for an application whose users live elsewhere."
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
@@ -17,6 +18,23 @@
   (:import [java.util UUID]))
 
 (def ^:private opts {:builder-fn rs/as-unqualified-lower-maps})
+
+(def default-field-mapping
+  "Filter column names that differ from the framework's `users` table.
+
+   `filter->sql` for `:last-active` emits `last_active_at`, a column no Wagoe
+   users table has — it records `last_login` — so that documented filter failed
+   with a missing-column error against the source this module ships (BOU-419
+   review). Override with `:field-mapping` for a schema that spells it
+   differently again."
+  {:last_active_at :last_login})
+
+(defn- map-fields
+  "Rename mapped columns anywhere in a HoneySQL clause."
+  [mapping clause]
+  (if (empty? mapping)
+    clause
+    (walk/postwalk (fn [x] (if (keyword? x) (get mapping x x) x)) clause)))
 
 (defn- ->uuid
   "Ids come back as UUID on PostgreSQL and as a String on some adapters."
@@ -37,7 +55,7 @@
              {}
              row))
 
-(defrecord SqlUserDataSource [datasource table]
+(defrecord SqlUserDataSource [datasource table field-mapping]
   ports/IUserDataSource
 
   (query-users-sql [_ honeysql-clause]
@@ -45,7 +63,8 @@
     ;; universe, and returning nothing for it silently empties every audience
     ;; whose filters are all predicate-phase (libs/audience/AGENTS.md).
     (let [q (cond-> {:select [:id] :from [table]}
-              (some? honeysql-clause) (assoc :where honeysql-clause))]
+              (some? honeysql-clause)
+              (assoc :where (map-fields field-mapping honeysql-clause)))]
       (mapv (comp ->uuid :id) (jdbc/execute! datasource (sql/format q) opts))))
 
   (load-users [_ user-ids]
@@ -59,6 +78,13 @@
            (mapv (fn [row] (update (kebab-row row) :id ->uuid)))))))
 
 (defn create-sql-user-data-source
-  "An IUserDataSource reading `table` (default `:users`) from `datasource`."
-  ([datasource] (create-sql-user-data-source datasource :users))
-  ([datasource table] (->SqlUserDataSource datasource (or table :users))))
+  "An IUserDataSource reading `table` (default `:users`) from `datasource`.
+
+   `field-mapping` renames filter columns that this table spells differently;
+   `default-field-mapping` covers the framework's own users table."
+  ([datasource] (create-sql-user-data-source datasource :users nil))
+  ([datasource table] (create-sql-user-data-source datasource table nil))
+  ([datasource table field-mapping]
+   (->SqlUserDataSource datasource
+                        (or table :users)
+                        (or field-mapping default-field-mapping))))

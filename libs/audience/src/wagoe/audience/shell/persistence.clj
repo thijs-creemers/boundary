@@ -213,6 +213,25 @@
             filter-keyword-keys)
     filt))
 
+(defn- restore-composition-refs
+  "Keywordize every `:ref` in a composition tree.
+
+   A composition names other audiences by keyword, and the resolver looks them
+   up in a keyword-keyed registry. Through JSON `{:ref :premium}` returns as
+   `{:ref \"premium\"}`, which matches no registered audience and no stored one
+   — so a composed audience answered :audience-not-found for a segment that was
+   right there (BOU-419 review). Recursive, because compositions nest."
+  [node]
+  (cond
+    (map? node)        (reduce-kv (fn [m k v]
+                                    (assoc m k (if (and (= :ref k) (string? v))
+                                                 (keyword v)
+                                                 (restore-composition-refs v))))
+                                  {}
+                                  node)
+    (sequential? node) (mapv restore-composition-refs node)
+    :else              node))
+
 (defn- db->definition
   "Convert a DB row map to an AudienceDefinition map (kebab-case)."
   [row]
@@ -222,7 +241,8 @@
              :description (:description row)
              :filters     (mapv restore-filter-keywords (or (<-json (:filters row)) []))
              :source      (str->kw (or (:source row) "dynamic"))}
-      (:composition row)  (assoc :compose (<-json (:composition row)))
+      (:composition row)  (assoc :compose (restore-composition-refs
+                                           (<-json (:composition row))))
       (:cache_config row) (assoc :cache-config (<-json (:cache_config row)))
       (:tags row)         (assoc :tags         (<-json (:tags row)))
       (:member_count row) (assoc :member-count (:member_count row))
