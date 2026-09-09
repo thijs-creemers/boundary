@@ -64,27 +64,46 @@
 ;; first write (BOU-419). The DDL existed twice — a PostgreSQL migration and an
 ;; H2 copy in the test fixture — and neither ran at boot.
 
-(defn- dialect
-  "`:h2`, `:postgresql`, or `:other`, from the connection's product name."
+(defn dialect
+  "The adapter behind `datasource`, from its product name."
   [datasource]
   (with-open [conn (jdbc/get-connection datasource)]
     (let [product (str/lower-case (str (.getDatabaseProductName (.getMetaData conn))))]
       (cond
         (str/includes? product "h2")         :h2
         (str/includes? product "postgresql") :postgresql
-        :else                                :other))))
+        (str/includes? product "sqlite")     :sqlite
+        (str/includes? product "mysql")      :mysql
+        (str/includes? product "mariadb")    :mysql
+        :else                                :unknown))))
+
+(def ^:private column-types
+  "How each adapter spells the two types this schema needs.
+
+   The primary key carries no `DEFAULT`: only two of the four adapters have a
+   UUID generator to put there, and `save-audience` supplies the id anyway.
+   That leaves the column types as the whole of the difference (BOU-419 review)."
+  {:h2         {:uuid "UUID"     :json "TEXT"}
+   :postgresql {:uuid "UUID"     :json "JSONB"}
+   :sqlite     {:uuid "TEXT"     :json "TEXT"}
+   :mysql      {:uuid "CHAR(36)" :json "TEXT"}})
 
 (defn audience-ddl
-  "Portable DDL for the audience tables.
+  "DDL for the audience tables, for one adapter.
 
-   Two dialects differ in exactly two places: the UUID default and the JSON
-   column type. Written once here rather than kept as a migration plus a
-   hand-copied H2 version in the test fixture, which is how the two drifted."
+   Written once here rather than as a PostgreSQL migration plus a hand-copied
+   H2 variant in a test fixture, which is how those two drifted."
   [dialect]
-  (let [uuid-default (if (= :postgresql dialect) "gen_random_uuid()" "RANDOM_UUID()")
-        json-type    (if (= :postgresql dialect) "JSONB" "TEXT")]
+  (let [{:keys [uuid json]} (or (get column-types dialect)
+                                (throw (ex-info
+                                        (str "No audience schema for database adapter "
+                                             (pr-str dialect) ". Supported: "
+                                             (str/join ", " (sort (map name (keys column-types)))) ".")
+                                        {:type :configuration-error :dialect dialect})))
+        uuid-type uuid
+        json-type json]
     [(str "CREATE TABLE IF NOT EXISTS audience_segments (
-             id            UUID DEFAULT " uuid-default " PRIMARY KEY,
+             id            " uuid-type " PRIMARY KEY,
              audience_id   VARCHAR(255) NOT NULL UNIQUE,
              label         VARCHAR(255) NOT NULL,
              description   TEXT,
@@ -97,11 +116,11 @@
              source        VARCHAR(50) DEFAULT 'dynamic',
              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
              updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
-     "CREATE TABLE IF NOT EXISTS audience_memberships (
-        audience_id   UUID REFERENCES audience_segments(id) ON DELETE CASCADE,
-        user_id       UUID NOT NULL,
-        entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (audience_id, user_id))"
+     (str "CREATE TABLE IF NOT EXISTS audience_memberships (
+             audience_id   " uuid-type " REFERENCES audience_segments(id) ON DELETE CASCADE,
+             user_id       " uuid-type " NOT NULL,
+             entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+             PRIMARY KEY (audience_id, user_id))")
      "CREATE INDEX IF NOT EXISTS idx_audience_memberships_user
         ON audience_memberships(user_id)"]))
 
@@ -117,6 +136,31 @@
 ;; =============================================================================
 
 (defn- kw->str [k] (when k (name k)))
+
+(defn json-param
+  "A JSON string as `dialect` accepts it in an INSERT or UPDATE.
+
+   PostgreSQL declares these columns `JSONB` and refuses a string parameter —
+   \"column is of type jsonb but expression is of type character varying\". The
+   other three adapters store TEXT and take it as is. A cast rather than a
+   `PGobject` so this needs no PostgreSQL class on the classpath, the way
+   `<-json` above already avoids one on the read side.
+
+   Audience had never run against PostgreSQL: its only fixture was H2, whose
+   columns were TEXT, and the JSONB migration ran nowhere (BOU-419 review)."
+  [dialect v]
+  (if (and (= :postgresql dialect) (some? v))
+    [:cast v :jsonb]
+    v))
+
+(defn- uuid-value
+  "A UUID as `dialect` stores it.
+
+   H2 and PostgreSQL have a real UUID column and reject a string parameter —
+   \"column is of type uuid but expression is of type character varying\".
+   SQLite (TEXT) and MySQL (CHAR(36)) have no UUID type to convert to."
+  [dialect u]
+  (if (contains? #{:h2 :postgresql} dialect) u (str u)))
 (defn- str->kw [s] (when s (keyword s)))
 
 ;; =============================================================================
@@ -124,16 +168,44 @@
 ;; =============================================================================
 
 (defn- definition->db
-  "Convert an AudienceDefinition map to a DB row (snake_case, JSON-serialised)."
-  [definition]
-  {:audience_id  (kw->str (:id definition))
-   :label        (:label definition)
-   :description  (:description definition)
-   :filters      (->json (:filters definition))
-   :composition  (->json (:compose definition))
-   :cache_config (->json (:cache-config definition))
-   :tags         (->json (:tags definition))
-   :source       (or (kw->str (:source definition)) "dynamic")})
+  "Convert an AudienceDefinition map to a DB row (snake_case, JSON-serialised).
+
+   `:id` is the surrogate primary key and is generated here rather than by a
+   column default: two of the four supported adapters have no UUID generator to
+   default to. `save-audience` deletes and re-inserts, so this key changed on
+   every save under the old default too — `find-segment-uuid` resolves it from
+   `audience_id`, which is the identifier callers use."
+  [dialect definition]
+  (let [json* (partial json-param dialect)]
+    {:id           (uuid-value dialect (random-uuid))
+     :audience_id  (kw->str (:id definition))
+     :label        (:label definition)
+     :description  (:description definition)
+     :filters      (json* (->json (:filters definition)))
+     :composition  (json* (->json (:compose definition)))
+     :cache_config (json* (->json (:cache-config definition)))
+     :tags         (json* (->json (:tags definition)))
+     :source       (or (kw->str (:source definition)) "dynamic")}))
+
+(def ^:private filter-keyword-keys
+  "Filter keys the compiler dispatches on, which must come back as keywords.
+
+   `filter->sql` is a multimethod on `:type`, `sql-op` reads `:op`, and `:field`
+   becomes a HoneySQL column. JSON has no keywords, so a stored definition
+   reloaded as strings compiled to something else entirely: a `:demographics`
+   filter that produced `[[:= :plan \"premium\"]]` in memory came back matching
+   no type at all and degraded to a constant predicate, so every persisted
+   audience resolved to the wrong set (BOU-419 review)."
+  [:type :op :field])
+
+(defn- restore-filter-keywords
+  [filt]
+  (if (map? filt)
+    (reduce (fn [m k]
+              (if (string? (get m k)) (update m k keyword) m))
+            filt
+            filter-keyword-keys)
+    filt))
 
 (defn- db->definition
   "Convert a DB row map to an AudienceDefinition map (kebab-case)."
@@ -142,7 +214,7 @@
     (cond-> {:id          (str->kw (:audience_id row))
              :label       (:label row)
              :description (:description row)
-             :filters     (or (<-json (:filters row)) [])
+             :filters     (mapv restore-filter-keywords (or (<-json (:filters row)) []))
              :source      (str->kw (or (:source row) "dynamic"))}
       (:composition row)  (assoc :compose (<-json (:composition row)))
       (:cache_config row) (assoc :cache-config (<-json (:cache_config row)))
@@ -154,12 +226,12 @@
 ;; IAudienceRepository implementation
 ;; =============================================================================
 
-(defrecord AudienceStore [datasource]
+(defrecord AudienceStore [datasource dialect]
   ports/IAudienceRepository
 
   (save-audience [_ definition]
     (log/debug "Saving audience" {:audience-id (:id definition)})
-    (let [row (definition->db definition)]
+    (let [row (definition->db dialect definition)]
       (jdbc/with-transaction [tx datasource]
         ;; Delete-then-insert for H2/PostgreSQL compatibility (simple upsert)
         (jdbc/execute-one!
@@ -220,7 +292,9 @@
    Returns:
      AudienceStore implementing IAudienceRepository"
   [datasource]
-  (->AudienceStore datasource))
+  ;; Detected once, at construction: it costs a connection, and the answer
+  ;; cannot change for the life of the store.
+  (->AudienceStore datasource (dialect datasource)))
 
 ;; =============================================================================
 ;; Membership helpers (not on the port protocol)

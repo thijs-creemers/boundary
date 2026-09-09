@@ -53,6 +53,10 @@ for what is public API, what is internal, and how deprecations are announced.
 - **The audience module could not boot** (BOU-419). `IUserDataSource` had no implementation
   and nothing wired the service; enable `:wagoe/audience` and it segments your users table.
   Its routes require an admin session, and are not mounted without the user module.
+- **Stored audiences resolved to the wrong users** (BOU-419). Filters lost their keywords
+  through JSON, so a saved segment compiled to a constant instead of its SQL clause.
+- **Audience could not run on PostgreSQL or SQLite** (BOU-419). Its JSONB columns rejected
+  the string parameter, and its DDL was H2-only.
 - **Scheduled pushes were never delivered** (BOU-418). `schedule-push!` enqueued into a
   nil queue and no registry held its handlers; enable `:wagoe/jobs` and both are wired.
 - **The DB job adapter had no job store** (BOU-418), so its dead-letter queue was lost on

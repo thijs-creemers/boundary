@@ -244,6 +244,11 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 
 `:wagoe/audience-routes` returns `{:api [...] :web [...]}` for composition by the HTTP handler.
 
+**Adapters.** The schema and store are exercised against H2, SQLite and PostgreSQL by
+`test/wagoe/audience_dialect_test.clj`. MySQL is in the type table (`CHAR(36)`, matching
+platform's own MySQL adapter) but is **not proven** — there is no MySQL service in CI. An
+adapter with no entry fails loudly at schema initialisation rather than emitting H2 syntax.
+
 **Mounting.** `:wagoe/audience-routes` is mounted only when the user module is enabled, and
 every route carries `:wagoe/admin-only-middleware` — these endpoints create and delete
 segments and read their member ids, and the global authentication only *sets* `:user` when

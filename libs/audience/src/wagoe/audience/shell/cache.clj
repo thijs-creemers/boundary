@@ -100,7 +100,11 @@
       (jdbc/execute-one!
        datasource
        (sql/format {:update :audience_segments
-                    :set    {:cache_config (json/generate-string {:ttl-minutes ttl-minutes})}
+                    ;; Cast for PostgreSQL, where this column is JSONB and a
+                    ;; string parameter is rejected (BOU-419 review).
+                    :set    {:cache_config (persistence/json-param
+                                            (persistence/dialect datasource)
+                                            (json/generate-string {:ttl-minutes ttl-minutes}))}
                     :where  [:= :audience_id (kw->str audience-id)]})
        {:builder-fn rs/as-unqualified-lower-maps}))
     result)
