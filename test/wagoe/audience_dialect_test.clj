@@ -13,6 +13,7 @@
             [next.jdbc :as jdbc]
             [support.embedded-pg :as epg]
             [wagoe.audience.core.compiler :as compiler]
+            [wagoe.audience.shell.cache :as audience-cache]
             [wagoe.audience.ports :as ports]
             [wagoe.audience.shell.persistence :as p]))
 
@@ -69,6 +70,18 @@
             (testing "memberships are written and read against its own id type"
               (p/save-memberships! ds :premium users)
               (is (= (set users) (set (p/get-memberships ds :premium)))))
+
+            (testing "a cached result is read back, TTL and all"
+              ;; PostgreSQL returns a JSONB column as a PGobject, and the cache
+              ;; had its own decoder that answered nil for one — so the TTL was
+              ;; nil, the cache never hit, and every resolve recomputed the
+              ;; membership (BOU-419 review).
+              (let [c (audience-cache/create-audience-cache ds nil)]
+                (ports/put-cached c :premium {:user-ids (set users) :count 2} 60)
+                (let [hit (ports/get-cached c :premium)]
+                  (is (some? hit) "a result cached one minute ago was not found")
+                  (is (true? (:cached? hit)))
+                  (is (= (set users) (:user-ids hit))))))
 
             (testing "and it can be deleted"
               (ports/delete-audience store :premium)

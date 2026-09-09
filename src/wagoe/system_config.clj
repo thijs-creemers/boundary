@@ -128,6 +128,9 @@
 
    :search   {:keys [:wagoe/search :wagoe/search-routes]}
 
+   :audience {:keys [:wagoe/audience-db-schema :wagoe/audience-user-source
+                     :wagoe/audience :wagoe/audience-routes]}
+
    :ai       {:keys [:wagoe/ai-service]}
 
    :payments {:keys [:wagoe/payment-provider]

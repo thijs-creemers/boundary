@@ -32,8 +32,14 @@
   (when (some? value)
     (json/generate-string value)))
 
-(defn- <-json
+(defn <-json
   "Deserialise a DB JSON value back to Clojure data.
+
+   Public because it is the only decoder that knows about all three shapes a
+   JSON column arrives in, and `cache.clj` had a fourth, narrower copy that
+   handled maps and strings and returned nil for a PGobject — so on PostgreSQL
+   every cached audience read its TTL as nil, missed the cache and recomputed
+   its membership on every resolve (BOU-419 review).
 
    Handles:
    - nil                              → nil

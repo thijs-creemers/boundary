@@ -9,7 +9,8 @@
 
    L2 — wagoe-cache (Redis / in-memory) can be layered in later.
          The wagoe-cache param is accepted but not yet wired."
-  (:require [wagoe.audience.ports :as ports]
+  (:require [clojure.string :as str]
+            [wagoe.audience.ports :as ports]
             [wagoe.audience.shell.persistence :as persistence]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]
@@ -68,13 +69,36 @@
                 :where  [:= :audience_id (kw->str audience-id)]})
    {:builder-fn rs/as-unqualified-lower-maps}))
 
+(defn- ->instant
+  "A `cached_at` column value as an Instant.
+
+   H2 and PostgreSQL hand back a `java.sql.Timestamp`; SQLite has no timestamp
+   type and returns the string it stored, which the cast to Timestamp threw on
+   (BOU-419 review)."
+  [v]
+  (cond
+    (instance? java.sql.Timestamp v) (.toInstant ^java.sql.Timestamp v)
+    (instance? Instant v)            v
+    ;; SQLite's CURRENT_TIMESTAMP is UTC and comes back as a bare
+    ;; "yyyy-MM-dd HH:mm:ss" string. `Timestamp/valueOf` reads one in the
+    ;; JVM's local zone, which put every cache entry hours in the past and
+    ;; expired it on arrival — a TTL that silently never held (BOU-419 review).
+    (string? v)                      (try
+                                       (.toInstant
+                                        (java.time.LocalDateTime/parse
+                                         (str/replace v " " "T"))
+                                        java.time.ZoneOffset/UTC)
+                                       (catch Exception _
+                                         (try (Instant/parse v)
+                                              (catch Exception _ nil))))
+    :else                            nil))
+
 (defn- fresh?
   "Return true if cached-at instant is within ttl-minutes from now."
-  [^java.sql.Timestamp cached-at ttl-minutes]
-  (when cached-at
-    (let [cached-inst  (.toInstant cached-at)
-          expiry-inst  (.plus cached-inst ttl-minutes ChronoUnit/MINUTES)
-          now          (Instant/now)]
+  [cached-at ttl-minutes]
+  (when-let [cached-inst (->instant cached-at)]
+    (let [expiry-inst (.plus cached-inst ttl-minutes ChronoUnit/MINUTES)
+          now         (Instant/now)]
       (.isBefore now expiry-inst))))
 
 ;; =============================================================================
@@ -114,11 +138,10 @@
     (let [row (load-segment-cache-row datasource audience-id)]
       (when row
         (let [cached-at   (:cached_at row)
-              cache-cfg   (when-let [v (:cache_config row)]
-                            (cond
-                              (map? v)    v
-                              (string? v) (json/parse-string v true)
-                              :else       nil))
+              ;; The shared decoder, which also handles the PGobject a JSONB
+              ;; column returns. The copy that used to live here returned nil
+              ;; for one, so PostgreSQL never read a TTL (BOU-419 review).
+              cache-cfg   (persistence/<-json (:cache_config row))
               ttl-minutes (get cache-cfg :ttl-minutes)]
           (when (and cached-at ttl-minutes
                      (fresh? cached-at ttl-minutes))
@@ -126,7 +149,7 @@
               {:user-ids     user-ids
                :count        (count user-ids)
                :cached?      true
-               :evaluated-at (.toInstant ^java.sql.Timestamp cached-at)}))))))
+               :evaluated-at (->instant cached-at)}))))))
 
   (invalidate [_ audience-id]
     (log/debug "Invalidating cache for audience" {:audience-id audience-id})
@@ -168,7 +191,7 @@
             {:user-ids     user-ids
              :count        (count user-ids)
              :cached?      true
-             :evaluated-at (.toInstant ^java.sql.Timestamp cached-at)}))))))
+             :evaluated-at (->instant cached-at)}))))))
 
 ;; =============================================================================
 ;; Factory
