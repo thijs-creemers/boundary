@@ -227,7 +227,7 @@
   ([storage-service] (download-file-handler storage-service nil))
   ([storage-service signing-secret]
    (fn [{:keys [path-params query-params]}]
-     (let [file-key (get path-params :file-key)]
+     (let [file-key (let [k (get path-params :file-key)] (when-not (str/blank? k) k))]
 
        (cond
          (not file-key)
@@ -270,7 +270,7 @@
   - file-key: Storage key of the file"
   [storage-service]
   (fn [{:keys [path-params]}]
-    (let [file-key (get path-params :file-key)]
+    (let [file-key (let [k (get path-params :file-key)] (when-not (str/blank? k) k))]
 
       (if-not file-key
         (problem-details/bad-request
@@ -297,7 +297,7 @@
   (fn [{:keys [path-params query-params]}]
     (if-let [bad (repeated-params query-params ["expiration"])]
       (repeated-params-response bad)
-      (let [file-key (get path-params :file-key)
+      (let [file-key (let [k (get path-params :file-key)] (when-not (str/blank? k) k))
             expiration (if-let [exp (get query-params "expiration")]
                          (parse-int-safe exp)
                          3600)]

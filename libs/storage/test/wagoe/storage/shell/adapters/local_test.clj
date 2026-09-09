@@ -273,3 +273,43 @@
           (is (not (str/includes? (str (:url result)) "signature="))
               (str "no signature is promised for secret " (pr-str secret)))))
       (finally (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))))))
+
+(deftest ^:unit no-key-spelling-addresses-the-storage-root-itself
+  ;; "" resolves to the root itself, so delete-file "" removed the storage
+  ;; root — and the catch-all route matches DELETE …/delete/ with an empty
+  ;; key. An earlier sweep ran this case and passed it: it asked whether the
+  ;; call threw, not whether it did something destructive (BOU-346 review).
+  (let [root    (str (java.nio.file.Files/createTempDirectory
+                      "wagoe-blank-key" (make-array java.nio.file.attribute.FileAttribute 0)))
+        storage (sut/create-local-storage {:base-path root})]
+    (try
+      (spit (str root "/keep.txt") "keep")
+      ;; Every spelling that resolves to the root itself, not just the blank
+      ;; ones: "." and "./" deleted an empty root after the blank-key fix.
+      (doseq [k ["" "   " nil "." "./" "a/.." "/"]]
+        (is (false? (ports/delete-file storage k)) (pr-str k))
+        (is (nil?   (ports/retrieve-file storage k)) (pr-str k))
+        (is (false? (ports/file-exists? storage k)) (pr-str k)))
+
+      (testing "the root and its contents survive"
+        (is (.exists (java.io.File. root)))
+        (is (.exists (java.io.File. (str root "/keep.txt")))))
+
+      (testing "and a real key still deletes"
+        (is (true? (ports/delete-file storage "keep.txt")))
+        (is (not (.exists (java.io.File. (str root "/keep.txt"))))))
+
+      (finally (doseq [f (reverse (file-seq (java.io.File. root)))] (.delete f))))))
+
+(deftest ^:unit an-empty-storage-root-is-not-deletable-through-a-key
+  ;; The earlier case kept a file in the root, so Files/delete failed on a
+  ;; non-empty directory and hid the defect: with an empty root, "." and "./"
+  ;; removed it outright (BOU-346 review).
+  (doseq [k ["" "." "./" "a/.." "   "]]
+    (let [root (str (java.nio.file.Files/createTempDirectory
+                     "wagoe-empty-root" (make-array java.nio.file.attribute.FileAttribute 0)))
+          storage (sut/create-local-storage {:base-path root})]
+      (try
+        (is (false? (ports/delete-file storage k)) (pr-str k))
+        (is (.exists (java.io.File. root)) (str "root survives " (pr-str k)))
+        (finally (.delete (java.io.File. root)))))))

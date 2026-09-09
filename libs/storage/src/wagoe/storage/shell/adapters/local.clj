@@ -118,7 +118,11 @@
    a caller-supplied key — `../../deps.edn` read a file outside the root
    before the check existed (BOU-346 review)."
   [base-path file-key]
-  (when (and base-path file-key)
+  ;; A blank key is not a key: it resolves to the root itself, and
+  ;; `delete-file ""` then removed the storage root — the catch-all route
+  ;; matches `DELETE …/delete/` with an empty key (BOU-346 review). Refused
+  ;; here rather than in the handler, so every caller of the port is covered.
+  (when (and base-path (not (str/blank? (str file-key))))
     (let [empty-opts (make-array java.nio.file.LinkOption 0)
           real       (fn [^java.nio.file.Path p]
                        (try (.toRealPath p empty-opts) (catch Exception _ nil)))
@@ -136,7 +140,14 @@
                              (Files/exists p empty-opts)   p
                              :else                         (recur (.getParent p))))
           anchor     (some-> existing real)]
-      (when (and anchor (.startsWith anchor root-real))
+      (when (and anchor
+                 (.startsWith anchor root-real)
+                 ;; Strictly inside: the root is not a file this port
+                 ;; addresses. "", ".", "./" and "a/.." all resolve to it, and
+                 ;; `delete-file` then removed an empty storage root
+                 ;; (BOU-346 review).
+                 (not (.equals target root))
+                 (not (.equals (.normalize target) (.normalize root))))
         (.toString target)))))
 
 (defn- sanitize-path

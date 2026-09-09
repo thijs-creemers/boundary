@@ -249,3 +249,14 @@
     (testing "and a real file still uploads"
       (is (= 201 (:status ((sut/upload-file-handler svc)
                            {:multipart-params {"file" good} :query-params {}})))))))
+
+(deftest ^:unit a-blank-path-key-is-a-400-on-every-route-that-takes-one
+  ;; The catch-all captures an empty segment, so DELETE …/delete/ arrived with
+  ;; :file-key "" and passed the missing-key check (BOU-346 review).
+  (let [svc (create-test-service)]
+    (doseq [[label handler] [["download" (sut/download-file-handler svc)]
+                             ["delete"   (sut/delete-file-handler svc)]
+                             ["url"      (sut/get-file-url-handler svc)]]
+            key             ["" "   "]]
+      (is (= 400 (:status (handler {:path-params {:file-key key} :query-params {}})))
+          (str label " with " (pr-str key))))))
