@@ -366,11 +366,16 @@
 (defn framework-module-config
   "Integrant entries for the framework modules `active` switches on.
 
-   Returns `{:components {…} :http {…} :routes [..]}`. `:components` merges into
-   the system config and `:http` into `:wagoe/http-handler` — that is how tenant
-   contributes `:extra-middleware`. `:routes` is a vector of refs to modules'
-   route components, which reach the handler as one collection rather than as a
-   named slot per module (BOU-330).
+   Returns `{:components {…} :http {…} :routes [..] :job-handlers [..]}`.
+   `:components` merges into the system config and `:http` into
+   `:wagoe/http-handler` — that is how tenant contributes `:extra-middleware`.
+   `:routes` is a vector of refs to modules' route components, which reach the
+   handler as one collection rather than as a named slot per module (BOU-330).
+
+   `:job-handlers` is the same arrangement for background work: refs to
+   components that return `{job-type handler-fn}`, which reach the job registry
+   as one collection. Jobs can no more name the modules with handlers than the
+   HTTP handler can name the modules with routes (BOU-418).
 
    `ctx` is what a module may need from the application and cannot know:
    `:config` (the whole loaded map), `:validation-config`, and `:enabled` — the
@@ -387,7 +392,8 @@
        (let [wiring (symbol (str "wagoe." lib ".shell.module-wiring"))]
          (cond
            (load-wiring! wiring)
-           (let [{:keys [components http routes]} (module-graph resolve-var k lib (get active k) ctx)
+           (let [{:keys [components http routes job-handlers]}
+                 (module-graph resolve-var k lib (get active k) ctx)
                  clash (some (set (keys (:components acc))) (keys components))]
              (when clash
                (throw (ex-info (str "Two modules both wire " clash
@@ -396,7 +402,8 @@
              (-> acc
                  (update :components merge components)
                  (update :http merge http)
-                 (update :routes into (or routes []))))
+                 (update :routes into (or routes []))
+                 (update :job-handlers into (or job-handlers []))))
 
            (contains? optional-modules k)
            (do (log/info (str "Skipping " k ": " wiring " is not on this classpath.")
@@ -409,5 +416,5 @@
                         "  Add the library to deps.edn, or remove " k
                         " from :active in resources/conf/<env>/config.edn.")
                    {:type :wagoe/module-library-missing :module-key k :namespace (str wiring)})))))
-     {:components {} :http {} :routes []}
+     {:components {} :http {} :routes [] :job-handlers []}
      (module-entries active extra-modules))))

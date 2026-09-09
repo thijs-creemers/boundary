@@ -65,31 +65,45 @@
 (defn ig-config
   "This module's Integrant entries, for `wagoe.platform.shell.system.config`.
 
-   `:wagoe/push` is a settings block, not a component: it configures the four
+   `:wagoe/push` is a settings block, not a component: it configures the
    `:wagoe.push/*` components assembled here. Both providers fall back to
    `:mock` when no credentials are configured, so an app can enable push before
-   it has an FCM account."
-  [settings _ctx]
-  {:components
-   ;; FCM settings spread like APNs' three lines below — the nested
-   ;; `:credentials` key never matched the init-key's `:project-id`/
-   ;; `:credentials-path`, so configured FCM threw at boot, always (BOU-346).
-   ;; :fcm only when both fields are present: a map of unset #env values is
-   ;; truthy and would select a provider that cannot construct.
-   {:wagoe.push/fcm-provider    (let [fc (:fcm-credentials settings)]
-                                  (merge {:provider (if (and (:project-id fc)
-                                                             (:credentials-path fc))
-                                                      :fcm :mock)}
-                                         fc))
-    :wagoe.push/apns-provider   (merge {:provider (if (:apns-credentials settings) :apns :mock)}
-                                       (:apns-credentials settings))
-    :wagoe.push/device-store    {:db (ig/ref :wagoe/db-context)}
-    :wagoe.push/analytics-store {:db (ig/ref :wagoe/db-context)}
-    :wagoe.push/service         {:device-store    (ig/ref :wagoe.push/device-store)
-                                 :analytics-store (ig/ref :wagoe.push/analytics-store)
-                                 :fcm-provider    (ig/ref :wagoe.push/fcm-provider)
-                                 :apns-provider   (ig/ref :wagoe.push/apns-provider)
-                                 :callback-secret (:callback-secret settings)}
-    :wagoe.push/routes          {:device-store    (ig/ref :wagoe.push/device-store)
-                                 :analytics-store (ig/ref :wagoe.push/analytics-store)
-                                 :callback-secret (:callback-secret settings)}}})
+   it has an FCM account.
+
+   The job handlers and the queue ref appear only when the jobs module is
+   enabled. Without them `schedule-push!` enqueued into a nil queue and the
+   handlers had no registry to land in, so a scheduled push disappeared without
+   an error (BOU-418)."
+  [settings {:keys [enabled]}]
+  (let [jobs? (contains? (or enabled #{}) :wagoe/jobs)]
+    (cond-> {:components
+             ;; FCM settings spread like APNs' three lines below — the nested
+             ;; `:credentials` key never matched the init-key's `:project-id`/
+             ;; `:credentials-path`, so configured FCM threw at boot, always
+             ;; (BOU-346). :fcm only when both fields are present: a map of
+             ;; unset #env values is truthy and would select a provider that
+             ;; cannot construct.
+             {:wagoe.push/fcm-provider    (let [fc (:fcm-credentials settings)]
+                                            (merge {:provider (if (and (:project-id fc)
+                                                                       (:credentials-path fc))
+                                                                :fcm :mock)}
+                                                   fc))
+              :wagoe.push/apns-provider   (merge {:provider (if (:apns-credentials settings) :apns :mock)}
+                                                 (:apns-credentials settings))
+              :wagoe.push/device-store    {:db (ig/ref :wagoe/db-context)}
+              :wagoe.push/analytics-store {:db (ig/ref :wagoe/db-context)}
+              :wagoe.push/service         (cond-> {:device-store    (ig/ref :wagoe.push/device-store)
+                                                   :analytics-store (ig/ref :wagoe.push/analytics-store)
+                                                   :fcm-provider    (ig/ref :wagoe.push/fcm-provider)
+                                                   :apns-provider   (ig/ref :wagoe.push/apns-provider)
+                                                   :callback-secret (:callback-secret settings)}
+                                            jobs?
+                                            (assoc :job-queue (ig/ref :wagoe/job-queue)))
+              :wagoe.push/routes          {:device-store    (ig/ref :wagoe.push/device-store)
+                                           :analytics-store (ig/ref :wagoe.push/analytics-store)
+                                           :callback-secret (:callback-secret settings)}}}
+
+      jobs?
+      (-> (assoc-in [:components :wagoe.push/job-handlers]
+                    {:push-service (ig/ref :wagoe.push/service)})
+          (assoc :job-handlers [(ig/ref :wagoe.push/job-handlers)])))))

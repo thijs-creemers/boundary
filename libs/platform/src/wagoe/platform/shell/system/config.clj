@@ -80,7 +80,7 @@
   ([config {:keys [extra-modules base-ns] :or {extra-modules #{} base-ns "wagoe"}}]
    (let [active     (:active config)
          known      (into core-keys (keys modules/framework-modules))
-         {:keys [components http routes]}
+         {:keys [components http routes job-handlers]}
          (modules/framework-module-config
           active
           {:config            config
@@ -95,8 +95,14 @@
                      active known base-ns modules/require-wiring! requiring-resolve)]
      ;; Framework modules first, then the scaffolded ones — the order routes are
      ;; concatenated in and mounted.
-     (merge (core-components config http
-                             (into (vec routes)
-                                   (modules/discovered-route-refs active known discovered)))
-            components
-            discovered))))
+     (cond-> (merge (core-components config http
+                                     (into (vec routes)
+                                           (modules/discovered-route-refs active known discovered)))
+                    components
+                    discovered)
+       ;; Handlers reach the registry only when the jobs module is on. Assoc'ing
+       ;; them unconditionally would leave refs to handler components in a
+       ;; config that has no registry, and a module that contributes handlers
+       ;; without jobs enabled would fail the boot on a dangling ref.
+       (contains? components :wagoe/job-registry)
+       (assoc-in [:wagoe/job-registry :handler-maps] (vec job-handlers))))))

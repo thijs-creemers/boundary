@@ -32,7 +32,9 @@
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [cheshire.core :as json]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [wagoe.jobs.core.job :as job]
             [wagoe.jobs.ports :as ports])
   (:import [java.sql Timestamp]
            [java.time Instant]))
@@ -272,3 +274,132 @@
    reclaimable. Call `create-jobs-table!` once before use (or run the migration)."
   [ds & {:keys [lease-ms] :or {lease-ms default-lease-ms}}]
   (->DbJobQueue ds lease-ms))
+
+;; =============================================================================
+;; Job store (IJobStore) — history and the dead-letter queue
+;; =============================================================================
+;;
+;; `job_queue` holds work still to do; `ack-job!` deletes the row. The worker
+;; records outcomes through IJobStore, and the dead-letter queue lives there
+;; too (`worker.clj` saves the exhausted job and marks it failed). So a durable
+;; queue paired with an in-memory store loses every failed job on restart —
+;; which is why the DB adapter has a store of its own (BOU-418).
+
+(defn create-job-store-table!
+  "Create the `job_store` table + its indexes if absent. Portable DDL
+   (H2 + PostgreSQL). Call once at startup, or ship as a migration."
+  [ds]
+  (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS job_store (
+                        id           UUID PRIMARY KEY,
+                        job_type     VARCHAR(255),
+                        queue        VARCHAR(255),
+                        status       VARCHAR(20) NOT NULL,
+                        dead_letter  BOOLEAN NOT NULL DEFAULT FALSE,
+                        updated_at   TIMESTAMP NOT NULL,
+                        payload      VARCHAR(1000000) NOT NULL)"])
+  (jdbc/execute! ds ["CREATE INDEX IF NOT EXISTS ix_job_store_filters
+                        ON job_store (status, job_type, queue)"])
+  (jdbc/execute! ds ["CREATE INDEX IF NOT EXISTS ix_job_store_dead_letter
+                        ON job_store (dead_letter, updated_at)"]))
+
+(defn- kw-name [x] (when x (name x)))
+
+(defn- upsert-job!
+  "Write `job`, preserving `dead-letter?` when it is nil (i.e. leave the flag
+   alone). UPDATE-then-INSERT rather than MERGE or ON CONFLICT: those spell
+   differently on H2 and PostgreSQL, and this adapter's contract is portable SQL."
+  [ds job dead-letter?]
+  (let [now  (ts (Instant/now))
+        flag (boolean dead-letter?)
+        n    (::jdbc/update-count
+              (jdbc/execute-one!
+               ds
+               (if (nil? dead-letter?)
+                 ["UPDATE job_store SET job_type = ?, queue = ?, status = ?,
+                     updated_at = ?, payload = ? WHERE id = ?"
+                  (kw-name (:job-type job)) (kw-name (:queue job))
+                  (kw-name (or (:status job) :pending)) now (serialize-job job) (:id job)]
+                 ["UPDATE job_store SET job_type = ?, queue = ?, status = ?,
+                     dead_letter = ?, updated_at = ?, payload = ? WHERE id = ?"
+                  (kw-name (:job-type job)) (kw-name (:queue job))
+                  (kw-name (or (:status job) :pending)) flag now
+                  (serialize-job job) (:id job)])))]
+    (when (zero? n)
+      (jdbc/execute-one!
+       ds
+       ["INSERT INTO job_store (id, job_type, queue, status, dead_letter, updated_at, payload)
+           VALUES (?,?,?,?,?,?,?)"
+        (:id job) (kw-name (:job-type job)) (kw-name (:queue job))
+        (kw-name (or (:status job) :pending)) flag now (serialize-job job)]))
+    job))
+
+(defrecord DbJobStore [ds]
+  ports/IJobStore
+
+  (save-job! [_ job]
+    (upsert-job! ds job nil))
+
+  (find-job [_ job-id]
+    (some-> (jdbc/execute-one! ds ["SELECT payload FROM job_store WHERE id = ?" job-id]
+                               (opts))
+            :payload
+            deserialize-job))
+
+  (update-job-status! [this job-id status result]
+    (when-let [job (ports/find-job this job-id)]
+      (let [now     (Instant/now)
+            updated (case status
+                      :running   (job/start-job job now)
+                      :completed (job/complete-job job result now)
+                      :failed    (job/fail-job job result now)
+                      :cancelled (job/cancel-job job now)
+                      job)
+            ;; Dead-letter exactly when the in-memory store does: a failure with
+            ;; no retries left. Any other outcome clears the flag, so a retried
+            ;; job does not linger in the dead-letter list.
+            dead?   (and (= status :failed) (not (job/can-retry? updated)))]
+        (upsert-job! ds updated dead?)
+        updated)))
+
+  (find-jobs [_ filters]
+    (let [{:keys [status job-type queue]} filters
+          clauses (cond-> []
+                    status   (conj "status = ?")
+                    job-type (conj "job_type = ?")
+                    queue    (conj "queue = ?"))
+          params  (cond-> []
+                    status   (conj (kw-name status))
+                    job-type (conj (kw-name job-type))
+                    queue    (conj (kw-name queue)))
+          sql     (str "SELECT payload FROM job_store"
+                       (when (seq clauses) (str " WHERE " (str/join " AND " clauses))))]
+      (->> (jdbc/execute! ds (into [sql] params) (opts))
+           (map (comp deserialize-job :payload))
+           vec)))
+
+  (failed-jobs [_ limit]
+    (->> (jdbc/execute! ds ["SELECT payload FROM job_store
+                               WHERE dead_letter = TRUE ORDER BY updated_at LIMIT ?"
+                            limit]
+                        (opts))
+         (map (comp deserialize-job :payload))
+         vec))
+
+  (retry-job! [this job-id]
+    (when-let [job (ports/find-job this job-id)]
+      (let [retry-config {:backoff-strategy :exponential
+                          :initial-delay-ms 1000
+                          :max-delay-ms     60000}
+            retried      (job/prepare-retry job retry-config (Instant/now) (rand-int 100))]
+        (upsert-job! ds retried false)
+        ;; Back onto the queue as a scheduled row. The in-memory store does this
+        ;; through state it shares with its queue; here the two adapters share
+        ;; the database instead, which is the same guarantee by other means.
+        (insert-job! ds (or (:queue retried) :default) retried)
+        retried))))
+
+(defn create-db-job-store
+  "Create a DB-backed job store over the given `next.jdbc` datasource `ds`.
+   Call `create-job-store-table!` once before use (or run the migration)."
+  [ds]
+  (->DbJobStore ds))

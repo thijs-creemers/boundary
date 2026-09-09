@@ -341,3 +341,133 @@
              (str label ": an acked job was reclaimed"))
          (is (zero? (ports/queue-size q :acked))
              (str label ": an acked job came back to the ready queue")))))))
+
+;; =============================================================================
+;; IJobStore — the same sweep, for the other half of the contract
+;; =============================================================================
+;;
+;; The DB adapter shipped a queue and no store (BOU-418), so wiring it meant
+;; pairing a durable queue with an in-memory dead-letter queue: every failed
+;; job lost on restart. It has a store now, and this is what says it agrees
+;; with the two that already existed.
+
+(defn- stores
+  "Each is [label make]. `make` returns [store stop!]."
+  []
+  (cond-> [["in-memory"
+            (fn [] [(mem/create-in-memory-job-store) (fn [_] nil)])]
+           ["db"
+            (fn []
+              (let [ds (jdbc/get-datasource
+                        {:dbtype "h2:mem"
+                         :dbname (str "store_" (System/nanoTime) ";DB_CLOSE_DELAY=-1")})]
+                (db/create-jobs-table! ds)
+                (db/create-job-store-table! ds)
+                [(db/create-db-job-store ds) (fn [_] nil)]))]]
+    @redis-up?
+    (conj ["redis"
+           (fn []
+             (let [pool (redis/create-redis-pool {:host "localhost" :port 6379
+                                                  :database redis-db})]
+               (with-open [^Jedis j (.getResource pool)] (.flushDB j))
+               [(redis/create-redis-job-store pool)
+                (fn [_] (redis/close-redis-pool! pool))]))])))
+
+(defn- each-store
+  [f]
+  (doseq [[label make] (stores)]
+    (testing label
+      (let [[store stop!] (make)]
+        (try (f store label)
+             (finally (stop! store)))))))
+
+(defn- stored
+  "A job as the worker hands it to the store: retry budget included."
+  [& {:keys [max-retries retry-count job-type queue]
+      :or   {max-retries 3 retry-count 0 job-type :send-email queue :default}}]
+  (assoc (job :queue queue)
+         :job-type    job-type
+         :max-retries max-retries
+         :retry-count retry-count))
+
+(deftest ^:integration the-store-sweep-covers-every-backend
+  (is (= 3 (count (stores)))
+      "Redis is not reachable on localhost:6379 — this run compared two stores, not three"))
+
+(deftest ^:integration a-saved-job-comes-back-as-it-went-in
+  (each-store
+   (fn [s label]
+     (let [j (stored)]
+       (ports/save-job! s j)
+       (let [got (ports/find-job s (:id j))]
+         (is (= (:id j) (:id got))           (str label ": :id"))
+         (is (= :send-email (:job-type got)) (str label ": :job-type"))
+         (is (= :default (:queue got))       (str label ": :queue"))
+         (is (= {:to "a@b.c"} (:args got))   (str label ": :args"))
+         (is (instance? Instant (:created-at got))
+             (str label ": :created-at came back as " (type (:created-at got)))))
+       (is (nil? (ports/find-job s (random-uuid)))
+           (str label ": an unknown id did not answer nil"))))))
+
+(deftest ^:integration a-status-update-moves-the-job-through-its-lifecycle
+  (each-store
+   (fn [s label]
+     (let [j (stored)]
+       (ports/save-job! s j)
+       (is (= :running (:status (ports/update-job-status! s (:id j) :running nil)))
+           (str label ": :running"))
+       (is (= :completed (:status (ports/update-job-status! s (:id j) :completed {:ok true})))
+           (str label ": :completed"))
+       (is (= :completed (:status (ports/find-job s (:id j))))
+           (str label ": the completed status was not persisted"))
+       (is (nil? (ports/update-job-status! s (random-uuid) :running nil))
+           (str label ": an unknown id did not answer nil"))))))
+
+(deftest ^:integration only-a-job-out-of-retries-is-dead-lettered
+  (each-store
+   (fn [s label]
+     ;; Retries left: a failure is not the end, so it must not appear in the
+     ;; dead-letter list — that list is what an operator inspects after a
+     ;; night of failures.
+     (let [retryable (stored :max-retries 3 :retry-count 0)
+           exhausted (stored :max-retries 1 :retry-count 5)]
+       (ports/save-job! s retryable)
+       (ports/save-job! s exhausted)
+       (ports/update-job-status! s (:id retryable) :failed {:error "boom"})
+       (ports/update-job-status! s (:id exhausted) :failed {:error "boom"})
+       (let [dead (set (map :id (ports/failed-jobs s 10)))]
+         (is (contains? dead (:id exhausted))
+             (str label ": a job with no retries left was not dead-lettered"))
+         (is (not (contains? dead (:id retryable)))
+             (str label ": a job with retries left was dead-lettered")))))))
+
+(deftest ^:integration a-retried-job-leaves-the-dead-letter-list
+  (each-store
+   (fn [s label]
+     (let [j (stored :max-retries 1 :retry-count 5)]
+       (ports/save-job! s j)
+       (ports/update-job-status! s (:id j) :failed {:error "boom"})
+       (is (= 1 (count (ports/failed-jobs s 10))) (str label ": setup"))
+       (is (some? (ports/retry-job! s (:id j)))
+           (str label ": retry-job! answered nil for a job it holds"))
+       (is (empty? (ports/failed-jobs s 10))
+           (str label ": a retried job stayed in the dead-letter list"))
+       (is (nil? (ports/retry-job! s (random-uuid)))
+           (str label ": retry-job! on an unknown id did not answer nil"))))))
+
+(deftest ^:integration find-jobs-filters-on-what-it-documents
+  (each-store
+   (fn [s label]
+     (let [a (stored :job-type :send-email :queue :default)
+           b (stored :job-type :send-sms   :queue :urgent)]
+       (ports/save-job! s a)
+       (ports/save-job! s b)
+       (is (= #{(:id a) (:id b)} (set (map :id (ports/find-jobs s {}))))
+           (str label ": no filter did not return everything"))
+       (is (= [(:id a)] (map :id (ports/find-jobs s {:job-type :send-email})))
+           (str label ": :job-type"))
+       (is (= [(:id b)] (map :id (ports/find-jobs s {:queue :urgent})))
+           (str label ": :queue"))
+       (ports/update-job-status! s (:id a) :running nil)
+       (is (= [(:id a)] (map :id (ports/find-jobs s {:status :running})))
+           (str label ": :status"))))))

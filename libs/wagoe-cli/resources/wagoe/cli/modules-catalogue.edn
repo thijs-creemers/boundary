@@ -78,13 +78,13 @@
    :clojars             com.wagoe/wagoe-jobs
    :version             "1.0.0-beta-8"
    :category            :optional
-   :config-snippet      ""
-   :test-config-snippet ""
+   :config-snippet      "  :wagoe/jobs\n  {:provider :memory :workers {:count 1}}\n"
+   :test-config-snippet "  :wagoe/jobs\n  {:provider :memory :workers {:count 0}}\n"
    :add-command         "wagoe add jobs"
    :docs-url            "https://github.com/wagoebv/wagoe/blob/main/libs/jobs/AGENTS.md"
-   :post-install        ["No Integrant key. Build a queue where you need one:"
-                         "  (require '[wagoe.jobs.shell.adapters.db :as q])"
-                         "  (q/create-db-job-queue db-ctx)"]}
+   :post-install        ["Enqueue on :wagoe/job-queue; workers run the handlers."
+                         "  :provider :memory | :db | :redis"
+                         "  :workers {:count 0} on a web node in a web/worker split"]}
 
   {:name                "email"
    :description         "SMTP email sending, async and queued modes"

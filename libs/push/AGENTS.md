@@ -239,12 +239,13 @@ Three migrations under `libs/push/resources/wagoe/push/migrations/`:
                         :analytics-store #ig/ref :wagoe.push/analytics-store
                         :fcm-provider    #ig/ref :wagoe.push/fcm-provider
                         :apns-provider   #ig/ref :wagoe.push/apns-provider
-                        ;; Optional. wagoe-jobs has no Integrant key — pass a
-                        ;; queue you built, or omit it and enqueue yourself.
-                        :job-queue       nil
+                        ;; Wired for you when :wagoe/jobs is enabled; omit it
+                        ;; and schedule-push! has nowhere to enqueue (BOU-418).
+                        :job-queue       #ig/ref :wagoe/job-queue
                         :callback-secret #env WAG_PUSH_CALLBACK_SECRET}
 
-;; Job handlers — register returned map with your job dispatcher
+;; Job handlers — contributed to :wagoe/job-registry automatically when
+;; :wagoe/jobs is enabled; nothing to register by hand (BOU-418)
 :wagoe.push/job-handlers {:push-service #ig/ref :wagoe.push/service}
 
 ;; Routes — mount in your router
