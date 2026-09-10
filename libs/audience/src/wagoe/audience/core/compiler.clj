@@ -5,7 +5,12 @@
 
 (defn compile-segment
   "Compile a segment definition into an execution plan.
-   Returns {:sql-clauses [...] :predicates [...]}
+   Returns {:sql-clauses [...] :predicates [...] :unsupported [...]}
+
+   `:unsupported` holds the filters that could be turned into neither a clause
+   nor a predicate — today that means a date filter compiled without `:now`.
+   The shell refuses to resolve an audience that has any, rather than silently
+   evaluating a smaller set of filters than the definition asked for.
    Accepts optional :now (java.time.LocalDate) for predicate date comparisons.
    If not provided, predicates that need dates will receive :now from the filter map."
   ([definition]
@@ -19,8 +24,18 @@
       ;; `filter-def` here is what left `filter->sql` unable to see it.
       (let [filter-with-now (if now (assoc filter-def :now now) filter-def)
             sql (f/filter->sql filter-with-now)]
-        (if sql
+        (cond
+          sql
           (update plan :sql-clauses conj sql)
-          (update plan :predicates conj (f/filter->predicate filter-with-now)))))
-    {:sql-clauses [] :predicates []}
+
+          ;; A filter that can be expressed neither way. The date filters answer
+          ;; nil to both when no `:now` reached them, and building a predicate
+          ;; anyway meant one that threw on the first user carrying the
+          ;; timestamp — while an empty plan would have matched everyone, which
+          ;; is worse (BOU-425 review).
+          :else
+          (if-let [pred (f/filter->predicate filter-with-now)]
+            (update plan :predicates conj pred)
+            (update plan :unsupported conj filter-def)))))
+    {:sql-clauses [] :predicates [] :unsupported []}
     (:filters definition))))

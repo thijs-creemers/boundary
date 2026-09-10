@@ -16,6 +16,7 @@
             [wagoe.audience.core.filter :as audience-filter]
             [wagoe.audience.shell.adapters.user-sql :as user-sql]
             [wagoe.audience.shell.cache :as audience-cache]
+            [wagoe.audience.shell.service :as service]
             [wagoe.audience.ports :as ports]
             [wagoe.audience.shell.persistence :as p]))
 
@@ -203,3 +204,42 @@
               (testing ":account-tenure over 30 days finds the old account only"
                 (is (= #{"stale"} (ids {:type :account-tenure :op :gte :value 30})))))
             (finally (stop!))))))))
+
+(deftest ^:integration an-audience-it-cannot-evaluate-is-refused
+  ;; The compiler reports a filter it can express neither way; the service must
+  ;; refuse rather than evaluate what is left. A definition whose only filter is
+  ;; dropped compiles to an empty plan, and an empty plan is the universe — so
+  ;; the quiet failure is "every user", not "no users" (BOU-425 review).
+  ;;
+  ;; Driven through `with-redefs` because the service always supplies `:now`,
+  ;; which is the only way a filter reaches this state today. The branch is a
+  ;; net under the library path — `compile-segment`'s one-argument arity — and
+  ;; a net nobody has pulled on is one nobody knows the shape of.
+  (let [[ds stop!] ((second (first (backends))))]
+    (try
+      (p/initialize-audience-schema! ds)
+      (jdbc/execute! ds ["DROP TABLE IF EXISTS users"])
+      (jdbc/execute! ds ["CREATE TABLE users (id VARCHAR(64) PRIMARY KEY, last_login TIMESTAMP NULL)"])
+      (jdbc/execute! ds ["INSERT INTO users (id, last_login) VALUES ('someone', NULL)"])
+      (let [store    (p/create-audience-store ds)
+            resolver (service/create-audience-service
+                      {:repository       store
+                       :cache            (audience-cache/create-audience-cache ds nil)
+                       :user-data-source (user-sql/create-sql-user-data-source ds)})
+            filt     {:type :last-active :op :within-days :value 30}]
+        (ports/save-audience store {:id :undecidable :label "U" :filters [filt]})
+
+        (testing "it resolves when the plan is complete"
+          (is (some? (ports/resolve-audience resolver :undecidable {:force-refresh? true}))))
+
+        (testing "and refuses when the compiler could not express a filter"
+          (with-redefs [compiler/compile-segment
+                        (fn [& _] {:sql-clauses [] :predicates [] :unsupported [filt]})]
+            (let [ex (is (thrown? clojure.lang.ExceptionInfo
+                                  (ports/resolve-audience resolver :undecidable
+                                                          {:force-refresh? true})))]
+              (is (= :configuration-error (:type (ex-data ex)))
+                  (str "refused with the wrong error: " (pr-str (ex-data ex))))
+              (is (= [filt] (:filters (ex-data ex)))
+                  "the refusal does not name the filter it could not evaluate")))))
+      (finally (stop!)))))

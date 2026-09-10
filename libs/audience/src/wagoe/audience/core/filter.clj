@@ -160,24 +160,30 @@
       [sql-operator :created_at (days-ago-instant now days)])))
 
 (defmethod filter->predicate :account-tenure [{:keys [op value now]}]
+  ;; nil without a date, rather than a predicate closing over one: it would
+  ;; throw on the first user that has the timestamp, which is what the caller
+  ;; is least able to explain. `compile-segment` reports the filter as
+  ;; unsupported instead (BOU-425 review).
+  ;;
   ;; `now` is supplied by the shell (compile-segment); the op is validated by
   ;; explain-filter, so the case has no throwing fallback.
-  (let [today      now
-        compare-fn (case op
-                     :gte #(>= % value)
-                     :gt  #(> % value)
-                     :lte #(<= % value)
-                     :lt  #(< % value)
-                     :eq  #(= % value)
-                     :neq #(not= % value)
-                     (constantly false))]
-    (fn [user]
-      (when-let [created (:created-at user)]
-        (let [days (.between java.time.temporal.ChronoUnit/DAYS
-                             (.toLocalDate (.atZone (.toInstant created)
-                                                    java.time.ZoneOffset/UTC))
-                             today)]
-          (compare-fn days))))))
+  (when now
+    (let [today      now
+          compare-fn (case op
+                       :gte #(>= % value)
+                       :gt  #(> % value)
+                       :lte #(<= % value)
+                       :lt  #(< % value)
+                       :eq  #(= % value)
+                       :neq #(not= % value)
+                       (constantly false))]
+      (fn [user]
+        (when-let [created (:created-at user)]
+          (let [days (.between java.time.temporal.ChronoUnit/DAYS
+                               (.toLocalDate (.atZone (.toInstant created)
+                                                      java.time.ZoneOffset/UTC))
+                               today)]
+            (compare-fn days)))))))
 
 ;; =============================================================================
 ;; :last-active — activity within a rolling date window
@@ -189,16 +195,18 @@
     [:>= :last_active_at (days-ago-instant now (long value))]))
 
 (defmethod filter->predicate :last-active [{:keys [op value now]}]
-  (let [today now]
-    (case op
-      :within-days
-      (fn [user]
-        (when-let [last-active (:last-active-at user)]
-          (let [cutoff      (.minusDays today value)
-                active-date (.toLocalDate (.atZone (.toInstant last-active)
-                                                   java.time.ZoneOffset/UTC))]
-            (not (.isBefore active-date cutoff)))))
-      (constantly false))))
+  ;; nil without a date — see :account-tenure above.
+  (when now
+    (let [today now]
+      (case op
+        :within-days
+        (fn [user]
+          (when-let [last-active (:last-active-at user)]
+            (let [cutoff      (.minusDays today value)
+                  active-date (.toLocalDate (.atZone (.toInstant last-active)
+                                                     java.time.ZoneOffset/UTC))]
+              (not (.isBefore active-date cutoff)))))
+        (constantly false)))))
 
 ;; =============================================================================
 ;; :behavior — arbitrary in-process predicate; not SQL-evaluable

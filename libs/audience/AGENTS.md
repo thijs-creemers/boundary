@@ -253,9 +253,11 @@ which is a user-module component that service selection drops. Run `service audi
 Refusing is deliberate — segment management served without authorization is worse than a
 service that does not come up (BOU-419).
 
-**Date filters.** `:account-tenure` and `:last-active` need `:now` — `compile-segment`
-supplies it, and `filter->sql` answers nil without it, the way it does for any filter it
-cannot express. The cutoff is a bound parameter, not `CURRENT_DATE - INTERVAL`, which only
+**Date filters.** `:account-tenure` and `:last-active` need `:now`. `compile-segment`'s
+two-argument arity supplies it, and a filter may carry its own. Without one they are neither
+SQL nor a predicate, and `compile-segment` lists them under `:unsupported` — the service
+refuses to resolve an audience that has any, because a definition whose only filter is
+dropped compiles to an empty plan, and an empty plan is every user (BOU-425). The cutoff is a bound parameter, not `CURRENT_DATE - INTERVAL`, which only
 PostgreSQL parses (BOU-425). The core emits a `java.time.Instant` and the SQL source converts
 it: a `LocalDate` binds as a string, and SQLite keeps these columns as epoch millis, where
 type affinity sorts every number before every string — that comparison answers wrongly rather
