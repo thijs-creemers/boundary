@@ -50,6 +50,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **`service <module>` now works for nine more modules** (BOU-424). push, calendar, geo,
+  realtime, reports, jobs and storage no longer run inside every other service.
+
 - **`:account-tenure` and `:last-active` audiences threw on every database but PostgreSQL**
   (BOU-425). Both compile to a bound date now, so H2, SQLite and MySQL run them too.
 

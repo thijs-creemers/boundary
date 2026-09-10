@@ -11,6 +11,7 @@
             [wagoe.system-config :as sys-config]
             [wagoe.main :as main]
             [wagoe.platform.core.system-selection :as selection]
+            [wagoe.platform.shell.modules :as modules]
             [wagoe.payments.ports :as pay-ports]
             [wagoe.platform.shell.rpc.client :as rpc-client]
             [clojure.test :refer [deftest is testing]]
@@ -212,6 +213,21 @@
     ;; The application's own settings block. Every service reads it.
     :wagoe/settings
     :wagoe/i18n :wagoe/i18n-http-middleware
+    ;; Sending adapters, like the mail sender above: a service may need to
+    ;; send an SMS or read a mailbox whichever module it is running.
+    :wagoe.external/smtp :wagoe.external/imap :wagoe.external/twilio
+    ;; Asset bundles, read by anything that renders HTML.
+    :wagoe/ui-style
+    ;; Dev-only, and dev runs one process.
+    :wagoe/dev-error-enricher
+    ;; Enqueueing and storing a file are things any service may do; running the
+    ;; queue down and serving uploads are not. So the runtime, queue and store
+    ;; are platform and `:wagoe/job-workers` and `:wagoe/storage-routes` belong
+    ;; to their modules — otherwise every service starts a worker pool against
+    ;; the same queue, which is what BOU-418 had just made real (BOU-424).
+    :wagoe/jobs :wagoe/jobs-runtime :wagoe/job-queue :wagoe/job-store
+    :wagoe/job-stats :wagoe/job-registry
+    :wagoe/storage
     ;; The event bus is infrastructure: every service that runs needs one,
     ;; whichever module it is running.
     :wagoe/events
@@ -226,13 +242,14 @@
    workflow, search and payments are off in this profile, so their keys are
    never emitted and a wrong name in the catalogue is invisible."
   []
-  (-> (test-config)
-      (assoc-in [:active :wagoe/workflow] {:enabled? true})
-      (assoc-in [:active :wagoe/search] {:enabled? true})
-      (assoc-in [:active :wagoe/admin] {:enabled? true})
-      ;; Tenancy is wired because the config asks for it. It used to be wired
-      ;; unconditionally in code, which is why this line was not needed.
-      (assoc-in [:active :wagoe/tenant] {:enabled? true})))
+  ;; Derived from the module table, not listed. The list named workflow, search,
+  ;; admin and tenant, and every module added after it was invisible here — the
+  ;; failure the docstring above describes, reached by drift rather than by
+  ;; omission (BOU-424). The BOU-326 gate next door already builds its config
+  ;; this way.
+  (reduce (fn [cfg k] (assoc-in cfg [:active k] {:enabled? true}))
+          (test-config)
+          (keys modules/framework-modules)))
 
 (deftest ^:integration no-module-component-is-mistaken-for-the-platform
   (let [config    (everything-enabled-config)
@@ -345,3 +362,46 @@
       (let [cfg (update config :active dissoc :wagoe/rpc)
             [_ summary] (main/service-ig-config cfg #{:alpha :beta})]
         (is (false? (:rpc summary)))))))
+
+(deftest ^:integration every-module-is-selectable-as-a-service
+  ;; Nine modules had no catalogue entry, so `core-keys` counted their
+  ;; components as platform: they ran inside every other service, and
+  ;; `service push` reported an unknown module while push was already running
+  ;; in `service user` (BOU-424).
+  (let [config (everything-enabled-config)
+        full   (sys-config/ig-config config)]
+    (doseq [[service a-key another-modules-key]
+            [[:push     :wagoe.push/service :wagoe/calendar]
+             [:calendar :wagoe/calendar     :wagoe.push/service]
+             [:geo      :wagoe/geo-service  :wagoe/realtime]
+             [:realtime :wagoe/realtime     :wagoe/reports]
+             [:reports  :wagoe/reports      :wagoe/geo-service]]]
+      (testing (str "service " (name service))
+        (let [[cfg _] (main/service-ig-config config #{service})]
+          (is (contains? full a-key)
+              "the module is not in the full config; this case would pass vacuously")
+          (is (contains? cfg a-key)
+              (str service " does not carry its own component " a-key))
+          (is (not (contains? cfg another-modules-key))
+              (str service " carries " another-modules-key
+                   ", which belongs to a different module")))))))
+
+(deftest ^:integration a-service-may-enqueue-but-does-not-drain-the-queue
+  ;; The split BOU-424 chose: enqueueing and storing a file are things any
+  ;; service does, so the queue, store and runtime are platform. Running the
+  ;; queue down and serving uploads are not — a worker pool in every service
+  ;; would have every one of them competing for the same jobs, which BOU-418
+  ;; had just made real.
+  (let [config  (everything-enabled-config)
+        [cfg _] (main/service-ig-config config #{:push})]
+    (testing "push can enqueue"
+      (is (contains? cfg :wagoe/job-queue))
+      (is (contains? cfg :wagoe/job-store)))
+
+    (testing "but runs no workers, and serves no uploads"
+      (is (not (contains? cfg :wagoe/job-workers)))
+      (is (not (contains? cfg :wagoe/storage-routes))))
+
+    (testing "and the worker pool is what `service jobs` is for"
+      (let [[jobs-cfg _] (main/service-ig-config config #{:jobs})]
+        (is (contains? jobs-cfg :wagoe/job-workers))))))
