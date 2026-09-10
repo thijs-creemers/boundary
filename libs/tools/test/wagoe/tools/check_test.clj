@@ -1,5 +1,6 @@
 (ns wagoe.tools.check-test
-  (:require [clojure.edn :as edn]
+  (:require [clj-yaml.core :as yaml]
+            [clojure.edn :as edn]
             [clojure.set]
             [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
@@ -520,3 +521,67 @@
   ;; separately in each is how they drift.
   (testing "the main surface runs the composed alias"
     (is (= "-M:test:test/all" test-all/main-suite-aliases))))
+
+;; =============================================================================
+;; External fetches are retried (BOU-417)
+;; =============================================================================
+
+(defn- ci-jobs
+  "{job-name job-map} from ci.yml."
+  []
+  (:jobs (yaml/parse-string (ci-workflow))))
+
+(deftest ^:unit every-job-that-resolves-deps-uses-the-retrying-action
+  ;; Maven Central rate-limits GitHub runners, and a cold resolution
+  ;; intermittently 403s mid-download. `.github/actions/clojure-deps` retries
+  ;; with backoff; a job that sets up Clojure by hand does not, and its failure
+  ;; names whichever library was unlucky rather than the host that refused
+  ;; (BOU-250, BOU-417).
+  ;;
+  ;; `e2e` was the one that did it by hand — including a cache key on the
+  ;; un-versioned prefix the action abandoned as poisonable.
+  (let [jobs (ci-jobs)]
+    (testing "the workflow parsed — otherwise this passes vacuously"
+      (is (< 30 (count jobs))))
+
+    (doseq [[job-name job] jobs
+            :let  [steps (:steps job)
+                   runs  (keep :run steps)
+                   uses  (keep :uses steps)]
+            :when (some #(re-find #"\bclojure\b" %) runs)]
+      (testing (str (name job-name) " resolves Clojure dependencies")
+        (is (some #(str/includes? % "actions/clojure-deps") uses)
+            (str (name job-name) " runs clojure without ./.github/actions/clojure-deps,"
+                 " so its resolution is not retried and its cache key is its own"))))))
+
+(deftest ^:unit a-job-resolving-in-a-library-warms-that-library
+  ;; The action prefetches where you point it. A job whose command runs in a
+  ;; library directory resolves that library's deps.edn, and prefetching the
+  ;; root instead left the resolution that actually happens unretried — which
+  ;; is how a Maven 403 failed `Test wagoe/config` and the isolation matrix
+  ;; (BOU-417).
+  (doseq [[job-name job] (ci-jobs)
+          :let  [steps (:steps job)
+                 ;; Both spellings. `test-config` reached its library with
+                 ;; `cd libs/config && clojure …`, which carries no
+                 ;; `working-directory` key and would walk past a check that
+                 ;; only read one.
+                 dirs  (into #{}
+                             (mapcat (fn [step]
+                                       (concat (when-let [d (:working-directory step)] [d])
+                                               (map second
+                                                    (re-seq #"cd (libs/[a-z0-9-]+)"
+                                                            (str (:run step)))))))
+                             steps)
+                 warmed (into #{}
+                              (comp (filter #(str/includes? (str (:uses %)) "clojure-deps"))
+                                    (map #(get-in % [:with :working-directory] ".")))
+                              steps)]
+          :when (and (seq (filter #(str/starts-with? (str %) "libs/") dirs))
+                     (some #(re-find #"\bclojure\b" (str (:run %))) steps))]
+    (testing (str (name job-name) " warms the directory it resolves in")
+      (doseq [d (filter #(str/starts-with? (str %) "libs/") dirs)]
+        (is (contains? warmed d)
+            (str (name job-name) " runs clojure in " d
+                 " but warms " (pr-str warmed)
+                 " — that resolution is not the retried one"))))))

@@ -205,6 +205,26 @@ else
   fi
 fi
 
+retry_fetch() {
+  # Run "$@" up to 3 times with growing pauses. Every download here talks to a
+  # host that rate-limits or 503s under load — sdkman.io, GitHub releases,
+  # raw.githubusercontent — and one transient failure aborted an install that
+  # would have worked on the next attempt (BOU-262 fixed that for sdkman alone;
+  # BOU-417 for the rest). The last attempt's output is left to speak.
+  local what="$1"; shift
+  local attempt
+  for attempt in 1 2 3; do
+    if "$@"; then
+      return 0
+    fi
+    if [[ $attempt -lt 3 ]]; then
+      info "$what failed (attempt $attempt/3) — retrying in $((attempt * 3))s..."
+      sleep $((attempt * 3))
+    fi
+  done
+  return 1
+}
+
 # ── Clojure CLI ───────────────────────────────────────────────
 if command -v clojure &>/dev/null; then
   ok "Clojure CLI already installed"
@@ -213,7 +233,9 @@ else
   if [[ "$OS" == "macos" ]]; then
     brew install clojure 2>/dev/null || fail "Failed to install Clojure via brew"
   else
-    curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
+    retry_fetch "Clojure CLI download" \
+      curl -fsSL -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh \
+      || fail "Could not download the Clojure CLI installer after 3 attempts."
     chmod +x linux-install.sh
     # `|| fail` is load-bearing. This was `as_root ./… && rm …`, and `set -e`
     # exempts the failure of any command in an && list except the last, so a
@@ -233,7 +255,9 @@ else
   if [[ "$OS" == "macos" ]]; then
     brew install borkdude/brew/babashka 2>/dev/null || fail "Failed to install Babashka via brew"
   else
-    curl -sLO https://raw.githubusercontent.com/babashka/babashka/master/install
+    retry_fetch "Babashka download" \
+      curl -fsSL -O https://raw.githubusercontent.com/babashka/babashka/master/install \
+      || fail "Could not download the Babashka installer after 3 attempts."
     chmod +x install
     # Same && / set -e trap as the Clojure CLI step above — see the note there.
     as_root ./install || fail "Failed to install Babashka"
@@ -245,7 +269,7 @@ fi
 # ── bbin ─────────────────────────────────────────────────────
 install_bbin() {
   bb -e "(babashka.deps/add-deps {:deps '{io.github.babashka/bbin {:git/url \"https://github.com/babashka/bbin\" :git/sha \"HEAD\"}}}) (require 'bbin.cli) (bbin.cli/install! \"bbin\")" 2>/dev/null \
-    || { curl -fsSL https://raw.githubusercontent.com/babashka/bbin/master/bbin > /tmp/bbin && chmod +x /tmp/bbin && as_root mv /tmp/bbin /usr/local/bin/bbin; } \
+    || { retry_fetch "bbin download" curl -fsSL -o /tmp/bbin https://raw.githubusercontent.com/babashka/bbin/master/bbin && chmod +x /tmp/bbin && as_root mv /tmp/bbin /usr/local/bin/bbin; } \
     || fail "Failed to install bbin"
 }
 
@@ -325,11 +349,23 @@ if [[ -n "$GH_API_TOKEN" ]]; then
   GH_AUTH_ARGS=(-H "Authorization: Bearer $GH_API_TOKEN")
 fi
 
-set +e
-HTTP_CODE="$(curl -sSL -D "$TAG_HEADERS" -o "$TAG_BODY" -w '%{http_code}' \
-  ${GH_AUTH_ARGS[@]+"${GH_AUTH_ARGS[@]}"} "$RELEASES_API" 2>/dev/null)"
-CURL_RC=$?
-set -e
+# Retried, but only for what a retry can fix: a network blip or a 5xx. A 403
+# with the rate limit exhausted resets in up to an hour, so sleeping 30 seconds
+# and asking again just delays the message below by 30 seconds (BOU-417).
+for attempt in 1 2 3; do
+  set +e
+  HTTP_CODE="$(curl -sSL -D "$TAG_HEADERS" -o "$TAG_BODY" -w '%{http_code}' \
+    ${GH_AUTH_ARGS[@]+"${GH_AUTH_ARGS[@]}"} "$RELEASES_API" 2>/dev/null)"
+  CURL_RC=$?
+  set -e
+  if [[ $CURL_RC -eq 0 && ! "$HTTP_CODE" =~ ^5 ]]; then
+    break
+  fi
+  if [[ $attempt -lt 3 ]]; then
+    info "Release lookup failed (attempt $attempt/3) — retrying in $((attempt * 3))s..."
+    sleep $((attempt * 3))
+  fi
+done
 
 # curl itself failing — DNS, refused, timeout — is the only case that really is
 # the connection.

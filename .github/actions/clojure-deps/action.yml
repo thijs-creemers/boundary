@@ -7,8 +7,18 @@ inputs:
   aliases:
     description: >-
       Space-separated -M alias strings to prefetch serially
-      (e.g. "-M:test" or "-M:migrate -M:test").
+      (e.g. "-M:test" or "-M:migrate -M:test"). Use "-" for the base deps with
+      no alias, which is what the isolation matrix resolves.
     required: true
+  working-directory:
+    description: >-
+      Where to resolve. A job that runs its command in a library directory
+      resolves that library's deps.edn, and prefetching the root instead left
+      that resolution unretried — which is how a Maven 403 failed `Test
+      wagoe/config` and the isolation matrix under an innocent library's name
+      (BOU-417).
+    required: false
+    default: "."
 
 runs:
   using: composite
@@ -54,19 +64,22 @@ runs:
     # last attempt surface the real message.
     - name: Prefetch deps (serial — avoids Maven concurrent-resolution crash)
       shell: bash
+      working-directory: ${{ inputs.working-directory }}
       run: |
         set -o pipefail
         for alias in ${{ inputs.aliases }}; do
+          # "-" means the base deps: `clojure -P` with no alias at all.
+          [ "$alias" = "-" ] && alias=""
           for attempt in 1 2 3 4; do
-            if clojure -Sthreads 1 -P "$alias"; then
+            if clojure -Sthreads 1 -P $alias; then
               break
             fi
             if [ "$attempt" -eq 4 ]; then
-              echo "::error::dependency resolution failed for $alias after 4 attempts"
+              echo "::error::dependency resolution failed for ${alias:-base deps} in ${{ inputs.working-directory }} after 4 attempts"
               exit 1
             fi
             delay=$((attempt * attempt * 10))
-            echo "::warning::resolution failed for $alias (attempt $attempt/4) — retrying in ${delay}s"
+            echo "::warning::resolution failed for ${alias:-base deps} in ${{ inputs.working-directory }} (attempt $attempt/4) — retrying in ${delay}s"
             sleep "$delay"
           done
         done

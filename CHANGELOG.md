@@ -50,6 +50,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **CI retried only its first dependency resolution** (BOU-417). Every job that resolves in a
+  library directory, and the e2e browser download, retry with backoff now.
+
 - **`wagoe add audience` wrote a config the module rejects** (BOU-427). Its snippet still
   described the wiring BOU-419 replaced; it now names settings, and is booted by a test.
 
