@@ -50,6 +50,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **`wagoe add audience` wrote a config the module rejects** (BOU-427). Its snippet still
+  described the wiring BOU-419 replaced; it now names settings, and is booted by a test.
+
 - **Nine modules could not be switched on in a generated project** (BOU-420) — jobs, events,
   push, realtime, reports, calendar, geo, audience and email now ship in its `deps.edn`.
 

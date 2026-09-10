@@ -235,9 +235,12 @@
    :clojars             com.wagoe/wagoe-audience
    :version             "1.0.0-beta-8"
    :category            :optional
-   :config-snippet      "  :wagoe/audience\n  {:db-ctx #ig/ref :wagoe/db-context\n   :cache-service #ig/ref :wagoe/cache\n   :user-data-source #ig/ref :wagoe/user-data-source}\n"
-   :test-config-snippet "  :wagoe/audience\n  {:db-ctx #ig/ref :wagoe/db-context}\n"
+   :config-snippet      "  ;; Segments the users table. :users-table and :users-field-mapping\n  ;; say where to read and what the filter columns are called there.\n  :wagoe/audience\n  {:enabled? true}\n"
+   :test-config-snippet "  :wagoe/audience\n  {:enabled? true}\n"
    :add-command         "wagoe add audience"
+   :post-install        ["Its routes are mounted only when the user module is on:"
+                         "they manage segments and read member ids, so they carry"
+                         "an admin-only guard that lives there."]
    :docs-url            "https://github.com/wagoebv/wagoe/blob/main/libs/audience/AGENTS.md"}
 
   {:name                "admin"
