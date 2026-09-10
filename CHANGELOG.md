@@ -48,6 +48,11 @@ for what is public API, what is internal, and how deprecations are announced.
 - **Storage's HTTP routes can be mounted** (BOU-421). Set `:expose-http? true`; they carry
   no authorization of their own, so the mounting application must guard them.
 
+### Removed
+
+- **`docs-site/`** (BOU-428). The published site is built from these same `.adoc` sources in
+  the wagoe-site repository; this was a second renderer nothing ran.
+
 ### Fixed
 
 - **CI retried only its first dependency resolution** (BOU-417). Every job that resolves in a
