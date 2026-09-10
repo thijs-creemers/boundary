@@ -14,7 +14,8 @@
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
-            [wagoe.audience.ports :as ports])
+            [wagoe.audience.ports :as ports]
+            [wagoe.audience.shell.persistence :as persistence])
   (:import [java.util UUID]))
 
 (def ^:private opts {:builder-fn rs/as-unqualified-lower-maps})
@@ -29,19 +30,33 @@
    differently again."
   {:last_active_at :last_login})
 
-(defn- prepare-clause
-  "Rename mapped columns and put date parameters in the form a driver takes.
+(defn- cutoff-param
+  "An `Instant` in the form this dialect's users table compares against.
 
-   The core compiles a cutoff as an `Instant` — it is pure, so the JDBC type is
-   this layer's business. `java.sql.Timestamp` is the one every adapter agrees
-   on: a `LocalDate` is bound as a string, and SQLite keeps these columns as
-   epoch millis, where type affinity sorts every number before every string and
-   the comparison answers wrongly instead of failing (BOU-425)."
-  [mapping clause]
+   The framework stores timestamps as `TEXT` in ISO-8601 on SQLite — its own
+   adapter says so — and as a real timestamp type everywhere else. SQLite
+   compares across storage classes by ordering integers before text, so the
+   wrong choice does not fail: `>=` matches every row and `<=` matches none.
+   Both directions of that were measured before this existed (BOU-425).
+
+   ISO-8601 UTC strings compare lexicographically in the same order as the
+   instants they denote, which is what makes the text form correct rather than
+   merely accepted."
+  [dialect ^java.time.Instant instant]
+  (if (= :sqlite dialect)
+    (str instant)
+    (java.sql.Timestamp/from instant)))
+
+(defn- prepare-clause
+  "Rename mapped columns and put date parameters in the form the driver takes.
+
+   The core compiles a cutoff as an `Instant`: it is pure, so which JDBC or
+   storage type that becomes is this layer's business."
+  [dialect mapping clause]
   (walk/postwalk
    (fn [x]
      (cond
-       (instance? java.time.Instant x) (java.sql.Timestamp/from x)
+       (instance? java.time.Instant x) (cutoff-param dialect x)
        (keyword? x)                    (get mapping x x)
        :else                           x))
    clause))
@@ -65,7 +80,7 @@
              {}
              row))
 
-(defrecord SqlUserDataSource [datasource table field-mapping]
+(defrecord SqlUserDataSource [datasource table field-mapping dialect]
   ports/IUserDataSource
 
   (query-users-sql [_ honeysql-clause]
@@ -74,7 +89,7 @@
     ;; whose filters are all predicate-phase (libs/audience/AGENTS.md).
     (let [q (cond-> {:select [:id] :from [table]}
               (some? honeysql-clause)
-              (assoc :where (prepare-clause field-mapping honeysql-clause)))]
+              (assoc :where (prepare-clause dialect field-mapping honeysql-clause)))]
       (mapv (comp ->uuid :id) (jdbc/execute! datasource (sql/format q) opts))))
 
   (load-users [_ user-ids]
@@ -97,4 +112,7 @@
   ([datasource table field-mapping]
    (->SqlUserDataSource datasource
                         (or table :users)
-                        (or field-mapping default-field-mapping))))
+                        (or field-mapping default-field-mapping)
+                        ;; Detected once: it costs a connection, and the answer
+                        ;; cannot change for the life of the source.
+                        (persistence/dialect datasource))))

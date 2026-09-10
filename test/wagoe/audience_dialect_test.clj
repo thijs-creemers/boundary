@@ -184,15 +184,27 @@
       (testing label
         (let [[ds stop!] (make)]
           (try
-            ;; Its own table: MySQL is a shared server here, and reshaping
+            ;; The column type and the value this adapter really stores, not a
+            ;; shape invented here. SQLite keeps timestamps as TEXT in ISO-8601
+            ;; — its own platform adapter says so — and writing a
+            ;; java.sql.Timestamp into a TIMESTAMP column there stores an
+            ;; integer instead, which is a table the framework never creates.
+            ;; The first version of this test did exactly that and so could not
+            ;; see the bug it was written for (BOU-425 review).
+            ;;
+            ;; Its own table, too: MySQL is a shared server here, and reshaping
             ;; `users` under the test above is how this first ran red.
-            (jdbc/execute! ds ["DROP TABLE IF EXISTS date_filter_users"])
-            (jdbc/execute! ds ["CREATE TABLE date_filter_users (id VARCHAR(64) PRIMARY KEY,
-                                  last_login TIMESTAMP NULL, created_at TIMESTAMP NULL)"])
-            (jdbc/execute! ds ["INSERT INTO date_filter_users (id, last_login, created_at)
-                                  VALUES (?,?,?)" "recent" recent recent])
-            (jdbc/execute! ds ["INSERT INTO date_filter_users (id, last_login, created_at)
-                                  VALUES (?,?,?)" "stale" stale stale])
+            (let [sqlite?   (= :sqlite (p/dialect ds))
+                  ts-type   (if sqlite? "TEXT" "TIMESTAMP NULL")
+                  ->stored  (fn [^java.sql.Timestamp t]
+                              (if sqlite? (str (.toInstant t)) t))]
+              (jdbc/execute! ds ["DROP TABLE IF EXISTS date_filter_users"])
+              (jdbc/execute! ds [(str "CREATE TABLE date_filter_users (id VARCHAR(64) PRIMARY KEY,
+                                    last_login " ts-type ", created_at " ts-type ")")])
+              (jdbc/execute! ds ["INSERT INTO date_filter_users (id, last_login, created_at)
+                                    VALUES (?,?,?)" "recent" (->stored recent) (->stored recent)])
+              (jdbc/execute! ds ["INSERT INTO date_filter_users (id, last_login, created_at)
+                                    VALUES (?,?,?)" "stale" (->stored stale) (->stored stale)]))
             (let [source (user-sql/create-sql-user-data-source ds :date_filter_users)
                   ids    (fn [filt]
                            (set (ports/query-users-sql

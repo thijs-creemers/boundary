@@ -258,10 +258,14 @@ two-argument arity supplies it, and a filter may carry its own. Without one they
 SQL nor a predicate, and `compile-segment` lists them under `:unsupported` — the service
 refuses to resolve an audience that has any, because a definition whose only filter is
 dropped compiles to an empty plan, and an empty plan is every user (BOU-425). The cutoff is a bound parameter, not `CURRENT_DATE - INTERVAL`, which only
-PostgreSQL parses (BOU-425). The core emits a `java.time.Instant` and the SQL source converts
-it: a `LocalDate` binds as a string, and SQLite keeps these columns as epoch millis, where
-type affinity sorts every number before every string — that comparison answers wrongly rather
-than failing.
+PostgreSQL parses (BOU-425).
+
+The core emits a `java.time.Instant` and the SQL source binds it in the form that dialect's
+users table holds: ISO-8601 text on SQLite, where the framework stores timestamps as `TEXT`,
+and `java.sql.Timestamp` elsewhere. SQLite compares across storage classes by ordering
+integers before text, so the wrong form does not fail — `>=` matches every row and `<=`
+matches none. If you point `:users-table` at a schema that stores timestamps differently
+again, that is the knob to think about.
 
 **Adapters.** The schema, store and cache are exercised against all four the framework
 ships — H2, SQLite, PostgreSQL and MySQL — by `test/wagoe/audience_dialect_test.clj`. MySQL
