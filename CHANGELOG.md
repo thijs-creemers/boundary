@@ -50,6 +50,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **`:account-tenure` and `:last-active` audiences threw on every database but PostgreSQL**
+  (BOU-425). Both compile to a bound date now, so H2, SQLite and MySQL run them too.
+
 - **`wagoe add push` gave you a module whose tables were never created** (BOU-423). Its
   migrations ship a manifest now, so `bb migrate up` finds and applies them.
 

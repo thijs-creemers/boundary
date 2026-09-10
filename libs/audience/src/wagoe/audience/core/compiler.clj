@@ -13,8 +13,12 @@
   ([definition {:keys [now]}]
    (reduce
     (fn [plan filter-def]
+      ;; `filter-with-now` to both: the date filters compute their cutoff from
+      ;; `:now` on the SQL side too, since a bound parameter replaced the
+      ;; PostgreSQL-only interval expression (BOU-425). Passing the bare
+      ;; `filter-def` here is what left `filter->sql` unable to see it.
       (let [filter-with-now (if now (assoc filter-def :now now) filter-def)
-            sql (f/filter->sql filter-def)]
+            sql (f/filter->sql filter-with-now)]
         (if sql
           (update plan :sql-clauses conj sql)
           (update plan :predicates conj (f/filter->predicate filter-with-now)))))

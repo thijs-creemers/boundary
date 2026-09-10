@@ -18,14 +18,30 @@
     (let [result (f/filter->sql {:type :location :field :country :op :in :value ["NL" "BE"]})]
       (is (= [:in :country ["NL" "BE"]] result)))))
 
+(def ^:private today
+  "The date the shell supplies through `compile-segment`.
+
+   These filters take it now: the cutoff is a bound parameter rather than
+   `CURRENT_DATE - INTERVAL`, which only PostgreSQL parses (BOU-425). Without
+   it `filter->sql` answers nil, the way it does for any filter it cannot
+   express in SQL."
+  (java.time.LocalDate/of 2026 9 10))
+
 (deftest ^:unit account-tenure-filter-sql
   (testing ":account-tenure generates a created_at date comparison"
-    (let [result (f/filter->sql {:type :account-tenure :op :gte :value 90})]
+    (let [result (f/filter->sql {:type :account-tenure :op :gte :value 90 :now today})]
       (is (some? result))
       (is (= :created_at (second result)))))
+  (testing "the cutoff is a bound instant, not PostgreSQL-only raw SQL"
+    (let [[_ _ cutoff] (f/filter->sql {:type :account-tenure :op :gte :value 30 :now today})]
+      (is (instance? java.time.Instant cutoff))
+      (is (= (.toInstant (.atStartOfDay (.minusDays today 30) java.time.ZoneOffset/UTC))
+             cutoff))))
+  (testing "without a date it is not SQL-evaluable"
+    (is (nil? (f/filter->sql {:type :account-tenure :op :gte :value 30}))))
   (testing "each op maps to the correct inverted SQL operator"
     ;; tenure comparison inverts against created_at
-    (let [op-of (fn [op] (first (f/filter->sql {:type :account-tenure :op op :value 30})))]
+    (let [op-of (fn [op] (first (f/filter->sql {:type :account-tenure :op op :value 30 :now today})))]
       (is (= :<= (op-of :gte)))
       (is (= :<  (op-of :gt)))
       (is (= :>= (op-of :lte)))
@@ -36,8 +52,12 @@
 
 (deftest ^:unit last-active-filter-sql
   (testing ":last-active :within-days generates date window"
-    (let [result (f/filter->sql {:type :last-active :op :within-days :value 30})]
-      (is (some? result)))))
+    (let [result (f/filter->sql {:type :last-active :op :within-days :value 30 :now today})]
+      (is (some? result))
+      (is (= :last_active_at (second result)))
+      (is (instance? java.time.Instant (nth result 2)))))
+  (testing "without a date it is not SQL-evaluable"
+    (is (nil? (f/filter->sql {:type :last-active :op :within-days :value 30})))))
 
 (deftest ^:unit role-filter-sql
   (testing ":role generates equality clause"

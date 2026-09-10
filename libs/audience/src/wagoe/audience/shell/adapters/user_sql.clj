@@ -29,12 +29,22 @@
    differently again."
   {:last_active_at :last_login})
 
-(defn- map-fields
-  "Rename mapped columns anywhere in a HoneySQL clause."
+(defn- prepare-clause
+  "Rename mapped columns and put date parameters in the form a driver takes.
+
+   The core compiles a cutoff as an `Instant` — it is pure, so the JDBC type is
+   this layer's business. `java.sql.Timestamp` is the one every adapter agrees
+   on: a `LocalDate` is bound as a string, and SQLite keeps these columns as
+   epoch millis, where type affinity sorts every number before every string and
+   the comparison answers wrongly instead of failing (BOU-425)."
   [mapping clause]
-  (if (empty? mapping)
-    clause
-    (walk/postwalk (fn [x] (if (keyword? x) (get mapping x x) x)) clause)))
+  (walk/postwalk
+   (fn [x]
+     (cond
+       (instance? java.time.Instant x) (java.sql.Timestamp/from x)
+       (keyword? x)                    (get mapping x x)
+       :else                           x))
+   clause))
 
 (defn- ->uuid
   "Ids come back as UUID on PostgreSQL and as a String on some adapters."
@@ -64,7 +74,7 @@
     ;; whose filters are all predicate-phase (libs/audience/AGENTS.md).
     (let [q (cond-> {:select [:id] :from [table]}
               (some? honeysql-clause)
-              (assoc :where (map-fields field-mapping honeysql-clause)))]
+              (assoc :where (prepare-clause field-mapping honeysql-clause)))]
       (mapv (comp ->uuid :id) (jdbc/execute! datasource (sql/format q) opts))))
 
   (load-users [_ user-ids]

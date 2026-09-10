@@ -33,6 +33,25 @@
     :contains [:like (str "%" value "%")]
     [(get sql-ops op :=) value]))
 
+(defn- days-ago-instant
+  "The start of the day `days` before `now`, as an Instant.
+
+   A bound parameter rather than `CURRENT_DATE - INTERVAL '… days'`, which is
+   PostgreSQL syntax: H2 and SQLite both refuse to parse it, so these two
+   filter types threw on the database every generated project starts with
+   (BOU-425).
+
+   An Instant, not a `java.sql.Date` or a LocalDate — this is the pure core, so
+   the JDBC type is the adapter's business. It matters which: a LocalDate
+   parameter is bound as a string, and SQLite stores these columns as epoch
+   millis, where type affinity sorts every number before every string. That
+   comparison does not fail; it answers no rows for `>=` and every row for
+   `<=`, which is worse.
+
+   `now` is the LocalDate the shell supplies through `compile-segment`."
+  [now days]
+  (.toInstant (.atStartOfDay (.minusDays now (long days)) java.time.ZoneOffset/UTC)))
+
 (defn- field-clause
   "Build a HoneySQL clause [op field value] for a field-based filter."
   [{:keys [field op value]}]
@@ -131,13 +150,14 @@
 ;;   SQL: compare (current_date - created_at) in days against :value
 ;; =============================================================================
 
-(defmethod filter->sql :account-tenure [{:keys [op value]}]
+(defmethod filter->sql :account-tenure [{:keys [op value now]}]
   ;; tenure >= N days means created_at <= now - N days (inverted comparison)
-  (let [days         (long value)
-        ;; Comparison is inverted (tenure ≥ N days ⇔ created_at ≤ now - N days);
-        ;; every op in supported-ops is mapped explicitly so none falls through.
-        sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=, :neq :<>} op :<=)]
-    [sql-operator :created_at [:raw (str "CURRENT_DATE - INTERVAL '" days " days'")]]))
+  (when now
+    (let [days         (long value)
+          ;; Comparison is inverted (tenure ≥ N days ⇔ created_at ≤ now - N days);
+          ;; every op in supported-ops is mapped explicitly so none falls through.
+          sql-operator (get {:gte :<=, :gt :<, :lte :>=, :lt :>, :eq :=, :neq :<>} op :<=)]
+      [sql-operator :created_at (days-ago-instant now days)])))
 
 (defmethod filter->predicate :account-tenure [{:keys [op value now]}]
   ;; `now` is supplied by the shell (compile-segment); the op is validated by
@@ -164,10 +184,9 @@
 ;;   :within-days op: last_active_at >= (now - N days)
 ;; =============================================================================
 
-(defmethod filter->sql :last-active [{:keys [op value]}]
-  (when (= op :within-days)
-    (let [days (long value)]
-      [:>= :last_active_at [:raw (str "CURRENT_DATE - INTERVAL '" days " days'")]])))
+(defmethod filter->sql :last-active [{:keys [op value now]}]
+  (when (and now (= op :within-days))
+    [:>= :last_active_at (days-ago-instant now (long value))]))
 
 (defmethod filter->predicate :last-active [{:keys [op value now]}]
   (let [today now]

@@ -13,6 +13,7 @@
             [next.jdbc :as jdbc]
             [support.embedded-pg :as epg]
             [wagoe.audience.core.compiler :as compiler]
+            [wagoe.audience.core.filter :as audience-filter]
             [wagoe.audience.shell.adapters.user-sql :as user-sql]
             [wagoe.audience.shell.cache :as audience-cache]
             [wagoe.audience.ports :as ports]
@@ -148,12 +149,57 @@
     (testing label
       (let [[ds stop!] (make)]
         (try
-          (jdbc/execute! ds ["CREATE TABLE IF NOT EXISTS users (
+          ;; Dropped first: MySQL is a shared server here, so a table left in
+          ;; another shape by an earlier run would survive `IF NOT EXISTS` and
+          ;; fail this with a missing column.
+          (jdbc/execute! ds ["DROP TABLE IF EXISTS users"])
+          (jdbc/execute! ds ["CREATE TABLE users (
                                 id VARCHAR(64) PRIMARY KEY, name VARCHAR(255),
-                                last_login TIMESTAMP)"])
+                                last_login TIMESTAMP NULL)"])
           (let [source (user-sql/create-sql-user-data-source ds)]
             (is (= [] (ports/query-users-sql source [:is :last_active_at nil]))
                 "the filter's column name was not translated to the table's")
             (testing "and an unmapped column is passed through untouched"
               (is (= [] (ports/query-users-sql source [:is :name nil])))))
           (finally (stop!)))))))
+
+(deftest ^:integration date-filters-resolve-on-every-adapter
+  ;; `:account-tenure` and `:last-active` compiled
+  ;; `CURRENT_DATE - INTERVAL '… days'`, which only PostgreSQL parses: on H2 —
+  ;; the database every generated project starts with — and on SQLite they
+  ;; threw, so two of the seven documented filter types worked on one adapter
+  ;; (BOU-425).
+  ;;
+  ;; Asserted on which users come back, not on the SQL. A LocalDate cutoff runs
+  ;; without error on all four and answers *wrongly* on SQLite, which stores
+  ;; these columns as epoch millis and sorts every number before every string:
+  ;; no rows for `>=`, every row for `<=`. A test that only checked for an
+  ;; exception would have called that a pass.
+  (let [today  (java.time.LocalDate/now)
+        recent (java.sql.Timestamp/from (java.time.Instant/now))
+        stale  (java.sql.Timestamp/from (.minus (java.time.Instant/now)
+                                                60 java.time.temporal.ChronoUnit/DAYS))]
+    (doseq [[label make] (backends)]
+      (testing label
+        (let [[ds stop!] (make)]
+          (try
+            ;; Its own table: MySQL is a shared server here, and reshaping
+            ;; `users` under the test above is how this first ran red.
+            (jdbc/execute! ds ["DROP TABLE IF EXISTS date_filter_users"])
+            (jdbc/execute! ds ["CREATE TABLE date_filter_users (id VARCHAR(64) PRIMARY KEY,
+                                  last_login TIMESTAMP NULL, created_at TIMESTAMP NULL)"])
+            (jdbc/execute! ds ["INSERT INTO date_filter_users (id, last_login, created_at)
+                                  VALUES (?,?,?)" "recent" recent recent])
+            (jdbc/execute! ds ["INSERT INTO date_filter_users (id, last_login, created_at)
+                                  VALUES (?,?,?)" "stale" stale stale])
+            (let [source (user-sql/create-sql-user-data-source ds :date_filter_users)
+                  ids    (fn [filt]
+                           (set (ports/query-users-sql
+                                 source
+                                 (audience-filter/filter->sql (assoc filt :now today)))))]
+              (testing ":last-active within 30 days finds the recent user only"
+                (is (= #{"recent"} (ids {:type :last-active :op :within-days :value 30}))))
+
+              (testing ":account-tenure over 30 days finds the old account only"
+                (is (= #{"stale"} (ids {:type :account-tenure :op :gte :value 30})))))
+            (finally (stop!))))))))

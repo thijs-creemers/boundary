@@ -248,13 +248,18 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 `last_login`, so the shipped source translates it. Override with
 `:wagoe/audience {:users-field-mapping {…}}` for a schema that spells it differently again.
 
-**`:account-tenure` and `:last-active` need PostgreSQL** — they compile
-`CURRENT_DATE - INTERVAL '… days'`, which H2 and SQLite do not parse (BOU-425).
-
 **As a service.** `service audience` refuses to start: its routes need the admin-only guard,
 which is a user-module component that service selection drops. Run `service audience user`.
 Refusing is deliberate — segment management served without authorization is worse than a
 service that does not come up (BOU-419).
+
+**Date filters.** `:account-tenure` and `:last-active` need `:now` — `compile-segment`
+supplies it, and `filter->sql` answers nil without it, the way it does for any filter it
+cannot express. The cutoff is a bound parameter, not `CURRENT_DATE - INTERVAL`, which only
+PostgreSQL parses (BOU-425). The core emits a `java.time.Instant` and the SQL source converts
+it: a `LocalDate` binds as a string, and SQLite keeps these columns as epoch millis, where
+type affinity sorts every number before every string — that comparison answers wrongly rather
+than failing.
 
 **Adapters.** The schema, store and cache are exercised against all four the framework
 ships — H2, SQLite, PostgreSQL and MySQL — by `test/wagoe/audience_dialect_test.clj`. MySQL
