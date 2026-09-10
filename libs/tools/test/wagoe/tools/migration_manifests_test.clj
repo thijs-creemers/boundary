@@ -21,15 +21,29 @@
       cwd
       (fs/path cwd ".." ".."))))
 
+(def ^:private migration-extensions
+  "What Migratus counts as a migration.
+
+   Both, because `migrations.clj` says why in the file this guard protects:
+   \"Hardcoding '.sql' missed EDN migrations, which migratus reads just as
+   happily — `get-all-supported-extensions` returns [\"sql\" \"edn\"]\". The first
+   version of this test hardcoded `.sql` and repeated that exact mistake, so an
+   EDN migration in an undeclared directory passed it (BOU-423 review).
+
+   Listed rather than read from `migratus.migrations`, which is a Maven
+   dependency this Babashka surface does not have."
+  ["sql" "edn"])
+
 (defn- libs-with-migrations
-  "{lib-name #{migration-dir-relative-to-resources}} for every library that has
-   `*.up.sql` under `resources/`."
+  "{lib-name #{migration-dir-relative-to-resources}} for every library with a
+   migration file under `resources/`, in any format Migratus reads."
   []
   (into {}
         (for [lib  (fs/list-dir (fs/path (repo-root) "libs"))
               :let [resources (fs/path lib "resources")]
               :when (fs/directory? resources)
-              :let  [ups (fs/glob resources "**/*.up.sql")]
+              :let  [ups (mapcat #(fs/glob resources (str "**/*.up." %))
+                                 migration-extensions)]
               :when (seq ups)]
           [(fs/file-name lib)
            (into #{} (map #(str (fs/relativize resources (fs/parent %)) "/")) ups)])))
