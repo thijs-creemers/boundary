@@ -18,6 +18,23 @@
          com.wagoe/wagoe-payments      {:mvn/version "{{payments-version}}"}
          com.wagoe/wagoe-i18n          {:mvn/version "{{i18n-version}}"}
          com.wagoe/wagoe-storage       {:mvn/version "{{storage-version}}"}
+         ;; The rest of what `:active` can switch on. They were absent, so the
+         ;; comment above promised a config edit that failed at boot on a
+         ;; classpath error naming a library the reader had not chosen
+         ;; (BOU-420, the BOU-414 shape one level up).
+         ;;
+         ;; `wagoe-email` arrived transitively through wagoe-user and so was
+         ;; never noticed — but it is an always-on module, and `wagoe new
+         ;; --no-user` drops the library that was carrying it.
+         com.wagoe/wagoe-email    {:mvn/version "{{email-version}}"}
+         com.wagoe/wagoe-events   {:mvn/version "{{events-version}}"}
+         com.wagoe/wagoe-jobs     {:mvn/version "{{jobs-version}}"}
+         com.wagoe/wagoe-realtime {:mvn/version "{{realtime-version}}"}
+         com.wagoe/wagoe-push     {:mvn/version "{{push-version}}"}
+         com.wagoe/wagoe-audience {:mvn/version "{{audience-version}}"}
+         com.wagoe/wagoe-geo      {:mvn/version "{{geo-version}}"}
+         com.wagoe/wagoe-reports  {:mvn/version "{{reports-version}}"}
+         com.wagoe/wagoe-calendar {:mvn/version "{{calendar-version}}"}
          ;; `bb setup --ai-provider <x>` writes :wagoe/ai-service into :active,
          ;; which is enabling a module by editing config.edn alone — so the
          ;; library has to be here. It was only in the :mcp alias, and every

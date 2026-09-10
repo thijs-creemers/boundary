@@ -18,6 +18,23 @@
          com.wagoe/wagoe-payments      {:local/root "../../libs/payments"}
          com.wagoe/wagoe-i18n          {:local/root "../../libs/i18n"}
          com.wagoe/wagoe-storage       {:local/root "../../libs/storage"}
+         ;; The rest of what `:active` can switch on. They were absent, so the
+         ;; comment above promised a config edit that failed at boot on a
+         ;; classpath error naming a library the reader had not chosen
+         ;; (BOU-420, the BOU-414 shape one level up).
+         ;;
+         ;; `wagoe-email` arrived transitively through wagoe-user and so was
+         ;; never noticed — but it is an always-on module, and `wagoe new
+         ;; --no-user` drops the library that was carrying it.
+         com.wagoe/wagoe-email    {:local/root "../../libs/email"}
+         com.wagoe/wagoe-events   {:local/root "../../libs/events"}
+         com.wagoe/wagoe-jobs     {:local/root "../../libs/jobs"}
+         com.wagoe/wagoe-realtime {:local/root "../../libs/realtime"}
+         com.wagoe/wagoe-push     {:local/root "../../libs/push"}
+         com.wagoe/wagoe-audience {:local/root "../../libs/audience"}
+         com.wagoe/wagoe-geo      {:local/root "../../libs/geo"}
+         com.wagoe/wagoe-reports  {:local/root "../../libs/reports"}
+         com.wagoe/wagoe-calendar {:local/root "../../libs/calendar"}
          ;; `bb setup --ai-provider <x>` writes :wagoe/ai-service into :active,
          ;; which is enabling a module by editing config.edn alone — so the
          ;; library has to be here. It was only in the :mcp alias, and every

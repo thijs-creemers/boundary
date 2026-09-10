@@ -50,6 +50,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **Nine modules could not be switched on in a generated project** (BOU-420) — jobs, events,
+  push, realtime, reports, calendar, geo, audience and email now ship in its `deps.edn`.
+
 - **`service <module>` now works for nine more modules** (BOU-424). push, calendar, geo,
   realtime, reports, jobs and storage no longer run inside every other service.
 
