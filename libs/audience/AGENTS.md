@@ -271,6 +271,11 @@ go through SQLite's `datetime()` instead, which is fixed width. Comparison is th
 second — two instants inside the cutoff second count as equal — which is inside what a filter
 defined in whole days promises.
 
+This applies to whatever shape a comparison arrives in, `[:between :col from to]` as well as
+`[:>= :col cutoff]`, so a custom `filter->sql` gets the same treatment as the built-in ones.
+An `Instant` in a shape the conversion does not recognise still becomes the dialect's storage
+value rather than being left for the driver to guess at.
+
 If you point `:users-table` at a schema that stores timestamps differently again, this is the
 knob to think about.
 

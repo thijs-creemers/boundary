@@ -30,45 +30,68 @@
    differently again."
   {:last_active_at :last_login})
 
-(defn- date-comparison
-  "`[op column instant]` in the form this dialect's users table compares.
+(defn- storage-value
+  "An `Instant` as this dialect stores timestamps.
 
-   Everywhere but SQLite that is a `java.sql.Timestamp` against a timestamp
-   column. The framework stores timestamps as `TEXT` in ISO-8601 on SQLite —
-   its own adapter says so — and SQLite compares across storage classes by
-   ordering integers before text, so binding a Timestamp there does not fail:
-   `>=` matches every row and `<=` matches none (BOU-425).
-
-   Text alone is not enough either. `Instant/toString` omits the fraction when
-   it is zero, so a cutoff renders `…T00:00:00Z` while a value one millisecond
-   later renders `…T00:00:00.001Z` — and `.` sorts before `Z`, putting the
-   later instant first. A user active a millisecond after the cutoff dropped
-   out of the audience (BOU-425 review).
-
-   So both sides go through SQLite's `datetime()`, which yields a fixed-width
-   `YYYY-MM-DD HH:MM:SS`. Comparison is then to the second: two instants inside
-   the cutoff second count as equal, and both `>=` and `<=` include them. These
-   filters are defined in whole days, so a second at the boundary is within
-   what they promise."
-  [dialect op column ^java.time.Instant instant]
+   The framework keeps them as ISO-8601 `TEXT` on SQLite — its own adapter says
+   so — and as a real timestamp type everywhere else. SQLite compares across
+   storage classes by ordering integers before text, so binding a Timestamp
+   there does not fail: `>=` matches every row and `<=` matches none (BOU-425)."
+  [dialect ^java.time.Instant instant]
   (if (= :sqlite dialect)
-    [op [:datetime column] [:datetime (str instant)]]
-    [op column (java.sql.Timestamp/from instant)]))
+    (str instant)
+    (java.sql.Timestamp/from instant)))
+
+(defn- comparison?
+  "True for `[op column operand …]` carrying at least one Instant operand.
+
+   Covers `[:>= :col inst]` and `[:between :col from to]` alike — a custom
+   `filter->sql` may return either, and the narrow three-element shape this
+   replaced left a `:between`'s instants unconverted (BOU-425 review)."
+  [x]
+  (and (vector? x)
+       (keyword? (first x))
+       (keyword? (second x))
+       (some #(instance? java.time.Instant %) (drop 2 x))))
 
 (defn- prepare-clause
-  "Rename mapped columns and put date comparisons in the form the driver takes.
+  "Rename mapped columns and put timestamps in the form this driver compares.
 
-   The core compiles a cutoff as an `Instant`: it is pure, so how that is
-   compared against stored data is this layer's business."
+   The core compiles a cutoff as an `Instant`: it is pure, so how that reaches
+   the database is this layer's business.
+
+   Text alone is not enough on SQLite. `Instant/toString` omits the fraction
+   when it is zero, so a cutoff renders `…T00:00:00Z` while a value one
+   millisecond later renders `…T00:00:00.001Z` — and `.` sorts before `Z`,
+   putting the later instant first. Both sides of a comparison go through
+   SQLite's `datetime()`, which is fixed width; comparison is then to the
+   second, which is inside what a filter defined in whole days promises.
+
+   An Instant outside a comparison — nested in a clause shape this does not
+   recognise — still becomes the dialect's storage value rather than being left
+   raw for the driver to guess at."
   [dialect mapping clause]
-  (walk/postwalk
+  (walk/prewalk
    (fn [x]
      (cond
-       (and (vector? x) (= 3 (count x)) (instance? java.time.Instant (nth x 2)))
-       (date-comparison dialect (nth x 0) (nth x 1) (nth x 2))
+       (comparison? x)
+       (let [[op column & operands] x
+             column (get mapping column column)]
+         (if (= :sqlite dialect)
+           (into [op [:datetime column]]
+                 (map (fn [v] (if (instance? java.time.Instant v)
+                                [:datetime (str v)]
+                                v)))
+                 operands)
+           (into [op column]
+                 (map (fn [v] (if (instance? java.time.Instant v)
+                                (java.sql.Timestamp/from v)
+                                v)))
+                 operands)))
 
-       (keyword? x) (get mapping x x)
-       :else        x))
+       (instance? java.time.Instant x) (storage-value dialect x)
+       (keyword? x)                    (get mapping x x)
+       :else                           x))
    clause))
 
 (defn- ->uuid

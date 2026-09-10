@@ -294,3 +294,40 @@
                     (str "a user at or just after the cutoff was excluded; found "
                          (pr-str (sort found))))))
             (finally (stop!))))))))
+
+(deftest ^:integration a-custom-clause-with-instants-is-converted-too
+  ;; `filter->sql` is a multimethod applications extend, and a custom method may
+  ;; return any HoneySQL date form — `[:between :col from to]` among them. The
+  ;; first version of this conversion matched three-element comparisons only,
+  ;; so a `:between`'s instants were left raw and hit the same fractional-second
+  ;; cliff on SQLite (BOU-425 review).
+  ;;
+  ;; The rows straddle the window's lower edge by a millisecond, because a
+  ;; coarse window passes even when the comparison is wrong — the first probe
+  ;; for this said everything was fine.
+  (let [start (java.time.Instant/parse "2026-08-11T00:00:00Z")
+        end   (java.time.Instant/parse "2026-09-11T00:00:00Z")
+        cases {"at-start"      start
+               "start-plus-ms" (.plusMillis start 1)
+               "mid"           (java.time.Instant/parse "2026-08-20T12:00:00Z")
+               "after-end"     (.plusSeconds end 60)}]
+    (doseq [[label make] (backends)]
+      (testing label
+        (let [[ds stop!] (make)]
+          (try
+            (let [sqlite?  (= :sqlite (p/dialect ds))
+                  ts-type  (if sqlite? "TEXT" "TIMESTAMP NULL")
+                  ->stored (fn [^java.time.Instant i]
+                             (if sqlite? (str i) (java.sql.Timestamp/from i)))]
+              (jdbc/execute! ds ["DROP TABLE IF EXISTS custom_clause_users"])
+              (jdbc/execute! ds [(str "CREATE TABLE custom_clause_users (id VARCHAR(64) PRIMARY KEY,
+                                     expires_at " ts-type ")")])
+              (doseq [[id instant] cases]
+                (jdbc/execute! ds ["INSERT INTO custom_clause_users (id, expires_at) VALUES (?,?)"
+                                   id (->stored instant)]))
+
+              (let [source (user-sql/create-sql-user-data-source ds :custom_clause_users)
+                    found  (set (ports/query-users-sql source [:between :expires_at start end]))]
+                (is (= #{"at-start" "start-plus-ms" "mid"} found)
+                    (str ":between left an instant unconverted; found " (pr-str (sort found))))))
+            (finally (stop!))))))))
