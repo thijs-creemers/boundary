@@ -135,6 +135,32 @@
    :audience {:keys [:wagoe/audience-db-schema :wagoe/audience-user-source
                      :wagoe/audience :wagoe/audience-routes]}
 
+   ;; Nine modules whose components no entry claimed, so `core-keys` counted
+   ;; them as platform and kept them in every service — and `service push`
+   ;; answered "unknown module" while push ran inside `service user` (BOU-424).
+   ;;
+   ;; What stayed platform is in `platform-keys` in service_launch_test with
+   ;; its reason: the sending adapters, the asset bundle, and the parts of jobs
+   ;; and storage any service legitimately uses. What is here is the surface a
+   ;; module owns — including the two that must not run everywhere,
+   ;; `:wagoe/job-workers` and `:wagoe/storage-routes`.
+   :jobs     {:keys [:wagoe/job-workers]}
+
+   :storage  {:keys [:wagoe/storage-routes]}
+
+   :push     {:keys [:wagoe.push/device-store :wagoe.push/analytics-store
+                     :wagoe.push/fcm-provider :wagoe.push/apns-provider
+                     :wagoe.push/service :wagoe.push/routes
+                     :wagoe.push/job-handlers]}
+
+   :calendar {:keys [:wagoe/calendar]}
+
+   :geo      {:keys [:wagoe/geo-service]}
+
+   :realtime {:keys [:wagoe/realtime]}
+
+   :reports  {:keys [:wagoe/reports]}
+
    :ai       {:keys [:wagoe/ai-service]}
 
    :payments {:keys [:wagoe/payment-provider]
