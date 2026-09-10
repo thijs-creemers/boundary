@@ -75,6 +75,15 @@
                      :i18n-version          (:version (cat/find-module "i18n"))
                      :storage-version       (:version (cat/find-module "storage"))
                      :ai-version            (:version (cat/find-module "ai"))
+                     :email-version              (:version (cat/find-module "email"))
+                     :events-version             (:version (cat/find-module "events"))
+                     :jobs-version               (:version (cat/find-module "jobs"))
+                     :realtime-version           (:version (cat/find-module "realtime"))
+                     :push-version               (:version (cat/find-module "push"))
+                     :audience-version           (:version (cat/find-module "audience"))
+                     :geo-version                (:version (cat/find-module "geo"))
+                     :reports-version            (:version (cat/find-module "reports"))
+                     :calendar-version           (:version (cat/find-module "calendar"))
                      ;; Dev-only, and it lands in the :repl alias — see
                      ;; deps.edn.tmpl.
                      :devtools-version      (:version (cat/find-module "devtools"))}
