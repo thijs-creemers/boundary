@@ -30,35 +30,45 @@
    differently again."
   {:last_active_at :last_login})
 
-(defn- cutoff-param
-  "An `Instant` in the form this dialect's users table compares against.
+(defn- date-comparison
+  "`[op column instant]` in the form this dialect's users table compares.
 
-   The framework stores timestamps as `TEXT` in ISO-8601 on SQLite — its own
-   adapter says so — and as a real timestamp type everywhere else. SQLite
-   compares across storage classes by ordering integers before text, so the
-   wrong choice does not fail: `>=` matches every row and `<=` matches none.
-   Both directions of that were measured before this existed (BOU-425).
+   Everywhere but SQLite that is a `java.sql.Timestamp` against a timestamp
+   column. The framework stores timestamps as `TEXT` in ISO-8601 on SQLite —
+   its own adapter says so — and SQLite compares across storage classes by
+   ordering integers before text, so binding a Timestamp there does not fail:
+   `>=` matches every row and `<=` matches none (BOU-425).
 
-   ISO-8601 UTC strings compare lexicographically in the same order as the
-   instants they denote, which is what makes the text form correct rather than
-   merely accepted."
-  [dialect ^java.time.Instant instant]
+   Text alone is not enough either. `Instant/toString` omits the fraction when
+   it is zero, so a cutoff renders `…T00:00:00Z` while a value one millisecond
+   later renders `…T00:00:00.001Z` — and `.` sorts before `Z`, putting the
+   later instant first. A user active a millisecond after the cutoff dropped
+   out of the audience (BOU-425 review).
+
+   So both sides go through SQLite's `datetime()`, which yields a fixed-width
+   `YYYY-MM-DD HH:MM:SS`. Comparison is then to the second: two instants inside
+   the cutoff second count as equal, and both `>=` and `<=` include them. These
+   filters are defined in whole days, so a second at the boundary is within
+   what they promise."
+  [dialect op column ^java.time.Instant instant]
   (if (= :sqlite dialect)
-    (str instant)
-    (java.sql.Timestamp/from instant)))
+    [op [:datetime column] [:datetime (str instant)]]
+    [op column (java.sql.Timestamp/from instant)]))
 
 (defn- prepare-clause
-  "Rename mapped columns and put date parameters in the form the driver takes.
+  "Rename mapped columns and put date comparisons in the form the driver takes.
 
-   The core compiles a cutoff as an `Instant`: it is pure, so which JDBC or
-   storage type that becomes is this layer's business."
+   The core compiles a cutoff as an `Instant`: it is pure, so how that is
+   compared against stored data is this layer's business."
   [dialect mapping clause]
   (walk/postwalk
    (fn [x]
      (cond
-       (instance? java.time.Instant x) (cutoff-param dialect x)
-       (keyword? x)                    (get mapping x x)
-       :else                           x))
+       (and (vector? x) (= 3 (count x)) (instance? java.time.Instant (nth x 2)))
+       (date-comparison dialect (nth x 0) (nth x 1) (nth x 2))
+
+       (keyword? x) (get mapping x x)
+       :else        x))
    clause))
 
 (defn- ->uuid

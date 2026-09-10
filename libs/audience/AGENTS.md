@@ -260,12 +260,19 @@ refuses to resolve an audience that has any, because a definition whose only fil
 dropped compiles to an empty plan, and an empty plan is every user (BOU-425). The cutoff is a bound parameter, not `CURRENT_DATE - INTERVAL`, which only
 PostgreSQL parses (BOU-425).
 
-The core emits a `java.time.Instant` and the SQL source binds it in the form that dialect's
-users table holds: ISO-8601 text on SQLite, where the framework stores timestamps as `TEXT`,
-and `java.sql.Timestamp` elsewhere. SQLite compares across storage classes by ordering
-integers before text, so the wrong form does not fail — `>=` matches every row and `<=`
-matches none. If you point `:users-table` at a schema that stores timestamps differently
-again, that is the knob to think about.
+The core emits a `java.time.Instant` and the SQL source decides how it is compared. Everywhere
+but SQLite that is a `java.sql.Timestamp` against a timestamp column. SQLite stores timestamps
+as ISO-8601 `TEXT`, and compares across storage classes by ordering integers before text, so a
+bound Timestamp there does not fail — `>=` matches every row and `<=` matches none.
+
+Text alone is not enough either: `Instant/toString` omits the fraction when it is zero, and
+`.` sorts before `Z`, so `…T00:00:00.001Z` sorts *before* a `…T00:00:00Z` cutoff. Both sides
+go through SQLite's `datetime()` instead, which is fixed width. Comparison is then to the
+second — two instants inside the cutoff second count as equal — which is inside what a filter
+defined in whole days promises.
+
+If you point `:users-table` at a schema that stores timestamps differently again, this is the
+knob to think about.
 
 **Adapters.** The schema, store and cache are exercised against all four the framework
 ships — H2, SQLite, PostgreSQL and MySQL — by `test/wagoe/audience_dialect_test.clj`. MySQL

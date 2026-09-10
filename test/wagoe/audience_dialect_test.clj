@@ -255,3 +255,42 @@
               (is (= [filt] (:filters (ex-data ex)))
                   "the refusal does not name the filter it could not evaluate")))))
       (finally (stop!)))))
+
+(deftest ^:integration the-cutoff-second-is-not-a-cliff
+  ;; A user active one millisecond after the cutoff belongs in the audience.
+  ;; On SQLite they did not: the framework stores timestamps as ISO-8601 text,
+  ;; `Instant/toString` omits the fraction when it is zero, and `.` sorts
+  ;; before `Z` — so `…T00:00:00.001Z` sorted before the `…T00:00:00Z` cutoff
+  ;; and dropped out (BOU-425 review).
+  ;;
+  ;; Run on every adapter, because "the encoding sorts correctly" is a claim
+  ;; about each one's storage, and I have now been wrong about SQLite's twice.
+  (let [today  (java.time.LocalDate/now)
+        cutoff (.toInstant (.atStartOfDay (.minusDays today 30) java.time.ZoneOffset/UTC))
+        cases  {"exact"      cutoff
+                "one-ms"     (.plusMillis cutoff 1)
+                "one-second" (.plusSeconds cutoff 1)}]
+    (doseq [[label make] (backends)]
+      (testing label
+        (let [[ds stop!] (make)]
+          (try
+            (let [sqlite?  (= :sqlite (p/dialect ds))
+                  ts-type  (if sqlite? "TEXT" "TIMESTAMP NULL")
+                  ->stored (fn [^java.time.Instant i]
+                             (if sqlite? (str i) (java.sql.Timestamp/from i)))]
+              (jdbc/execute! ds ["DROP TABLE IF EXISTS boundary_users"])
+              (jdbc/execute! ds [(str "CREATE TABLE boundary_users (id VARCHAR(64) PRIMARY KEY,
+                                     last_login " ts-type ")")])
+              (doseq [[id instant] cases]
+                (jdbc/execute! ds ["INSERT INTO boundary_users (id, last_login) VALUES (?,?)"
+                                   id (->stored instant)]))
+
+              (let [source (user-sql/create-sql-user-data-source ds :boundary_users)
+                    found  (set (ports/query-users-sql
+                                 source
+                                 (audience-filter/filter->sql
+                                  {:type :last-active :op :within-days :value 30 :now today})))]
+                (is (= (set (keys cases)) found)
+                    (str "a user at or just after the cutoff was excluded; found "
+                         (pr-str (sort found))))))
+            (finally (stop!))))))))
