@@ -127,7 +127,17 @@
                 ;; Validate filters up front (pure core check); raise a typed
                 ;; error before compiling if any filter is unknown/unsupported.
                 _ (unwrap! (filter/explain-filters (:filters definition)))
-                {:keys [sql-clauses predicates]} (compiler/compile-segment definition {:now eval-date})]
+                {:keys [sql-clauses predicates unsupported]}
+                (compiler/compile-segment definition {:now eval-date})
+                ;; A filter the compiler could express neither way. Refusing
+                ;; here rather than evaluating the rest: a definition that
+                ;; quietly drops one of its filters resolves to a larger
+                ;; audience than it describes (BOU-425 review).
+                _ (when (seq unsupported)
+                    (throw (ex-info "Audience has filters that cannot be evaluated"
+                                    {:type        :configuration-error
+                                     :audience-id audience-id
+                                     :filters     (vec unsupported)})))]
 
             ;; If :compose present, resolve composition tree
             (if-let [compose (:compose definition)]

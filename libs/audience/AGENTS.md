@@ -248,13 +248,36 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 `last_login`, so the shipped source translates it. Override with
 `:wagoe/audience {:users-field-mapping {…}}` for a schema that spells it differently again.
 
-**`:account-tenure` and `:last-active` need PostgreSQL** — they compile
-`CURRENT_DATE - INTERVAL '… days'`, which H2 and SQLite do not parse (BOU-425).
-
 **As a service.** `service audience` refuses to start: its routes need the admin-only guard,
 which is a user-module component that service selection drops. Run `service audience user`.
 Refusing is deliberate — segment management served without authorization is worse than a
 service that does not come up (BOU-419).
+
+**Date filters.** `:account-tenure` and `:last-active` need `:now`. `compile-segment`'s
+two-argument arity supplies it, and a filter may carry its own. Without one they are neither
+SQL nor a predicate, and `compile-segment` lists them under `:unsupported` — the service
+refuses to resolve an audience that has any, because a definition whose only filter is
+dropped compiles to an empty plan, and an empty plan is every user (BOU-425). The cutoff is a bound parameter, not `CURRENT_DATE - INTERVAL`, which only
+PostgreSQL parses (BOU-425).
+
+The core emits a `java.time.Instant` and the SQL source decides how it is compared. Everywhere
+but SQLite that is a `java.sql.Timestamp` against a timestamp column. SQLite stores timestamps
+as ISO-8601 `TEXT`, and compares across storage classes by ordering integers before text, so a
+bound Timestamp there does not fail — `>=` matches every row and `<=` matches none.
+
+Text alone is not enough either: `Instant/toString` omits the fraction when it is zero, and
+`.` sorts before `Z`, so `…T00:00:00.001Z` sorts *before* a `…T00:00:00Z` cutoff. Both sides
+go through SQLite's `datetime()` instead, which is fixed width. Comparison is then to the
+second — two instants inside the cutoff second count as equal — which is inside what a filter
+defined in whole days promises.
+
+This applies to whatever shape a comparison arrives in, `[:between :col from to]` as well as
+`[:>= :col cutoff]`, so a custom `filter->sql` gets the same treatment as the built-in ones.
+An `Instant` in a shape the conversion does not recognise still becomes the dialect's storage
+value rather than being left for the driver to guess at.
+
+If you point `:users-table` at a schema that stores timestamps differently again, this is the
+knob to think about.
 
 **Adapters.** The schema, store and cache are exercised against all four the framework
 ships — H2, SQLite, PostgreSQL and MySQL — by `test/wagoe/audience_dialect_test.clj`. MySQL
