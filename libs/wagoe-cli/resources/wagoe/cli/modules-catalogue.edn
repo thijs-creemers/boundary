@@ -171,8 +171,8 @@
    :clojars             com.wagoe/wagoe-reports
    :version             "1.0.0-beta-8"
    :category            :optional
-   :config-snippet      ""
-   :test-config-snippet ""
+   :config-snippet      "  ;; Report definitions are registered in code with `defreport`.\n  :wagoe/reports\n  {:enabled? true}\n"
+   :test-config-snippet "  :wagoe/reports\n  {:enabled? true}\n"
    :add-command         "wagoe add reports"
    :docs-url            "https://github.com/wagoebv/wagoe/blob/main/libs/reports/AGENTS.md"
    :post-install        ["No Integrant key. Register your reports at startup:"
@@ -183,8 +183,8 @@
    :clojars             com.wagoe/wagoe-calendar
    :version             "1.0.0-beta-8"
    :category            :optional
-   :config-snippet      ""
-   :test-config-snippet ""
+   :config-snippet      "  :wagoe/calendar\n  {:enabled? true}\n"
+   :test-config-snippet "  :wagoe/calendar\n  {:enabled? true}\n"
    :add-command         "wagoe add calendar"
    :docs-url            "https://github.com/wagoebv/wagoe/blob/main/libs/calendar/AGENTS.md"
    :post-install        ["No Integrant key. Use the service directly:"

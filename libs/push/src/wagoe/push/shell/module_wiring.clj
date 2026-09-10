@@ -90,8 +90,19 @@
                                                                        (:credentials-path fc))
                                                                 :fcm :mock)}
                                                    fc))
-              :wagoe.push/apns-provider   (merge {:provider (if (:apns-credentials settings) :apns :mock)}
-                                                 (:apns-credentials settings))
+              ;; The same test FCM gets three lines up, for the same reason:
+              ;; a map of unset `#env` values is truthy, so "credentials are
+              ;; configured" cannot mean "the key is present". BOU-346 fixed
+              ;; FCM and left this one, and configured-but-unset APNs threw at
+              ;; boot in `make-apns-provider`, which reads the p8 key from
+              ;; `:key-path` (BOU-427).
+              :wagoe.push/apns-provider   (let [ac (:apns-credentials settings)]
+                                            (merge {:provider (if (and (:team-id ac)
+                                                                       (:key-id ac)
+                                                                       (:key-path ac)
+                                                                       (:bundle-id ac))
+                                                                :apns :mock)}
+                                                   ac))
               :wagoe.push/device-store    {:db (ig/ref :wagoe/db-context)}
               :wagoe.push/analytics-store {:db (ig/ref :wagoe/db-context)}
               :wagoe.push/service         (cond-> {:device-store    (ig/ref :wagoe.push/device-store)
