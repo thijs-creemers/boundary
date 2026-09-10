@@ -50,6 +50,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **`wagoe add push` gave you a module whose tables were never created** (BOU-423). Its
+  migrations ship a manifest now, so `bb migrate up` finds and applies them.
+
 - **The audience module could not boot** (BOU-419). `IUserDataSource` had no implementation
   and nothing wired the service; enable `:wagoe/audience` and it segments your users table.
   Its routes require an admin session, and are not mounted without the user module.
