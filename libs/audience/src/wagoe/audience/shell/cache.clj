@@ -9,14 +9,16 @@
 
    L2 — wagoe-cache (Redis / in-memory) can be layered in later.
          The wagoe-cache param is accepted but not yet wired."
-  (:require [wagoe.audience.ports :as ports]
+  (:require [clojure.string :as str]
+            [wagoe.audience.ports :as ports]
             [wagoe.audience.shell.persistence :as persistence]
             [cheshire.core :as json]
             [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs])
-  (:import [java.time Instant]
+  (:import [java.sql Timestamp]
+           [java.time Instant]
            [java.time.temporal ChronoUnit]))
 
 ;; =============================================================================
@@ -31,7 +33,13 @@
   (jdbc/execute-one!
    datasource
    (sql/format {:update :audience_segments
-                :set    {:cached_at    [:raw "CURRENT_TIMESTAMP"]
+                ;; Written from here, not by the database clock. A DB-side
+                ;; CURRENT_TIMESTAMP is wall time in the server's zone, and the
+                ;; driver converts it back using the JVM's — two hours of skew
+                ;; on a MySQL container, so every entry looked expired the
+                ;; moment it was written. Writing an Instant makes the write and
+                ;; the read cancel out, whatever either zone is (BOU-419 review).
+                :set    {:cached_at    (Timestamp/from (Instant/now))
                          :member_count member-count}
                 :where  [:= :audience_id (kw->str audience-id)]})
    {:builder-fn rs/as-unqualified-lower-maps}))
@@ -68,13 +76,42 @@
                 :where  [:= :audience_id (kw->str audience-id)]})
    {:builder-fn rs/as-unqualified-lower-maps}))
 
+(defn- ->instant
+  "A `cached_at` column value as an Instant.
+
+   H2 and PostgreSQL hand back a `java.sql.Timestamp`; SQLite has no timestamp
+   type and returns the string it stored, which the cast to Timestamp threw on
+   (BOU-419 review)."
+  [v]
+  (cond
+    (instance? java.sql.Timestamp v) (.toInstant ^java.sql.Timestamp v)
+    (instance? Instant v)            v
+    ;; SQLite has no timestamp type: the driver stores the Instant it was
+    ;; given as epoch millis, which is the one representation with no zone in
+    ;; it at all.
+    (number? v)                      (Instant/ofEpochMilli (long v))
+    ;; SQLite has no timestamp type and hands back the bare
+    ;; "yyyy-MM-dd HH:mm:ss" string the driver wrote — wall time in the JVM's
+    ;; zone, since `stamp-segment!` writes an Instant through that driver. Read
+    ;; it back the same way, so the round trip is exact.
+    (string? v)                      (try
+                                       (.toInstant
+                                        (java.time.LocalDateTime/parse
+                                         (str/replace v " " "T"))
+                                        (.getOffset (java.time.ZoneId/systemDefault)
+                                                    (java.time.LocalDateTime/parse
+                                                     (str/replace v " " "T"))))
+                                       (catch Exception _
+                                         (try (Instant/parse v)
+                                              (catch Exception _ nil))))
+    :else                            nil))
+
 (defn- fresh?
   "Return true if cached-at instant is within ttl-minutes from now."
-  [^java.sql.Timestamp cached-at ttl-minutes]
-  (when cached-at
-    (let [cached-inst  (.toInstant cached-at)
-          expiry-inst  (.plus cached-inst ttl-minutes ChronoUnit/MINUTES)
-          now          (Instant/now)]
+  [cached-at ttl-minutes]
+  (when-let [cached-inst (->instant cached-at)]
+    (let [expiry-inst (.plus cached-inst ttl-minutes ChronoUnit/MINUTES)
+          now         (Instant/now)]
       (.isBefore now expiry-inst))))
 
 ;; =============================================================================
@@ -100,7 +137,11 @@
       (jdbc/execute-one!
        datasource
        (sql/format {:update :audience_segments
-                    :set    {:cache_config (json/generate-string {:ttl-minutes ttl-minutes})}
+                    ;; Cast for PostgreSQL, where this column is JSONB and a
+                    ;; string parameter is rejected (BOU-419 review).
+                    :set    {:cache_config (persistence/json-param
+                                            (persistence/dialect datasource)
+                                            (json/generate-string {:ttl-minutes ttl-minutes}))}
                     :where  [:= :audience_id (kw->str audience-id)]})
        {:builder-fn rs/as-unqualified-lower-maps}))
     result)
@@ -110,11 +151,10 @@
     (let [row (load-segment-cache-row datasource audience-id)]
       (when row
         (let [cached-at   (:cached_at row)
-              cache-cfg   (when-let [v (:cache_config row)]
-                            (cond
-                              (map? v)    v
-                              (string? v) (json/parse-string v true)
-                              :else       nil))
+              ;; The shared decoder, which also handles the PGobject a JSONB
+              ;; column returns. The copy that used to live here returned nil
+              ;; for one, so PostgreSQL never read a TTL (BOU-419 review).
+              cache-cfg   (persistence/<-json (:cache_config row))
               ttl-minutes (get cache-cfg :ttl-minutes)]
           (when (and cached-at ttl-minutes
                      (fresh? cached-at ttl-minutes))
@@ -122,7 +162,7 @@
               {:user-ids     user-ids
                :count        (count user-ids)
                :cached?      true
-               :evaluated-at (.toInstant ^java.sql.Timestamp cached-at)}))))))
+               :evaluated-at (->instant cached-at)}))))))
 
   (invalidate [_ audience-id]
     (log/debug "Invalidating cache for audience" {:audience-id audience-id})
@@ -164,7 +204,7 @@
             {:user-ids     user-ids
              :count        (count user-ids)
              :cached?      true
-             :evaluated-at (.toInstant ^java.sql.Timestamp cached-at)}))))))
+             :evaluated-at (->instant cached-at)}))))))
 
 ;; =============================================================================
 ;; Factory

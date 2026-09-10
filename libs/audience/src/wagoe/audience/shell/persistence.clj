@@ -18,6 +18,7 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [honey.sql :as sql]
+            [clojure.string :as str]
             [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
@@ -31,8 +32,14 @@
   (when (some? value)
     (json/generate-string value)))
 
-(defn- <-json
+(defn <-json
   "Deserialise a DB JSON value back to Clojure data.
+
+   Public because it is the only decoder that knows about all three shapes a
+   JSON column arrives in, and `cache.clj` had a fourth, narrower copy that
+   handled maps and strings and returned nil for a PGobject — so on PostgreSQL
+   every cached audience read its TTL as nil, missed the cache and recomputed
+   its membership on every resolve (BOU-419 review).
 
    Handles:
    - nil                              → nil
@@ -55,10 +62,124 @@
                         {:type (str (type value))})))))
 
 ;; =============================================================================
+;; Schema
+;; =============================================================================
+;;
+;; The module had no schema component, so a booted application had the audience
+;; service and no `audience_segments` table: it started cleanly and threw on the
+;; first write (BOU-419). The DDL existed twice — a PostgreSQL migration and an
+;; H2 copy in the test fixture — and neither ran at boot.
+
+(defn dialect
+  "The adapter behind `datasource`, from its product name."
+  [datasource]
+  (with-open [conn (jdbc/get-connection datasource)]
+    (let [product (str/lower-case (str (.getDatabaseProductName (.getMetaData conn))))]
+      (cond
+        (str/includes? product "h2")         :h2
+        (str/includes? product "postgresql") :postgresql
+        (str/includes? product "sqlite")     :sqlite
+        (str/includes? product "mysql")      :mysql
+        (str/includes? product "mariadb")    :mysql
+        :else                                :unknown))))
+
+(def ^:private column-types
+  "How each adapter spells the two types this schema needs.
+
+   The primary key carries no `DEFAULT`: only two of the four adapters have a
+   UUID generator to put there, and `save-audience` supplies the id anyway.
+   That leaves the column types as the whole of the difference (BOU-419 review)."
+  {:h2         {:uuid "UUID"     :json "TEXT"}
+   :postgresql {:uuid "UUID"     :json "JSONB"}
+   :sqlite     {:uuid "TEXT"     :json "TEXT"}
+   :mysql      {:uuid "CHAR(36)" :json "TEXT"}})
+
+(defn audience-ddl
+  "DDL for the audience tables, for one adapter.
+
+   Written once here rather than as a PostgreSQL migration plus a hand-copied
+   H2 variant in a test fixture, which is how those two drifted."
+  [dialect]
+  (let [{:keys [uuid json]} (or (get column-types dialect)
+                                (throw (ex-info
+                                        (str "No audience schema for database adapter "
+                                             (pr-str dialect) ". Supported: "
+                                             (str/join ", " (sort (map name (keys column-types)))) ".")
+                                        {:type :configuration-error :dialect dialect})))
+        uuid-type uuid
+        json-type json]
+    (cond->
+     [(str "CREATE TABLE IF NOT EXISTS audience_segments (
+             id            " uuid-type " PRIMARY KEY,
+             audience_id   VARCHAR(255) NOT NULL UNIQUE,
+             label         VARCHAR(255) NOT NULL,
+             description   TEXT,
+             filters       " json-type " NOT NULL,
+             composition   " json-type ",
+             cache_config  " json-type ",
+             tags          " json-type ",
+             member_count  INTEGER DEFAULT 0,
+             cached_at     TIMESTAMP,
+             source        VARCHAR(50) DEFAULT 'dynamic',
+             created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+             updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+     ;; MySQL has no CREATE INDEX IF NOT EXISTS, so the index is declared
+     ;; inside the table, where CREATE TABLE IF NOT EXISTS makes it idempotent.
+     ;; Emitting the standalone form there failed the boot after the tables had
+     ;; already been created (BOU-419 review).
+     (str "CREATE TABLE IF NOT EXISTS audience_memberships (
+             audience_id   " uuid-type " NOT NULL,
+             user_id       " uuid-type " NOT NULL,
+             entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+             PRIMARY KEY (audience_id, user_id)"
+          (if (= :mysql dialect)
+            ",
+             KEY idx_audience_memberships_user (user_id),
+             FOREIGN KEY (audience_id) REFERENCES audience_segments(id) ON DELETE CASCADE)"
+            ",
+             FOREIGN KEY (audience_id) REFERENCES audience_segments(id) ON DELETE CASCADE)"))]
+
+      (not= :mysql dialect)
+      (conj "CREATE INDEX IF NOT EXISTS idx_audience_memberships_user
+               ON audience_memberships(user_id)"))))
+
+(defn initialize-audience-schema!
+  "Create the audience tables if absent. Idempotent."
+  [datasource]
+  (log/info "Initializing audience schema")
+  (doseq [statement (audience-ddl (dialect datasource))]
+    (jdbc/execute! datasource [statement])))
+
+;; =============================================================================
 ;; Keyword <-> string helpers
 ;; =============================================================================
 
 (defn- kw->str [k] (when k (name k)))
+
+(defn json-param
+  "A JSON string as `dialect` accepts it in an INSERT or UPDATE.
+
+   PostgreSQL declares these columns `JSONB` and refuses a string parameter —
+   \"column is of type jsonb but expression is of type character varying\". The
+   other three adapters store TEXT and take it as is. A cast rather than a
+   `PGobject` so this needs no PostgreSQL class on the classpath, the way
+   `<-json` above already avoids one on the read side.
+
+   Audience had never run against PostgreSQL: its only fixture was H2, whose
+   columns were TEXT, and the JSONB migration ran nowhere (BOU-419 review)."
+  [dialect v]
+  (if (and (= :postgresql dialect) (some? v))
+    [:cast v :jsonb]
+    v))
+
+(defn uuid-value
+  "A UUID as `dialect` stores it.
+
+   H2 and PostgreSQL have a real UUID column and reject a string parameter —
+   \"column is of type uuid but expression is of type character varying\".
+   SQLite (TEXT) and MySQL (CHAR(36)) have no UUID type to convert to."
+  [dialect u]
+  (if (contains? #{:h2 :postgresql} dialect) u (str u)))
 (defn- str->kw [s] (when s (keyword s)))
 
 ;; =============================================================================
@@ -66,16 +187,63 @@
 ;; =============================================================================
 
 (defn- definition->db
-  "Convert an AudienceDefinition map to a DB row (snake_case, JSON-serialised)."
-  [definition]
-  {:audience_id  (kw->str (:id definition))
-   :label        (:label definition)
-   :description  (:description definition)
-   :filters      (->json (:filters definition))
-   :composition  (->json (:compose definition))
-   :cache_config (->json (:cache-config definition))
-   :tags         (->json (:tags definition))
-   :source       (or (kw->str (:source definition)) "dynamic")})
+  "Convert an AudienceDefinition map to a DB row (snake_case, JSON-serialised).
+
+   `:id` is the surrogate primary key and is generated here rather than by a
+   column default: two of the four supported adapters have no UUID generator to
+   default to. `save-audience` deletes and re-inserts, so this key changed on
+   every save under the old default too — `find-segment-uuid` resolves it from
+   `audience_id`, which is the identifier callers use."
+  [dialect definition]
+  (let [json* (partial json-param dialect)]
+    {:id           (uuid-value dialect (random-uuid))
+     :audience_id  (kw->str (:id definition))
+     :label        (:label definition)
+     :description  (:description definition)
+     :filters      (json* (->json (:filters definition)))
+     :composition  (json* (->json (:compose definition)))
+     :cache_config (json* (->json (:cache-config definition)))
+     :tags         (json* (->json (:tags definition)))
+     :source       (or (kw->str (:source definition)) "dynamic")}))
+
+(def ^:private filter-keyword-keys
+  "Filter keys the compiler dispatches on, which must come back as keywords.
+
+   `filter->sql` is a multimethod on `:type`, `sql-op` reads `:op`, and `:field`
+   becomes a HoneySQL column. JSON has no keywords, so a stored definition
+   reloaded as strings compiled to something else entirely: a `:demographics`
+   filter that produced `[[:= :plan \"premium\"]]` in memory came back matching
+   no type at all and degraded to a constant predicate, so every persisted
+   audience resolved to the wrong set (BOU-419 review)."
+  [:type :op :field])
+
+(defn- restore-filter-keywords
+  [filt]
+  (if (map? filt)
+    (reduce (fn [m k]
+              (if (string? (get m k)) (update m k keyword) m))
+            filt
+            filter-keyword-keys)
+    filt))
+
+(defn- restore-composition-refs
+  "Keywordize every `:ref` in a composition tree.
+
+   A composition names other audiences by keyword, and the resolver looks them
+   up in a keyword-keyed registry. Through JSON `{:ref :premium}` returns as
+   `{:ref \"premium\"}`, which matches no registered audience and no stored one
+   — so a composed audience answered :audience-not-found for a segment that was
+   right there (BOU-419 review). Recursive, because compositions nest."
+  [node]
+  (cond
+    (map? node)        (reduce-kv (fn [m k v]
+                                    (assoc m k (if (and (= :ref k) (string? v))
+                                                 (keyword v)
+                                                 (restore-composition-refs v))))
+                                  {}
+                                  node)
+    (sequential? node) (mapv restore-composition-refs node)
+    :else              node))
 
 (defn- db->definition
   "Convert a DB row map to an AudienceDefinition map (kebab-case)."
@@ -84,9 +252,10 @@
     (cond-> {:id          (str->kw (:audience_id row))
              :label       (:label row)
              :description (:description row)
-             :filters     (or (<-json (:filters row)) [])
+             :filters     (mapv restore-filter-keywords (or (<-json (:filters row)) []))
              :source      (str->kw (or (:source row) "dynamic"))}
-      (:composition row)  (assoc :compose (<-json (:composition row)))
+      (:composition row)  (assoc :compose (restore-composition-refs
+                                           (<-json (:composition row))))
       (:cache_config row) (assoc :cache-config (<-json (:cache_config row)))
       (:tags row)         (assoc :tags         (<-json (:tags row)))
       (:member_count row) (assoc :member-count (:member_count row))
@@ -96,12 +265,12 @@
 ;; IAudienceRepository implementation
 ;; =============================================================================
 
-(defrecord AudienceStore [datasource]
+(defrecord AudienceStore [datasource dialect]
   ports/IAudienceRepository
 
   (save-audience [_ definition]
     (log/debug "Saving audience" {:audience-id (:id definition)})
-    (let [row (definition->db definition)]
+    (let [row (definition->db dialect definition)]
       (jdbc/with-transaction [tx datasource]
         ;; Delete-then-insert for H2/PostgreSQL compatibility (simple upsert)
         (jdbc/execute-one!
@@ -162,7 +331,9 @@
    Returns:
      AudienceStore implementing IAudienceRepository"
   [datasource]
-  (->AudienceStore datasource))
+  ;; Detected once, at construction: it costs a connection, and the answer
+  ;; cannot change for the life of the store.
+  (->AudienceStore datasource (dialect datasource)))
 
 ;; =============================================================================
 ;; Membership helpers (not on the port protocol)
@@ -201,7 +372,8 @@
      nil"
   [datasource audience-id user-ids]
   (when (seq user-ids)
-    (let [seg-uuid (find-segment-uuid datasource audience-id)]
+    (let [d        (dialect datasource)
+          seg-uuid (find-segment-uuid datasource audience-id)]
       (when-not seg-uuid
         (throw (ex-info "Cannot save memberships: audience segment not found in DB"
                         {:type :audience-not-found :audience-id audience-id})))
@@ -226,9 +398,13 @@
             (jdbc/execute-one!
              tx
              (sql/format {:insert-into :audience_memberships
+                          ;; Through `uuid-value`, because a CHAR(36) column
+                          ;; gets a Java-serialised UUID object otherwise —
+                          ;; MySQL rejected it as an "incorrect string value"
+                          ;; of \xAC\xED… (BOU-419 review).
                           :values      (mapv (fn [uid]
                                                {:audience_id seg-uuid
-                                                :user_id     uid})
+                                                :user_id     (uuid-value d uid)})
                                              chunk)})
              {:builder-fn rs/as-unqualified-lower-maps})))))))
 

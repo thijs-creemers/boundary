@@ -274,44 +274,63 @@
 ;; Route definitions
 ;; =============================================================================
 
+(defn- guarded
+  "Attach `middleware` to every route in `routes`.
+
+   Every route in this namespace manages segments or reads their membership, so
+   the guard is applied to all of them rather than route by route — a new route
+   added below is protected by existing, which is the opposite of the default
+   that let these ship reachable by anyone (BOU-419 review)."
+  [middleware routes]
+  (let [mw (vec middleware)]
+    (if (empty? mw)
+      routes
+      (mapv (fn [[path data]] [path (update data :middleware (fnil into []) mw)]) routes))))
+
 (defn audience-web-routes
   "Reitit route data for the audience web pages. Mounted under /web.
 
    Args:
-     resolver - IAudienceResolver
-     store    - IAudienceRepository"
-  [resolver store]
-  [["/audiences"
-    {:get {:handler (fn [req] (list-audiences-handler resolver store req))
-           :summary "List audience segments"}}]
-   ["/audiences/builder"
-    {:get {:handler (fn [req] (builder-page-handler resolver store req))
-           :summary "New audience builder page"}}]
-   ["/audiences/builder/:id"
-    {:get {:handler (fn [req] (builder-edit-handler resolver store req))
-           :summary "Edit audience builder page"}}]])
+     resolver   - IAudienceResolver
+     store      - IAudienceRepository
+     middleware - route middleware every page is wrapped in (authorization)"
+  ([resolver store] (audience-web-routes resolver store []))
+  ([resolver store middleware]
+   (guarded middleware
+            [["/audiences"
+              {:get {:handler (fn [req] (list-audiences-handler resolver store req))
+                     :summary "List audience segments"}}]
+             ["/audiences/builder"
+              {:get {:handler (fn [req] (builder-page-handler resolver store req))
+                     :summary "New audience builder page"}}]
+             ["/audiences/builder/:id"
+              {:get {:handler (fn [req] (builder-edit-handler resolver store req))
+                     :summary "Edit audience builder page"}}]])))
 
 (defn audience-api-routes
   "Reitit route data for the audience API. Mounted under /api/v1.
 
    Args:
-     resolver - IAudienceResolver
-     store    - IAudienceRepository"
-  [resolver store]
-  [["/audiences"
-    {:post {:handler (fn [req] (create-audience-handler resolver store req))
-            :summary "Create audience segment"}}]
-   ["/audiences/preview"
-    {:post {:handler (fn [req] (preview-audience-handler resolver store req))
-            :summary "Preview audience filter results"}}]
-   ["/audiences/:id"
-    {:put    {:handler (fn [req] (update-audience-handler resolver store req))
-              :summary "Update audience segment"}
-     :delete {:handler (fn [req] (delete-audience-handler resolver store req))
-              :summary "Delete audience segment"}}]
-   ["/audiences/:id/evaluate"
-    {:post {:handler (fn [req] (evaluate-audience-handler resolver store req))
-            :summary "Evaluate and cache audience"}}]
-   ["/audiences/:id/members"
-    {:get {:handler (fn [req] (list-members-handler resolver store req))
-           :summary "List audience member user-ids"}}]])
+     resolver   - IAudienceResolver
+     store      - IAudienceRepository
+     middleware - route middleware every endpoint is wrapped in (authorization)"
+  ([resolver store] (audience-api-routes resolver store []))
+  ([resolver store middleware]
+   (guarded middleware
+            [["/audiences"
+              {:post {:handler (fn [req] (create-audience-handler resolver store req))
+                      :summary "Create audience segment"}}]
+             ["/audiences/preview"
+              {:post {:handler (fn [req] (preview-audience-handler resolver store req))
+                      :summary "Preview audience filter results"}}]
+             ["/audiences/:id"
+              {:put    {:handler (fn [req] (update-audience-handler resolver store req))
+                        :summary "Update audience segment"}
+               :delete {:handler (fn [req] (delete-audience-handler resolver store req))
+                        :summary "Delete audience segment"}}]
+             ["/audiences/:id/evaluate"
+              {:post {:handler (fn [req] (evaluate-audience-handler resolver store req))
+                      :summary "Evaluate and cache audience"}}]
+             ["/audiences/:id/members"
+              {:get {:handler (fn [req] (list-members-handler resolver store req))
+                     :summary "List audience member user-ids"}}]])))

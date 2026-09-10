@@ -244,6 +244,31 @@ The `:wagoe/audience` component returns `{:store <IAudienceRepository> :resolver
 
 `:wagoe/audience-routes` returns `{:api [...] :web [...]}` for composition by the HTTP handler.
 
+**Filter columns.** `:last-active` compiles to `last_active_at`; Wagoe's users table records
+`last_login`, so the shipped source translates it. Override with
+`:wagoe/audience {:users-field-mapping {…}}` for a schema that spells it differently again.
+
+**`:account-tenure` and `:last-active` need PostgreSQL** — they compile
+`CURRENT_DATE - INTERVAL '… days'`, which H2 and SQLite do not parse (BOU-425).
+
+**As a service.** `service audience` refuses to start: its routes need the admin-only guard,
+which is a user-module component that service selection drops. Run `service audience user`.
+Refusing is deliberate — segment management served without authorization is worse than a
+service that does not come up (BOU-419).
+
+**Adapters.** The schema, store and cache are exercised against all four the framework
+ships — H2, SQLite, PostgreSQL and MySQL — by `test/wagoe/audience_dialect_test.clj`. MySQL
+needs a server: CI runs one as a service, and locally you point the sweep at a container with
+`WAGOE_TEST_MYSQL_PORT`. Without one the sweep fails saying so, rather than comparing three
+and reporting a pass. An adapter with no entry in the type table fails loudly at schema
+initialisation rather than being handed H2 syntax.
+
+**Mounting.** `:wagoe/audience-routes` is mounted only when the user module is enabled, and
+every route carries `:wagoe/admin-only-middleware` — these endpoints create and delete
+segments and read their member ids, and the global authentication only *sets* `:user` when
+credentials are present rather than demanding them. The routes component refuses to
+initialise with an empty middleware vector (BOU-419).
+
 **Note**: `:user-data-source` is required. Without it, `resolve-audience` will throw. Provide any implementation of `IUserDataSource`:
 
 ```clojure

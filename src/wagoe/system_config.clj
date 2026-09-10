@@ -101,7 +101,7 @@
                      :wagoe/session-repository :wagoe/audit-repository
                      :wagoe/mfa-service :wagoe/auth-service
                      :wagoe/user-service :wagoe/user-routes
-                     :wagoe/user-http-middleware]
+                     :wagoe/user-http-middleware :wagoe/admin-only-middleware]
               ;; What this module offers the rest of a split deployment. Only
               ;; served when it is run as a service *and* :wagoe/rpc is
               ;; configured — a `server` boot never starts the listener.
@@ -127,6 +127,13 @@
                      :wagoe/workflow-routes]}
 
    :search   {:keys [:wagoe/search :wagoe/search-routes]}
+
+   ;; Its routes carry an admin-only guard that lives in the user module, so
+   ;; `service audience` alone refuses to start them — run `service audience
+   ;; user`. Duplicating user's keys here would give this service its own copy
+   ;; of the auth stack, which is what :rpc exists to avoid (BOU-419 review).
+   :audience {:keys [:wagoe/audience-db-schema :wagoe/audience-user-source
+                     :wagoe/audience :wagoe/audience-routes]}
 
    :ai       {:keys [:wagoe/ai-service]}
 

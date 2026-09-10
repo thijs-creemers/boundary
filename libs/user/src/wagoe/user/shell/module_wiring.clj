@@ -174,6 +174,26 @@
   [_ _mw]
   (log/info "User HTTP middleware halted (no cleanup needed)"))
 
+(defmethod ig/init-key :wagoe/admin-only-middleware
+  [_ {:keys [user-service]}]
+  ;; The rejecting counterpart of the above: authenticate, then demand the
+  ;; admin role. Exposed as a component so a module that must not be reachable
+  ;; anonymously can take a ref to it without requiring this library — audience
+  ;; mounts management endpoints and depends on no other Wagoe library
+  ;; (BOU-419 review).
+  ;;
+  ;; A seq, like the middleware above, so an application with no user service
+  ;; contributes none rather than a broken one. A module that guards on this
+  ;; must not mount its routes in that case: an empty vector is no protection.
+  (if user-service
+    [(fn [handler] (user-middleware/protect-admin-only user-service handler))]
+    (do (log/info "No user service: no admin-only middleware to contribute")
+        [])))
+
+(defmethod ig/halt-key! :wagoe/admin-only-middleware
+  [_ _mw]
+  nil)
+
 ;; =============================================================================
 ;; User Database Schema
 ;; =============================================================================
@@ -229,7 +249,8 @@
                                :email-sender (ig/ref :wagoe/email)
                                :config       config}
 
-    :wagoe/user-http-middleware {:user-service (ig/ref :wagoe/user-service)}}
+    :wagoe/user-http-middleware {:user-service (ig/ref :wagoe/user-service)}
+    :wagoe/admin-only-middleware {:user-service (ig/ref :wagoe/user-service)}}
 
    ;; :user-service stays named: the handler passes it to the test-reset
    ;; endpoint and the readiness check. Routes are a collection (BOU-330).

@@ -32,36 +32,10 @@
           :password ""})]
     (reset! test-datasource ds)
 
-    ;; H2-compatible DDL: RANDOM_UUID() replaces gen_random_uuid(), TEXT replaces JSONB.
-    ;; In H2 PostgreSQL mode DEFAULT must appear before PRIMARY KEY.
-    (jdbc/execute! ds
-                   ["CREATE TABLE IF NOT EXISTS audience_segments (
-                      id            UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
-                      audience_id   VARCHAR(255) NOT NULL UNIQUE,
-                      label         VARCHAR(255) NOT NULL,
-                      description   TEXT,
-                      filters       TEXT NOT NULL,
-                      composition   TEXT,
-                      cache_config  TEXT,
-                      tags          TEXT,
-                      member_count  INTEGER DEFAULT 0,
-                      cached_at     TIMESTAMP,
-                      source        VARCHAR(50) DEFAULT 'dynamic',
-                      created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                      updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )"])
-
-    (jdbc/execute! ds
-                   ["CREATE TABLE IF NOT EXISTS audience_memberships (
-                      audience_id   UUID REFERENCES audience_segments(id) ON DELETE CASCADE,
-                      user_id       UUID NOT NULL,
-                      entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                      PRIMARY KEY (audience_id, user_id)
-                    )"])
-
-    (jdbc/execute! ds
-                   ["CREATE INDEX IF NOT EXISTS idx_audience_memberships_user
-                      ON audience_memberships(user_id)"])
+    ;; One definition of the schema, shared with the component that creates it
+    ;; at boot — this fixture used to carry a hand-copied H2 variant of the
+    ;; PostgreSQL migration, and neither of those ran in a booted app (BOU-419).
+    (persistence/initialize-audience-schema! ds)
 
     (reset! test-store (persistence/create-audience-store ds))))
 
