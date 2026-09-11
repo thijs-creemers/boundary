@@ -20,7 +20,6 @@
    - Shell handles all I/O and external systems
    - Clean boundary between functional and imperative code"
   (:require [wagoe.core.utils.type-conversion :as type-conversion]
-            [wagoe.platform.core.database.query :as core-query]
             [wagoe.platform.database :as db]
             [wagoe.platform.ports.database :as protocols]
             [wagoe.user.ports :as ports]
@@ -28,10 +27,8 @@
             [wagoe.platform.shell.persistence-interceptors :as persistence-interceptors]
             [cheshire.core]
             [clojure.set :as set]
-            [clojure.string :as str]
             [clojure.walk]
-            [clojure.tools.logging :as log]
-            [next.jdbc :as jdbc])
+            [clojure.tools.logging :as log])
   (:import [java.util UUID]))
 
 ;; =============================================================================
@@ -158,10 +155,10 @@
   (invalidate-legacy-plaintext-mfa! ctx)
 
   (db/initialize-tables-from-schemas! ctx
-                                             {"auth_users" user-schema/AuthUser
-                                              "users" user-schema/TenantUser
-                                              "user_sessions" user-schema/UserSession
-                                              "user_audit_log" user-schema/UserAuditLog})
+                                      {"auth_users" user-schema/AuthUser
+                                       "users" user-schema/TenantUser
+                                       "user_sessions" user-schema/UserSession
+                                       "user_audit_log" user-schema/UserAuditLog})
 
   ;; Post-upgrade as a safety net (no-op for fresh databases).
   (ensure-auth-users-audit-columns! ctx)
@@ -315,43 +312,6 @@
           ;; Parse JSON fields - handles both TEXT and JSONB/JSON types
           (update :changes parse-json-field)
           (update :metadata parse-json-field)))))
-
-(defn- execute-user-update-batch!
-  "Run per-user UPDATEs against `table` as JDBC prepared-statement batches.
-
-   rows is a seq of {:user-id UUID, :set-map {snake-col value ...}}.
-   Rows are grouped by their SET column set so every group shares one
-   prepared statement, executed via next.jdbc/execute-batch! on the
-   transaction connection in tx-ctx (works on both H2 and PostgreSQL).
-
-   Preserves per-user semantics: any UPDATE that affects zero rows throws
-   a :user-not-found ex-info for that user's id."
-  [tx-ctx table rows]
-  (doseq [[cols entries] (group-by #(vec (sort (keys (:set-map %)))) rows)]
-    (let [sql-str (str "UPDATE " (name table) " SET "
-                       (str/join ", " (map #(str (name %) " = ?") cols))
-                       " WHERE id = ?")
-          param-groups (mapv (fn [{:keys [set-map user-id]}]
-                               (conj (mapv set-map cols)
-                                     (type-conversion/uuid->string user-id)))
-                             entries)
-          counts (jdbc/execute-batch! (:datasource tx-ctx) sql-str param-groups {})]
-      (doseq [[affected-rows entry] (map vector counts entries)]
-        (when (zero? affected-rows)
-          (throw (ex-info (str "User not found in batch update (" (name table) ")")
-                          {:type :user-not-found
-                           :user-id (:user-id entry)})))))))
-
-(defn- bounded-pagination
-  "Sanitize :limit/:offset for the business-specific find queries.
-
-   Guards against nil values (a nil LIMIT breaks H2/SQLite) and defaults the
-   limit to the platform max pagination limit so these queries stay bounded
-   even when callers pass no options."
-  [options]
-  (db/build-pagination
-   {:limit (or (:limit options) core-query/max-pagination-limit)
-    :offset (or (:offset options) 0)}))
 
 ;; =============================================================================
 ;; User Repository Implementation
@@ -833,326 +793,6 @@
 
              ;; Return true if we deleted at least the auth record
              (> auth-affected 0)))))
-     {:db-ctx ctx}))
-
-  ;; Business-Specific Queries
-  (find-active-users-by-role [this role]
-    (ports/find-active-users-by-role this role {}))
-
-  (find-active-users-by-role [_ role options]
-    (log/debug "Finding active users by role" {:role role :options options})
-    (let [adapter (:adapter ctx)
-          pagination (bounded-pagination options)
-          query {:select [:a.id
-                          :a.email
-                          :a.password_hash
-                          :a.active
-                          :a.mfa_enabled
-                          :a.mfa_secret
-                          :a.mfa_backup_codes
-                          :a.mfa_backup_codes_used
-                          :a.mfa_enabled_at
-                          :a.failed_login_count
-                          :a.lockout_until
-                          :a.created_at
-                          :a.updated_at
-                          :a.deleted_at
-                          :u.tenant_id
-                          :u.name
-                          :u.role
-                          :u.avatar_url
-                          :u.login_count
-                          :u.last_login
-                          :u.date_format
-                          :u.time_format
-                          :u.notifications_email
-                          :u.notifications_push
-                          :u.notifications_sms
-                          :u.theme
-                          :u.language
-                          :u.timezone]
-                 :from [[:auth_users :a]]
-                 :join [[:users :u] [:= :a.id :u.id]]
-                 :where [:and
-                         [:= :u.role (type-conversion/keyword->string role)]
-                         [:= :a.active (protocols/boolean->db adapter true)]
-                         [:is :a.deleted_at nil]]
-                 :order-by [[:a.created_at :desc]]
-                 :limit (:limit pagination)
-                 :offset (:offset pagination)}
-          results (db/execute-query! ctx query)]
-      (map #(db->user-entity ctx %) results)))
-
-  (count-users [_]
-    (log/debug "Counting users")
-    (let [;; Count from auth_users (master table for user records)
-          query {:select [[:%count.* :total]]
-                 :from [:auth_users]
-                 :where [:is :deleted_at nil]}
-          result (db/execute-one! ctx query)]
-      (or (:total result)
-          (:count result)
-          (get result (keyword "COUNT(*)"))
-          0)))
-
-  (find-users-created-since [this since-date]
-    (ports/find-users-created-since this since-date {}))
-
-  (find-users-created-since [_ since-date options]
-    (log/debug "Finding users created since" {:since-date since-date :options options})
-    (let [pagination (bounded-pagination options)
-          query {:select [:a.id
-                          :a.email
-                          :a.password_hash
-                          :a.active
-                          :a.mfa_enabled
-                          :a.mfa_secret
-                          :a.mfa_backup_codes
-                          :a.mfa_backup_codes_used
-                          :a.mfa_enabled_at
-                          :a.failed_login_count
-                          :a.lockout_until
-                          :a.created_at
-                          :a.updated_at
-                          :a.deleted_at
-                          :u.tenant_id
-                          :u.name
-                          :u.role
-                          :u.avatar_url
-                          :u.login_count
-                          :u.last_login
-                          :u.date_format
-                          :u.time_format
-                          :u.notifications_email
-                          :u.notifications_push
-                          :u.notifications_sms
-                          :u.theme
-                          :u.language
-                          :u.timezone]
-                 :from [[:auth_users :a]]
-                 :join [[:users :u] [:= :a.id :u.id]]
-                 :where [:and
-                         [:>= :a.created_at (type-conversion/instant->string since-date)]
-                         [:is :a.deleted_at nil]]
-                 :order-by [[:a.created_at :desc]]
-                 :limit (:limit pagination)
-                 :offset (:offset pagination)}
-          results (db/execute-query! ctx query)]
-      (map #(db->user-entity ctx %) results)))
-
-  (find-users-by-email-domain [this email-domain]
-    (ports/find-users-by-email-domain this email-domain {}))
-
-  (find-users-by-email-domain [_ email-domain options]
-    (log/debug "Finding users by email domain" {:email-domain email-domain :options options})
-    (let [pagination (bounded-pagination options)
-          query {:select [:a.id
-                          :a.email
-                          :a.password_hash
-                          :a.active
-                          :a.mfa_enabled
-                          :a.mfa_secret
-                          :a.mfa_backup_codes
-                          :a.mfa_backup_codes_used
-                          :a.mfa_enabled_at
-                          :a.failed_login_count
-                          :a.lockout_until
-                          :a.created_at
-                          :a.updated_at
-                          :a.deleted_at
-                          :u.tenant_id
-                          :u.name
-                          :u.role
-                          :u.avatar_url
-                          :u.login_count
-                          :u.last_login
-                          :u.date_format
-                          :u.time_format
-                          :u.notifications_email
-                          :u.notifications_push
-                          :u.notifications_sms
-                          :u.theme
-                          :u.language
-                          :u.timezone]
-                 :from [[:auth_users :a]]
-                 :join [[:users :u] [:= :a.id :u.id]]
-                 :where [:and
-                         [:like :a.email (str "%@" email-domain)]
-                         [:is :a.deleted_at nil]]
-                 :order-by [[:a.created_at :desc]]
-                 :limit (:limit pagination)
-                 :offset (:offset pagination)}
-          results (db/execute-query! ctx query)]
-      (map #(db->user-entity ctx %) results)))
-
-  ;; Batch Operations
-  (create-users-batch [_ user-entities]
-    (persistence-interceptors/execute-persistence-operation
-     :create-users-batch
-     {:user-entities user-entities}
-     (fn [{:keys [params]}]
-       (let [user-entities (:user-entities params)
-             adapter (:adapter ctx)]
-         (db/with-transaction [tx ctx]
-           (let [now (java.time.Instant/now)
-                 users-with-metadata (mapv (fn [user]
-                                             (-> user
-                                                 (assoc :id (UUID/randomUUID))
-                                                 (assoc :created-at now)
-                                                 (assoc :updated-at nil)
-                                                 (assoc :deleted-at nil)))
-                                           user-entities)
-
-                 ;; Convert all users to DB auth format
-                 db-auth-rows (mapv (fn [user]
-                                      (let [auth-fields (select-keys user
-                                                                     [:id :email :password-hash :active
-                                                                      :mfa-enabled :mfa-secret :mfa-backup-codes
-                                                                      :mfa-backup-codes-used :mfa-enabled-at
-                                                                      :failed-login-count :lockout-until
-                                                                      :created-at :updated-at :deleted-at])]
-                                        (-> auth-fields
-                                            (update :id type-conversion/uuid->string)
-                                            (update :active #(protocols/boolean->db adapter %))
-                                            (update :created-at type-conversion/instant->string)
-                                            (update :updated-at type-conversion/instant->string)
-                                            (update :deleted-at type-conversion/instant->string)
-                                            (update :mfa-enabled-at type-conversion/instant->string)
-                                            (update :lockout-until type-conversion/instant->string)
-                                            (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
-                                            (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
-                                            (set/rename-keys {:password-hash :password_hash
-                                                              :mfa-enabled :mfa_enabled
-                                                              :mfa-secret :mfa_secret
-                                                              :mfa-backup-codes :mfa_backup_codes
-                                                              :mfa-backup-codes-used :mfa_backup_codes_used
-                                                              :mfa-enabled-at :mfa_enabled_at
-                                                              :failed-login-count :failed_login_count
-                                                              :lockout-until :lockout_until
-                                                              :created-at :created_at
-                                                              :updated-at :updated_at
-                                                              :deleted-at :deleted_at}))))
-                                    users-with-metadata)
-
-                 ;; Convert all users to DB profile format
-                 db-profile-rows (mapv (fn [user]
-                                         (let [profile-fields (select-keys user
-                                                                           [:id :tenant-id :name :role :avatar-url
-                                                                            :login-count :last-login
-                                                                            :notifications-email :notifications-push :notifications-sms
-                                                                            :theme :language :timezone
-                                                                            :date-format :time-format])]
-                                           (-> profile-fields
-                                               (update :id type-conversion/uuid->string)
-                                               (update :tenant-id type-conversion/uuid->string)
-                                               (update :role type-conversion/keyword->string)
-                                               (update :last-login type-conversion/instant->string)
-                                               (update :notifications-email #(protocols/boolean->db adapter %))
-                                               (update :notifications-push #(protocols/boolean->db adapter %))
-                                               (update :notifications-sms #(protocols/boolean->db adapter %))
-                                               (update :theme type-conversion/keyword->string)
-                                               (update :date-format type-conversion/keyword->string)
-                                               (update :time-format type-conversion/keyword->string)
-                                               (set/rename-keys {:tenant-id :tenant_id
-                                                                 :avatar-url :avatar_url
-                                                                 :login-count :login_count
-                                                                 :last-login :last_login
-                                                                 :notifications-email :notifications_email
-                                                                 :notifications-push :notifications_push
-                                                                 :notifications-sms :notifications_sms
-                                                                 :date-format :date_format
-                                                                 :time-format :time_format}))))
-                                       users-with-metadata)]
-
-             ;; Single multi-value INSERT for auth_users, then users — two round-trips total
-             (db/execute-update! tx {:insert-into :auth_users :values db-auth-rows})
-             (db/execute-update! tx {:insert-into :users :values db-profile-rows})
-
-             users-with-metadata))))
-     {:db-ctx ctx}))
-
-  (update-users-batch [_ user-entities]
-    (persistence-interceptors/execute-persistence-operation
-     :update-users-batch
-     {:user-entities user-entities}
-     (fn [{:keys [params]}]
-       (let [user-entities (:user-entities params)
-             adapter (:adapter ctx)]
-         (db/with-transaction [tx ctx]
-           (let [now (java.time.Instant/now)
-                 updated-users (map #(assoc % :updated-at now) user-entities)
-
-                 ;; Define field sets
-                 auth-field-keys #{:email :password-hash :active :mfa-enabled :mfa-secret
-                                   :mfa-backup-codes :mfa-backup-codes-used :mfa-enabled-at
-                                   :failed-login-count :lockout-until :updated-at :deleted-at}
-
-                 profile-field-keys #{:tenant-id :name :role :avatar-url :login-count
-                                      :last-login
-                                      :notifications-email :notifications-push :notifications-sms
-                                      :theme :language :timezone
-                                      :date-format :time-format}]
-
-             ;; Build per-user SET maps (same conversions as before), then run
-             ;; them as prepared-statement batches — one statement per SET-column
-             ;; shape instead of one UPDATE round-trip per user.
-             (let [auth-rows
-                   (into []
-                         (keep (fn [user]
-                                 (let [auth-updates (select-keys user auth-field-keys)]
-                                   (when (seq auth-updates)
-                                     {:user-id (:id user)
-                                      :set-map (-> auth-updates
-                                                   (update :active #(when % (protocols/boolean->db adapter %)))
-                                                   (update :updated-at type-conversion/instant->string)
-                                                   (update :deleted-at type-conversion/instant->string)
-                                                   (update :mfa-enabled-at type-conversion/instant->string)
-                                                   (update :lockout-until type-conversion/instant->string)
-                                                   (update :mfa-backup-codes #(when % (cheshire.core/generate-string %)))
-                                                   (update :mfa-backup-codes-used #(when % (cheshire.core/generate-string %)))
-                                                   (set/rename-keys {:password-hash :password_hash
-                                                                     :mfa-enabled :mfa_enabled
-                                                                     :mfa-secret :mfa_secret
-                                                                     :mfa-backup-codes :mfa_backup_codes
-                                                                     :mfa-backup-codes-used :mfa_backup_codes_used
-                                                                     :mfa-enabled-at :mfa_enabled_at
-                                                                     :failed-login-count :failed_login_count
-                                                                     :lockout-until :lockout_until
-                                                                     :updated-at :updated_at
-                                                                     :deleted-at :deleted_at}))}))))
-                         updated-users)
-
-                   profile-rows
-                   (into []
-                         (keep (fn [user]
-                                 (let [profile-updates (select-keys user profile-field-keys)]
-                                   (when (seq profile-updates)
-                                     {:user-id (:id user)
-                                      :set-map (-> profile-updates
-                                                   (update :tenant-id type-conversion/uuid->string)
-                                                   (update :role type-conversion/keyword->string)
-                                                   (update :last-login type-conversion/instant->string)
-                                                   (update :notifications-email #(when (some? %) (protocols/boolean->db adapter %)))
-                                                   (update :notifications-push #(when (some? %) (protocols/boolean->db adapter %)))
-                                                   (update :notifications-sms #(when (some? %) (protocols/boolean->db adapter %)))
-                                                   (update :theme type-conversion/keyword->string)
-                                                   (update :date-format type-conversion/keyword->string)
-                                                   (update :time-format type-conversion/keyword->string)
-                                                   (set/rename-keys {:tenant-id :tenant_id
-                                                                     :avatar-url :avatar_url
-                                                                     :login-count :login_count
-                                                                     :last-login :last_login
-                                                                     :notifications-email :notifications_email
-                                                                     :notifications-push :notifications_push
-                                                                     :notifications-sms :notifications_sms
-                                                                     :date-format :date_format
-                                                                     :time-format :time_format}))}))))
-                         updated-users)]
-
-               (execute-user-update-batch! tx :auth_users auth-rows)
-               (execute-user-update-batch! tx :users profile-rows))
-
-             updated-users))))
      {:db-ctx ctx})))
 
 ;; =============================================================================
@@ -1256,18 +896,6 @@
          affected-rows))
      {:db-ctx ctx}))
 
-  (cleanup-expired-sessions [_ before-timestamp]
-    (persistence-interceptors/execute-persistence-operation
-     :cleanup-expired-sessions
-     {:before-timestamp before-timestamp}
-     (fn [{:keys [params]}]
-       (let [before-timestamp (:before-timestamp params)
-             query {:delete-from :user_sessions
-                    :where [:< :expires_at (type-conversion/instant->string before-timestamp)]}
-             affected-rows (db/execute-update! ctx query)]
-         affected-rows))
-     {:db-ctx ctx}))
-
   (update-session [_ session-entity]
     (persistence-interceptors/execute-persistence-operation
      :update-session
@@ -1293,18 +921,6 @@
                     :order-by [[:created_at :desc]]}
              results (db/execute-query! ctx query)]
          (map db->session-entity results)))
-     {:db-ctx ctx}))
-
-  (delete-session [_ session-id]
-    (persistence-interceptors/execute-persistence-operation
-     :delete-session
-     {:session-id session-id}
-     (fn [{:keys [params]}]
-       (let [session-id (:session-id params)
-             query {:delete-from :user_sessions
-                    :where [:= :id (type-conversion/uuid->string session-id)]}
-             affected-rows (db/execute-update! ctx query)]
-         (> affected-rows 0)))
      {:db-ctx ctx})))
 
 ;; =============================================================================
@@ -1412,59 +1028,6 @@
                     :offset offset}
              results (db/execute-query! ctx query)]
          (map db->audit-log-entity results)))
-     {:db-ctx ctx}))
-
-  (find-audit-logs-by-actor [_ actor-id options]
-    (persistence-interceptors/execute-persistence-operation
-     :find-audit-logs-by-actor
-     {:actor-id actor-id :options options}
-     (fn [{:keys [params]}]
-       (let [actor-id (:actor-id params)
-             {:keys [limit offset sort-by sort-direction]} (:options params)
-             default-limit (get pagination-config :default-limit 20)
-             limit (or limit default-limit)
-             offset (or offset 0)
-             sort-by-kebab (or sort-by :created-at)
-             ;; Convert kebab-case to snake_case for database column
-             sort-by-db (keyword (.replace (name sort-by-kebab) "-" "_"))
-             sort-direction (or sort-direction :desc)
-             query {:select [:*]
-                    :from [:user_audit_log]
-                    :where [:= :actor_id (type-conversion/uuid->string actor-id)]
-                    :order-by [[sort-by-db sort-direction]]
-                    :limit limit
-                    :offset offset}
-             results (db/execute-query! ctx query)]
-         (map db->audit-log-entity results)))
-     {:db-ctx ctx}))
-
-  (count-audit-logs [_ filters]
-    (persistence-interceptors/execute-persistence-operation
-     :count-audit-logs
-     {:filters filters}
-     (fn [{:keys [params]}]
-       (let [{:keys [filter-target-user-id filter-actor-id filter-action filter-created-after]} (:filters params)
-             where-clauses (cond-> []
-                             filter-target-user-id
-                             (conj [:= :target_user_id (type-conversion/uuid->string filter-target-user-id)])
-
-                             filter-actor-id
-                             (conj [:= :actor_id (type-conversion/uuid->string filter-actor-id)])
-
-                             filter-action
-                             (conj [:= :action (name filter-action)])
-
-                             filter-created-after
-                             (conj [:>= :created_at (type-conversion/instant->string filter-created-after)]))
-             where-clause (when (seq where-clauses)
-                            (if (= 1 (count where-clauses))
-                              (first where-clauses)
-                              (into [:and] where-clauses)))
-             query (cond-> {:select [[:%count.* :count]]
-                            :from [:user_audit_log]}
-                     where-clause (assoc :where where-clause))
-             result (db/execute-one! ctx query)]
-         (:count result)))
      {:db-ctx ctx})))
 
 ;; =============================================================================

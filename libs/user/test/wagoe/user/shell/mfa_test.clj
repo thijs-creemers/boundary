@@ -55,25 +55,7 @@
         true)
 
       (hard-delete-user [_ _user-id]
-        true)
-
-      (find-active-users-by-role [_ _role]
-        [@user-state])
-
-      (count-users [_]
-        1)
-
-      (find-users-created-since [_ _since-date]
-        [@user-state])
-
-      (find-users-by-email-domain [_ _email-domain]
-        [@user-state])
-
-      (create-users-batch [_ user-entities]
-        user-entities)
-
-      (update-users-batch [_ user-entities]
-        user-entities))))
+        true))))
 
 ;; =============================================================================
 ;; TOTP Secret Generation Tests

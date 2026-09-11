@@ -14,10 +14,8 @@
   (find-sessions-by-user [_ _] [])
   (invalidate-session [_ _] true)
   (invalidate-all-user-sessions [_ _] 0)
-  (cleanup-expired-sessions [_ _] 0)
   (update-session [_ _] nil)
-  (find-all-sessions [_] [])
-  (delete-session [_ _] true))
+  (find-all-sessions [_] []))
 
 (defrecord UserRepoStub [state]
   ports/IUserRepository
@@ -36,21 +34,13 @@
     (swap! state assoc (:id user-entity) user-entity)
     user-entity)
   (soft-delete-user [_ _user-id] true)
-  (hard-delete-user [_ _user-id] true)
-  (find-active-users-by-role [_ _role] [])
-  (count-users [_] (count @state))
-  (find-users-created-since [_ _since-date] [])
-  (find-users-by-email-domain [_ _email-domain] [])
-  (create-users-batch [_ _user-entities] [])
-  (update-users-batch [_ _user-entities] []))
+  (hard-delete-user [_ _user-id] true))
 
 (defrecord AuditRepoStub []
   ports/IUserAuditRepository
   (create-audit-log [_ audit-entity] audit-entity)
   (find-audit-logs [_ _options] {:audit-logs [] :total-count 0})
-  (find-audit-logs-by-user [_ _user-id _options] [])
-  (find-audit-logs-by-actor [_ _actor-id _options] [])
-  (count-audit-logs [_ _filters] 0))
+  (find-audit-logs-by-user [_ _user-id _options] []))
 
 (defrecord AuditRepoCapture [entries]
   ports/IUserAuditRepository
@@ -58,9 +48,7 @@
     (swap! entries conj audit-entity)
     audit-entity)
   (find-audit-logs [_ _options] {:audit-logs [] :total-count 0})
-  (find-audit-logs-by-user [_ _user-id _options] [])
-  (find-audit-logs-by-actor [_ _actor-id _options] [])
-  (count-audit-logs [_ _filters] (count @entries)))
+  (find-audit-logs-by-user [_ _user-id _options] []))
 
 (defrecord CacheStub [state ops]
   cache-ports/ICache
@@ -320,13 +308,7 @@
                  (hard-delete-user [_ _user-id]
                    (throw (org.postgresql.util.PSQLException.
                            "update or delete on table \"users\" violates foreign key constraint \"fk_tenant_memberships_user\" on table \"tenant_memberships\""
-                           org.postgresql.util.PSQLState/FOREIGN_KEY_VIOLATION)))
-                 (find-active-users-by-role [_ _role] [])
-                 (count-users [_] 0)
-                 (find-users-created-since [_ _since-date] [])
-                 (find-users-by-email-domain [_ _email-domain] [])
-                 (create-users-batch [_ _user-entities] [])
-                 (update-users-batch [_ _user-entities] []))
+                           org.postgresql.util.PSQLState/FOREIGN_KEY_VIOLATION))))
           service (sut/->UserService repo nil nil {} nil nil)]
       (try
         (ports/permanently-delete-user service user-id)
@@ -384,13 +366,7 @@
                  (create-user [_ user-entity] user-entity)
                  (update-user [_ user-entity] user-entity)
                  (soft-delete-user [_ _user-id] true)
-                 (hard-delete-user [_ _user-id] true)
-                 (find-active-users-by-role [_ _role] [])
-                 (count-users [_] 1)
-                 (find-users-created-since [_ _since-date] [])
-                 (find-users-by-email-domain [_ _email-domain] [])
-                 (create-users-batch [_ _user-entities] [])
-                 (update-users-batch [_ _user-entities] []))
+                 (hard-delete-user [_ _user-id] true))
           service (sut/->UserService repo nil nil {} nil nil)]
       (is (= (dissoc user :password-hash)
              (ports/get-user-by-email service "safe@example.nl")))
@@ -418,13 +394,7 @@
                      (create-user [_ user-entity] user-entity)
                      (update-user [_ user-entity] user-entity)
                      (soft-delete-user [_ _user-id] true)
-                     (hard-delete-user [_ _user-id] true)
-                     (find-active-users-by-role [_ _role] [])
-                     (count-users [_] 1)
-                     (find-users-created-since [_ _since-date] [])
-                     (find-users-by-email-domain [_ _email-domain] [])
-                     (create-users-batch [_ _user-entities] [])
-                     (update-users-batch [_ _user-entities] []))
+                     (hard-delete-user [_ _user-id] true))
                    (->SessionRepoStub session)
                    (->AuditRepoCapture audit-entries)
                    {}
@@ -499,13 +469,7 @@
                      (create-user [_ user-entity] user-entity)
                      (update-user [_ user-entity] user-entity)
                      (soft-delete-user [_ id] (= id user-id))
-                     (hard-delete-user [_ _user-id] true)
-                     (find-active-users-by-role [_ _role] [])
-                     (count-users [_] 1)
-                     (find-users-created-since [_ _since-date] [])
-                     (find-users-by-email-domain [_ _email-domain] [])
-                     (create-users-batch [_ _user-entities] [])
-                     (update-users-batch [_ _user-entities] []))
+                     (hard-delete-user [_ _user-id] true))
                    nil
                    (->AuditRepoCapture audit-entries)
                    {}

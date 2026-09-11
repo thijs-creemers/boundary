@@ -15,7 +15,7 @@ Authentication and authorization domain: user lifecycle, credentials, sessions/t
 | `wagoe.user.shell.service` | Service-layer orchestration, validation, and `*audit-context*` binding |
 | `wagoe.user.shell.http` | Auth/user HTTP handlers |
 | `wagoe.user.shell.http-interceptors` | Auth, authorization, and audit interceptors |
-| `wagoe.user.ports` | `IUserRepository`, `IUserSessionRepository` protocols |
+| `wagoe.user.ports` | `IUserRepository`, `IUserSessionRepository`, `IUserAuditRepository`, `IUserService` protocols |
 | `wagoe.user.schema` | Malli schemas for User, Session, and request/response types |
 
 ---

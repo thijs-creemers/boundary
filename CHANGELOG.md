@@ -33,6 +33,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 - **`:wagoe/user-http-handler` is removed** (BOU-346). It has thrown on init since it was
   deprecated; use `:wagoe/user-routes` with the top-level `:wagoe/http-handler`.
+- **Ten methods dropped from the user repository ports** (BOU-366), none of which had a
+  caller. Delete them from your implementation; `wagoe.user.ports` lists what remains.
 
 ### Deprecated
 
