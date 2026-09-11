@@ -64,5 +64,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
 
 # exec form so java is PID 1 (receives SIGTERM → graceful Jetty drain + ig/halt!).
 # "$@" is the container arg: server (default) or worker.
-ENTRYPOINT ["/bin/sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar \"$@\"", "--"]
+#
+# -Duser.timezone=UTC before $JAVA_OPTS: pgjdbc sends the JVM's zone in the
+# connection startup packet, so the JVM's zone is the database session's zone —
+# a host in local time made CURRENT_DATE and date_trunc run in local time, and
+# read zone-less columns two hours off (BOU-431). Listed first so a deployment
+# that really wants another zone can still win with a later -Duser.timezone.
+ENTRYPOINT ["/bin/sh", "-c", "exec java -Duser.timezone=UTC $JAVA_OPTS -jar /app/app.jar \"$@\"", "--"]
 CMD ["server"]

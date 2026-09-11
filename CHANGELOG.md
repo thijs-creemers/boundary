@@ -64,6 +64,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **Database sessions ran in the host's timezone** (BOU-431). Every alias and both
+  Dockerfiles now set `-Duser.timezone=UTC`; zone-less columns re-read in UTC.
 - **MySQL could not open a connection, and SQLite reported every table as absent** (BOU-430).
   Upgrade if you run either adapter; SQLite also stopped being given PostgreSQL column types.
 - **MySQL sessions ignored their timezone and charset settings** (BOU-367). A `sql_mode`
