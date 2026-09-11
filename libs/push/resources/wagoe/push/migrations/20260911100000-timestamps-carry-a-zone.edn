@@ -1,0 +1,10 @@
+;; Push's timestamp columns were declared TIMESTAMP, which stores wall-clock
+;; time and no zone — what they mean depended on the reader's timezone. See
+;; wagoe.platform.shell.database.timestamp-tz; a no-op on MySQL and SQLite.
+{:ns     wagoe.platform.shell.database.timestamp-tz
+ :up-fn  ["up" [["push_device_tokens"    "created_at"]
+                ["push_device_tokens"    "last_used_at"]
+                ["push_send_log"         "created_at"]
+                ["push_send_log"         "sent_at"]
+                ["push_analytics_events" "timestamp"]]]
+ :down-fn ["down" []]}

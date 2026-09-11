@@ -1,0 +1,4 @@
+;; See wagoe.platform.shell.database.timestamp-tz. A no-op on MySQL and SQLite.
+{:ns     wagoe.platform.shell.database.timestamp-tz
+ :up-fn  ["up" [["geo_cache" "created_at"]]]
+ :down-fn ["down" []]}
