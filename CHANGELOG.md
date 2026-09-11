@@ -54,6 +54,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 - **`docs-site/`** (BOU-428). The published site is built from these same `.adoc` sources in
   the wagoe-site repository; this was a second renderer nothing ran.
+- **The per-engine `query`, `metadata` and `utils` namespaces under `adapters.database`**
+  (BOU-367), plus `config-factory`. Build adapters with `factory/db-context`.
 
 ### Added
 
@@ -64,6 +66,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 - **MySQL could not open a connection, and SQLite reported every table as absent** (BOU-430).
   Upgrade if you run either adapter; SQLite also stopped being given PostgreSQL column types.
+- **MySQL sessions ignored their timezone and charset settings** (BOU-367). A `sql_mode`
+  MySQL 8 rejects aborted the rest; sessions are UTC again.
 - **Configured APNs push never reached Apple** (BOU-427). The generated config wrote
   `:key-file` where the code reads `:key-path`, and half-configured push now refuses to boot
   instead of silently using the mock.

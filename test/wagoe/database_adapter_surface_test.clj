@@ -13,7 +13,9 @@
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [next.jdbc :as jdbc]
+            [next.jdbc.result-set :as rs]
             [support.embedded-pg :as epg]
+            [wagoe.platform.shell.adapters.database.common.adapter :as adapter]
             [wagoe.platform.ports.database :as protocols]
             [wagoe.platform.shell.adapters.database.factory :as factory]
             [wagoe.platform.shell.adapters.database.h2.core :as h2]
@@ -246,6 +248,47 @@
             (try (jdbc/execute! datasource ["DROP TABLE IF EXISTS surface_probe"])
                  (catch Exception _ nil))
             (close!)))))))
+
+(deftest ^:integration column-names-come-back-lower-case-on-every-engine
+  (testing "the port promises one shape, so a caller can compare without guessing"
+    (doseq [[label open] (live-backends)]
+      (testing label
+        (let [[{:keys [adapter datasource]} close!] (open)]
+          (try
+            (jdbc/execute! datasource ["DROP TABLE IF EXISTS surface_probe"])
+            (jdbc/execute! datasource [probe-ddl])
+            (let [names (map :name (protocols/get-table-info adapter datasource :surface_probe))]
+              (is (= #{"id" "label" "amount"} (set names))))
+            (finally
+              (try (jdbc/execute! datasource ["DROP TABLE IF EXISTS surface_probe"])
+                   (catch Exception _ nil))
+              (close!))))))))
+
+(deftest ^:integration a-failing-session-statement-does-not-cancel-the-rest
+  (testing "MySQL asks for a sql_mode, a timezone and a charset, in that order"
+    ;; They used to share one try: MySQL 8 rejects NO_AUTO_CREATE_USER, so the
+    ;; timezone and charset after it never ran and sessions stayed on the
+    ;; server's local time (BOU-367).
+    (if @mysql-up?
+      (let [ctx (factory/db-context (mysql-config))]
+        (try
+          (let [q (fn [sql] (first (jdbc/execute! (:datasource ctx) [sql]
+                                                  {:builder-fn rs/as-unqualified-lower-maps})))]
+            (is (= "+00:00" (:tz (q "SELECT @@session.time_zone AS tz"))))
+            (is (str/includes? (:m (q "SELECT @@session.sql_mode AS m"))
+                               "STRICT_TRANS_TABLES")))
+          (finally (factory/close-db-context! ctx))))
+      (println "  note: MySQL not reachable — session-statement ordering unverified")))
+
+  (testing "a statement this engine rejects does not stop the ones after it"
+    (let [ran (atom [])
+          ds (reify javax.sql.DataSource)]
+      (with-redefs [jdbc/execute! (fn [_ statement]
+                                    (swap! ran conj (first statement))
+                                    (when (= "BOOM" (first statement))
+                                      (throw (ex-info "rejected" {}))))]
+        (adapter/run-session-statements! "probe" ds [["FIRST"] ["BOOM"] ["LAST"]]))
+      (is (= ["FIRST" "BOOM" "LAST"] @ran)))))
 
 (deftest ^:integration the-sweep-says-out-loud-which-engines-it-reached
   (let [reached (set (map first (live-backends)))]
