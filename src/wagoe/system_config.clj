@@ -108,7 +108,11 @@
               :rpc  {:protocol  'wagoe.user.ports/IUserService
                      :component :wagoe/user-service}}
 
-   :tenant   {:keys [:wagoe/tenant-db-schema :wagoe/tenant-repository
+   ;; Offered over RPC: another service asks which tenant a request belongs to
+   ;; rather than reading the tenant tables itself.
+   :tenant   {:rpc  {:protocol  'wagoe.tenant.ports/ITenantService
+                     :component :wagoe/tenant-service}
+              :keys [:wagoe/tenant-db-schema :wagoe/tenant-repository
                      :wagoe/tenant-service :wagoe/tenant-routes
                      :wagoe/tenant-http-middleware
                      :wagoe/membership-repository :wagoe/membership-service
@@ -135,6 +139,12 @@
    :audience {:keys [:wagoe/audience-db-schema :wagoe/audience-user-source
                      :wagoe/audience :wagoe/audience-routes]}
 
+   ;; Which of these offers a protocol over RPC is decided in `rpc-offered`
+   ;; below, not by whether someone got round to it: seven modules *cannot*
+   ;; offer one as they stand, because the component this catalogue claims is a
+   ;; map of parts rather than something implementing the module's own service
+   ;; protocol (BOU-426).
+   ;;
    ;; Nine modules whose components no entry claimed, so `core-keys` counted
    ;; them as platform and kept them in every service — and `service push`
    ;; answered "unknown module" while push ran inside `service user` (BOU-424).
@@ -148,7 +158,12 @@
 
    :storage  {:keys [:wagoe/storage-routes]}
 
-   :push     {:keys [:wagoe.push/device-store :wagoe.push/analytics-store
+   ;; Offered over RPC: sending a notification is a thing other services do,
+   ;; and the alternative is every one of them holding FCM and APNs
+   ;; credentials.
+   :push     {:rpc  {:protocol  'wagoe.push.ports/IPushService
+                     :component :wagoe.push/service}
+              :keys [:wagoe.push/device-store :wagoe.push/analytics-store
                      :wagoe.push/fcm-provider :wagoe.push/apns-provider
                      :wagoe.push/service :wagoe.push/routes
                      :wagoe.push/job-handlers]}
@@ -166,6 +181,31 @@
    :payments {:keys [:wagoe/payment-provider]
               :rpc  {:protocol  'wagoe.payments.ports/IPaymentProvider
                      :component :wagoe/payment-provider}}})
+
+(def rpc-not-offered
+  "Modules with a catalogue entry and deliberately no `:rpc`, and why.
+
+   Without one a module can be booted alone and nothing else in the deployment
+   can call it — `start-service!` says so at boot. That is the right answer for
+   most of these, and for seven of them it is the only available one today.
+
+   Measured by booting each module and asking whether the component this
+   catalogue claims satisfies its own service protocol. Seven answered with a
+   `PersistentArrayMap`: their init-key returns `{:store … :engine …}`, a bag of
+   parts. `wagoe.platform.shell.rpc` needs an implementation, so giving those an
+   `:rpc` means first giving the implementation an Integrant key of its own —
+   a change to each module, not to this table (BOU-426)."
+  {:admin    "a UI. Nothing in a deployment calls the admin service; people call its pages"
+   :jobs     "this entry claims :wagoe/job-workers, a worker pool. The queue other services enqueue on is platform, in-process everywhere (BOU-424)"
+   :storage  "this entry claims :wagoe/storage-routes. :wagoe/storage itself is platform, so a service that stores a file already has one"
+   :ai       "its provider talks to an external API; a second hop through RPC buys nothing"
+   :workflow "component is a map of {:store :registry :engine}; IWorkflowEngine has no key of its own"
+   :search   "component is a map; ISearchEngine has no key of its own"
+   :audience "component is a map of {:store :resolver :cache}; IAudienceResolver has no key of its own"
+   :calendar "component is a map; CalendarAdapterProtocol has no key of its own"
+   :geo      "component is a map; GeoProviderProtocol has no key of its own"
+   :realtime "component is a map; IRealtimeService has no key of its own"
+   :reports  "component is a map; ReportGeneratorProtocol has no key of its own"})
 
 (defn service-catalogue
   "The service catalogue for `config`: the framework's, plus the app's own.
