@@ -30,7 +30,8 @@
            "libs/i18n/resources"                            ;; i18n translation catalogues
            "libs/push/src" "libs/push/test"                 ;; Push notifications
            "libs/push/resources"                            ;; Push resources
-           "libs/audience/src" "libs/audience/test"]        ;; Phase 21: Audience
+           "libs/audience/src" "libs/audience/test"        ;; Phase 21: Audience
+           "libs/audience/resources"]                      ;; Audience migrations
 
  :deps    {org.clojure/clojure                        {:mvn/version "1.12.5"}
            cheshire/cheshire                          {:mvn/version "6.2.0"} ;; process json

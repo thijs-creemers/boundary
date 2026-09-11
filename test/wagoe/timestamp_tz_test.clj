@@ -5,9 +5,11 @@
    engine — and what it declines to do — is asserted rather than assumed."
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [migratus.core :as migratus]
             [next.jdbc :as jdbc]
             [support.embedded-pg :as epg]
             [wagoe.platform.shell.adapters.database.factory :as factory]
+            [wagoe.platform.shell.database.migrations :as mig]
             [wagoe.platform.shell.database.timestamp-tz :as sut])
   (:import [java.sql Timestamp]
            [java.time Instant]))
@@ -132,3 +134,56 @@
       (try
         (is (zero? (sut/widen-columns! datasource [["no_such_table" "no_such_column"]])))
         (finally (close!))))))
+
+;; =============================================================================
+;; The migrations that carry this
+;; =============================================================================
+
+(def ^:private audience-schema-as-it-shipped
+  "Audience's tables as an installation from before this change has them —
+   `CREATE TABLE IF NOT EXISTS` will not touch these again."
+  ["CREATE TABLE IF NOT EXISTS audience_segments (
+      id UUID PRIMARY KEY, audience_id VARCHAR(255) NOT NULL UNIQUE,
+      label VARCHAR(255) NOT NULL, cached_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"
+   "CREATE TABLE IF NOT EXISTS audience_memberships (
+      audience_id UUID NOT NULL, user_id UUID NOT NULL,
+      entered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (audience_id, user_id))"])
+
+(deftest ^:integration an-existing-audience-schema-is-widened-by-its-migration
+  (testing "audience creates its tables at boot, so IF NOT EXISTS leaves an
+            installed schema alone — the migration is what reaches it"
+    (let [dirs (filterv #(str/includes? % "audience") (mig/discover-migration-dirs))
+          ds (jdbc/get-datasource
+              {:dbtype "h2:mem"
+               :dbname (str "aud_mig_" (System/nanoTime) ";DB_CLOSE_DELAY=-1;MODE=PostgreSQL")})]
+
+      (is (seq dirs) "audience ships no migration manifest, so nothing reaches it")
+
+      (doseq [statement audience-schema-as-it-shipped]
+        (jdbc/execute! ds [statement]))
+
+      (testing "before: the columns carry no zone"
+        (is (not (sut/zone-aware? (column-type-name ds "audience_segments" "cached_at")))))
+
+      (migratus/migrate {:store :database :migration-dir dirs :db {:datasource ds}})
+
+      (testing "after: every one of them does"
+        (doseq [[table column] [["audience_segments"    "cached_at"]
+                                ["audience_segments"    "created_at"]
+                                ["audience_segments"    "updated_at"]
+                                ["audience_memberships" "entered_at"]]]
+          (testing (str table "." column)
+            (is (sut/zone-aware? (column-type-name ds table column)))))))))
+
+(deftest ^:integration a-fresh-database-is-not-broken-by-the-same-migration
+  (testing "on a new install the migration runs before audience creates its
+            tables, finds nothing, and says so rather than failing"
+    (let [dirs (filterv #(str/includes? % "audience") (mig/discover-migration-dirs))
+          ds (jdbc/get-datasource
+              {:dbtype "h2:mem"
+               :dbname (str "aud_fresh_" (System/nanoTime) ";DB_CLOSE_DELAY=-1;MODE=PostgreSQL")})]
+      (is (nil? (migratus/migrate {:store :database :migration-dir dirs
+                                   :db {:datasource ds}}))))))

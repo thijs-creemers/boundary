@@ -1,0 +1,10 @@
+;; Audience creates its tables at boot rather than by migration, so on a fresh
+;; database this finds nothing and the boot DDL makes the columns correct; on an
+;; existing one it widens what CREATE TABLE IF NOT EXISTS will not touch.
+;; See wagoe.platform.shell.database.timestamp-tz; a no-op on MySQL and SQLite.
+{:ns     wagoe.platform.shell.database.timestamp-tz
+ :up-fn  ["up" [["audience_segments"    "cached_at"]
+                ["audience_segments"    "created_at"]
+                ["audience_segments"    "updated_at"]
+                ["audience_memberships" "entered_at"]]]
+ :down-fn ["down" []]}
