@@ -55,6 +55,12 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **Configured APNs push never reached Apple** (BOU-427). The generated config wrote
+  `:key-file` where the code reads `:key-path`, and half-configured push now refuses to boot
+  instead of silently using the mock.
+- **`wagoe add reports` and `wagoe add calendar` switched nothing on** (BOU-427). Both had an
+  empty config snippet, so the library landed in `deps.edn` and `:active` stayed untouched.
+
 - **CI retried only its first dependency resolution** (BOU-417). Every job that resolves in a
   library directory, and the e2e browser download, retry with backoff now.
 

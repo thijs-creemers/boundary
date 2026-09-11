@@ -171,8 +171,8 @@
    :clojars             com.wagoe/wagoe-reports
    :version             "1.0.0-beta-8"
    :category            :optional
-   :config-snippet      ""
-   :test-config-snippet ""
+   :config-snippet      "  ;; Report definitions are registered in code with `defreport`.\n  :wagoe/reports\n  {:enabled? true}\n"
+   :test-config-snippet "  :wagoe/reports\n  {:enabled? true}\n"
    :add-command         "wagoe add reports"
    :docs-url            "https://github.com/wagoebv/wagoe/blob/main/libs/reports/AGENTS.md"
    :post-install        ["No Integrant key. Register your reports at startup:"
@@ -183,8 +183,8 @@
    :clojars             com.wagoe/wagoe-calendar
    :version             "1.0.0-beta-8"
    :category            :optional
-   :config-snippet      ""
-   :test-config-snippet ""
+   :config-snippet      "  :wagoe/calendar\n  {:enabled? true}\n"
+   :test-config-snippet "  :wagoe/calendar\n  {:enabled? true}\n"
    :add-command         "wagoe add calendar"
    :docs-url            "https://github.com/wagoebv/wagoe/blob/main/libs/calendar/AGENTS.md"
    :post-install        ["No Integrant key. Use the service directly:"
@@ -215,7 +215,7 @@
    :clojars             com.wagoe/wagoe-push
    :version             "1.0.0-beta-8"
    :category            :optional
-   :config-snippet      "  :wagoe/push\n  {:fcm-credentials {:project-id #env WAG_FCM_PROJECT_ID\n                     :credentials-path #env WAG_FCM_CREDENTIALS}\n   :apns-credentials {:key-file #env WAG_APNS_KEY_FILE\n                      :team-id #env WAG_APNS_TEAM_ID\n                      :key-id #env WAG_APNS_KEY_ID\n                      :bundle-id #env WAG_APNS_BUNDLE_ID}}\n"
+   :config-snippet      "  :wagoe/push\n  {:fcm-credentials  {:project-id       #env WAG_PUSH_FCM_PROJECT_ID\n                     :credentials-path #env WAG_PUSH_FCM_CREDENTIALS_PATH}\n   :apns-credentials {:team-id   #env WAG_PUSH_APNS_TEAM_ID\n                      :key-id    #env WAG_PUSH_APNS_KEY_ID\n                      :key-path  #env WAG_PUSH_APNS_KEY_PATH\n                      :bundle-id #env WAG_PUSH_APNS_BUNDLE_ID}}\n"
    :test-config-snippet "  :wagoe/push\n  {:provider :mock}\n"
    :add-command         "wagoe add push"
    :docs-url            "https://github.com/wagoebv/wagoe/blob/main/libs/push/AGENTS.md"}
