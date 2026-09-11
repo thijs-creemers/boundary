@@ -53,6 +53,11 @@ for what is public API, what is internal, and how deprecations are announced.
 - **`docs-site/`** (BOU-428). The published site is built from these same `.adoc` sources in
   the wagoe-site repository; this was a second renderer nothing ran.
 
+### Added
+
+- **`service tenant` and `service push` can be called over RPC** (BOU-426). Every other
+  service records why it offers nothing remote instead of leaving it unanswered.
+
 ### Fixed
 
 - **Configured APNs push never reached Apple** (BOU-427). The generated config wrote

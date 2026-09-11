@@ -405,3 +405,48 @@
     (testing "and the worker pool is what `service jobs` is for"
       (let [[jobs-cfg _] (main/service-ig-config config #{:jobs})]
         (is (contains? jobs-cfg :wagoe/job-workers))))))
+
+(deftest ^:unit every-service-either-offers-a-protocol-or-says-why-not
+  ;; `:rpc` is what lets the rest of a deployment call a service. Without one a
+  ;; module boots alone and nothing can reach it — `start-service!` says so, but
+  ;; only at boot, and only to whoever is reading. Twelve entries had no `:rpc`
+  ;; and no reason (BOU-426).
+  ;;
+  ;; Every entry now answers one way or the other, and an entry that grows an
+  ;; `:rpc` must leave the not-offered table: the burn-down rule the other
+  ;; gates use.
+  (let [catalogue sys-config/default-service-catalogue
+        excused   sys-config/rpc-not-offered]
+
+    (testing "the catalogue was read"
+      (is (< 10 (count catalogue))))
+
+    (doseq [[service entry] catalogue]
+      (testing (str "service " (name service))
+        (if (:rpc entry)
+          (is (not (contains? excused service))
+              (str service " offers a protocol and is also listed as not offering one"))
+          (is (contains? excused service)
+              (str service " offers no protocol and gives no reason — nothing in a"
+                   " deployment can call it, and the catalogue does not say that is"
+                   " deliberate")))))
+
+    (testing "and nothing is excused that no longer needs excusing"
+      (doseq [[service why] excused]
+        (is (contains? catalogue service)
+            (str service " is not a service any more — drop it from rpc-not-offered (" why ")"))))))
+
+(deftest ^:unit a-protocol-offered-over-rpc-names-a-component-the-service-builds
+  ;; The component must be one this service actually selects, or the endpoint
+  ;; refers to something the process does not have.
+  (let [config (everything-enabled-config)
+        full   (sys-config/ig-config config)]
+    (doseq [[service {:keys [rpc]}] sys-config/default-service-catalogue
+            :when rpc]
+      (testing (str "service " (name service))
+        (let [[cfg _] (main/service-ig-config config #{service})]
+          (is (contains? full (:component rpc))
+              (str (:component rpc) " is not in the full config"))
+          (is (contains? cfg (:component rpc))
+              (str service " offers " (:protocol rpc) " on " (:component rpc)
+                   ", which its own selection does not build")))))))
