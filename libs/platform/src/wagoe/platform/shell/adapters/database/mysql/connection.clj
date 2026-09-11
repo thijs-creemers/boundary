@@ -62,8 +62,11 @@
 
    Returns:
      String - JDBC URL with MySQL-specific parameters"
-  [{:keys [host port name connection-params]}]
-  (let [base-url (str "jdbc:mysql://" host ":" port "/" name)
+  ;; :name is bound as db-name — destructuring it as `name` shadowed
+  ;; clojure.core/name, and the parameter join below called the database name
+  ;; as a function. Every MySQL connection threw (BOU-430).
+  [{:keys [host port connection-params] db-name :name}]
+  (let [base-url (str "jdbc:mysql://" host ":" port "/" db-name)
         ;; Common MySQL connection parameters for consistency and security
         default-params {:serverTimezone "UTC"
                         :useSSL "true"

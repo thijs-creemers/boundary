@@ -28,7 +28,7 @@
      Boolean - true if table exists"
   [datasource table-name]
   (let [table-str (str/lower-case (name table-name))  ; Use lowercase for PostgreSQL compatibility
-        query     {:select [:%count.*]
+        query     {:select [[[:count :*] :table_count]]
                    :from   [:information_schema.tables]
                    :where  [:and
                             [:= :table_schema default-schema]
@@ -36,7 +36,9 @@
         result    (first (jdbc/execute! datasource
                                         (sql/format query {:dialect :ansi})
                                         {:builder-fn rs/as-unqualified-lower-maps}))]
-    (> (or (:count result) (get result :?column?) 0) 0)))
+    ;; Was `(or (:count result) (get result :?column?) 0)` — a workaround for
+    ;; the unaliased-COUNT(*) column name that its three neighbours never got.
+    (> (get result :table_count 0) 0)))
 
 (defn get-table-info
   "Get H2 table column information.

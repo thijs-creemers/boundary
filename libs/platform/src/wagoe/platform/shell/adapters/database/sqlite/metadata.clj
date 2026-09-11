@@ -18,8 +18,11 @@
    Returns:
      Boolean - true if table exists"
   [datasource table-name]
+  ;; The count is aliased because the driver names an unaliased COUNT(*) column
+  ;; `count(*)`, not `count` — reading :count found nothing and every table was
+  ;; reported absent (BOU-430).
   (let [table-str (name table-name)
-        query     {:select [:%count.*]
+        query     {:select [[[:count :*] :table_count]]
                    :from   [:sqlite_master]
                    :where  [:and
                             [:= :type "table"]
@@ -27,7 +30,7 @@
         result    (first (jdbc/execute! datasource
                                         (sql/format query)  ; SQLite uses default HoneySQL dialect
                                         {:builder-fn rs/as-unqualified-lower-maps}))]
-    (> (get result :count 0) 0)))
+    (> (get result :table_count 0) 0)))
 
 (defn get-table-info
   "Get SQLite table column information using PRAGMA table_info.

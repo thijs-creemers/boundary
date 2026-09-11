@@ -40,8 +40,12 @@
 (defrecord SQLiteAdapter []
   protocols/DBAdapter
 
+  ;; SQLite answered nil, which every caller doing `(or (dialect a) :postgresql)`
+  ;; read as PostgreSQL — so SQLite got UUID and VARCHAR columns (BOU-430).
+  ;; HoneySQL still formats it with the default dialect: the mapping from
+  ;; :sqlite to "no HoneySQL dialect" lives in common.query.
   (dialect [_]
-    nil)  ; SQLite uses HoneySQL's default dialect
+    :sqlite)
 
   (jdbc-driver [_]
     "org.sqlite.JDBC")

@@ -440,7 +440,7 @@
 
     ;; Test with SQLite
     (let [sqlite-adapter (sqlite/new-adapter)]
-      (is (nil? (protocols/dialect sqlite-adapter))) ; SQLite uses HoneySQL default (nil)
+      (is (= :sqlite (protocols/dialect sqlite-adapter))) ; nil read as PostgreSQL downstream (BOU-430)
       (is (string? (protocols/jdbc-driver sqlite-adapter)))
       (is (map? (protocols/pool-defaults sqlite-adapter)))
 
