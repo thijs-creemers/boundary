@@ -227,16 +227,6 @@ The ports implementation embodies hexagonal architecture principles:
 - `soft-delete-user`: Safe deletion preserving data for compliance
 - `hard-delete-user`: Permanent deletion for GDPR compliance
 
-*Business-Specific Queries:*
-- `find-active-users-by-role`: Role-based user filtering
-- `count-users`: Analytics and capacity planning
-- `find-users-created-since`: Growth tracking and recent user analysis
-- `find-users-by-email-domain`: Organization-based user management
-
-*Batch Operations:*
-- `create-users-batch`: Bulk user import with transaction safety
-- `update-users-batch`: Bulk updates with atomicity guarantees
-
 ==== IUserSessionRepository
 
 **Secure Session Management**
@@ -249,7 +239,8 @@ The ports implementation embodies hexagonal architecture principles:
 
 *Session Monitoring:*
 - `find-sessions-by-user`: Security monitoring and device management
-- `cleanup-expired-sessions`: Maintenance and storage optimization
+- `find-all-sessions`: Operational inspection, including expired and revoked
+- `update-session`: Access-time refresh and expiry extension
 
 [NOTE]
 ====
@@ -430,25 +421,8 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 
 **Comprehensive CRUD Operations:**
 - ✅ **Single User Queries**: Optimized lookups by ID and email
-- ✅ **Advanced Filtering**: Paginated queries with role, status, and email domain filters
+- ✅ **Advanced Filtering**: Paginated queries with role, status, and email filters
 - ✅ **Soft Delete Support**: Timestamp-based deletion with data preservation
-- ✅ **Batch Operations**: Transaction-safe bulk operations for data import/update
-
-**Business Query Optimizations:**
-```clojure
-;; Example: Role-based user query with performance optimization
-(find-active-users-by-role [_ role]
-  (let [query {:select [:*]
-               :from [:users]
-               :where [:and
-                      [:= :id (uuid->string user-id)]
-                      [:= :role (keyword->string role)]
-                      [:= :active 1]
-                      [:is :deleted_at nil]]
-               :order-by [[:created_at :desc]]}]
-    ;; Uses idx_users_role index for optimal performance
-    (map db->user-entity (execute-query! datasource query))))
-```
 
 **Transaction Safety:**
 - All batch operations wrapped in database transactions
@@ -546,19 +520,6 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 - **INFO**: Successful operations and business events
 - **WARN**: Recoverable errors and security concerns
 - **ERROR**: Unrecoverable errors with full context
-
-==== Transaction Management
-
-**Batch Operation Safety:**
-```clojure
-(create-users-batch [_ user-entities]
-  (jdbc/with-transaction [tx datasource]
-    (let [users-with-metadata (generate-user-metadata user-entities)]
-      (doseq [user users-with-metadata]
-        (execute-insert! tx user))
-      (log/info "Users batch created successfully" {:count (count user-entities)})
-      users-with-metadata)))
-```
 
 === Factory Functions and Initialization
 
@@ -706,12 +667,6 @@ The user adapter implementation leverages shared type conversion utilities from 
                   :sort-direction :desc
                   :filter-role :user
                   :filter-active true}))
-
-;; Business analytics
-(def admin-count (count (ports/find-active-users-by-role user-repo :admin)))
-(def total-users (ports/count-users user-repo))
-(def recent-users (ports/find-users-created-since user-repo 
-                    (time/minus (time/instant) (time/days 7))))
 ```
 
 == Architectural Patterns
