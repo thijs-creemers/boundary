@@ -28,7 +28,7 @@
      Boolean - true if table exists"
   [datasource table-name]
   (let [table-str (str/lower-case (name table-name))
-        query {:select [:%count.*]
+        query {:select [[[:count :*] :table_count]]
                :from [:information_schema.tables]
                :where [:and
                        [:= :table_schema default-schema]
@@ -36,7 +36,7 @@
         result (first (jdbc/execute! datasource
                                      (sql/format query)
                                      {:builder-fn rs/as-unqualified-lower-maps}))]
-    (> (get result :count 0) 0)))
+    (> (get result :table_count 0) 0)))
 
 (defn get-table-info
   "Get PostgreSQL table column information.

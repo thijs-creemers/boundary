@@ -62,6 +62,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **MySQL could not open a connection, and SQLite reported every table as absent** (BOU-430).
+  Upgrade if you run either adapter; SQLite also stopped being given PostgreSQL column types.
 - **Configured APNs push never reached Apple** (BOU-427). The generated config wrote
   `:key-file` where the code reads `:key-path`, and half-configured push now refuses to boot
   instead of silently using the mock.

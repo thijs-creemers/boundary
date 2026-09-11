@@ -40,16 +40,20 @@
    are handled by the shared database core namespace."
 
   (dialect [this]
-    "Return the HoneySQL dialect keyword for this database.
-     
+    "Return the dialect keyword this adapter is dispatched on.
+
      Returns:
-       Keyword - :sqlite, :postgresql, :mysql, :h2, or nil (for PostgreSQL default)
-       
-     Note:
-       PostgreSQL adapter returns nil to use HoneySQL's default dialect
-       
+       :sqlite, :mysql, :ansi (H2), or nil (PostgreSQL)
+
+     This is the adapter's identity, not a HoneySQL argument — the mapping to a
+     HoneySQL dialect lives in common.query, where :sqlite becomes no dialect.
+     Callers dispatch on it, and several resolve nil with
+     `(or (dialect adapter) :postgresql)`, so nil must mean PostgreSQL and
+     nothing else. SQLite answered nil until BOU-430 and was read as PostgreSQL.
+
      Example:
-       (dialect sqlite-adapter) ;; => :sqlite
+       (dialect sqlite-adapter)   ;; => :sqlite
+       (dialect h2-adapter)       ;; => :ansi
        (dialect postgres-adapter) ;; => nil")
 
   (jdbc-driver [this]

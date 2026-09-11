@@ -19,8 +19,11 @@
    Returns:
      Boolean - true if table exists"
   [datasource table-name]
+  ;; Aliased: the driver names an unaliased COUNT(*) column `count(*)`, so
+  ;; reading :count found nothing and every table was reported absent. The same
+  ;; defect sat in SQLite, and H2 carried a workaround for it (BOU-430).
   (let [table-str (name table-name)
-        query {:select [:%count.*]
+        query {:select [[[:count :*] :table_count]]
                :from [:information_schema.tables]
                :where [:and
                        [:= :table_schema [:database]]
@@ -28,7 +31,7 @@
         result (first (jdbc/execute! datasource
                                      (sql/format query {:dialect :mysql})
                                      {:builder-fn rs/as-unqualified-lower-maps}))]
-    (> (get result :count 0) 0)))
+    (> (get result :table_count 0) 0)))
 
 (defn get-table-info
   "Get MySQL table column information.
