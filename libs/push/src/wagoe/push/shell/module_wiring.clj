@@ -1,5 +1,6 @@
 (ns wagoe.push.shell.module-wiring
-  (:require [wagoe.push.shell.service :as service]
+  (:require [clojure.string :as str]
+            [wagoe.push.shell.service :as service]
             [wagoe.push.shell.persistence :as persistence]
             [wagoe.push.shell.adapters.mock :as mock]
             [wagoe.push.shell.adapters.fcm :as fcm]
@@ -64,6 +65,27 @@
 ;; Module graph
 ;; =============================================================================
 
+(defn- provider-settings
+  "Settings for a push provider: the real one when every required field is
+   present, the mock when none is, and a refusal in between.
+
+   `required` is that adapter's whole field set, so adding one to an adapter
+   cannot leave its neighbour's check behind."
+  [provider label credentials required]
+  (let [present (filter #(some? (get credentials %)) required)
+        missing (remove #(some? (get credentials %)) required)]
+    (cond
+      (empty? present) {:provider :mock}
+
+      (seq missing)
+      (throw (ex-info (str label " push is partly configured: "
+                           (str/join ", " (map name missing))
+                           " missing. Set them, or remove the credentials block to use "
+                           "the mock provider — a mock accepts every push and delivers none.")
+                      {:type :configuration-error :provider provider :missing (vec missing)}))
+
+      :else (merge {:provider provider} credentials))))
+
 (defn ig-config
   "This module's Integrant entries, for `wagoe.platform.shell.system.config`.
 
@@ -79,30 +101,23 @@
   [settings {:keys [enabled]}]
   (let [jobs? (contains? (or enabled #{}) :wagoe/jobs)]
     (cond-> {:components
-             ;; FCM settings spread like APNs' three lines below — the nested
-             ;; `:credentials` key never matched the init-key's `:project-id`/
-             ;; `:credentials-path`, so configured FCM threw at boot, always
-             ;; (BOU-346). :fcm only when both fields are present: a map of
-             ;; unset #env values is truthy and would select a provider that
-             ;; cannot construct.
-             {:wagoe.push/fcm-provider    (let [fc (:fcm-credentials settings)]
-                                            (merge {:provider (if (and (:project-id fc)
-                                                                       (:credentials-path fc))
-                                                                :fcm :mock)}
-                                                   fc))
-              ;; The same test FCM gets three lines up, for the same reason:
-              ;; a map of unset `#env` values is truthy, so "credentials are
-              ;; configured" cannot mean "the key is present". BOU-346 fixed
-              ;; FCM and left this one, and configured-but-unset APNs threw at
-              ;; boot in `make-apns-provider`, which reads the p8 key from
-              ;; `:key-path` (BOU-427).
-              :wagoe.push/apns-provider   (let [ac (:apns-credentials settings)]
-                                            (merge {:provider (if (and (:team-id ac)
-                                                                       (:key-id ac)
-                                                                       (:key-path ac)
-                                                                       (:bundle-id ac))
-                                                                :apns :mock)}
-                                                   ac))
+             ;; Credentials are all-or-nothing. A map of unset `#env` values
+             ;; is a present map, so "are credentials configured" cannot mean
+             ;; "is the key there" — that chose the real provider and threw
+             ;; reading a file at path nil (BOU-346 for FCM, BOU-427 for APNs:
+             ;; the same defect three lines apart, because the first fix swept
+             ;; one adapter and not its neighbour).
+             ;;
+             ;; Half-configured is the case worth refusing. Falling back to the
+             ;; mock would boot a process that accepts every push and delivers
+             ;; none — the failure an operator is least likely to notice,
+             ;; because nothing errors and nothing arrives (BOU-427 review).
+             {:wagoe.push/fcm-provider    (provider-settings
+                                           :fcm "FCM" (:fcm-credentials settings)
+                                           [:project-id :credentials-path])
+              :wagoe.push/apns-provider   (provider-settings
+                                           :apns "APNs" (:apns-credentials settings)
+                                           [:team-id :key-id :key-path :bundle-id])
               :wagoe.push/device-store    {:db (ig/ref :wagoe/db-context)}
               :wagoe.push/analytics-store {:db (ig/ref :wagoe/db-context)}
               :wagoe.push/service         (cond-> {:device-store    (ig/ref :wagoe.push/device-store)

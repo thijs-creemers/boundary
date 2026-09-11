@@ -55,8 +55,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
-- **Configured APNs push threw at boot** (BOU-427) when its credentials came from unset env
-  vars — the guard BOU-346 gave FCM, three lines above, and not to APNs.
+- **Configured APNs push never reached Apple** (BOU-427). The generated config wrote
+  `:key-file` where the code reads `:key-path`, and half-configured push now refuses to boot
+  instead of silently using the mock.
 - **`wagoe add reports` and `wagoe add calendar` switched nothing on** (BOU-427). Both had an
   empty config snippet, so the library landed in `deps.edn` and `:active` stayed untouched.
 
