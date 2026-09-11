@@ -46,7 +46,8 @@
        :sqlite, :mysql, :ansi (H2), or nil (PostgreSQL)
 
      This is the adapter's identity, not a HoneySQL argument — the mapping to a
-     HoneySQL dialect lives in common.query, where :sqlite becomes no dialect.
+     HoneySQL dialect lives in wagoe.platform.core.database.query, where
+     :sqlite becomes no dialect.
      Callers dispatch on it, and several resolve nil with
      `(or (dialect adapter) :postgresql)`, so nil must mean PostgreSQL and
      nothing else. SQLite answered nil until BOU-430 and was read as PostgreSQL.
