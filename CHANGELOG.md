@@ -64,8 +64,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
-- **Database sessions ran in the host's timezone** (BOU-431). Every alias and both
-  Dockerfiles now set `-Duser.timezone=UTC`; zone-less columns re-read in UTC.
+- **Database sessions ran in the host's timezone** (BOU-431). Every alias and launcher
+  now sets `-Duser.timezone=UTC`; zone-less columns re-read in UTC.
 - **Push, geo and audience timestamps carried no timezone** (BOU-431). A migration
   widens them on PostgreSQL and H2; it assumes the stored values are UTC.
 - **MySQL could not open a connection, and SQLite reported every table as absent** (BOU-430).

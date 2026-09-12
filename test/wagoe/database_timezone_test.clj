@@ -8,6 +8,7 @@
    makes a timestamp mean the same thing to every process touching the database."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
@@ -47,13 +48,52 @@
           (is (re-find (re-pattern (str "(?s)" alias-name "\\s.*?-Duser\\.timezone=UTC"))
                        tmpl))))))
 
-  (testing "and its Dockerfile"
+  (testing "and its Dockerfile — also covered by the launcher sweep below"
     (is (re-find #"-Duser\.timezone=UTC"
                  (slurp (io/file "libs/wagoe-cli/resources/wagoe/cli/templates/Dockerfile.tmpl"))))))
 
-(deftest ^:unit the-image-this-repo-builds-runs-in-utc
-  (is (re-find #"exec java -Duser\.timezone=UTC \$JAVA_OPTS" (slurp "Dockerfile"))
-      "the flag goes before $JAVA_OPTS, so a deployment can still override it"))
+(defn- launchers
+  "Files that invoke `java` directly, with the line that does it.
+
+   Enumerated from disk rather than listed, because three launch paths were
+   missed one at a time in this PR: the root image, the image render.yaml and
+   fly.toml actually build, and the systemd unit."
+  []
+  (->> (file-seq (io/file "."))
+       (filter #(.isFile %))
+       (remove #(re-find #"/target/|/\.git/|/node_modules/" (.getPath %)))
+       (filter #(or (str/starts-with? (.getName %) "Dockerfile")
+                    (str/ends-with? (.getName %) ".service")))
+       (mapcat (fn [f]
+                 (for [line (str/split-lines (slurp f))
+                       ;; Every such line, not the first: a file with two stages
+                       ;; has two. Comments are dropped by their own leading #,
+                       ;; not by a lookbehind that only catches "#java".
+                       :when (and (not (str/starts-with? (str/trim line) "#"))
+                                  (re-find #"\bjava\b[^\n]*-jar" line))]
+                   [(str/replace (.getPath f) #"^\./" "") line])))
+       (sort-by first)))
+
+(deftest ^:unit every-launcher-starts-the-jvm-in-utc
+  (testing "a Dockerfile or unit file that runs java must set the zone"
+    (let [found (launchers)]
+
+      (testing "the sweep found the launchers it is meant to cover"
+        (let [paths (set (map first found))]
+          (is (contains? paths "Dockerfile"))
+          (is (contains? paths "resources/conf/dev/Dockerfile")
+              "the image render.yaml and fly.toml build")
+          (is (contains? paths "resources/deploy/systemd/wagoe.service"))
+          (is (contains? paths
+                         "libs/wagoe-cli/resources/wagoe/cli/templates/Dockerfile.tmpl"))))
+
+      (doseq [[path line] found]
+        (testing path
+          (is (str/includes? line utc-opt)
+              (str "starts a JVM without " utc-opt ": " (str/trim line)))))))
+
+  (testing "in the root image the flag precedes $JAVA_OPTS, so it stays overridable"
+    (is (re-find #"exec java -Duser\.timezone=UTC \$JAVA_OPTS" (slurp "Dockerfile")))))
 
 ;; =============================================================================
 ;; What the flag buys, measured

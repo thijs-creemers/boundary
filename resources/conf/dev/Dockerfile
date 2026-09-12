@@ -75,7 +75,11 @@ COPY --chown=wagoe:wagoe scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["java", "-jar", "app.jar"]
+# -Duser.timezone=UTC here and not in JAVA_OPTS: `java` does not read that
+# variable (JDK_JAVA_OPTIONS is the one it reads), and this is the image
+# resources/deploy/cloud/{render,fly}.toml build, so it is a production
+# launcher whatever the directory is called (BOU-431).
+CMD ["java", "-Duser.timezone=UTC", "-jar", "app.jar"]
 
 # =============================================================================
 # Development Stage (Optional)

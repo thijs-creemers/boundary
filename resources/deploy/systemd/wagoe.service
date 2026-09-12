@@ -18,7 +18,10 @@ EnvironmentFile=/etc/wagoe/wagoe.env
 Environment=JAVA_OPTS="-Xms512m -Xmx2g -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxGCPauseMillis=200 -Djava.security.egd=file:/dev/urandom"
 
 # Run migrations separately before deploying: clojure -M:migrate up
-ExecStart=/usr/bin/java ${JAVA_OPTS} -jar /opt/wagoe/wagoe.jar server
+# -Duser.timezone=UTC precedes ${JAVA_OPTS} so a unit override can still win.
+# The JDBC drivers send the JVM zone to the database, so this is the
+# database session zone too (BOU-431).
+ExecStart=/usr/bin/java -Duser.timezone=UTC ${JAVA_OPTS} -jar /opt/wagoe/wagoe.jar server
 
 Restart=on-failure
 RestartSec=10
