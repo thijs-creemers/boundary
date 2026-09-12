@@ -66,6 +66,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **The dev image ignored its own `JAVA_OPTS`** (BOU-438). `-Xmx512m` never applied —
+  it ran on 1960MB. Rebuild if you run `resources/conf/dev/Dockerfile`.
 - **CI retried a failed dependency download without clearing Maven's record of it**
   (BOU-440). Maintainers only: the isolation matrix stopped failing on resolvable artifacts.
 
