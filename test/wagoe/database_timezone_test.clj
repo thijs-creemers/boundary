@@ -95,6 +95,21 @@
   (testing "in the root image the flag precedes $JAVA_OPTS, so it stays overridable"
     (is (re-find #"exec java -Duser\.timezone=UTC \$JAVA_OPTS" (slurp "Dockerfile")))))
 
+(deftest ^:unit a-launcher-that-sets-java-opts-also-passes-them
+  (testing "`java` does not read JAVA_OPTS — the variable only reaches the JVM
+            when something interpolates it into the command (BOU-438)"
+    ;; The dev image set -Xmx512m in ENV, the entrypoint logged "JVM options:",
+    ;; and the exec-form CMD passed none of it. Nothing said so; the container
+    ;; simply ran on a quarter of the machine's memory.
+    (doseq [[path line] (launchers)
+            :let [text (slurp (io/file path))]
+            ;; Only files that promise something by setting the variable.
+            :when (re-find #"(?m)^\s*(ENV|Environment=)\s*JAVA_OPTS" text)]
+      (testing path
+        ;; Either spelling: the unit file uses ${JAVA_OPTS}, the images $JAVA_OPTS.
+        (is (re-find #"\$\{?JAVA_OPTS\}?" line)
+            (str "sets JAVA_OPTS but starts the JVM without it: " (str/trim line)))))))
+
 ;; =============================================================================
 ;; What the flag buys, measured
 ;; =============================================================================

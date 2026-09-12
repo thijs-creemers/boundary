@@ -75,11 +75,14 @@ COPY --chown=wagoe:wagoe scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-# -Duser.timezone=UTC here and not in JAVA_OPTS: `java` does not read that
-# variable (JDK_JAVA_OPTIONS is the one it reads), and this is the image
-# resources/deploy/cloud/{render,fly}.toml build, so it is a production
-# launcher whatever the directory is called (BOU-431).
-CMD ["java", "-Duser.timezone=UTC", "-jar", "app.jar"]
+# A shell form, so $JAVA_OPTS above is expanded. `java` does not read that
+# variable — JDK_JAVA_OPTIONS is the one it reads — so the exec form this
+# replaces ran on the JVM's default heap while the ENV line, and the entrypoint's
+# "JVM options:" log, both said otherwise (BOU-438).
+#
+# Same shape as the root Dockerfile: the timezone first so a deployment can
+# still override it through JAVA_OPTS (BOU-431).
+CMD ["sh", "-c", "exec java -Duser.timezone=UTC $JAVA_OPTS -jar app.jar"]
 
 # =============================================================================
 # Development Stage (Optional)
