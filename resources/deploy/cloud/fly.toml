@@ -8,7 +8,11 @@ app = "my-wagoe-app"
 primary_region = "ams"
 
 [build]
-  dockerfile = "resources/conf/dev/Dockerfile"
+  # The root Dockerfile, not resources/conf/dev/Dockerfile: that one ends in
+  # a `development` stage whose command is `tail -f /dev/null`. Fly does
+  # have build-target, but the root image is the production one — it is
+  # what CI builds and what deploy/k8s runs (BOU-439).
+  dockerfile = "Dockerfile"
 
 [env]
   WAG_ENV = "prod"

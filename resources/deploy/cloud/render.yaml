@@ -7,7 +7,11 @@ services:
   - type: web
     name: wagoe-app
     runtime: docker
-    dockerfilePath: resources/conf/dev/Dockerfile
+    # The root Dockerfile, not resources/conf/dev/Dockerfile: that one ends
+    # in a `development` stage whose command is `tail -f /dev/null`, and
+    # Render's blueprint spec has no field to select a build stage, so it
+    # would deploy a container that starts and serves nothing (BOU-439).
+    dockerfilePath: ./Dockerfile
     region: frankfurt
     plan: standard
     healthCheckPath: /health/ready

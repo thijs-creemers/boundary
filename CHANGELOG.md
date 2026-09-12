@@ -70,6 +70,8 @@ for what is public API, what is internal, and how deprecations are announced.
   now sets `-Duser.timezone=UTC`; zone-less columns re-read in UTC.
 - **Push, geo and audience timestamps carried no timezone** (BOU-431). A migration
   widens them on PostgreSQL and H2; it assumes the stored values are UTC.
+- **The Render and Fly blueprints deployed a container that served nothing** (BOU-439).
+  Both now build the root `Dockerfile`; redeploy if you used either.
 - **MySQL could not open a connection, and SQLite reported every table as absent** (BOU-430).
   Upgrade if you run either adapter; SQLite also stopped being given PostgreSQL column types.
 - **MySQL sessions ignored their timezone and charset settings** (BOU-367). A `sql_mode`
