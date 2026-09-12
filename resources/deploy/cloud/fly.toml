@@ -16,6 +16,11 @@ primary_region = "ams"
 
 [env]
   WAG_ENV = "prod"
+  # The prod profile defaults error reporting to Sentry and its adapter throws
+  # on a missing DSN, so setting neither never boots (BOU-439). A reference
+  # deployment must not require a Sentry account: drop this line and
+  # `fly secrets set SENTRY_DSN=…` to turn it on.
+  ERROR_REPORTING_PROVIDER = "no-op"
   HTTP_PORT = "3000"
   POSTGRES_HOST = "my-wagoe-app-db.internal"
   POSTGRES_PORT = "5432"

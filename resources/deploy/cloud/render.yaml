@@ -18,6 +18,12 @@ services:
     envVars:
       - key: WAG_ENV
         value: prod
+      # The prod profile defaults error reporting to Sentry and its adapter
+      # throws on a missing DSN, so a blueprint that sets neither never boots
+      # (BOU-439). A reference deployment must not require a Sentry account:
+      # delete this and add SENTRY_DSN as a secret to turn it on.
+      - key: ERROR_REPORTING_PROVIDER
+        value: no-op
       - key: HTTP_PORT
         value: "3000"
       - key: JWT_SECRET

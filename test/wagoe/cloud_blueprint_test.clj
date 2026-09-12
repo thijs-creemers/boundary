@@ -83,6 +83,34 @@
                     (is (not (str/includes? command "tail"))
                         "this is the sleep-forever development stage")))))))))))
 
+(defn- env-names
+  "The environment variables a blueprint sets, however it spells them."
+  [text]
+  (set (concat (map second (re-seq #"(?m)^\s*-\s*key:\s*([A-Z_][A-Z0-9_]*)" text))
+               (map second (re-seq #"(?m)^\s*([A-Z_][A-Z0-9_]*)\s*=" text)))))
+
+(deftest ^:unit a-cloud-blueprint-can-build-the-components-prod-requires
+  (testing "error reporting: the prod profile defaults to Sentry, whose adapter
+            throws on a missing DSN, so a blueprint that sets neither exits
+            during boot and never becomes ready (BOU-439 review)"
+    ;; Deliberately narrow. It asserts the one prod component that a reference
+    ;; deployment cannot satisfy by itself — a Sentry account is not something a
+    ;; blueprint can assume. Whether the whole prod config boots is proven by
+    ;; running the image, not here.
+    (let [prod (slurp (io/file "resources/conf/prod/config.edn"))]
+
+      (testing "the prod default really is the one that needs a DSN"
+        (is (re-find #"ERROR_REPORTING_PROVIDER\"\s+\"sentry\"" prod)
+            "prod no longer defaults to sentry — this test is guarding nothing"))
+
+      (doseq [{:keys [path]} blueprints]
+        (testing path
+          (let [env (env-names (slurp (io/file path)))]
+            (is (or (contains? env "SENTRY_DSN")
+                    (contains? env "ERROR_REPORTING_PROVIDER"))
+                (str "sets neither SENTRY_DSN nor ERROR_REPORTING_PROVIDER, so "
+                     "the Sentry adapter throws on boot"))))))))
+
 (deftest ^:unit the-development-stage-is-still-the-thing-being-guarded-against
   (testing "the dev Dockerfile really does end on a command that serves nothing"
     ;; Otherwise the assertions above pass because the hazard disappeared
