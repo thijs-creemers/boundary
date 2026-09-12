@@ -67,10 +67,33 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         set -o pipefail
+
+        # Maven records a failed download in a `*.lastUpdated` marker beside the
+        # artifact, and its update policy for releases is `never` — so the next
+        # resolution reads the marker instead of the network and the retries
+        # below achieve nothing. Worse, `~/.m2/repository` is what actions/cache
+        # saves, so one 403 during warm-deps is restored into all 30 isolation
+        # cells and fails whichever library needs that artifact (BOU-440).
+        #
+        # Only markers that record a transfer error are cleared. A marker with an
+        # empty `.error=` is a genuine 404 — every `-sources.jar` that was never
+        # published has one — and re-checking those on each attempt would add a
+        # round-trip per artifact for nothing.
+        clear_failed_downloads() {
+          local cleared
+          cleared=$(grep -rlE '\.error=.+' "$HOME/.m2/repository" \
+                      --include='*.lastUpdated' 2>/dev/null || true)
+          if [ -n "$cleared" ]; then
+            echo "$cleared" | xargs rm -f
+            echo "  cleared $(echo "$cleared" | wc -l | tr -d ' ') cached download failure(s)"
+          fi
+        }
+
         for alias in ${{ inputs.aliases }}; do
           # "-" means the base deps: `clojure -P` with no alias at all.
           [ "$alias" = "-" ] && alias=""
           for attempt in 1 2 3 4; do
+            clear_failed_downloads
             if clojure -Sthreads 1 -P $alias; then
               break
             fi

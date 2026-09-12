@@ -66,6 +66,9 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **CI retried a failed dependency download without clearing Maven's record of it**
+  (BOU-440). Maintainers only: the isolation matrix stopped failing on resolvable artifacts.
+
 - **Database sessions ran in the host's timezone** (BOU-431). Every alias and launcher
   now sets `-Duser.timezone=UTC`; zone-less columns re-read in UTC.
 - **Push, geo and audience timestamps carried no timezone** (BOU-431). A migration
