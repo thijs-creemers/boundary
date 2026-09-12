@@ -14,6 +14,7 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set]
             [wagoe.platform.shell.database.migrations :as mig]
+            [wagoe.platform.shell.database.timestamp-tz :as timestamp-tz]
             [wagoe.push.ports :as push-ports]
             [wagoe.push.shell.persistence :as push-persistence])
   (:import [java.util UUID]))
@@ -49,4 +50,21 @@
         (testing "and the device store can query one"
           (let [store (push-persistence/->DeviceTokenStore ds)]
             (is (= [] (push-ports/get-user-devices store (UUID/randomUUID)))
-                "the table exists but the store cannot read it")))))))
+                "the table exists but the store cannot read it")))
+
+        (testing "the EDN migration ran, so its timestamps carry a zone"
+          ;; The repository's first code migration: migratus resolves the
+          ;; namespace named in the .edn and calls it. Asserted on the column,
+          ;; not on the file, because the file existing is the mechanism
+          ;; (BOU-431).
+          (with-open [c (jdbc/get-connection ds)]
+            (doseq [[table column] [["push_device_tokens" "created_at"]
+                                    ["push_device_tokens" "last_used_at"]
+                                    ["push_send_log" "created_at"]
+                                    ["push_send_log" "sent_at"]
+                                    ["push_analytics_events" "timestamp"]]]
+              (testing (str table "." column)
+                (with-open [rs (.getColumns (.getMetaData c) nil nil
+                                            (str/upper-case table) (str/upper-case column))]
+                  (is (.next rs) "no such column")
+                  (is (timestamp-tz/zone-aware? (.getString rs "TYPE_NAME"))))))))))))

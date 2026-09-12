@@ -84,15 +84,20 @@
         :else                                :unknown))))
 
 (def ^:private column-types
-  "How each adapter spells the two types this schema needs.
+  "How each adapter spells the three types this schema needs.
 
    The primary key carries no `DEFAULT`: only two of the four adapters have a
    UUID generator to put there, and `save-audience` supplies the id anyway.
-   That leaves the column types as the whole of the difference (BOU-419 review)."
-  {:h2         {:uuid "UUID"     :json "TEXT"}
-   :postgresql {:uuid "UUID"     :json "JSONB"}
-   :sqlite     {:uuid "TEXT"     :json "TEXT"}
-   :mysql      {:uuid "CHAR(36)" :json "TEXT"}})
+   That leaves the column types as the whole of the difference (BOU-419 review).
+
+   `:timestamp` carries a zone where the adapter has one. A bare TIMESTAMP
+   stores wall-clock time and no zone, so what it means depends on the reader —
+   MySQL's TIMESTAMP already normalises to UTC, and SQLite has no zone concept
+   (BOU-431)."
+  {:h2         {:uuid "UUID"     :json "TEXT"  :timestamp "TIMESTAMP WITH TIME ZONE"}
+   :postgresql {:uuid "UUID"     :json "JSONB" :timestamp "TIMESTAMP WITH TIME ZONE"}
+   :sqlite     {:uuid "TEXT"     :json "TEXT"  :timestamp "TIMESTAMP"}
+   :mysql      {:uuid "CHAR(36)" :json "TEXT"  :timestamp "TIMESTAMP"}})
 
 (defn audience-ddl
   "DDL for the audience tables, for one adapter.
@@ -100,14 +105,15 @@
    Written once here rather than as a PostgreSQL migration plus a hand-copied
    H2 variant in a test fixture, which is how those two drifted."
   [dialect]
-  (let [{:keys [uuid json]} (or (get column-types dialect)
+  (let [{:keys [uuid json timestamp]} (or (get column-types dialect)
                                 (throw (ex-info
                                         (str "No audience schema for database adapter "
                                              (pr-str dialect) ". Supported: "
                                              (str/join ", " (sort (map name (keys column-types)))) ".")
                                         {:type :configuration-error :dialect dialect})))
         uuid-type uuid
-        json-type json]
+        json-type json
+        ts-type   timestamp]
     (cond->
      [(str "CREATE TABLE IF NOT EXISTS audience_segments (
              id            " uuid-type " PRIMARY KEY,
@@ -119,10 +125,10 @@
              cache_config  " json-type ",
              tags          " json-type ",
              member_count  INTEGER DEFAULT 0,
-             cached_at     TIMESTAMP,
+             cached_at     " ts-type ",
              source        VARCHAR(50) DEFAULT 'dynamic',
-             created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-             updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP)")
+             created_at    " ts-type " DEFAULT CURRENT_TIMESTAMP,
+             updated_at    " ts-type " DEFAULT CURRENT_TIMESTAMP)")
      ;; MySQL has no CREATE INDEX IF NOT EXISTS, so the index is declared
      ;; inside the table, where CREATE TABLE IF NOT EXISTS makes it idempotent.
      ;; Emitting the standalone form there failed the boot after the tables had
@@ -130,7 +136,7 @@
      (str "CREATE TABLE IF NOT EXISTS audience_memberships (
              audience_id   " uuid-type " NOT NULL,
              user_id       " uuid-type " NOT NULL,
-             entered_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+             entered_at    " ts-type " DEFAULT CURRENT_TIMESTAMP,
              PRIMARY KEY (audience_id, user_id)"
           (if (= :mysql dialect)
             ",

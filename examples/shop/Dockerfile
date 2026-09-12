@@ -39,4 +39,8 @@ EXPOSE 3000
 
 # JWT_SECRET is deliberately not defaulted. A baked-in secret in an image is
 # worse than a startup failure.
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+#
+# The JDBC drivers send the JVM's timezone to the database, so the JVM's zone is
+# the session's zone. UTC keeps CURRENT_DATE and date_trunc off the host's
+# timezone, and keeps a column without one readable by any other process.
+ENTRYPOINT ["java", "-Duser.timezone=UTC", "-jar", "/app/app.jar"]

@@ -30,7 +30,8 @@
            "libs/i18n/resources"                            ;; i18n translation catalogues
            "libs/push/src" "libs/push/test"                 ;; Push notifications
            "libs/push/resources"                            ;; Push resources
-           "libs/audience/src" "libs/audience/test"]        ;; Phase 21: Audience
+           "libs/audience/src" "libs/audience/test"        ;; Phase 21: Audience
+           "libs/audience/resources"]                      ;; Audience migrations
 
  :deps    {org.clojure/clojure                        {:mvn/version "1.12.5"}
            cheshire/cheshire                          {:mvn/version "6.2.0"} ;; process json
@@ -143,7 +144,8 @@
                                      org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                      com.h2database/h2           {:mvn/version "2.4.240"}
                                      com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
-                       :main-opts   ["-m" "nrepl.cmdline" "--port" "7888" "--middleware" "[cider.nrepl/cider-middleware]"]}
+                       :main-opts   ["-m" "nrepl.cmdline" "--port" "7888" "--middleware" "[cider.nrepl/cider-middleware]"]
+                       :jvm-opts    ["-Duser.timezone=UTC"]}
            :repl-cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.12.145"}
                                     cider/cider-nrepl         {:mvn/version "0.59.0"}
                                     cider/piggieback          {:mvn/version "0.6.1"}}
@@ -159,7 +161,8 @@
            :db        {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.2.0"}
                                     org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
+                       :jvm-opts   ["-Duser.timezone=UTC"]}
 
            ;; =============================================================================
            ;; Environment aliases with database support
@@ -173,12 +176,12 @@
                                      org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                      com.h2database/h2           {:mvn/version "2.4.240"}
                                      com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
-                       :jvm-opts    ["-Denv=dev"]}
+                       :jvm-opts    ["-Denv=dev" "-Duser.timezone=UTC"]}
            :prod      {:extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.2.0"}
                                     org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
                                     com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
-                       :jvm-opts   ["-Denv=prod"]}
+                       :jvm-opts   ["-Denv=prod" "-Duser.timezone=UTC"]}
 
            ;; =============================================================================
            ;; Tool and utility aliases
@@ -221,7 +224,7 @@
                                      org.postgresql/postgresql     {:mvn/version "42.7.12"}
                                      com.h2database/h2             {:mvn/version "2.4.240"}
                                      com.mysql/mysql-connector-j   {:mvn/version "9.7.0"}}
-                       :jvm-opts    ["-Denv=test" "--enable-native-access=ALL-UNNAMED"]}
+                       :jvm-opts    ["-Denv=test" "--enable-native-access=ALL-UNNAMED" "-Duser.timezone=UTC"]}
 
            ;; Embedded PostgreSQL, for the admin suite's PG integration tests.
            ;; Split out of :test because the two platform binaries are ~90 MB —
@@ -268,12 +271,14 @@
                        :extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.2.0"}
                                     org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
+                       :jvm-opts   ["-Duser.timezone=UTC"]}
            :seed      {:main-opts  ["-m" "wagoe.platform.shell.database.cli-seed"]
                        :extra-deps {org.xerial/sqlite-jdbc      {:mvn/version "3.53.2.0"}
                                     org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
-                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}}
+                                    com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
+                       :jvm-opts   ["-Duser.timezone=UTC"]}
            :bench     {:extra-paths ["dev"]
                        :extra-deps  {criterium/criterium {:mvn/version "0.4.6"}}
                        :main-opts   ["-m" "wagoe.bench.core"]}
@@ -354,7 +359,7 @@
                                      "libs/ai/src" "libs/ai/test"
                                      "libs/ui-style/src" "libs/ui-style/test"
                                      "libs/i18n/src" "libs/i18n/test"]
-                       :jvm-opts    ["-Denv=test" "--enable-native-access=ALL-UNNAMED"]}
+                       :jvm-opts    ["-Denv=test" "--enable-native-access=ALL-UNNAMED" "-Duser.timezone=UTC"]}
 
            ;; =============================================================================
            ;; End-to-end test suite (spel / Playwright Java via Clojure)
@@ -379,7 +384,7 @@
                                     com.h2database/h2           {:mvn/version "2.4.240"}
                                     com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
                        :main-opts  ["-m" "wagoe.cli"]
-                       :jvm-opts   ["-Denv=dev"]}
+                       :jvm-opts   ["-Denv=dev" "-Duser.timezone=UTC"]}
 
            ;; Direct entrypoint into the user module CLI; used by bb create-admin so that
            ;; generated projects (which do not have wagoe.cli on the classpath) can still
@@ -396,7 +401,8 @@
                                     org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
                                     com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
-                       :main-opts  ["-m" "wagoe.user.shell.cli-entry"]}
+                       :main-opts  ["-m" "wagoe.user.shell.cli-entry"]
+                       :jvm-opts   ["-Duser.timezone=UTC"]}
 
            ;; =============================================================================
            ;; HTTP server entrypoint (invokes wagoe.main/-main in server mode).
@@ -425,7 +431,8 @@
                                     org.postgresql/postgresql   {:mvn/version "42.7.12"}
                                     com.h2database/h2           {:mvn/version "2.4.240"}
                                     com.mysql/mysql-connector-j {:mvn/version "9.7.0"}}
-                       :main-opts  ["-m" "wagoe.main"]}
+                       :main-opts  ["-m" "wagoe.main"]
+                       :jvm-opts   ["-Duser.timezone=UTC"]}
 
            ;; =============================================================================
            ;; Documentation

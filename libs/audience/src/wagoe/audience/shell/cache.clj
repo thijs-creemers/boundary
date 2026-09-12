@@ -79,13 +79,20 @@
 (defn- ->instant
   "A `cached_at` column value as an Instant.
 
-   H2 and PostgreSQL hand back a `java.sql.Timestamp`; SQLite has no timestamp
-   type and returns the string it stored, which the cast to Timestamp threw on
-   (BOU-419 review)."
+   H2 and PostgreSQL hand back an `OffsetDateTime` for a column that carries a
+   zone and a `java.sql.Timestamp` for one that does not; SQLite has no
+   timestamp type and returns the string it stored, which the cast to Timestamp
+   threw on (BOU-419 review)."
   [v]
   (cond
     (instance? java.sql.Timestamp v) (.toInstant ^java.sql.Timestamp v)
     (instance? Instant v)            v
+    ;; The column carries a zone since BOU-431, so H2 and PostgreSQL hand back
+    ;; an OffsetDateTime rather than a Timestamp.
+    (instance? java.time.OffsetDateTime v)
+    (.toInstant ^java.time.OffsetDateTime v)
+    (instance? java.time.ZonedDateTime v)
+    (.toInstant ^java.time.ZonedDateTime v)
     ;; SQLite has no timestamp type: the driver stores the Instant it was
     ;; given as epoch millis, which is the one representation with no zone in
     ;; it at all.
