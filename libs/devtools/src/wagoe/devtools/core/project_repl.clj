@@ -18,7 +18,7 @@
    the stem is `user-db`."
   ["-http-middleware" "-schema-provider" "-db-schema" "-repository" "-middleware"
    "-provider" "-emitter" "-service" "-context" "-handler" "-routes" "-server"
-   "-schema" "-store"])
+   "-schema" "-store" "-pruner"])
 
 (def ^:private infra-stems
   "Stems that are plumbing every project has, not something the user added.

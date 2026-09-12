@@ -313,7 +313,7 @@ stays. `:wagoe/session-pruner` is what removes it; without a schedule
 
 ```clojure
 :wagoe/session-pruner
-{:enabled?       true   ; false stops pruning entirely
+{:enable-pruning true   ; false stops pruning entirely
  :retention-days 30     ; how long an expired session is kept, counted from expiry
  :interval-hours 6}     ; how often the prune runs
 ```

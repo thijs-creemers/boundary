@@ -367,7 +367,7 @@
                   ;; Also written by wagoe new. An expired session is hidden
                   ;; from every read but its row stays, so without this key
                   ;; user_sessions grows with every login (BOU-429).
-                  "  :wagoe/session-pruner\n  {:enabled? true :retention-days 30 :interval-hours 6}\n"
+                  "  :wagoe/session-pruner\n  {:enable-pruning true :retention-days 30 :interval-hours 6}\n"
                   (logging-template env)
                   (observability-template env)
                   (admin-template (:admin-ui spec) env)

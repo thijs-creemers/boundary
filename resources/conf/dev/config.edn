@@ -120,7 +120,7 @@
   ;; Expired sessions are hidden from every read but the row stays. This is what
   ;; removes it; without a schedule user_sessions grows with every login (BOU-429).
   :wagoe/session-pruner
-  {:enabled?       true                                     ; false stops pruning entirely
+  {:enable-pruning true                                     ; false stops pruning entirely
    :retention-days 30                                       ; how long an expired session is kept
    :interval-hours 6}                                       ; how often the prune runs
 

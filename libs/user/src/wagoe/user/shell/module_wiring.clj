@@ -216,7 +216,7 @@
 
 (defmethod ig/init-key :wagoe/session-pruner
   [_ {:keys [session-repository settings]}]
-  (if (false? (:enabled? settings))
+  (if (false? (:enable-pruning settings))
     (do (log/info "Session pruning disabled; user_sessions will grow unbounded")
         nil)
     (session-pruner/start! session-repository settings)))

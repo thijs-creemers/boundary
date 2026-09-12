@@ -20,7 +20,11 @@
   "Retention is counted from expiry. Thirty days leaves enough history to answer
    \"where was this account signed in\" after an incident without keeping the
    row for ever."
-  {:enabled?       true
+  ;; :enable-pruning, not :enabled? — a `:wagoe/*` key carrying :enabled? is
+  ;; how a scaffolded module declares itself, and discovery would go looking for
+  ;; a wagoe.session-pruner.shell.module-wiring that does not exist. Settings
+  ;; keys spell a toggle the way :wagoe/pagination does (BOU-429 review).
+  {:enable-pruning true
    :retention-days 30
    :interval-hours 6})
 
