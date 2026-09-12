@@ -104,7 +104,14 @@
                        (vals @state))]
       (doseq [session live]
         (swap! state assoc-in [(:id session) :revoked-at] (Instant/now)))
-      (count live))))
+      (count live)))
+
+  (delete-sessions-expired-before [_ cutoff]
+    (let [stale (filter #(.isBefore ^Instant (:expires-at %) ^Instant cutoff)
+                        (vals @state))]
+      (doseq [session stale]
+        (swap! state dissoc (:id session)))
+      (count stale))))
 
 (defrecord MemoryAuditRepository [state]
   ports/IUserAuditRepository

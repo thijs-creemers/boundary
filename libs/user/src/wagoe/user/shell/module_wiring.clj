@@ -10,6 +10,7 @@
             [wagoe.user.shell.auth :as user-auth]
             [wagoe.user.shell.mfa :as user-mfa]
             [wagoe.user.shell.middleware :as user-middleware]
+            [wagoe.user.shell.session-pruner :as session-pruner]
             [clojure.tools.logging :as log]
             [integrant.core :as ig]))
 
@@ -210,6 +211,21 @@
   (log/info "User module database schema component halted"))
 
 ;; =============================================================================
+;; Session Pruning
+;; =============================================================================
+
+(defmethod ig/init-key :wagoe/session-pruner
+  [_ {:keys [session-repository settings]}]
+  (if (false? (:enable-pruning settings))
+    (do (log/info "Session pruning disabled; user_sessions will grow unbounded")
+        nil)
+    (session-pruner/start! session-repository settings)))
+
+(defmethod ig/halt-key! :wagoe/session-pruner
+  [_ handle]
+  (session-pruner/stop! handle))
+
+;; =============================================================================
 ;; Module graph
 ;; =============================================================================
 
@@ -225,6 +241,11 @@
    {:wagoe/user-db-schema     {:ctx (ig/ref :wagoe/db-context)}
     :wagoe/user-repository    {:ctx (ig/ref :wagoe/db-context)}
     :wagoe/session-repository {:ctx (ig/ref :wagoe/db-context)}
+    ;; Expiry hides a session; it does not remove the row. Without this the
+    ;; table grows with every login, for ever (BOU-429).
+    :wagoe/session-pruner     {:session-repository (ig/ref :wagoe/session-repository)
+                               :settings           (merge session-pruner/default-settings
+                                                          (get-in config [:active :wagoe/session-pruner]))}
     :wagoe/audit-repository   {:ctx               (ig/ref :wagoe/db-context)
                                :pagination-config (get-in config [:active :wagoe/pagination]
                                                           {:default-limit 20 :max-limit 100})}

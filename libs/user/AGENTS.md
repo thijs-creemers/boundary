@@ -304,6 +304,27 @@ The wizard accepts `--env dev|test|acc|prod` to pick the Aero config profile and
 
 ---
 
+## Session Pruning
+
+An expired session is invisible to every read — `find-session-by-token` and
+`find-sessions-by-user` filter on `expires_at` and `revoked_at` — but its row
+stays. `:wagoe/session-pruner` is what removes it; without a schedule
+`user_sessions` grows with every login, for ever (BOU-429).
+
+```clojure
+:wagoe/session-pruner
+{:enable-pruning true   ; false stops pruning entirely
+ :retention-days 30     ; how long an expired session is kept, counted from expiry
+ :interval-hours 6}     ; how often the prune runs
+```
+
+It lives in the user module rather than in jobs, because jobs is optional and
+this table is not. Every replica runs its own timer; the DELETE is idempotent,
+so two of them deleting the same rows is that DELETE twice.
+
+A revoked session is pruned on the same terms as any other: revoking hides it,
+expiry plus retention removes it.
+
 ## Gotchas
 
 - `JWT_SECRET` must be set (≥ 32 chars) for all auth-related tests and runtime operations.

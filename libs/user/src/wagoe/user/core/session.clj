@@ -81,6 +81,15 @@
         cleanup-threshold (.minusSeconds current-time grace-period-seconds)]
     (.isBefore (:expires-at session) cleanup-threshold)))
 
+(defn prune-cutoff
+  "The instant before which an expired session may be deleted.
+
+   Retention is counted from expiry, not from creation: a session that expires
+   today is removed `retention-days` from today, whatever its age. A retention
+   of 0 deletes a session the moment it expires."
+  [now retention-days]
+  (.minusSeconds now (* (max 0 retention-days) 24 3600)))
+
 (defn mark-session-for-cleanup
   "Mark session as revoked by setting :revoked-at to current time."
   [session current-time]
