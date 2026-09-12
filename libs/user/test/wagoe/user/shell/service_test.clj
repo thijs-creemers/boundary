@@ -15,7 +15,8 @@
   (invalidate-session [_ _] true)
   (invalidate-all-user-sessions [_ _] 0)
   (update-session [_ _] nil)
-  (find-all-sessions [_] []))
+  (find-all-sessions [_] [])
+  (delete-sessions-expired-before [_ _] 0))
 
 (defrecord UserRepoStub [state]
   ports/IUserRepository

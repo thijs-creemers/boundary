@@ -43,6 +43,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Added
 
+- **Expired sessions are pruned** (BOU-429). `:wagoe/session-pruner` deletes them
+  30 days after expiry; set `:enabled? false` to keep the old unbounded growth.
 - **CI runs the `:unit` suite** (BOU-422). The root `test/` tree — two wiring gates among
   them — was executed by no CI job, so a pull request could merge with one of them red.
 - **`worker` mode now runs jobs** (BOU-418). Enable `:wagoe/jobs {:provider :memory}`;

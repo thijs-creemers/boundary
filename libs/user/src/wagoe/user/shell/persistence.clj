@@ -921,6 +921,19 @@
                     :order-by [[:created_at :desc]]}
              results (db/execute-query! ctx query)]
          (map db->session-entity results)))
+     {:db-ctx ctx}))
+
+  (delete-sessions-expired-before [_ cutoff]
+    (persistence-interceptors/execute-persistence-operation
+     :delete-sessions-expired-before
+     {:cutoff cutoff}
+     (fn [{:keys [params]}]
+       ;; No :revoked_at predicate: a revoked session still holds a row, and it
+       ;; is removed on the same terms as any other once it has expired.
+       (let [query {:delete-from :user_sessions
+                    :where [:< :expires_at
+                            (type-conversion/instant->string (:cutoff params))]}]
+         (db/execute-update! ctx query)))
      {:db-ctx ctx})))
 
 ;; =============================================================================

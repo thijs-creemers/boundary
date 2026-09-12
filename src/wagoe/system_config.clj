@@ -101,7 +101,11 @@
                      :wagoe/session-repository :wagoe/audit-repository
                      :wagoe/mfa-service :wagoe/auth-service
                      :wagoe/user-service :wagoe/user-routes
-                     :wagoe/user-http-middleware :wagoe/admin-only-middleware]
+                     :wagoe/user-http-middleware :wagoe/admin-only-middleware
+                     ;; Its timer belongs to whoever owns user_sessions, so a
+                     ;; service that does not run the user module does not also
+                     ;; prune its table (BOU-429).
+                     :wagoe/session-pruner]
               ;; What this module offers the rest of a split deployment. Only
               ;; served when it is run as a service *and* :wagoe/rpc is
               ;; configured — a `server` boot never starts the listener.

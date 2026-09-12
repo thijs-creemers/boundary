@@ -117,6 +117,13 @@
    :sunset-dates        {}                                  ; Map of version -> ISO date (e.g., {:v0 "2026-06-01"})
    :supported-versions  #{:v1}}                             ; Set of all supported versions
 
+  ;; Expired sessions are hidden from every read but the row stays. This is what
+  ;; removes it; without a schedule user_sessions grows with every login (BOU-429).
+  :wagoe/session-pruner
+  {:enabled?       true                                     ; false stops pruning entirely
+   :retention-days 30                                       ; how long an expired session is kept
+   :interval-hours 6}                                       ; how often the prune runs
+
   ;; Pagination configuration
   :wagoe/pagination
   {:default-limit       20                                  ; Default items per page

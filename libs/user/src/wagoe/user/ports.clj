@@ -66,8 +66,13 @@
   (invalidate-session [this session-token])
   ;; Sets :revoked-at. Idempotent. Returns boolean.
 
-  (invalidate-all-user-sessions [this user-id]))
+  (invalidate-all-user-sessions [this user-id])
   ;; Revokes every active session for the user. Returns the count revoked.
+
+  (delete-sessions-expired-before [this cutoff]))
+  ;; Removes every session whose expiry is before `cutoff`, revoked or not.
+  ;; Expiry hides a session from the reads above; this is what takes the row
+  ;; out of the table, which nothing did until BOU-429. Returns the count.
 
 (defprotocol IUserAuditRepository
   "Audit-log persistence. Entries are immutable once written."

@@ -38,6 +38,12 @@
    ;; it and errors go back to the plain shape production uses.
    :wagoe/dev-error-enricher {}
 
+   ;; An expired session is hidden from every read, but its row stays. This is
+   ;; what removes it — without a schedule user_sessions grows with every login.
+   ;; Retention counts from expiry; raise it if you need longer sign-in history.
+   :wagoe/session-pruner
+   {:enabled? true :retention-days 30 :interval-hours 6}
+
    :wagoe/logging
    {:level :debug :console true}}
 
