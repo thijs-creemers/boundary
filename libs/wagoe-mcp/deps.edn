@@ -13,7 +13,7 @@
         ;; payloads + explain-error code lookup. Used only from shell.
         wagoe/devtools         {:local/root "../devtools"}
         ;; Runtime clj-kondo for the `lint` tool (structured findings).
-        clj-kondo/clj-kondo       {:mvn/version "2026.04.15"}
+        clj-kondo/clj-kondo       {:mvn/version "2026.05.25"}
         ;; Tier 1 generate tools (BOU-101): the scaffolder service does the
         ;; codegen; wagoe/tools supplies the FC/IS per-file checker the
         ;; closed verify loop reuses. Both are dev tooling — the MCP server is
@@ -30,7 +30,7 @@
           :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
           :main-opts   ["-m" "kaocha.runner"]}
 
-  :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.04.15"}}
+  :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.05.25"}}
               :main-opts    ["-m" "clj-kondo.main"]}
 
   :build {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}

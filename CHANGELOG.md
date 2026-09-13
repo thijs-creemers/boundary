@@ -66,6 +66,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **audience and push ran on older library versions than they were tested against**
+  (BOU-442). honeysql, next.jdbc and ring-core now match the rest of the repo.
 - **CI fetched 44 artifacts from Maven Central with nothing cached behind them**
   (BOU-441). Maintainers only: `warm-deps` now warms each library's own `deps.edn`.
 - **The dev image ignored its own `JAVA_OPTS`** (BOU-438). `-Xmx512m` never applied —
