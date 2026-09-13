@@ -66,6 +66,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **The S3 adapter threw on every S3-compatible endpoint** (BOU-444). MinIO, Spaces and
+  the like could not be used at all; set `:endpoint` and it works now.
 - **audience and push ran on older library versions than they were tested against**
   (BOU-442). honeysql, next.jdbc and ring-core now match the rest of the repo.
 - **CI fetched 44 artifacts from Maven Central with nothing cached behind them**

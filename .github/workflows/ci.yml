@@ -857,6 +857,32 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # A step and not a `services:` entry: the MinIO image needs `server /data`
+      # as its command, and a service container takes no command. Waiting on the
+      # health endpoint here also means a MinIO that never came up fails this
+      # step, rather than letting the suite skip its way to green.
+      #
+      # Why it must run at all: the S3 adapter's tests skip themselves when no
+      # endpoint answers, and none did — so the suite reported 62 tests passing
+      # with the adapter never constructed, while it could not be constructed
+      # (BOU-444).
+      - name: Start MinIO
+        run: |
+          set -euo pipefail
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            quay.io/minio/minio:latest server /data
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 2 http://localhost:9000/minio/health/live >/dev/null; then
+              echo "MinIO ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::MinIO did not become ready; the S3 tests would silently skip"
+          docker logs minio || true
+          exit 1
+
       - name: Setup Clojure + warm deps
         uses: ./.github/actions/clojure-deps
         with:
