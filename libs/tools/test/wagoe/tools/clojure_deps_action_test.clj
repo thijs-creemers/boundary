@@ -43,6 +43,53 @@
         (is (and clear-call resolve-at (< clear-call resolve-at))
             "a retry that does not clear the marker re-reads it and fails the same way")))))
 
+(defn- ci-file []
+  (let [cwd (System/getProperty "user.dir")]
+    (or (first (filter #(.exists ^java.io.File %)
+                       [(io/file cwd ".github" "workflows" "ci.yml")
+                        (io/file cwd ".." ".." ".github" "workflows" "ci.yml")]))
+        (throw (ex-info "ci.yml not found" {:cwd cwd})))))
+
+(defn- repo-root []
+  ;; .github/workflows/ci.yml -> workflows -> .github -> the repository.
+  (-> (ci-file) .getParentFile .getParentFile .getParentFile))
+
+(deftest ^:unit every-library-the-matrix-builds-is-warmed-first
+  (testing "a library in the isolation matrix but not in warm-deps' also-warm
+            resolves its own deps from Central, in 30 cells at once, with
+            nothing cached behind it (BOU-441)"
+    (let [ci (yaml/parse-string (slurp (ci-file)))
+          jobs (:jobs ci)
+          matrix (get-in jobs [:check-isolation-matrix :strategy :matrix :lib])
+          warm (->> (get-in jobs [:warm-deps :steps])
+                    (keep #(get-in % [:with :also-warm]))
+                    first)]
+
+      (testing "both halves were found"
+        (is (seq matrix) "no isolation matrix — this test would pass vacuously")
+        (is (some? warm) "warm-deps names no directories to warm"))
+
+      (testing "and the glob resolves to a directory for every library in it"
+        ;; Expanded against the tree rather than string-matched: "libs/*" is
+        ;; what covers a library added tomorrow, and a hand-kept list is what
+        ;; would not.
+        (let [expand (fn [entry]
+                       (if (str/ends-with? entry "/*")
+                         (->> (.listFiles (io/file (repo-root)
+                                                   (str/replace entry #"/\*$" "")))
+                              (filter #(.isDirectory ^java.io.File %))
+                              (map #(.getName ^java.io.File %)))
+                         ;; A literal directory covers exactly itself.
+                         [(.getName (io/file entry))]))
+              covered (->> (str/split (str warm) #"\s+")
+                           (remove str/blank?)
+                           (mapcat expand)
+                           set)
+              missing (remove covered (map name matrix))]
+          (is (empty? missing)
+              (str "the matrix builds these, and nothing warms their deps: "
+                   (pr-str (sort missing)))))))))
+
 (deftest ^:unit it-clears-a-transfer-failure-and-keeps-a-genuine-absence
   (let [script (prefetch-script)
         fn-start (str/index-of script "clear_failed_downloads() {")

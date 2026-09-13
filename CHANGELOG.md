@@ -66,6 +66,8 @@ for what is public API, what is internal, and how deprecations are announced.
 
 ### Fixed
 
+- **CI fetched 44 artifacts from Maven Central with nothing cached behind them**
+  (BOU-441). Maintainers only: `warm-deps` now warms each library's own `deps.edn`.
 - **The dev image ignored its own `JAVA_OPTS`** (BOU-438). `-Xmx512m` never applied —
   it ran on 1960MB. Rebuild if you run `resources/conf/dev/Dockerfile`.
 - **CI retried a failed dependency download without clearing Maven's record of it**

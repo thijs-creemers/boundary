@@ -10,6 +10,15 @@ inputs:
       (e.g. "-M:test" or "-M:migrate -M:test"). Use "-" for the base deps with
       no alias, which is what the isolation matrix resolves.
     required: true
+  also-warm:
+    description: >-
+      Space-separated directory globs whose own `deps.edn` to resolve as well,
+      after the aliases above. `warm-deps` passes "libs/*" so the shared cache
+      holds what the isolation matrix reads: a library pins its own versions, so
+      53 artifacts the 30 cells need are in no root alias closure and every cell
+      fetched them from Central concurrently, uncached (BOU-441).
+    required: false
+    default: ""
   working-directory:
     description: >-
       Where to resolve. A job that runs its command in a library directory
@@ -89,20 +98,38 @@ runs:
           fi
         }
 
+        # One retry policy for both loops below, so a directory warm is as
+        # protected as an alias warm.
+        resolve_with_retry() {
+          local dir="$1" alias="$2" where="${3:-$1}" label="${2:-base deps}"
+          for attempt in 1 2 3 4; do
+            clear_failed_downloads
+            if (cd "$dir" && clojure -Sthreads 1 -P $alias); then
+              return 0
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::dependency resolution failed for $label in $where after 4 attempts"
+              return 1
+            fi
+            delay=$((attempt * attempt * 10))
+            echo "::warning::resolution failed for $label in $where (attempt $attempt/4) — retrying in ${delay}s"
+            sleep "$delay"
+          done
+        }
+
         for alias in ${{ inputs.aliases }}; do
           # "-" means the base deps: `clojure -P` with no alias at all.
           [ "$alias" = "-" ] && alias=""
-          for attempt in 1 2 3 4; do
-            clear_failed_downloads
-            if clojure -Sthreads 1 -P $alias; then
-              break
-            fi
-            if [ "$attempt" -eq 4 ]; then
-              echo "::error::dependency resolution failed for ${alias:-base deps} in ${{ inputs.working-directory }} after 4 attempts"
-              exit 1
-            fi
-            delay=$((attempt * attempt * 10))
-            echo "::warning::resolution failed for ${alias:-base deps} in ${{ inputs.working-directory }} (attempt $attempt/4) — retrying in ${delay}s"
-            sleep "$delay"
+          # "." is this step's working-directory; the message names it properly.
+          resolve_with_retry "." "$alias" "${{ inputs.working-directory }}" || exit 1
+        done
+
+        # Each library's own deps.edn. Skipped when the input is empty, which is
+        # every job but warm-deps.
+        for glob in ${{ inputs.also-warm }}; do
+          for dir in $glob; do
+            [ -f "$dir/deps.edn" ] || continue
+            echo "Warming $dir"
+            resolve_with_retry "$dir" "" || exit 1
           done
         done
