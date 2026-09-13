@@ -104,7 +104,7 @@
            com.google.cloud/google-cloud-nio          {:mvn/version "0.137.0"}
 
            ;; Redis client for cache and jobs libs
-           redis.clients/jedis                        {:mvn/version "7.5.2"}
+           redis.clients/jedis                        {:mvn/version "8.0.1"}
 
            ;; Type-preserving serialization for the Redis cache adapter
            com.taoensso/nippy                         {:mvn/version "3.6.2"}

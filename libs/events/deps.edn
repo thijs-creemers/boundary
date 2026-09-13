@@ -9,7 +9,7 @@
         ;; nippy is a Clojure-only binary format that nothing outside the JVM
         ;; can read — the same reasoning as the RPC envelope (BOU-90).
         com.cognitect/transit-clj {:mvn/version "1.1.363"}
-        redis.clients/jedis {:mvn/version "7.5.2"}}
+        redis.clients/jedis {:mvn/version "8.0.1"}}
 
  :aliases
  {:test {:extra-paths ["test"]
