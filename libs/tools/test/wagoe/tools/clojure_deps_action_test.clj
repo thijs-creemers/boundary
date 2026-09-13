@@ -54,6 +54,19 @@
   ;; .github/workflows/ci.yml -> workflows -> .github -> the repository.
   (-> (ci-file) .getParentFile .getParentFile .getParentFile))
 
+(deftest ^:unit the-cache-key-and-its-restore-prefix-carry-the-same-version
+  (testing "a mismatch silently restores the previous cache under the new key,
+            which is the poisoning the version segment exists to escape"
+    (let [cache (->> (get-in (yaml/parse-string (slurp (action-file))) [:runs :steps])
+                     (filter #(str/includes? (or (:name %) "") "Cache"))
+                     first
+                     :with)
+          version-of #(second (re-find #"clojure-(v\d+)-" (str %)))]
+      (is (some? (:key cache)) "the cache step has no key")
+      (is (= (version-of (:key cache)) (version-of (:restore-keys cache)))
+          (str "key is " (version-of (:key cache))
+               ", restore-keys is " (version-of (:restore-keys cache)))))))
+
 (deftest ^:unit every-library-the-matrix-builds-is-warmed-first
   (testing "a library in the isolation matrix but not in warm-deps' also-warm
             resolves its own deps from Central, in 30 cells at once, with
