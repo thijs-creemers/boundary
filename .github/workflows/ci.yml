@@ -1066,6 +1066,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: [lint, test-platform]
 
+    services:
+      # Without one, every `when-redis` body skips and the pub/sub bus — the
+      # thing this library is — is covered by nothing (BOU-443).
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v6
 
