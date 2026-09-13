@@ -12,13 +12,13 @@
          software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.54.17"}
 
          ;; Google Cloud Storage (GCS adapter)
-         com.google.cloud/google-cloud-storage      {:mvn/version "2.44.1"}}
+         com.google.cloud/google-cloud-storage      {:mvn/version "2.73.0"}}
 
  :aliases
  {:test      {:extra-paths ["test"]
               :extra-deps  {lambdaisland/kaocha        {:mvn/version "1.91.1392"}
                             ;; In-memory Storage fake for GCS adapter tests
-                            com.google.cloud/google-cloud-nio {:mvn/version "0.127.28"}}
+                            com.google.cloud/google-cloud-nio {:mvn/version "0.137.0"}}
               :main-opts   ["-m" "kaocha.runner"]}
 
   :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.08.04"}}
