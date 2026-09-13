@@ -7,7 +7,7 @@
          com.github.seancorfield/honeysql  {:mvn/version "2.7.1388"}
          integrant/integrant      {:mvn/version "1.0.1"}
          cheshire/cheshire        {:mvn/version "6.2.0"}
-         ring/ring-core           {:mvn/version "1.13.0"}
+         ring/ring-core           {:mvn/version "1.15.4"}
          com.google.auth/google-auth-library-oauth2-http {:mvn/version "1.30.1"}
          wagoe/jobs             {:local/root "../jobs"}
          wagoe/core             {:local/root "../core"}}
@@ -17,7 +17,7 @@
               :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                             com.h2database/h2   {:mvn/version "2.4.240"}}}
 
-  :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.04.15"}}
+  :clj-kondo {:replace-deps {clj-kondo/clj-kondo {:mvn/version "2026.05.25"}}
               :main-opts    ["-m" "clj-kondo.main"]}
 
   :build     {:replace-deps {io.github.clojure/tools.build {:git/tag "v0.10.13" :git/sha "3a3c177d"}
