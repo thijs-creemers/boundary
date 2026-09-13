@@ -107,7 +107,7 @@
            redis.clients/jedis                        {:mvn/version "8.0.1"}
 
            ;; Type-preserving serialization for the Redis cache adapter
-           com.taoensso/nippy                         {:mvn/version "3.6.2"}
+           com.taoensso/nippy                         {:mvn/version "3.9.0"}
 
            ;; Email - javax.mail for SMTP
            com.sun.mail/javax.mail                    {:mvn/version "1.6.2"}
