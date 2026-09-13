@@ -138,7 +138,7 @@
                                      "libs/devtools/src"
                                      "libs/devtools/resources"]
                        :extra-deps  {nrepl/nrepl                 {:mvn/version "1.7.0"}
-                                     cider/cider-nrepl           {:mvn/version "0.59.0"}
+                                     cider/cider-nrepl           {:mvn/version "0.62.2"}
                                      ring/ring-jetty-adapter     {:mvn/version "1.15.5"}
                                      org.xerial/sqlite-jdbc      {:mvn/version "3.53.2.0"}
                                      org.postgresql/postgresql   {:mvn/version "42.7.12"}
@@ -147,8 +147,8 @@
                        :main-opts   ["-m" "nrepl.cmdline" "--port" "7888" "--middleware" "[cider.nrepl/cider-middleware]"]
                        :jvm-opts    ["-Duser.timezone=UTC"]}
            :repl-cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.12.145"}
-                                    cider/cider-nrepl         {:mvn/version "0.59.0"}
-                                    cider/piggieback          {:mvn/version "0.6.1"}}
+                                    cider/cider-nrepl         {:mvn/version "0.62.2"}
+                                    cider/piggieback          {:mvn/version "0.7.0"}}
                        :main-opts  ["-m" "nrepl.cmdline" "--middleware"
                                     "[cider.nrepl/cider-middleware,cider.piggieback/wrap-cljs-repl]"]}
 
