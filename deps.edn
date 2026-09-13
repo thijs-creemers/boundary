@@ -96,8 +96,8 @@
            hiccup/hiccup                              {:mvn/version "2.0.0"}
 
            ;; File Storage - AWS SDK for S3
-           software.amazon.awssdk/s3                  {:mvn/version "2.46.9"}
-           software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.46.9"}
+           software.amazon.awssdk/s3                  {:mvn/version "2.54.17"}
+           software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.54.17"}
 
            ;; File Storage - Google Cloud Storage (GCS adapter)
            com.google.cloud/google-cloud-storage      {:mvn/version "2.44.1"}

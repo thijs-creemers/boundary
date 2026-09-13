@@ -8,8 +8,8 @@
          org.clojure/tools.logging {:mvn/version "1.3.1"}
 
          ;; AWS SDK for S3
-         software.amazon.awssdk/s3                  {:mvn/version "2.46.9"}
-         software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.46.9"}
+         software.amazon.awssdk/s3                  {:mvn/version "2.54.17"}
+         software.amazon.awssdk/s3-transfer-manager {:mvn/version "2.54.17"}
 
          ;; Google Cloud Storage (GCS adapter)
          com.google.cloud/google-cloud-storage      {:mvn/version "2.44.1"}}
