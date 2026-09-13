@@ -44,10 +44,15 @@
     (when endpoint
       ;; For S3-compatible services (MinIO, DigitalOcean Spaces, etc.)
       (.endpointOverride builder (URI/create endpoint))
-      (.serviceConfiguration builder
-                             (-> (S3Configuration/builder)
-                                 (.pathStyleAccessEnabled true)
-                                 .build)))
+      ;; Hinted, because .serviceConfiguration is overloaded on S3Configuration
+      ;; and Consumer<Builder>. The `->` threads through the Builder interface,
+      ;; so the argument's static type was Object, reflection chose Consumer and
+      ;; every S3-compatible endpoint died on construction with
+      ;; "Cannot cast S3Configuration to java.util.function.Consumer" (BOU-444).
+      (let [^S3Configuration service-config (-> (S3Configuration/builder)
+                                                (.pathStyleAccessEnabled true)
+                                                .build)]
+        (.serviceConfiguration builder service-config)))
     (.credentialsProvider builder (create-credentials-provider config))
     (.build builder)))
 

@@ -15,12 +15,12 @@
             [wagoe.storage.shell.adapters.s3 :as s3-adapter]
             [wagoe.storage.ports :as ports])
   (:import [java.net URI]
-           [software.amazon.awssdk.services.s3 S3Client]
+           [software.amazon.awssdk.services.s3 S3Client S3Configuration]
            [software.amazon.awssdk.regions Region]
            [software.amazon.awssdk.auth.credentials
             AwsBasicCredentials StaticCredentialsProvider]
            [software.amazon.awssdk.services.s3.model
-            CreateBucketRequest HeadBucketRequest NoSuchBucketException]))
+            CreateBucketRequest HeadBucketRequest]))
 
 ;; =============================================================================
 ;; S3/MinIO availability check
@@ -51,28 +51,43 @@
       false)))
 
 (defn ensure-test-bucket!
-  "Create test bucket if it doesn't exist."
+  "Create the test bucket if it does not exist.
+
+   Path-style access, like the adapter: without it the SDK addresses the bucket
+   as a subdomain, MinIO does not serve that, and every bucket operation failed
+   while `s3-available?` still said yes — it only lists buckets, which carries no
+   bucket in the host. The failure was then swallowed and returned as false,
+   which nothing checked, so the suite ran against a bucket that did not exist
+   (BOU-444)."
   []
-  (try
-    (let [creds (StaticCredentialsProvider/create
-                 (AwsBasicCredentials/create test-access-key test-secret-key))
-          client (-> (S3Client/builder)
-                     (.region (Region/of test-region))
-                     (.endpointOverride (URI/create test-endpoint))
-                     (.credentialsProvider creds)
-                     .build)]
+  (let [creds (StaticCredentialsProvider/create
+               (AwsBasicCredentials/create test-access-key test-secret-key))
+        ^S3Configuration service-config (-> (S3Configuration/builder)
+                                            (.pathStyleAccessEnabled true)
+                                            .build)
+        ;; Bound rather than threaded: inside a `->` the builder's static type
+        ;; is lost, reflection picks .serviceConfiguration's Consumer overload
+        ;; and the call dies the same way the adapter did (BOU-444).
+        builder (S3Client/builder)
+        client  (do (.region builder (Region/of test-region))
+                    (.endpointOverride builder (URI/create test-endpoint))
+                    (.serviceConfiguration builder service-config)
+                    (.credentialsProvider builder creds)
+                    (.build builder))]
+    (try
+      ;; Any failure to describe it is treated as absent: MinIO answers a
+      ;; missing bucket with a plain 404 rather than NoSuchBucketException, so
+      ;; catching only that left the bucket uncreated.
       (try
         (.headBucket client (-> (HeadBucketRequest/builder)
                                 (.bucket test-bucket)
                                 .build))
-        (catch NoSuchBucketException _
+        (catch Exception _
           (.createBucket client (-> (CreateBucketRequest/builder)
                                     (.bucket test-bucket)
-                                    .build)))
-        (finally
-          (.close client))))
-    (catch Exception _
-      false)))
+                                    .build))))
+      (finally
+        (.close client)))))
 
 ;; =============================================================================
 ;; Test fixtures
@@ -107,10 +122,30 @@
 
 (use-fixtures :each with-s3-storage)
 
-(defmacro when-s3 [& body]
+(defmacro when-s3
+  "Run `body` against MinIO, or record a skip.
+
+   In CI the skip is a failure: this suite reported 62 tests passing for months
+   while the adapter it covers could not be constructed, because every case
+   skipped itself and said so only in a passing assertion (BOU-444). Locally it
+   prints, so a developer without MinIO is not blocked."
+  [& body]
   `(if (s3-available?)
      (do ~@body)
-     (is (not (s3-available?)) "S3/MinIO not available — test skipped")))
+     (if (System/getenv "CI")
+       (is false
+           (str "no S3-compatible endpoint on " test-endpoint
+                " — in CI these cases must run, or this suite reports green "
+                "for an adapter nothing built"))
+       (do
+         ;; Visible with `--no-capture-output`, and not otherwise: kaocha
+         ;; replaces the JVM's streams and shows captured output only for a
+         ;; failing test. Measured — System/out does not escape it either. So
+         ;; the guard against green-with-nothing-exercised is the CI branch
+         ;; above; this line is a courtesy to whoever is already looking.
+         (println (str "  note: no S3-compatible endpoint on " test-endpoint
+                       " — S3 cases skipped"))
+         (is true)))))
 
 ;; =============================================================================
 ;; Basic file operations
